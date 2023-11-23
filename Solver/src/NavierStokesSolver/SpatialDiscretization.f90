@@ -243,6 +243,11 @@ module SpatialDiscretization
          INTEGER :: k
 
          call SetBoundaryConditionsEqn(NS_BC)
+
+         if( mesh % HO_IBM ) then 
+            call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements )
+            call mesh% IBM% MPI_GatherStancilState()
+         end if 
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -267,6 +272,7 @@ module SpatialDiscretization
 !
          if ( computeGradients ) then
             call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, GetGradients)
+            if( mesh % HO_IBM ) call mesh % SetIBM_HOGradient(NCONS)
          end if
 
 #ifdef _HAS_MPI_
@@ -357,10 +363,8 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n 
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
-         real(kind=RP), allocatable :: Source_HO(:,:,:,:)
-         integer,       allocatable :: i_(:), j_(:), k_(:)
+         integer        :: eID , i, j, k, ierr, fID, iFace, iEl, domain, STLNum, n 
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), Q_target(NCONS)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -483,6 +487,7 @@ module SpatialDiscretization
                   call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
                   call mesh % GatherMPIFacesAviscflux(NCONS)
                end if
+               if( mesh% HO_IBM ) call mesh % FixmpiHO_IBMfaceGrad()
             end if
 !$omp end single
 !
@@ -607,7 +612,14 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
-         if( mesh% IBM% active ) then
+         if(  mesh% IBM% HO_IBM ) then
+            do eID = 1, mesh % no_of_elements  
+               associate ( e => mesh % elements(eID) ) 
+               if( e% HO_IBM ) e % storage % QDot = 0.0_RP 
+               end associate 
+            end do 
+         end if
+         if( mesh% IBM% active .AND. .NOT. mesh% IBM% HO_IBM ) then
             if( .not. mesh% IBM% semiImplicit ) then 
 !$omp do schedule(runtime) private(i,j,k,Source,Q_target)
                   do eID = 1, mesh % no_of_elements  
@@ -628,19 +640,25 @@ module SpatialDiscretization
 !$omp end do       
                if( mesh% IBM% Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+                  call mesh% IBM% GetBandRegionStates( mesh% elements, NCONS )
+                  call mesh% IBM% GetImagePointsStates( NCONS )
 !$omp end single
-!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index), &
-                                e_in => mesh% elements(mesh% IBM% ImagePoints(iP)% element_in)     )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                             e% STL(i,j,k), TurbulentSource                      )             
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+!$omp do schedule(runtime) private(i,j,k,STLNum,domain,Source,Q_target)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isForcingPoint(i,j,k) ) then
+                           STLNum   = e% STL(i,j,k)
+                           domain   = MPI_Process% rank+1
+                           Q_target = ForcingPointState( mesh% IBM% ImagePoints(STLNum)% IBMmask(domain)% x(e% IP_index)% Q, & 
+                                                         mesh% IBM% IP_Distance, e% geom% dWall(i,j,k),                      &
+                                                         e% geom% normal(:,i,j,k), NCONS                                     )
+
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .true. )
+
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
                      end associate
                   end do
 !$omp end do
@@ -722,9 +740,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, fID, iP
+         integer       :: eID , i, j, k, fID, domain, STLNum 
+         real(kind=rp) :: Source(NCONS), Q_target(NCONS)
          procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
-         real(kind=rp) :: Source(NCONS), TurbulentSource(NCONS)
 !
 !        ****************
 !        Volume integrals
@@ -799,18 +817,25 @@ module SpatialDiscretization
 !$omp end do      
                if( mesh% IBM% Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
-!$omp end single 
-!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index) )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                             e% STL(i,j,k), TurbulentSource                      )              
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                  call mesh% IBM% GetBandRegionStates( mesh% elements, NCONS )
+                  call mesh% IBM% GetImagePointsStates( NCONS )
+!$omp end single
+!$omp do schedule(runtime) private(i,j,k,STLNum,domain,Source,Q_target)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isForcingPoint(i,j,k) ) then
+                           STLNum   = e% STL(i,j,k)
+                           domain   = MPI_Process% rank+1
+                           Q_target = ForcingPointState( mesh% IBM% ImagePoints(STLNum)% IBMmask(domain)% x(e% IP_index)% Q, & 
+                                                         mesh% IBM% IP_Distance, e% geom% dWall(i,j,k),                      &
+                                                         e% geom% normal(:,i,j,k), NCONS                                     )
+                                                         
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .true. )
+
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
                      end associate
                   end do
 !$omp end do

@@ -7,10 +7,10 @@ module OrientedBoundingBox
 
    implicit none   
    
-   integer,       parameter :: TASK_THRESHOLD = 10000, LOCAL = 0, GLOBAL =1
+   integer,       parameter :: TASK_THRESHOLD = 10000, LOCAL = 0, GLOBAL =1, BOXVERTICES = 8
    real(kind=RP), parameter :: SAFETY_FACTOR = 0.001_RP
 
-   public :: OBB, sortReal, ElementOBBintersect, LOCAL, GLOBAL
+   public :: OBB, OBB_all, sortReal, ElementOBBintersect, LOCAL, GLOBAL
 
 !
 !  **************************************************
@@ -44,13 +44,13 @@ module OrientedBoundingBox
 !  **************************************************
    type OBB_type
       
-      type(point_type), dimension(:), allocatable :: Points, HullPoints
+      type(point_type), dimension(:), allocatable :: Points, allPoints
       type(rectangle)                             :: MBR
-      real(kind=rp),    dimension(NDIM,8)         :: vertices, LocVertices
+      real(kind=rp),    dimension(NDIM,8)         :: vertices, LocVertices, partitionVertices
       real(kind=rp),    dimension(NDIM,NDIM)      :: R, invR
       real(kind=rp),    dimension(NDIM)           :: CloudCenter, LocFrameCenter
       real(kind=rp)                               :: nMin, nMax
-      integer                                     :: NumOfPoints, center, left, right
+      integer                                     :: NumOfPoints, center, left, right, maxAxis, minAxis
       character(len=LINE_LENGTH)                  :: filename
       logical                                     :: verbose, AAB
       
@@ -61,14 +61,23 @@ module OrientedBoundingBox
          procedure :: SortingNodes          => OBB_SortingNodes
          procedure :: isPointInside         => OBB_isPointInside
          procedure :: ChangeObjsRefFrame    => OBB_ChangeObjsRefFrame
-         procedure :: STL_rotate            => OBB_STL_rotate
-         procedure :: STL_translate         => OBB_STL_translate
          procedure :: ChangeRefFrame
          procedure :: ComputeRotationMatrix 
          procedure :: plot                  => OBB_plot
+         procedure :: GetMaxAxis            => OBB_GetMaxAxis
+         procedure :: GetMinAxis            => OBB_GetMinAxis
+         procedure :: RotatePoints          => OBB_RotatePoints
+         procedure :: TranslatePoints       => OBB_TranslatePoints
+   end type
+
+   type OBB_all_t 
+      
+      type(OBB_type), allocatable :: OBB(:)
+
    end type
    
-   type(OBB_type), allocatable :: OBB(:)
+   type(OBB_type),  allocatable :: OBB(:)
+   type(OBB_all_t), allocatable :: OBB_all(:)
 
 contains
 !
@@ -230,9 +239,10 @@ contains
       !-local.variables-------------------
       integer                        :: i, j, n
       
-      this% NumOfPoints = NumOfVertices*stl% NumOfObjs
+      this% NumOfPoints = NumOfVertices * stl% NumOfObjs
       
-      allocate(this% Points(this% NumOfPoints))
+      allocate( this% Points(this% NumOfPoints),   &
+                this% allPoints(this% NumOfPoints) )
 
       n = 0
 
@@ -241,8 +251,10 @@ contains
       do i = 1, stl% NumOfObjs
          do j = 1, NumOfVertices
             n = n + 1
-            this% Points(n)% coords = Objs(i)% vertices(j)% coords
-            this% Points(n)% index = n
+            this% Points(n)% coords    = Objs(i)% vertices(j)% coords
+            this% Points(n)% index     = n
+            this% allPoints(n)% coords = Objs(i)% vertices(j)% coords
+            this% allPoints(n)% index  = n
          end do 
       end do
 
@@ -255,25 +267,30 @@ contains
 !  -------------------------------------------------------------------------------------------
 !  Subroutine for plotting the OBB
 !  -------------------------------------------------------------------------------------------
-   subroutine OBB_plot( this )
+   subroutine OBB_plot( this, domain )
       use PhysicsStorage
       use MPI_Process_Info
       implicit none
       !-arguments--------------------------
       class(OBB_type), intent(inout) :: this
+      integer, optional, intent(in) ::  domain
       !-local-variables----------------------
       integer                        :: i, funit
-
-      if( .not. MPI_Process% isRoot ) return
+      character(LINE_LENGTH) :: rank, filename
+   real(kind=RP) :: v(NDIM)
+      !if( .not. MPI_Process% isRoot ) return
 
       funit = UnusedUnit()
+      write(rank,*) domain
 
-      open(funit,file='IBM/OrientedBoundingBox_'//trim(this% filename)//'.tec', status='unknown')
+      filename = 'cylinder'//trim(adjustl(rank))
+      open(funit,file='IBM/OrientedBoundingBox_'//trim(filename)//'.tec', status='unknown')
+      ! open(funit,file='IBM/OrientedBoundingBox_'//trim(this% filename)//'.tec', status='unknown')
 
       write(funit,"(a28)") 'TITLE = "OrientedBoudingBox"'
       write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
       write(funit,"(a69)") 'ZONE NODES=8, ELEMENTS = 6, DATAPACKING=POINT, ZONETYPE=FETETRAHEDRON'
-    
+
       do i = 1, 8
          write(funit,'(3E13.5)') Lref*this% vertices(1,i), Lref*this% vertices(2,i), Lref*this% vertices(3,i)
       end do 
@@ -305,7 +322,7 @@ contains
       T(NDIM,NDIM) = 1.0_RP
       T(1,1) = cos(this% MBR% Angle); T(2,2)  = T(1,1)
       T(1,2) = sin(this% MBR% Angle); T(2,1) = -T(1,2)
-            
+
       invT(:,1) = T(1,:)
       invT(:,2) = T(2,:)
       invT(:,3) = T(3,:)
@@ -313,19 +330,13 @@ contains
       select case( FRAME )
          
          case(LOCAL)
-         
-!~             b = matmul( this% invR,(v - this% CloudCenter))
-!~             b(1:2) = b(1:2) - this% MBR% Center
-!~             vNew = matmul(invR,b)
+ 
             b = matmul( this% R,(v - this% CloudCenter))
             b(1:2) = b(1:2) - this% MBR% Center
             vNew = matmul(T,b)
 
          case(GLOBAL)
          
-!~             b = matmul(R,v)
-!~             b(1:2) = b(1:2) + this% MBR% center
-!~             vNew = this% CloudCenter + matmul(this% R,b)
             b = matmul(invT,v)
             b(1:2) = b(1:2) + this% MBR% center
             vNew = this% CloudCenter + matmul(this% invR,b)
@@ -362,25 +373,32 @@ contains
 !  -------------------------------------------------
 ! This subroutine computes the Oriented Bounding Box. 
 !  -------------------------------------------------
-   subroutine OBB_construct( this, stl, isPlot, AAB )
+   subroutine OBB_construct( this, stl, isPlot, AAB, move )
    
       implicit none
       !-arguments-----------------------------------
       class(OBB_type), intent(inout) :: this
       type(STLfile),   intent(in)    :: stl
-      logical,         intent(in)    :: isPlot, AAB
+      logical,         intent(in)    :: isPlot, AAB, move
       !-local-variables-----------------------------
       type(Hull_type) :: Hull
       real(kind=rp)   :: EigenVal
       integer         :: i
       
       this% AAB = AAB
-
 ! 
 !     Reading the data
 !     ---------------
-      call this% ReadStorePoints( stl )
-
+      if( move ) then 
+         select case( stl% motionType )
+         case( ROTATION )
+            call this% rotatePoints( stl )
+         case( LINEAR )
+            call this% translatePoints( stl )
+         end select
+      else
+         call this% ReadStorePoints( stl )
+      endif 
 !
 !     Computing center of the points cloud
 !     ---------------------------------
@@ -429,14 +447,8 @@ contains
 
       if( isPlot ) call this% plot()
 
-      if(allocated(this% HullPoints)) deallocate(this% HullPoints)
-      allocate( this% HullPoints(Hull% NumOfPoints) )
 
-      do i = 1, Hull% NumOfPoints
-         this% HullPoints(i) = Hull% Points(i)
-      end do
-
-      deallocate(this% Points, Hull% Points)
+      deallocate(Hull% Points, this% Points)
 
    end subroutine OBB_construct
 !
@@ -1148,74 +1160,80 @@ contains
 !$omp end do
 !$omp end parallel
    end subroutine OBB_ChangeObjsRefFrame   
+
+   integer function OBB_GetMaxAxis( this )
+
+      implicit none 
+
+      class(OBB_type), intent(inout) :: this 
+
+      OBB_GetMaxAxis = maxloc((/this% MBR% Length, this% MBR% Width, &
+                               abs(this% nMax) + abs(this% nMin)/),  &
+                               dim=1                                 )
+
+   end function OBB_GetMaxAxis
+
+   integer function OBB_GetMinAxis( this, maxAxis, clipAxis )
+
+      implicit none 
+
+      class(OBB_type), intent(inout) :: this 
+      integer,         intent(in)    :: maxAxis, clipAxis 
+
+      integer :: minAxis
+
+      minAxis = minloc((/this% MBR% Length, this% MBR% Width, &
+                        abs(this% nMax) + abs(this% nMin)/), &
+                        dim=1                                )
       
-   subroutine OBB_STL_rotate( this, stl, surface )
-   
-      implicit none
-      !-arguments-----------------------------
-      class(OBB_type), intent(inout) :: this
-      type(STLfile),   intent(inout) :: stl
-      logical,         intent(in)    :: surface
-      !-local-variables-----------------------
-      real(kind=RP) :: meanCoords(NDIM), meanCoordsNew(NDIM), shiftVec(NDIM)
-      integer       :: i, j, NumOfPoints, Vertices
+      if( minAxis .eq. ClipAxis ) then 
+         minAxis = ClipAxis - 1 
+         if( minAxis .eq. 0 ) minAxis = 3 
+      end if 
 
-      NumOfPoints = 3*stl% NumOfObjs; meanCoordsNew = 0.0_RP; meanCoords = 0.0_RP
+      if( minAxis .eq. maxAxis ) then 
+         minAxis = maxAxis - 1 
+         if( minAxis .eq. 0 ) minAxis = 3 
+      end if 
 
-      if( surface ) then 
-         Vertices = NumOfVertices + 4
-      else
-         Vertices = NumOfVertices
-      end if
-!$omp parallel 
-!$omp do schedule(runtime) private(j)
-      do i = 1, stl% NumOfObjs
-         do j = 1, Vertices
-            stl% ObjectsList(i)% vertices(j)% coords = matmul( stl% rotationMatrix, stl% ObjectsList(i)% vertices(j)% coords - stl% rotationCenter )   
-         end do
-      end do
-!$omp end do 
-!$omp end parallel   
-!$omp parallel 
-!$omp do schedule(runtime) private(j)
-      do i = 1, stl%  NumOfObjs
-         do j = 1, Vertices
-            ! going back to the original reference frame
-            stl% ObjectsList(i)% vertices(j)% coords = stl% ObjectsList(i)% vertices(j)% coords + stl% rotationCenter
-         end do
-      end do
-!$omp end do
-!$omp end parallel
-   end subroutine OBB_STL_rotate
-   
-   subroutine OBB_STL_translate( this, stl, surface )
-   
-      implicit none
-      !-arguments-----------------------------
-      class(OBB_type), intent(inout) :: this
-      type(STLfile),   intent(inout) :: stl
-      logical,         intent(in)    :: surface 
-      !-local-variables-----------------------
-      real(kind=RP) :: meanCoords(NDIM)
-      integer       :: i, j, NumOfPoints, Vertices
+      OBB_GetMinAxis = minAxis
+
+   end function OBB_GetMinAxis
+
+   subroutine OBB_RotatePoints( this, stl )
+
+      implicit none 
       
-      meanCoords = 0.0_RP; NumOfPoints = 0
+      class(OBB_type), intent(inout) :: this 
+      type(STLfile),   intent(in)    :: stl 
 
-      if( surface ) then 
-         Vertices = NumOfVertices + 4
-      else
-         Vertices = NumOfVertices
-      end if
-!$omp parallel
-!$omp do schedule(runtime) private(j)
-      do i = 1, stl% NumOfObjs
-         do j = 1, Vertices
-            stl% ObjectsList(i)% vertices(j)% coords(stl% motionAxis) = stl% ObjectsList(i)% vertices(j)% coords(stl% motionAxis) + stl% ds
-         end do
+      integer :: i 
+
+      allocate(this% points(this% NumOfPoints)) 
+
+      do i = 1, this% NumOfPoints
+         this% allPoints(i)% coords = matmul( stl% rotationMatrix, this% allPoints(i)% coords-stl% rotationCenter )
+         this% allPoints(i)% coords = this% allPoints(i)% coords + stl% rotationCenter
+         this% points(i)% coords    = this% allPoints(i)% coords
+         this% points(i)% index     = this% allPoints(i)% index
       end do
-!$omp end do 
-!$omp end parallel   
-   end subroutine OBB_STL_translate
+
+   end subroutine OBB_RotatePoints
+
+   subroutine OBB_TranslatePoints( this, stl )
+
+      implicit none 
+
+      class(OBB_type), intent(inout) :: this 
+      type(STLfile),   intent(in)    :: stl 
+
+      integer :: i 
+
+      do i = 1, this% NumOfPoints
+         this% points(i)% coords = this% points(i)% coords + stl% ds
+      end do
+
+   end subroutine OBB_TranslatePoints
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  

@@ -10,8 +10,9 @@ module TessellationTypes
 
    public :: DescribeSTLPartitions
 
-   integer, parameter :: FORCING_POINT = 1, NOT_FORCING_POINT = 0
-   integer, parameter :: POINT_ON_PLANE = 0, POINT_IN_FRONT_PLANE = 1, POINT_BEHIND_PLANE = 2, NumOfVertices = 3
+   integer, parameter :: FORCING_POINT = 1, NOT_FORCING_POINT = 0, ROTATION = 1, LINEAR = 2
+   integer, parameter :: POINT_ON_PLANE = 0, POINT_IN_FRONT_PLANE = 1, POINT_BEHIND_PLANE = 2
+   integer, parameter :: NumOfVertices = 3, NumOfIntegrationVertices = 7
 
 !
 !  **************************************************
@@ -40,14 +41,15 @@ module TessellationTypes
       
       real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi, VectorValue
       real(kind=rp)                  :: theta, dist, Rank, ScalarValue
-      integer                        :: index, element_index, NumOfIntersections, &
+      integer                        :: index, element_index, NumOfIntersections = 0, &
                                         Translate = 0, partition, objIndex, isForcingPoint, &
                                         STLNum, element_in, faceID 
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
                                         forcingPoint = .false., isInsideBox = .false.
-      real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:), Q(:,:)
-      integer,       allocatable     :: nearestPoints(:) 
+      real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:)
+      real(kind=RP), allocatable     :: Q(:), U_x(:), U_y(:), U_z(:)
+      integer,       allocatable     :: domains(:), indeces(:)  !interPoint, index, domain
 
       contains
          procedure :: copy => point_type_copy
@@ -77,7 +79,7 @@ module TessellationTypes
 
       class(Object_type), pointer :: next => null(), prev => null()
       
-      type(point_type), dimension(:),   allocatable :: vertices
+      type(point_type), dimension(:),   allocatable :: vertices, IntegrationVertices
       real(kind=rp),    dimension(NDIM)             :: normal, tangent, coords
       integer                                       :: index, NumOfVertices
       integer,          dimension(2)                :: partition
@@ -98,32 +100,31 @@ module TessellationTypes
       type(Object_type), dimension(:), allocatable :: ObjectsList
       integer                                      :: NumOfObjs, partition,      &
                                                       motionAxis, body,          &
-                                                      NumOfObjs_OLD
+                                                      NumOfObjs_OLD, motionType
       real(kind=RP)                                :: angularVelocity, ds,       &
                                                       Velocity,                  & 
                                                       rotationMatrix(NDIM,NDIM), &
                                                       rotationCenter(NDIM)
       logical                                      :: move, show, construct = .false. 
-      character(len=LINE_LENGTH)                   :: filename, motionType
+      character(len=LINE_LENGTH)                   :: filename
    
        contains
-          procedure :: ReadTessellation
-          procedure :: getRotationaMatrix    => STLfile_getRotationaMatrix
-          procedure :: getDisplacement       => STLfile_getDisplacement
-          procedure :: Clip                  => STL_Clip
-          procedure :: updateNormals         => STL_updateNormals
-          procedure :: SetIntegration        => STL_SetIntegration
-          procedure :: ComputeVectorIntegral => STL_ComputeVectorIntegral
-          procedure :: ComputeScalarIntegral => STL_ComputeScalarIntegral
-          procedure :: destroy               => STLfile_destroy
-          procedure :: Describe              => Describe_STLfile
-          procedure :: Copy                  => STLfile_copy
-          procedure :: plot                  => STLfile_plot
-          procedure :: SetIntegrationPoints  => STL_SetIntegrationPoints
-
+         procedure :: ReadTessellation
+         procedure :: getRotationaMatrix    => STLfile_getRotationaMatrix
+         procedure :: getDisplacement       => STLfile_getDisplacement
+         procedure :: Clip                  => STL_Clip
+         procedure :: updateNormals         => STL_updateNormals
+         procedure :: SetIntegration        => STL_SetIntegration
+         procedure :: ComputeVectorIntegral => STL_ComputeVectorIntegral
+         procedure :: ComputeScalarIntegral => STL_ComputeScalarIntegral
+         procedure :: destroy               => STLfile_destroy
+         procedure :: Describe              => Describe_STLfile
+         procedure :: Copy                  => STLfile_copy
+         procedure :: plot                  => STLfile_plot
+         procedure :: SetIntegrationPoints  => STL_SetIntegrationPoints
+         procedure :: rotate                => STLfile_Rotate
+         procedure :: translate             => STLfile_Translate
    end type
-   
-   
    
    type ObjsDataLinkedList_t
       type(ObjData_t), pointer     :: head => null()
@@ -134,41 +135,33 @@ module TessellationTypes
          procedure   :: Destruct => ObjsDataLinkedList_Destruct
     end type ObjsDataLinkedList_t
    
-    type ObjData_t
+   type ObjData_t
       integer                   :: value 
       type(ObjData_t), pointer  :: next 
-    end type ObjData_t
+   end type ObjData_t
 
 
-    type ObjsRealDataLinkedList_t
+   type ObjsRealDataLinkedList_t
       class(ObjRealData_t), pointer :: head => NULL()
       integer                       :: no_of_entries = 0
       contains
          procedure   :: Add      => ObjsRealDataLinkedList_Add
          procedure   :: check    => CheckReal
          procedure   :: Destruct => ObjsRealDataLinkedList_Destruct
-    end type ObjsRealDataLinkedList_t
+   end type ObjsRealDataLinkedList_t
    
    type ObjRealData_t
       real(kind=RP)                 :: value
       class(ObjRealData_t), pointer :: next 
-    end type ObjRealData_t
+   end type ObjRealData_t
 
-
-
-    interface ObjsDataLinkedList_t
+   interface ObjsDataLinkedList_t
       module procedure  ConstructObjsDataLinkedList
-    end interface 
+   end interface 
     
-    interface ObjsRealDataLinkedList_t
-      module procedure  ConstructObjsRealDataLinkedList
-    end interface 
-   
-   
-   
-   
-   
-   
+   interface ObjsRealDataLinkedList_t
+     module procedure  ConstructObjsRealDataLinkedList
+   end interface 
    
    interface PointLinkedList
       module procedure :: PointLinkedList_Construct
@@ -177,9 +170,6 @@ module TessellationTypes
    interface ObjectLinkedList
       module procedure :: ObjectLinkedList_Construct
    end interface
-   
-   character(len=8) :: ROTATION = "rotation"
-   character(len=6) :: LINEAR = "linear"
 
    contains   
 
@@ -847,32 +837,44 @@ module TessellationTypes
 
    end subroutine  ReadTessellation
 
-   subroutine STL_SetIntegrationPoints( this )
+   subroutine STL_SetIntegrationPoints( this, isAllocated )
 
       implicit none
 
       class(STLfile), intent(inout) :: this 
+      logical,        intent(in)    :: isAllocated
 
-      real(kind=RP) :: tmp(NDIM,NumOfVertices)
-      integer       :: i, j, indeces(3)
-
-      do i = 1, this% NumOfObjs
-         associate( obj => this% ObjectsList(i) )
+      integer       :: i, j, m,                &
+                      indecesL(NumOfVertices), &
+                      indecesR(NumOfVertices)
+!          * 2
+!         / \
+!      4 *   * 5 
+!       /  *   \
+!      /   7    \
+!   1 *----*-----* 3
+!          6
+      do i = 1, this% NumOfObjs 
+         associate(obj => this% ObjectsList(i))
+         if( .not. isAllocated) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
          do j = 1, NumOfVertices
-            tmp(:,j) = obj% vertices(j)% coords
+            obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
          end do 
-         deallocate(obj% vertices)
-         allocate(obj% vertices(NumOfVertices+4))
-         obj% vertices(NumOfVertices+4)% coords = 0.0_RP
-         indeces =(/ 2, 3, 1 /)
-         do j = 1, NumOfVertices
-            obj% vertices(j)% coords = tmp(:,j)
-            obj% vertices(NumOfVertices+j)% coords = 0.5_RP*(tmp(:,j) + tmp(:,indeces(j)))
-            obj% vertices(NumOfVertices+4)% coords = obj% vertices(NumOfVertices+4)% coords + &
-                                                     tmp(:,j)
+         indecesL =(/ 1, 2, 3 /)
+         indecesR =(/ 2, 3, 1 /)
+         m = 0
+         do j = NumOfVertices+1, NumOfIntegrationVertices-1
+            m = m + 1
+            obj% IntegrationVertices(j)% coords = 0.5_RP*( obj% IntegrationVertices(indecesL(m))% coords + &
+                                                           obj% IntegrationVertices(indecesR(m))% coords   )
          end do
-         obj% vertices(NumOfVertices+4)% coords = obj% vertices(NumOfVertices+4)% coords/3.0_RP
-         end associate
+         obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IX) = &
+         sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IX))/NumOfVertices
+         obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IY) = &
+         sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IY))/NumOfVertices
+         obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IZ) = &
+         sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IZ))/NumOfVertices
+         end associate 
       end do
 
    end subroutine STL_SetIntegrationPoints  
@@ -883,20 +885,23 @@ module TessellationTypes
       use PhysicsStorage
       implicit none
       !-arguments----------------------------------------------
-      class(STLfile), intent(inout) :: this
-      integer,        intent(in)    :: iter
+      class(STLfile),    intent(inout) :: this
+      integer,           intent(in)    :: iter
       !-local-variables----------------------------------------
       character(len=LINE_LENGTH)     :: filename
       integer                        :: i, j, funit
       integer*2                      :: padding = 0
       real*4, dimension(3)           :: norm, vertex
-      character(len=80)              :: header = repeat(' ',80)
+      character(len=80)              :: header = repeat(' ',80), rank 
             
+      !if( .not. MPI_Process% isRoot ) return 
+
       funit = UnusedUnit()
-      
-      write(filename,'(A,A,I10.10)') trim(this% filename),'_', iter
-      
-      open(funit,file='MESH/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
+      write(rank,*)MPI_Process% rank 
+   filename = 'cylinder_'//trim(adjustl(rank))
+ !  write(filename,'(A,A,I10.10)') trim(this% filename),'_', iter
+
+      open(funit,file='IBM/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
  
       write(funit) header, this% NumOfObjs 
       
@@ -1120,6 +1125,60 @@ module TessellationTypes
 #endif
    end subroutine STLfile_getDisplacement
 
+   subroutine STLfile_Rotate( this, surface ) 
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+      logical,        intent(in)    :: surface 
+
+      integer       :: NumOfPoints, i, j, Vertices
+
+      NumOfPoints = NumOfVertices * this% NumOfObjs
+
+      if( surface ) then 
+         Vertices = NumOfVertices + 4
+      else
+         Vertices = NumOfVertices
+      end if
+!$omp parallel 
+!$omp do schedule(runtime) private(j)
+      do i = 1, this% NumOfObjs
+         do j = 1, Vertices
+            this% ObjectsList(i)% vertices(j)% coords = matmul( this% rotationMatrix, this% ObjectsList(i)% vertices(j)% coords - this% rotationCenter )   
+            this% ObjectsList(i)% vertices(j)% coords = this% ObjectsList(i)% vertices(j)% coords + this% rotationCenter
+         end do
+      end do
+!$omp end do 
+!$omp end parallel   
+   end subroutine STLfile_Rotate 
+
+   subroutine STLfile_Translate( this, surface ) 
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+      logical,        intent(in)    :: surface 
+
+      integer :: NumOfPoints, i, j, Vertices
+
+      if( surface ) then 
+         Vertices = NumOfVertices + 4
+      else
+         Vertices = NumOfVertices
+      end if
+!$omp parallel
+!$omp do schedule(runtime) private(j)
+      do i = 1, this% NumOfObjs
+         do j = 1, Vertices
+            this% ObjectsList(i)% vertices(j)% coords(this% motionAxis) = this% ObjectsList(i)% vertices(j)% coords(this% motionAxis) + this% ds
+         end do
+      end do
+!$omp end do 
+!$omp end parallel
+   end subroutine STLfile_Translate
+
+
    subroutine STL_updateNormals( this )
       use MappedGeometryClass
       implicit none
@@ -1192,13 +1251,13 @@ module TessellationTypes
       ObjectsLinkedListFinal = ObjectLinkedList_Construct()
 
       do i = 1, this% NumOfObjs
-          call ClipPloy( this% ObjectsList(i), maxplane_normal, maxplane_point, ObjectsLinkedList )
+          call ClipPoly( this% ObjectsList(i), maxplane_normal, maxplane_point, ObjectsLinkedList )
       end do
 
       obj => ObjectsLinkedList% head 
 
       do i = 1, ObjectsLinkedList% NumOfObjs
-         call ClipPloy( obj, minplane_normal, minplane_point, ObjectsLinkedListFinal )
+         call ClipPoly( obj, minplane_normal, minplane_point, ObjectsLinkedListFinal )
          obj => obj% next 
       end do  
       
@@ -1233,7 +1292,7 @@ module TessellationTypes
 
    end subroutine STL_Clip
 
-   subroutine ClipPloy( obj, plane_normal, plane_point, ObjectsLinkedList )
+   subroutine ClipPoly( obj, plane_normal, plane_point, ObjectsLinkedList )
       use MappedGeometryClass
       implicit none
       !-arguments--------------------------------------------------------------------
@@ -1308,7 +1367,7 @@ module TessellationTypes
          error stop
       end if 
    
-   end subroutine ClipPloy
+   end subroutine ClipPoly
 
    subroutine STL_SetIntegration( this, NumOfInterPoints )
       use MPI_Process_Info
@@ -1318,14 +1377,13 @@ module TessellationTypes
       integer,        intent(in)    :: NumOfInterPoints
 
       integer :: i, j
-
-      if( .not. MPI_Process% isRoot ) return 
  
       do i = 1, this% NumOfObjs
-         do j = 1, NumOfVertices + 4
-            allocate( this% ObjectsList(i)% vertices(j)% nearestPoints(NumOfInterPoints),           &
-                      this% ObjectsList(i)% vertices(j)% invPhi(NumOfInterPoints,NumOfInterPoints), &
-                      this% ObjectsList(i)% vertices(j)% b(NumOfInterPoints)                        )
+         do j = 1, NumOfIntegrationVertices
+            allocate( this% ObjectsList(i)% IntegrationVertices(j)% domains(NumOfInterPoints),                 &
+                      this% ObjectsList(i)% IntegrationVertices(j)% indeces(NumOfInterPoints),                 &
+                      this% ObjectsList(i)% IntegrationVertices(j)% invPhi(NumOfInterPoints,NumOfInterPoints), &
+                      this% ObjectsList(i)% IntegrationVertices(j)% b(NumOfInterPoints)                        )
          end do 
       end do 
  
@@ -1338,15 +1396,15 @@ module TessellationTypes
       class(STLfile), intent(inout) :: this 
       real(kind=RP)                 :: STL_ComputeScalarIntegral
 
-      real(kind=RP) :: ScalarVar(NumOfVertices+4)
+      real(kind=RP) :: ScalarVar(NumOfIntegrationVertices)
       integer       :: i, j
 
       STL_ComputeScalarIntegral = 0.0_RP
 
       do i = 1, this% NumOfObjs
          associate( obj => this% ObjectsList(i) )
-         do j = 1, NumOfVertices+4
-            ScalarVar(j) = obj% vertices(j)% ScalarValue
+         do j = 1, NumOfIntegrationVertices
+            ScalarVar(j) = obj% IntegrationVertices(j)% ScalarValue
          end do
          STL_ComputeScalarIntegral = STL_ComputeScalarIntegral + TriangleScalarIntegral( obj, ScalarVar )
          end associate
@@ -1361,15 +1419,15 @@ module TessellationTypes
       class(STLfile), intent(inout) :: this 
       real(kind=RP)                 :: STL_ComputeVectorIntegral(NDIM)
 
-      real(kind=RP) :: VectorVar(NDIM,NumOfVertices+4)
+      real(kind=RP) :: VectorVar(NDIM,NumOfIntegrationVertices)
       integer       :: i, j
 
       STL_ComputeVectorIntegral = 0.0_RP
 
       do i = 1, this% NumOfObjs
          associate( obj => this% ObjectsList(i) )
-         do j = 1, NumOfVertices+4
-            VectorVar(:,j) = obj% vertices(j)% VectorValue
+         do j = 1, NumOfIntegrationVertices
+            VectorVar(:,j) = obj% IntegrationVertices(j)% VectorValue
          end do
          STL_ComputeVectorIntegral = STL_ComputeVectorIntegral + TriangleVectorIntegral( obj, VectorVar )
          end associate
@@ -1382,21 +1440,21 @@ module TessellationTypes
       implicit none 
 
       type(object_type), intent(in) :: obj 
-      real(kind=RP),     intent(in) :: ScalarVar(NumOfVertices+4)
+      real(kind=RP),     intent(in) :: ScalarVar(NumOfIntegrationVertices)
       real(kind=RP)                 :: Val
 
       real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
 
-      AB = obj% vertices(2)% coords - obj% vertices(1)% coords 
-      AC = obj% vertices(3)% coords - obj% vertices(1)% coords 
+      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
+      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
 
       call vcross(AB,AC,S)
 
       A = 0.5_RP * norm2(S)
 
-      Val = A/60.0_RP * ( 27.0_RP * ScalarVar(NumOfVertices+4) +                    &
-                           3.0_RP * sum(ScalarVar(1:NumOfVertices)) +               &
-                           8.0_RP * sum(ScalarVar(NumOfVertices+1:NumOfVertices+3)) )
+      Val = A/60.0_RP * ( 27.0_RP * ScalarVar(NumOfIntegrationVertices) +                      &
+                          3.0_RP  * sum(ScalarVar(1:NumOfVertices))     +                      &
+                          8.0_RP  * sum(ScalarVar(NumOfVertices+1:NumOfIntegrationVertices-1)) )
 
    end function TriangleScalarIntegral
 
@@ -1405,21 +1463,21 @@ module TessellationTypes
       implicit none 
 
       type(object_type), intent(in) :: obj 
-      real(kind=RP),     intent(in) :: VectorVar(NDIM,NumOfVertices+4)
+      real(kind=RP),     intent(in) :: VectorVar(NDIM,NumOfIntegrationVertices)
       real(kind=RP)                 :: Val(NDIM)
 
       real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
 
-      AB = obj% vertices(2)% coords - obj% vertices(1)% coords 
-      AC = obj% vertices(3)% coords - obj% vertices(1)% coords 
+      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
+      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
 
       call vcross(AB,AC,S)
 
       A = 0.5_RP * norm2(S)
 
-      Val = A/60.0_RP * ( 27.0_RP * VectorVar(:,NumOfVertices+4) +                    &
-                           3.0_RP * sum(VectorVar(:,1:NumOfVertices)) +               &
-                           8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfVertices+3)) )
+      Val = A/60.0_RP * ( 27.0_RP * VectorVar(:,NumOfIntegrationVertices) +                      &
+                           3.0_RP * sum(VectorVar(:,1:NumOfVertices))     +                      &
+                           8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfIntegrationVertices-1)) )
 
    end function TriangleVectorIntegral
    

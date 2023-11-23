@@ -1911,12 +1911,12 @@ module FASMultigridClass
       real(kind=RP),        intent(in)    :: dt
       integer,              intent(in)    :: lvl
 
-      call  Solver% p_sem% mesh% IBM% MoveBody( Solver% p_sem% mesh% elements,       &
-                                                Solver% p_sem% mesh% no_of_elements, &
-                                                Solver% p_sem% mesh% NDOF,           &
-                                                .true., dt                           )
+      call  Solver% p_sem% mesh% IBM% MoveBody( Solver% p_sem% mesh% elements, &
+                                                Solver% p_sem% mesh% faces,    &
+                                                Solver% p_sem% mesh% NDOF,     &
+                                                .true., dt                     )
 
-      if( lvl > 1 ) call FAS_movingIBM( Solver% Child, dt, lvl-1  )
+      if( lvl > 1 ) call FAS_movingIBM( Solver% Child, dt, lvl-1 )
    
    end subroutine FAS_MovingIBM
    

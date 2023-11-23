@@ -336,7 +336,16 @@ Module DGSEMClass
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
 !
-         call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
+         call self% mesh% IBM% build( elements=self% mesh% elements, faces=self% mesh% faces, no_of_DoFs=self% mesh% NDOF, isChild=self% mesh% child, iter=0 )
+         if( self% mesh% IBM% HO_IBM ) then 
+            self% mesh% HO_IBM = .true.
+#ifdef _HAS_MPI_
+            call self% mesh% sendHOLogical_mpifaces()
+            call self% mesh% recvHOLogical_mpifaces() 
+            call self% mesh% SetmpiHO_IBMface()
+#endif 
+            call self% mesh% IBM% buildHOfaces( self% mesh% elements, self% mesh% faces )
+         end if 
       end if
 
 !

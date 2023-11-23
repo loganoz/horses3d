@@ -22,7 +22,31 @@
       IMPLICIT NONE 
 
       private
-      public   Face
+      public   Face, stencil_t
+
+      type stencil_t
+
+         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xiI, xiB, u, v, w
+         integer                    :: N, partition
+         logical                    :: state = .false.
+         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), UU(:,:)
+         integer,       allocatable :: eIDs(:)
+
+         contains
+            procedure :: build        => stencil_build
+            procedure :: ComputeState => stencil_ComputeState 
+            procedure :: destroy      => stencil_destroy
+
+      end type stencil_t
+
+      type IBM_HO_faces_t
+
+         type(face), allocatable :: faces(:)
+         integer                 :: NumOfFaces, NumOfObjs, NumOfDoFs
+
+      end type IBM_HO_faces_t
+
+      type(IBM_HO_faces_t), allocatable, public :: IBM_HO_faces(:)
 !
 !     ************************************************************************************
 !
@@ -78,6 +102,9 @@
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2)
+         logical                         :: HO_IBM = .false., mpiHO_IBM = .false., corrGrad = .false., fmpi =.false.
+         integer                         :: HOSIDE, HO_ID, domain
+         type(stencil_t), allocatable    :: stencil(:,:)
          contains
             procedure   :: Construct                     => ConstructFace
             procedure   :: Destruct                      => DestructFace
@@ -95,6 +122,9 @@
 #endif
             procedure   :: copy           => Face_Assign
             generic     :: assignment(=)  => copy
+            procedure   :: HO_IBM_correction             => Face_HO_IBM_correction
+            procedure   :: HO_IBM_Gradcorrection         => Face_HO_IBM_Gradcorrection
+            procedure   :: StencilConstruct              => face_StencilConstruct
       end type Face
 !
 !     ========
@@ -1139,4 +1169,159 @@
          to % geom = from % geom
          to % storage = from % storage
       end subroutine Face_Assign
+
+      subroutine Face_HO_IBM_correction( self, nEqn, Nelx, Nely, sideOut, Q, eID )
+         use MPI_Process_Info
+         implicit none 
+
+         class(face),   intent(inout) :: self 
+         real(kind=RP), intent(inout) :: Q(nEqn,0:Nelx,0:Nely)
+         integer,       intent(in)    :: nEqn, eID, Nelx, Nely, sideOut
+
+         real(kind=RP) :: rho
+         integer       :: i, j, side, domain 
+
+         side = self% HOSIDE 
+
+         if( side .eq. sideOut ) then 
+            domain = self% domain 
+            associate( f => IBM_HO_faces(domain)% faces(self% HO_ID) )
+            do i = 0, Nelx; do j = 0, Nely
+#if defined(NAVIERSTOKES)
+               rho          = Q(IRHO,i,j)  
+               Q(IRHOU,i,j) = rho * f% stencil(i,j)% u
+               Q(IRHOV,i,j) = rho * f% stencil(i,j)% v
+               Q(IRHOW,i,j) = rho * f% stencil(i,j)% w
+#endif
+            end do; end do    
+            end associate
+         end if 
+         
+         end subroutine Face_HO_IBM_correction
+
+         subroutine Face_HO_IBM_Gradcorrection( self, sideIn, sideOut )
+
+            implicit none 
+
+            class(face), intent(inout) :: self 
+            integer,     intent(in)    :: sideIn, sideOut
+
+            integer :: i, j
+
+            do i = 0, self% Nf(1); do j = 0, self% Nf(2)
+               self% storage(sideOut)% U_x(:,i,j) = self% storage(sideIn)% U_x(:,i,j) 
+               self% storage(sideOut)% U_y(:,i,j) = self% storage(sideIn)% U_y(:,i,j) 
+               self% storage(sideOut)% U_z(:,i,j) = self% storage(sideIn)% U_z(:,i,j) 
+            end do; end do    
+
+         end subroutine Face_HO_IBM_Gradcorrection
+! STENCIL PROCEDURES 
+
+      subroutine face_StencilConstruct( this )
+
+         implicit none 
+
+         class(face), intent(inout) :: this 
+
+         integer :: i, j, N 
+
+         allocate( this% stencil(0:this% Nf(1),0:this% Nf(2)) )
+
+         N = max(this% Nf(1),this% Nf(2))
+
+         do i = 0, this% Nf(1); do j = 0, this% Nf(2) 
+            this% stencil(i,j)% N = N 
+            allocate( this% stencil(i,j)% UU(NDIM,0:N) )
+            if( .not. allocated(this% stencil(i,j)% x_s)  ) allocate(this% stencil(i,j)% x_s(NDIM,0:N))
+            if( .not. allocated(this% stencil(i,j)% xi_s) ) allocate(this% stencil(i,j)% xi_s(NDIM,0:N))
+            if( .not. allocated(this% stencil(i,j)% eIDs) ) allocate(this% stencil(i,j)% eIDs(0:N))
+         end do; end do 
+         
+      end subroutine face_StencilConstruct
+
+      subroutine stencil_build( this, x0, normal, L, N )
+
+         implicit none 
+
+         class(stencil_t), intent(inout) :: this 
+         real(kind=RP),    intent(in)    :: x0(NDIM), normal(NDIM), L 
+         integer,          intent(in)    :: N 
+
+         real(kind=RP) :: xi 
+         integer       :: i 
+
+         allocate( this% x_s(NDIM,0:N),  &
+                   this% xi_s(NDIM,0:N), &
+                   this% eIDs(0:N)       )
+
+         do i = 0, N 
+            xi = NodalStorage(N)% x(i)
+            this% x_s(:,i) = x0 + 0.5_RP * (1.0_RP + xi) * L * normal
+         end do 
+
+      end subroutine stencil_build
+
+      subroutine stencil_ComputeState( this )
+
+         implicit none 
+
+         class(stencil_t), intent(inout) :: this 
+
+         real(kind=RP)                 :: u_s, v_s, w_s 
+         real(kind=RP)                 :: uB, vB, wB, lj(0:this% N)
+         integer                       :: i
+         type(NodalStorage_t), pointer :: spA
+         
+         uB = 0.0_RP
+         vB = 0.0_RP
+         wB = 0.0_RP
+
+         spA => NodalStorage(this% N)
+      
+         lj = spA% lj(this% xiB)
+
+         this% UU(IX,0) = uB 
+         this% UU(IY,0) = vB 
+         this% UU(IZ,0) = wB 
+
+         do i = 1, this% N 
+            this% UU(IX,0) = this% UU(IX,0) - this% UU(IX,i) * lj(i)
+            this% UU(IY,0) = this% UU(IY,0) - this% UU(IY,i) * lj(i)
+            this% UU(IZ,0) = this% UU(IZ,0) - this% UU(IZ,i) * lj(i)
+         end do
+         this% UU(IX,0) = this% UU(IX,0)/lj(0)
+         this% UU(IY,0) = this% UU(IY,0)/lj(0)
+         this% UU(IZ,0) = this% UU(IZ,0)/lj(0)
+
+         lj = spA% lj(this% xiI)
+
+         u_s = 0.0_RP 
+         v_s = 0.0_RP 
+         w_s = 0.0_RP 
+         do i = 0, this% N 
+            u_s = u_s + this% UU(IX,i) * lj(i)
+            v_s = v_s + this% UU(IY,i) * lj(i)
+            w_s = w_s + this% UU(IZ,i) * lj(i)
+         end do   
+#if defined(NAVIERSTOKES)   
+         this% u = u_s
+         this% v = v_s 
+         this% w = w_s 
+#endif   
+      end subroutine stencil_ComputeState
+
+      subroutine stencil_destroy( this )
+
+         implicit none 
+
+         class(stencil_t), intent(inout) :: this
+
+         deallocate( this% x_s,  &
+                     this% xi_s, &
+                     this% eIDs  )
+
+      end subroutine stencil_destroy
+
+
+
 end Module FaceClass

@@ -78,6 +78,8 @@
          logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
          integer, dimension(:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. (IB)
          integer                                :: IP_index 
+         logical                                :: MaskCorners(8) = .false.
+         logical                                :: HO_IBM = .false., IBMConstruct = .false.
          contains
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
@@ -282,6 +284,13 @@
             end if
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
+
+         if( fL   % HO_IBM ) call fL   % HO_IBM_correction(nEqn, N(2), N(3), self % faceSide(ELEFT  ), QL  , self % eID)
+         if( fR   % HO_IBM ) call fR   % HO_IBM_correction(nEqn, N(2), N(3), self % faceSide(ERIGHT ), QR  , self % eID)
+         if( fFR  % HO_IBM ) call fFR  % HO_IBM_correction(nEqn, N(1), N(3), self % faceSide(EFRONT ), QFR , self % eID)
+         if( fBK  % HO_IBM ) call fBK  % HO_IBM_correction(nEqn, N(1), N(3), self % faceSide(EBACK  ), QBK , self % eID)
+         if( fBOT % HO_IBM ) call fBOT % HO_IBM_correction(nEqn, N(1), N(2), self % faceSide(EBOTTOM), QBOT, self % eID)
+         if( fT   % HO_IBM ) call fT   % HO_IBM_correction(nEqn, N(1), N(2), self % faceSide(ETOP   ), QT  , self % eID)
 
          call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
          call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
@@ -675,9 +684,9 @@
 !           ------------------------------------
             if ( dir2D .gt. 0 ) F(dir2D) = 0.0_RP
             if ( maxval(abs(F)) .lt. TOL ) exit
-            if ( abs(xi(1)) .ge. 2.5_RP ) exit
-            if ( abs(xi(2)) .ge. 2.5_RP ) exit
-            if ( abs(xi(3)) .ge. 2.5_RP ) exit
+            ! if ( abs(xi(1)) .ge. 2.5_RP ) exit
+            ! if ( abs(xi(2)) .ge. 2.5_RP ) exit
+            ! if ( abs(xi(3)) .ge. 2.5_RP ) exit
 !
 !           Perform a step
 !           --------------
@@ -902,7 +911,7 @@
 !~            IGNORE to % storage
 
          end subroutine HexElement_Assign
-      !
+!
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine HexElement_ConstructIBM( self, Nx, Ny, Nz, NumOfSTL )
@@ -910,6 +919,8 @@
          class(Element), intent(inout) :: self
          integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files
 
+         if( self% IBMConstruct ) return 
+         
          allocate(self% isInsideBody(0:Nx,0:Ny,0:Nz))
          allocate(self% isForcingPoint(0:Nx,0:Ny,0:Nz))
          allocate(self% STL(0:Nx,0:Ny,0:Nz))
@@ -918,6 +929,7 @@
          self% isForcingPoint = .false.
          self% STL            = 0
          self% IP_index       = 0
+         self% IBMConstruct   = .true.
 
       end subroutine HexElement_ConstructIBM
 

@@ -74,6 +74,7 @@ MODULE HexMeshClass
          integer                                   :: dir2D_ctrl                    ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
+         logical                                   :: HO_IBM = .FALSE.
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -119,6 +120,11 @@ MODULE HexMeshClass
 #endif
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
+            procedure :: SetIBM_HOGradient             => HexMesh_SetIBM_HOGradient
+            procedure :: recvHOLogical_mpifaces        => HexMesh_recvHOLogical_mpifaces
+            procedure :: sendHOLogical_mpifaces        => HexMesh_sendHOLogical_mpifaces
+            procedure :: SetmpiHO_IBMface              => HexMesh_SetmpiHO_IBMface
+            procedure :: FixmpiHO_IBMfaceGrad          => HexMesh_FixmpiHO_IBMfaceGrad
       end type HexMesh
 
       integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
@@ -2170,7 +2176,7 @@ slavecoord:             DO l = 1, 4
             self % MPIfaces % faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
 
          end do
-
+   
       end subroutine HexMesh_UpdateFacesWithPartition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -4322,4 +4328,167 @@ slavecoord:             DO l = 1, 4
 
 
    end subroutine HexMesh_Assign
+
+   subroutine HexMesh_SetIBM_HOGradient( self, nEqn )
+
+      implicit none 
+
+      class(HexMesh), intent(inout) :: self 
+      integer,        intent(in)    :: nEqn
+
+      real(kind=RP)      :: Q(nEqn)
+      integer            :: fID, sideOut, sideIn
+      integer, parameter :: otherSide(2) = (/2,1/)
+
+      do fID = 1, size(self% faces)
+         associate(f => self% faces(fID))
+         if( f% HO_IBM ) then
+            sideOut = f% HOSIDE
+            sideIn  = otherSide(sideOut)
+            call f% HO_IBM_Gradcorrection( sideIn, sideOut ) 
+         end if
+         end associate
+      end do
+
+   end subroutine HexMesh_SetIBM_HOGradient
+
+   subroutine HexMesh_recvHOLogical_mpifaces( self )
+
+      implicit none 
+
+      class(HexMesh), intent(inout) :: self 
+#ifdef _HAS_MPI_       
+      logical, allocatable :: isHO_IBM(:)
+      integer, allocatable :: recv_req(:)
+      integer              :: domain, NumOfObjs, ierr, mpifID, fID
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      allocate( recv_req(MPI_Process% nProcs) )
+
+      do domain = 1, MPI_Process% nProcs 
+
+         NumOfObjs = self% MPIfaces% faces(domain)% no_of_faces
+
+         if ( NumOfObjs .eq. 0 ) cycle
+
+         allocate(isHO_IBM(NumOfObjs))
+
+         call mpi_irecv(isHO_IBM, NumOfObjs, MPI_LOGICAL, domain-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(domain), ierr)
+
+         call mpi_wait( recv_req(domain), MPI_STATUS_IGNORE, ierr )
+
+         do mpifID = 1, NumOfObjs
+            fID = self% MPIfaces% faces(domain)% faceIDs(mpifID)
+            self% faces(fID)% mpiHO_IBM = isHO_IBM(mpifID)
+         end do
+         
+         deallocate(isHO_IBM)
+      end do
+
+      deallocate( recv_req )
+#endif 
+   end subroutine HexMesh_recvHOLogical_mpifaces
+
+
+   subroutine HexMesh_sendHOLogical_mpifaces( self )
+
+      implicit none 
+
+      class(HexMesh), intent(inout) :: self 
+#ifdef _HAS_MPI_  
+      logical, allocatable :: isHO_IBM(:)
+      integer, allocatable :: send_req(:)
+      integer              :: domain, mpifID, fID, NumOfObjs, ierr, dummyreq
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      allocate( send_req(MPI_Process% nProcs) )
+
+      do domain = 1, MPI_Process% nProcs
+
+         NumOfObjs = self% MPIfaces% faces(domain)% no_of_faces
+         if ( NumOfObjs .eq. 0 ) cycle
+         
+         allocate(isHO_IBM(NumOfObjs))
+
+         do mpifID = 1, NumOfObjs
+            fID = self% MPIfaces% faces(domain)% faceIDs(mpifID)
+
+            isHO_IBM(mpifID) = self% faces(fID)% HO_IBM 
+         end do 
+         
+         call mpi_isend( isHO_IBM, NumOfObjs, MPI_LOGICAL, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain), ierr )
+
+         call mpi_wait( send_req(domain), MPI_STATUS_IGNORE, ierr )
+
+         deallocate(isHO_IBM)
+
+      end do
+
+      deallocate(send_req)
+#endif
+   end subroutine HexMesh_sendHOLogical_mpifaces
+
+   subroutine HexMesh_SetmpiHO_IBMface( self )
+
+      implicit none 
+
+      class(HexMesh), intent(inout) :: self
+
+      integer :: fID, Nxi, Neta, i, j
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      do fID = 1, size(self% faces)
+         associate(f => self% faces(fID))
+         if( .not. f% mpiHO_IBM .and. f% fmpi .and. f% HO_IBM ) then 
+            f% HO_IBM   = .false.
+            f% fmpi     = .false.
+            f% corrGrad = .true. 
+            deallocate(f% stencil)
+            self% IBM% NumOfMaskObjs = self% IBM% NumOfMaskObjs - (f% Nf(1)+1)*(f% Nf(2)+1)
+         endif 
+         if( f% mpiHO_IBM .and. .not. f% HO_IBM ) then 
+            f% HO_IBM = .true.
+            f% HOSIDE = maxloc(f% elementIDs, dim=1) 
+            self% elements(f% elementIDs(f% HOSIDE))% HO_IBM = .true. 
+            Nxi = f% Nf(1); Neta = f% Nf(2)
+            allocate(f% stencil(0:Nxi,0:Neta))
+            do j = 0, Neta; do i = 0, Nxi  
+               f% stencil(i,j)% x = f% geom% x(:,i,j) 
+            end do; end do 
+            self% IBM% NumOfMaskObjs = self% IBM% NumOfMaskObjs + (f% Nf(1)+1)*(f% Nf(2)+1)
+         endif
+         end associate 
+      end do 
+
+   end subroutine HexMesh_SetmpiHO_IBMface
+
+   subroutine HexMesh_FixmpiHO_IBMfaceGrad( self )
+
+      implicit none 
+
+      class(HexMesh), intent(inout) :: self 
+
+      integer            :: domain, mpifID, fID, sideOut, sideIn
+      integer, parameter :: otherSide(2) = (/2,1/)
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      do domain = 1, MPI_Process% nProcs
+         do mpifID = 1, self% MPIfaces% faces(domain)% no_of_faces
+            fID = self% MPIfaces% faces(domain)% faceIDs(mpifID)
+            associate(f => self% faces(fID))
+            if( self% faces(fID)% mpiHO_IBM .or. f% corrGrad ) then 
+               sideOut = f% HOSIDE
+               sideIn  = otherSide(sideOut)
+               call f% HO_IBM_Gradcorrection( sideIn, sideOut )
+            end if
+            end associate 
+         end do 
+      end do 
+
+   end subroutine HexMesh_FixmpiHO_IBMfaceGrad
+
 END MODULE HexMeshClass

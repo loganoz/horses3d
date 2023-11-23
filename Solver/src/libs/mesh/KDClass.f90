@@ -32,10 +32,10 @@ module KDClass
   
   real(kind=rp), parameter :: C_TRANSVERSE = 1.0_RP, C_INTERSECT = 1.5_RP, C_1 = 1.2_RP, C_2 = 2.0_RP
   
-  integer,  parameter, dimension(8) :: vertices_x = (/ 1,4,5,8,  2,3,6,7 /), &
-                                       vertices_y = (/ 1,2,6,5,  3,4,7,8 /), &
-                                       vertices_z = (/ 1,2,3,4,  5,6,7,8 /)  
-                                       
+  integer,  parameter, dimension(8) :: vertices_x = (/ 1,4,8,5,  2,3,7,6 /), &!(/ 1,4,5,8,  2,3,6,7 /), &
+                                       vertices_y = (/ 1,5,6,2,  4,8,7,3 /), &!(/ 1,2,6,5,  3,4,7,8 /), &
+                                       vertices_z = (/ 1,2,3,4,  5,6,7,8 /)   !(/ 1,2,3,4,  5,6,7,8 /)  
+                                        
   type Event
   
      real(kind=rp) :: plane, median
@@ -54,7 +54,7 @@ module KDClass
       real(kind=rp),     dimension(3,8)              :: vertices   !local
       integer                                        :: NumOfObjs, level, axis, &
                                                         index, Min_n_of_Objs,   &
-                                                        which_KDtree, MaxAxis,  &
+                                                        which_KDtree, maxAxis,  &
                                                         SIDE, N_L, N_R, N_B,    &
                                                         HalfEvents, NumThreads, &
                                                         STLNum
@@ -339,9 +339,8 @@ module KDClass
       
       this% NumOfObjs = 0
       
-      do i = 1, 4
+      do i = 1, 8
          this% vertices(:,i)   = Vertices(:,i)
-         this% vertices(:,i+4) = Vertices(:,i+4)
       end do
       
       select case( this% which_KDtree )
@@ -458,7 +457,7 @@ module KDClass
             NumThreads_RP     = NumThreads 
             DepthFirstLevel   = floor(log(NumThreads_RP)/log(2.0_RP)) 
             NumDepthFirst     = 2.0_RP**(DepthFirstLevel)
-            
+
             allocate(Depth_First(NumThreads),ObjsIndx(this% NumOfObjs))
 
             call KDtree_buildTRIANGLES_BreadthFirst( this, Events, ObjsIndx, DepthFirstLevel, Depth_First )
@@ -693,7 +692,7 @@ module KDClass
             call this% EvaluateCostMEDIAN( Events )
          end if
 
-         if( this% split  ) then 
+         if( this% split ) then 
 
             allocate(this% child_L,this% child_R)
                     
@@ -798,7 +797,7 @@ module KDClass
          else
             call this% EvaluateCostMEDIAN( Events )
          end if
-
+         
          if( this% split ) then 
 
             allocate(this% child_L,this% child_R)
@@ -1085,15 +1084,15 @@ module KDClass
       select case( this% axis ) 
          case( IX ) 
             do i = 1, 4
-               child% vertices(1,vertices_x(side+i)) = this% SplittingPlane
+               child% vertices(IX,vertices_x(side+i)) = this% SplittingPlane
             end do
          case( IY ) 
             do i = 1, 4
-               child% vertices(2,vertices_y(side+i)) = this% SplittingPlane
+               child% vertices(IY,vertices_y(side+i)) = this% SplittingPlane
             end do
          case( IZ ) 
             do i = 1, 4
-               child% vertices(3,vertices_z(side+i)) = this% SplittingPlane
+               child% vertices(IZ,vertices_z(side+i)) = this% SplittingPlane
             end do
       end select
    
@@ -1175,7 +1174,7 @@ module KDClass
 
       tree% NumOfEvents(axis) = 0
 
-      do i =1, tree% NumOfObjs
+      do i = 1, tree% NumOfObjs
          this(i)% index = ObjectsList(i)% index 
          this(i+tree% NumOfObjs)% index = ObjectsList(i)% index 
      

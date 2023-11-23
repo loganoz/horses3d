@@ -6,6 +6,7 @@ module MPI_IBMUtilities
    use TessellationTypes
    use OrientedBoundingBox
    use MPI_Process_info
+   use FaceClass
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -14,219 +15,617 @@ module MPI_IBMUtilities
    
    private
    public :: IBMpoints
-   public :: recvOBB, sendOBB 
    public :: SendSTL2Partitions, receiveSTLpartitions
-   public :: GetBRvertices
-   public :: getmaskcandidates
    public :: RecvPointsListRoot, SendPointsList2Root
-   public :: RecvPointsListPartitions, SendPointsList2partitions
-   public :: recvPointsMaskRoot, sendPointsMask2Root
-   public :: recvPointsMaskPartitions, sendPointsMask2Partitions
-   public :: recvNormalsRoot, sendNormals2Root
-   public :: recvDistancesANDNormalspartitions, sendDistanceANDNormals2partitions   
+   public :: RecvPointsListPartitions, SendPointsList2partitions 
    public :: recvScalarPlotRoot, sendScalarPlotRoot
    public :: recvVectorPlotRoot, sendVectorPlotRoot
-
+   public :: MPIProcedures_IBM_HO_faces, IBM_HO_findElements
+   public :: MPIStateProcedures_IBM_HO_faces, Set_IBM_HO_faces
+   public :: plotSTL, SendOBB, RecvOBB, sendMask, recvMask, SendAxis, RecvAxis
+   public :: sendMaskInsideBody, recvMaskInsideBody
+   public :: sendMaskGeom, recvMaskGeom
+   public :: sendStateBandRegion, recvStateBandRegion
+   public :: sendGradientsBandRegion, recvGradientsBandRegion
+   
    type IBMpoints
 
       type(point_type), allocatable :: x(:)
-      real(kind=RP),    allocatable :: Q(:,:), U_x(:,:), U_y(:,:), U_z(:,:)
       integer                       :: LocNumOfObjs, NumOfObjs
 
    end type
-   
+
+   type Intersections_t
+
+      integer, allocatable :: intersections(:)
+
+   end type Intersections_t
+
    type(IBMpoints), public :: Mask
 
 contains
 
- subroutine recvOBB( STLNum )
-      use MPI_Process_Info
-      implicit none
-      !-arguments-----------------------------------------------------------------
-      integer, intent(in) :: STLNum
-#ifdef _HAS_MPI_
-      !-local-variables-----------------------------------------------------------
-      real(kind=RP) :: vertex_x(8), vertex_y(8), vertex_z(8), &
-                        angle, center(2), CloudCenter(NDIM),  &
-                        R1(NDIM), R2(NDIM), R3(NDIM), Length,  &
-                        Width, nMax, nMin
-      integer       :: ierr, recv_req(13), array_of_statuses(MPI_STATUS_SIZE,13)
-      
-      if( MPI_Process% isRoot ) return
-      
-      call mpi_irecv( vertex_x, 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr ) 
-      
-      call mpi_irecv( vertex_y, 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr ) 
-      
-      call mpi_irecv( vertex_z, 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr ) 
-      
-      call mpi_irecv( angle, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr ) 
-      
-      call mpi_irecv( center, 2, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr ) 
-      
-      call mpi_irecv( CloudCenter, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr ) 
-      
-      call mpi_irecv( R1, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr ) 
-      
-      call mpi_irecv( R2, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr ) 
-      
-      call mpi_irecv( R3, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr ) 
-      
-      call mpi_irecv( Length, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(10), ierr ) 
-      
-      call mpi_irecv( Width, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(11), ierr ) 
-      
-      call mpi_irecv( nMax, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(12), ierr ) 
-      
-      call mpi_irecv( nMin, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(13), ierr ) 
-    
-      call mpi_waitall(13, recv_req, array_of_statuses, ierr)
-   
-      OBB(STLNum)% LocVertices(1,:) = vertex_x
-      OBB(STLNum)% LocVertices(2,:) = vertex_y
-      OBB(STLNum)% LocVertices(3,:) = vertex_z
-      OBB(STLNum)% MBR% angle       = angle 
-      OBB(STLNum)% MBR% center      = center 
-      OBB(STLNum)% CloudCenter      = CloudCenter
-      OBB(STLNum)% R(:,1)           = R1
-      OBB(STLNum)% R(:,2)           = R2
-      OBB(STLNum)% R(:,3)           = R3
-      OBB(STLNum)% MBR% Length      = Length
-      OBB(STLNum)% MBR% Width       = Width
-      OBB(STLNum)% nMax             = nMax
-      OBB(STLNum)% nMin             = nMin
+   subroutine sendStateBandRegion( IBMmask, domain, nEqn )
 
-      OBB(STLNum)% invR(:,1) = OBB(STLNum)% R(1,:)
-      OBB(STLNum)% invR(:,2) = OBB(STLNum)% R(2,:)
-      OBB(STLNum)% invR(:,3) = OBB(STLNum)% R(3,:)
-      
-      OBB(STLNum)% MBR% t1     = OBB(STLNum)% R(1,:)
-      OBB(STLNum)% MBR% t2     = OBB(STLNum)% R(2,:)
-      OBB(STLNum)% MBR% normal = OBB(STLNum)% R(3,:)
+      implicit none 
+
+      type(IBMpoints), intent(in) :: IBMmask
+      integer,         intent(in) :: domain, nEqn
+#ifdef _HAS_MPI_ 
+      real(kind=RP), allocatable :: Q(:,:)
+      integer                    :: domains, i, send_req(nEqn), ierr, & 
+                                    array_of_statuses(MPI_STATUS_SIZE,nEqn)
+
+      if( .not. MPI_Process% doMPIAction ) return 
+
+      do domains = 1, MPI_Process% nProcs
+         
+         if( domains .eq. domain ) cycle 
+
+         if( IBMmask% NumOfObjs .eq. 0 ) cycle 
+
+         allocate( Q(IBMmask% NumOfObjs,nEqn) )
+
+         do i = 1, IBMmask% NumOfObjs
+            Q(i,1:nEqn) = IBMmask% x(i)% Q(1:nEqn) 
+         end do 
+
+         do i = 1, nEqn 
+            call mpi_isend( Q(:,i), IBMmask% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(i), ierr ) 
+         end do
+
+         call mpi_waitall( nEqn, send_req, array_of_statuses, ierr)
+
+         deallocate( Q )
+
+      end do 
+#endif 
+   end subroutine sendStateBandRegion 
+
+   subroutine recvStateBandRegion( IBMmask, nEqn )
+
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMmask(:)
+      integer,         intent(in)    :: nEqn 
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: Q(:,:)
+      integer                    :: domains, domain, i, ierr, recv_req(nEqn), & 
+                                    array_of_statuses(MPI_STATUS_SIZE,nEqn)
+
+      domain = MPI_Process% rank + 1
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle 
+
+         allocate(Q(IBMmask(domains)% NumOfObjs,nEqn))
+
+         do i = 1, nEqn
+            call mpi_irecv(Q(:,i), IBMmask(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(i), ierr)
+         end do
+         
+         call mpi_waitall( nEqn, recv_req(:), array_of_statuses, ierr )
+
+         do i = 1, IBMmask(domains)% NumOfObjs
+            IBMmask(domains)% x(i)% Q(1:nEqn) = Q(i,1:nEqn)
+         end do 
+
+         deallocate(Q)
+
+      end do 
 #endif
-   end subroutine recvOBB
-   
-   subroutine sendOBB( STLNum )
-      use MPI_Process_Info
-      implicit none
-      !-arguments----------------------------------------------------------
-      integer, intent(in) :: STLNum
+   end subroutine recvStateBandRegion
+
+
+   subroutine sendGradientsBandRegion( IBMmask, domain, nEqn )
+
+      implicit none 
+
+      type(IBMpoints), intent(in) :: IBMmask
+      integer,         intent(in) :: domain, nEqn
+#ifdef _HAS_MPI_ 
+      real(kind=RP), allocatable :: U_x(:,:), U_y(:,:), U_z(:,:)
+      integer                    :: domains, i, send_req(3*nEqn), ierr,       & 
+                                    array_of_statuses(MPI_STATUS_SIZE,3*nEqn)
+
+      if( .not. MPI_Process% doMPIAction ) return 
+
+      do domains = 1, MPI_Process% nProcs
+         
+         if( domains .eq. domain ) cycle 
+
+         if( IBMmask% NumOfObjs .eq. 0 ) cycle 
+
+         allocate( U_x(IBMmask% NumOfObjs,nEqn), &
+                   U_y(IBMmask% NumOfObjs,nEqn), &
+                   U_z(IBMmask% NumOfObjs,nEqn)  )
+
+         do i = 1, IBMmask% NumOfObjs
+            U_x(i,:) = IBMmask% x(i)% U_x
+            U_y(i,:) = IBMmask% x(i)% U_y
+            U_z(i,:) = IBMmask% x(i)% U_z
+         end do 
+
+         do i = 1, nEqn 
+            call mpi_isend( U_x(:,i), IBMmask% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(i), ierr ) 
+         end do
+
+         do i = 1, nEqn 
+            call mpi_isend( U_y(:,i), IBMmask% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nEqn+i), ierr ) 
+         end do
+
+         do i = 1, nEqn 
+            call mpi_isend( U_z(:,i), IBMmask% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2*nEqn+i), ierr ) 
+         end do
+
+         call mpi_waitall( 3*nEqn, send_req, array_of_statuses, ierr)
+
+         deallocate( U_x, U_y, U_z )
+
+      end do 
+#endif 
+   end subroutine sendGradientsBandRegion 
+
+   subroutine recvGradientsBandRegion( IBMmask, nEqn )
+
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMmask(:)
+      integer,         intent(in)    :: nEqn 
 #ifdef _HAS_MPI_
-      !-local-variables----------------------------------------------------
-      real(kind=RP)        :: vertex_x(8), vertex_y(8), vertex_z(8), &
-                              angle, center(2), CloudCenter(NDIM),  &
-                              R1(NDIM), R2(NDIM), R3(NDIM), Length,  &
-                              Width, nMax, nMin
-      integer, allocatable :: send_req(:,:)
-      integer              :: array_of_statuses(MPI_STATUS_SIZE,13),  &
-                              nProcs, ierr
-                              
-      allocate(send_req(MPI_Process% nProcs-1,13))
-      
-      vertex_x    = OBB(STLNum)% LocVertices(1,:)
-      vertex_y    = OBB(STLNum)% LocVertices(2,:)
-      vertex_z    = OBB(STLNum)% LocVertices(3,:)
-      angle       = OBB(STLNum)% MBR% angle
-      center      = OBB(STLNum)% MBR% center
-      CloudCenter = OBB(STLNum)% CloudCenter
-      R1          = OBB(STLNum)% R(:,1)
-      R2          = OBB(STLNum)% R(:,2)
-      R3          = OBB(STLNum)% R(:,3)
-      Length      = OBB(STLNum)% MBR% Length
-      Width       = OBB(STLNum)% MBR% Width
-      nMax        = OBB(STLNum)% nMax
-      nMin        = OBB(STLNum)% nMin
-      
+      real(kind=RP), allocatable :: U_x(:,:), U_y(:,:), U_z(:,:)
+      integer                    :: domains, domain, i, ierr, recv_req(3*nEqn), & 
+                                    array_of_statuses(MPI_STATUS_SIZE,3*nEqn)
 
-      do nProcs = 2, MPI_Process% nProcs
+      domain = MPI_Process% rank + 1
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle 
+
+         allocate( U_x(IBMmask(domains)% NumOfObjs,nEqn), &
+                   U_y(IBMmask(domains)% NumOfObjs,nEqn), &
+                   U_z(IBMmask(domains)% NumOfObjs,nEqn)  )
+
+         do i = 1, nEqn
+            call mpi_irecv(U_x(:,i), IBMmask(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(i), ierr)
+         end do
+
+         do i = 1, nEqn
+            call mpi_irecv(U_y(:,i), IBMmask(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nEqn+i), ierr)
+         end do
+
+         do i = 1, nEqn
+            call mpi_irecv(U_z(:,i), IBMmask(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2*nEqn+i), ierr)
+         end do
+         
+         call mpi_waitall(3*nEqn, recv_req(:), array_of_statuses, ierr )
+
+         do i = 1, IBMmask(domains)% NumOfObjs
+            IBMmask(domains)% x(i)% U_x = U_x(i,:)
+            IBMmask(domains)% x(i)% U_y = U_y(i,:)
+            IBMmask(domains)% x(i)% U_z = U_z(i,:)
+         end do 
+
+         deallocate( U_x, U_y, U_z )
+
+      end do 
+#endif
+   end subroutine recvGradientsBandRegion
+!__________________________________________________
+   subroutine sendMaskGeom( IBMmask, domain )
+
+      implicit none 
+
+      type(IBMPoints), intent(in) :: IBMmask(:)
+      integer,         intent(in) :: domain 
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: dist(:), normal(:,:)
+      integer                    :: i, j, domains, send_req(4),           &
+                                    array_of_statuses(MPI_STATUS_SIZE,4), &
+                                    ierr
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle
+
+         if( IBMmask(domains)% NumOfObjs .eq. 0 ) cycle 
+
+         allocate( dist(IBMmask(domains)% NumOfObjs),       & 
+                   normal(IBMmask(domains)% NumOfObjs,NDIM) )
+
+         do i = 1, IBMmask(domains)% NumOfObjs
+            dist(i)     = IBMmask(domains)% x(i)% dist
+            normal(i,:) = IBMmask(domains)% x(i)% normal
+         end do
+
+         call mpi_isend( dist, IBMmask(domains)% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr ) 
+
+         do i = 1, NDIM 
+            call mpi_isend( normal(:,i), IBMmask(domains)% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1+i), ierr ) 
+         end do
+
+         call mpi_waitall( 4, send_req, array_of_statuses, ierr) 
+
+         deallocate(dist,normal)
+
+      end do 
+#endif
+   end subroutine sendMaskGeom
+
+   subroutine recvMaskGeom( IBMmask )
+
+      implicit none 
+
+      type(IBMPoints), intent(inout) :: IBMmask(:)
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: dist(:), normal(:,:) 
+      integer                    :: i, j, domains, domain, recv_req(4),   &
+                                    array_of_statuses(MPI_STATUS_SIZE,4), &
+                                    ierr
+      
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      domain = MPI_Process% rank + 1
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle
+
+         if( IBMmask(domain)% NumOfObjs .eq. 0 ) cycle
+
+         allocate( dist(IBMmask(domain)% NumOfObjs),       &
+                   normal(IBMmask(domain)% NumOfObjs,NDIM) )
+
+         call mpi_irecv(dist, IBMmask(domain)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
+
+         do i = 1, NDIM
+            call mpi_irecv(normal(:,i), IBMmask(domain)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1+i), ierr)
+         end do
+         
+         call mpi_waitall( 4, recv_req(:), array_of_statuses, ierr )
+
+         do i = 1, IBMmask(domain)% NumOfObjs
+            if( dist(i) .lt. IBMmask(domain)% x(i)% dist  ) then 
+               IBMmask(domain)% x(i)% dist   = dist(i)
+               IBMmask(domain)% x(i)% normal = normal(i,:) 
+            end if 
+         end do
+
+         deallocate(dist,normal)
+
+      end do 
+#endif
+   end subroutine recvMaskGeom
+
+   subroutine sendMaskInsideBody( IBMmask, domain )
+
+      implicit none 
+
+      type(IBMPoints), intent(in) :: IBMmask(:)
+      integer,         intent(in) :: domain 
+#ifdef _HAS_MPI_
+      integer, allocatable :: intersections(:)
+      integer              :: i, domains, domainsSend, ierr, send_req(1)
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle
+
+         if( IBMmask(domains)% NumOfObjs .eq. 0 ) cycle 
+
+         allocate( intersections(IBMmask(domains)% NumOfObjs) )
    
-         call mpi_isend(vertex_x, 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
-         
-         call mpi_isend(vertex_y, 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
-         
-         call mpi_isend(vertex_z, 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
-         
-         call mpi_isend(angle, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
-         
-         call mpi_isend(center, 2, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,5), ierr )
-         
-         call mpi_isend(CloudCenter, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,6), ierr )
-         
-         call mpi_isend(R1, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,7), ierr )
-         
-         call mpi_isend(R2, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,8), ierr )
-         
-         call mpi_isend(R3, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,9), ierr )
-         
-         call mpi_isend(Length, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,10), ierr )
-         
-         call mpi_isend(Width, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,11), ierr )
-         
-         call mpi_isend(nMax, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,12), ierr )
-         
-         call mpi_isend(nMin, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,13), ierr )
+         do i = 1, IBMmask(domains)% NumOfObjs
+            intersections(i) = IBMmask(domains)% x(i)% NumOfIntersections
+         end do
 
-         call mpi_waitall(13, send_req(nProcs-1,:), array_of_statuses, ierr)
+         call mpi_isend( intersections, IBMmask(domains)% NumOfObjs, MPI_INT, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr ) 
+
+         call mpi_wait( send_req(1), MPI_STATUS_IGNORE, ierr )
+
+         deallocate(intersections)
+
+      end do 
+#endif
+   end subroutine sendMaskInsideBody
+
+   subroutine recvMaskInsideBody( IBMmask )
+
+      implicit none 
+
+      type(IBMPoints), intent(inout) :: IBMmask(:)
+#ifdef _HAS_MPI_
+      integer,               allocatable :: intersections(:)
+      integer                            :: i, domains, domain, domainsRecv, ierr, recv_req(1)
       
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      domain = MPI_Process% rank + 1
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle
+
+         if( IBMmask(domain)% NumOfObjs .eq. 0 ) cycle
+
+         allocate( intersections(IBMmask(domain)% NumOfObjs) ) 
+
+         call mpi_irecv(intersections, IBMmask(domain)% NumOfObjs, MPI_INT, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
+
+         call mpi_wait( recv_req(1), MPI_STATUS_IGNORE, ierr ) 
+
+         do i = 1, IBMmask(domain)% NumOfObjs
+            IBMmask(domain)% x(i)% NumOfIntersections = IBMmask(domain)% x(i)% NumOfIntersections + intersections(i)
+         end do
+         
+         deallocate(intersections)
+
       end do
+#endif
+   end subroutine recvMaskInsideBody 
+
+   subroutine sendMask( IBMmask, domain )
+
+      implicit none 
+
+      type(IBMPoints), intent(in) :: IBMmask
+      integer,         intent(in) :: domain 
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: coords(:,:)
+      integer,       allocatable :: eIDs(:), local_Position(:,:) , send_req(:,:)
+      integer                    :: i, domains, ierr, array_of_statuses(MPI_STATUS_SIZE,8)
+
+      if ( .not. MPI_Process % doMPIAction ) return
+
+      allocate( coords(IBMmask% NumOfObjs,NDIM),         &
+                eIDs(IBMmask% NumOfObjs),                &
+                local_Position(IBMmask% NumOfObjs,NDIM), &
+                send_req(MPI_Process% nProcs,8)          )
+
+      do i = 1, IBMmask% NumOfObjs
+         coords(i,:)         = IBMmask% x(i)% coords
+         eIDs(i)             = IBMmask% x(i)% element_index
+         local_Position(i,:) = IBMmask% x(i)% local_Position
+      end do
+ 
+      do domains = 1, MPI_Process% nProcs 
+
+         if( domains .eq. domain ) cycle
+
+         call mpi_isend( IBMmask% NumOfObjs, 1, MPI_INT, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,1), ierr ) 
+
+         call mpi_wait( send_req(domains,1), MPI_STATUS_IGNORE, ierr )
+
+         if( IBMmask% NumOfObjs .eq. 0 ) cycle 
+
+         do i = 1, NDIM 
+            call mpi_isend(coords(:,i), IBMmask% NumOfObjs, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,1+i), ierr )
+         end do
+
+         call mpi_isend(eIDs, IBMmask% NumOfObjs, MPI_INT, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,5), ierr )
+
+         do i = 1, NDIM 
+            call mpi_isend(local_Position(:,i), IBMmask% NumOfObjs, MPI_INT, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,5+i), ierr )
+         end do
+
+         call mpi_waitall(8, send_req(domains,:), array_of_statuses, ierr)
+
+      end do 
+
+      deallocate(coords,eIDs,local_Position,send_req)
+#endif
+   end subroutine sendMask
+
+   subroutine recvMask( IBMmask )
+
+      implicit none 
+
+      type(IBMPoints), intent(inout) :: IBMmask(:)
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: coords(:,:)
+      integer,       allocatable :: eIDs(:), local_Position(:,:), recv_req(:,:)
+      integer                    :: domain, i, domains, NumOfObjs, ierr, array_of_statuses(MPI_STATUS_SIZE,8)
+
+      domain = MPI_Process% rank + 1
+
+      allocate(recv_req(MPI_Process% nProcs,8))
+
+      do domains = 1, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle
+
+         call mpi_irecv(NumOfObjs, 1, MPI_INT, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(domains,1), ierr)
+
+         call mpi_wait( recv_req(domains,1), MPI_STATUS_IGNORE, ierr )
+
+         IBMmask(domains)% NumOfObjs = NumOfObjs
+
+         if( NumOfObjs .eq. 0 ) cycle 
+
+         allocate( coords(NumOfObjs,NDIM),        &
+                   eIDs(NumOfObjs),               &
+                   local_Position(NumOfObjs,NDIM) )
+
+         do i = 1, NDIM 
+            call mpi_irecv(coords(:,i), NumOfObjs, MPI_DOUBLE, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(domains,1+i), ierr)   
+         end do 
+         
+         call mpi_irecv(eIDs, NumOfObjs, MPI_INT, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(domains,5), ierr)
+
+         do i = 1, NDIM 
+            call mpi_irecv(local_position(:,i), NumOfObjs, MPI_INT, domains-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(domains,5+i), ierr)
+         end do 
+
+         call mpi_waitall(8, recv_req(domains,:), array_of_statuses, ierr)
+
+         allocate( IBMmask(domains)% x(NumOfObjs) )
+
+         do i = 1, NumOfObjs
+            IBMmask(domains)% x(i)% coords         = coords(i,:) 
+            IBMmask(domains)% x(i)% element_index  = eIDs(i) 
+            IBMmask(domains)% x(i)% local_position = local_position(i,:) 
+         end do
+
+         deallocate(coords, eIDs, local_position)
+      end do
+
+      deallocate(recv_req)
+#endif
+   end subroutine recvMask
+
+   subroutine SendAxis( STLNum ) 
+
+      implicit none 
+
+      integer, intent(in) :: STLNum 
+#ifdef _HAS_MPI_
+      integer, allocatable :: send_req(:,:)
+      integer              :: domains, ierr, array_of_statuses(MPI_STATUS_SIZE,2)
+
+      if( .not. MPI_Process% isRoot ) return 
+
+      allocate(send_req(MPI_Process% nProcs,2))
       
+      do domains = 2, MPI_Process% nProcs
+
+         call mpi_isend(OBB(STLNum)% maxAxis, 1, MPI_INT, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,1), ierr )
+
+         call mpi_isend(OBB(STLNum)% minAxis, 1, MPI_INT, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,2), ierr )
+
+         call mpi_waitall( 2, send_req(domains,:), array_of_statuses, ierr )
+      end do
+
       deallocate(send_req)
 #endif
-   end subroutine sendOBB
+   end subroutine SendAxis
 
-   subroutine GetVertices( vertices, axis, SplittingPlanes )
-   
-      implicit none
-      !-arguments-----------------------------------------------------------
-      real(kind=RP), intent(inout) :: vertices(:,:)
-      real(kind=RP), intent(in)    :: SplittingPlanes(2)
-      integer,       intent(in)    :: axis 
-      !-local-variables-----------------------------------------------------
-      integer :: v_indeces(4,2)
-   
-      if( axis .eq. 1 ) then
-         v_indeces(:,1) = (/1,4,8,5/)
-         v_indeces(:,2) = (/2,3,7,6/)
-      elseif( axis .eq. 2 ) then
-         v_indeces(:,1) = (/1,5,6,2/)
-         v_indeces(:,2) = (/4,8,7,3/)
-      else
-         v_indeces(:,1) = (/1,2,3,4/)
-         v_indeces(:,2) = (/5,6,7,8/)      
-      end if
+   subroutine RecvAxis( STLNum )
 
-      vertices(axis,v_indeces(:,1)) = SplittingPlanes(1)
-      vertices(axis,v_indeces(:,2)) = SplittingPlanes(2)
-   
-   end subroutine GetVertices
+      implicit none 
 
-   subroutine SendSTL2Partitions( rootSTL, STLNum, rootVertices, rootAxis )
+      integer, intent(in) :: STLNum
+#ifdef _HAS_MPI_
+      integer :: recv_req(2), ierr, array_of_statuses(MPI_STATUS_SIZE,2)
+      
+      if( MPI_Process% isRoot ) return 
+
+      call mpi_irecv(OBB(STLNum)% MaxAxis, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
+
+      call mpi_irecv(OBB(STLNum)% minAxis, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr)
+
+      call mpi_waitall( 2, recv_req, array_of_statuses, ierr )
+#endif
+   end subroutine RecvAxis
+
+
+   subroutine SendOBB( STLNum )
+
+      implicit none 
+
+      integer, intent(in) :: STLNum 
+#ifdef _HAS_MPI_
+      integer, allocatable :: send_req(:,:)
+      integer              :: domains, i, ierr, domain, &
+                              array_of_statuses(MPI_STATUS_SIZE,17)
+
+      if ( .not. MPI_Process% isRoot ) return
+
+      domain = MPI_Process% rank+1
+
+      allocate(send_req(MPI_Process% nProcs,17))
+
+      do domains = 2, MPI_Process% nProcs
+
+         if( domains .eq. domain ) cycle
+
+         call mpi_isend(OBB(STLNum)% MBR% angle, 1, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,1), ierr )
+
+         call mpi_isend(OBB(STLNum)% MBR% center, NDIM-1, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,2), ierr )
+         
+         call mpi_isend(OBB(STLNum)% CloudCenter, NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,3), ierr )
+     
+         do i = 1, NDIM 
+            call mpi_isend(OBB(STLNum)% R(:,i), NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,3+i), ierr )
+         end do 
+
+         do i = 1, NDIM 
+            call mpi_isend(OBB(STLNum)% invR(:,i), NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,6+i), ierr )
+         end do 
+
+         do i = 1, BOXVERTICES
+            call mpi_isend(OBB(STLNum)% LocVertices(:,i), NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains,9+i), ierr )
+         end do 
+ 
+         call mpi_waitall(17, send_req(domains,:), array_of_statuses, ierr)
+      
+      end do 
+
+      deallocate(send_req)
+#endif
+   end subroutine SendOBB
+   
+   subroutine recvOBB( STLNum )
+
+      implicit none 
+
+      integer, intent(in) :: STLNum
+
+      integer :: domain, i
+#ifdef _HAS_MPI_
+      integer :: domains, ierr, array_of_statuses(MPI_STATUS_SIZE,17), &
+                 recv_req(17)
+#endif
+      if( MPI_Process% isRoot ) return 
+#ifdef _HAS_MPI_
+      call mpi_irecv(OBB(STLNum) % MBR% angle,  1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
+      
+      call mpi_irecv(OBB(STLNum)%  MBR% center, NDIM-1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr)
+
+      call mpi_irecv(OBB(STLNum)% CloudCenter, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr)
+
+      do i = 1, NDIM 
+         call mpi_irecv(OBB(STLNum)% R(:,i), NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3+i), ierr)
+      end do 
+
+      do i = 1, NDIM 
+         call mpi_irecv(OBB(STLNum)% invR(:,i), NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6+i), ierr)
+      end do 
+
+      do i = 1, BOXVERTICES 
+         call mpi_irecv(OBB(STLNum)% LocVertices(:,i), NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9+i), ierr)
+      end do 
+
+      call mpi_waitall(17, recv_req, array_of_statuses, ierr)
+#endif
+   end subroutine recvOBB
+
+   subroutine SendSTL2Partitions( STL, STLNum, axis )
       implicit none
       !-arguments---------------------------------------------------------------------
-      type(STLfile), intent(inout) :: rootSTL
-      integer,       intent(in)    :: STLNum
-      real(kind=RP), intent(inout) :: rootVertices(:,:)
-      integer,       intent(inout) :: rootAxis
+      type(STLfile), intent(inout) :: STL
+      integer,       intent(in)    :: STLNum, axis
       !-local-variables---------------------------------------------------------------
-      integer                        :: maxvec(1)
 #ifdef _HAS_MPI_
-      real(kind=RP),     allocatable :: locVertices(:,:,:) , Bar(:), coord(:),    &
+      real(kind=RP),     allocatable :: Bar(:), coord(:),                         &
                                         normals_x(:), normals_y(:), normals_z(:), &
                                         vertices_x(:,:), vertices_y(:,:),         &
                                         vertices_z(:,:)
-      real(kind=RP)                  :: SplittingPlanes(2), kdtreevertices(NDIM,8)
-      integer                        :: NumOfObjs, NumOfObjsPP, NumOfObjsPartion, &
-                                        start_index, final_index, i, j,           &
-                                        nProcs, ierr,                             &
-                                        array_of_statuses(MPI_STATUS_SIZE,17)
+      integer                        :: NumOfObjs, NumOfObjsPartion,           &
+                                        start_index, final_index, i, j,        &
+                                        nProcs, ierr, biggerdomains,           &
+                                        elems_per_domain(MPI_Process% nProcs), &
+                                        array_of_statuses(MPI_STATUS_SIZE,13)
       integer, allocatable           :: SortedIndex(:), send_req(:,:)
-#endif
-      maxvec   = maxloc((/ OBB(STLNum)% MBR% Length,OBB(STLNum)% MBR% Width,abs(OBB(STLNum)% nMax) + abs(OBB(STLNum)% nMin) /))  
-      rootAxis = maxvec(1)
-#ifdef _HAS_MPI_
-      rootSTL% partition = MPI_Process% rank
 
-      NumOfObjs   = size(rootSTL% ObjectsList)
+      STL% partition = MPI_Process% rank
+
+      NumOfObjs = STL% NumOfObjs
 
       allocate( Bar(NumOfObjs),                          &
                 coord(NumOfObjs),                        &
@@ -234,75 +633,51 @@ contains
                 normals_x(NumOfObjs),                    &
                 normals_y(NumOfObjs),                    &
                 normals_z(NumOfObjs),                    &
-                vertices_x(NumOfObjs,3),                 &
-                vertices_y(NumOfObjs,3),                 &
-                vertices_z(NumOfObjs,3),                 &
-                locVertices(8,NDIM,MPI_Process% nProcs), &
-                send_req(MPI_Process% nProcs-1,17)       )
+                vertices_x(NumOfObjs,NumOfVertices),     &
+                vertices_y(NumOfObjs,NumOfVertices),     &
+                vertices_z(NumOfObjs,NumOfVertices),     &
+                send_req(MPI_Process% nProcs-1,13)       )
 
       do i = 1, NumOfObjs
-         Bar(i) = 0.0_RP
-         SortedIndex(i) = rootSTL% ObjectsList(i)% index
-         do j = 1, size(rootSTL% ObjectsList(i)% vertices)
-            Bar(i) = Bar(i) + rootSTL% ObjectsList(i)% vertices(j)% coords(rootAxis)
-         end do
-         Bar(i) = Bar(i)/size(rootSTL% ObjectsList(i)% vertices)
+         SortedIndex(i) = STL% ObjectsList(i)% index
+         Bar(i)         = maxval(STL% ObjectsList(i)% vertices(1:NumOfVertices)% coords(axis))
       end do
-!$omp parallel 
-!$omp single
+
       call sort( Bar, SortedIndex, coord, coord, coord, 1, NumOfObjs )
-!$omp end single
-!$omp end parallel
+
       deallocate(Bar,coord)
 
-      NumOfObjsPP = NumOfObjs/MPI_Process% nProcs
+      elems_per_domain = NumOfObjs/MPI_Process% nProcs
+      biggerdomains    = mod(NumOfObjs,MPI_Process% nProcs)
+      elems_per_domain(1:biggerdomains) = elems_per_domain(1:biggerdomains) + 1
 
-      start_index = 0; final_index = 0
-
+      start_index = 1
       do nProcs = 1, MPI_Process% nProcs
-         start_index = final_index 
-         final_index = start_index + NumOfObjsPP
+         final_index = start_index + elems_per_domain(nProcs) - 1
 
-         if( nProcs .eq. MPI_Process% nProcs ) final_index = NumOfObjs
-
-         SplittingPlanes(1) =  huge(1.0_RP)
-         SplittingPlanes(2) = -huge(1.0_RP)
-
-         do i = 1, (final_index-start_index) 
-            do j = 1, 3
-               SplittingPlanes(1) = min(SplittingPlanes(1),rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(rootAxis))
-               SplittingPlanes(2) = max(SplittingPlanes(2),rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(rootAxis))
-               vertices_x(start_index+i,j) = rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(1)
-               vertices_y(start_index+i,j) = rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(2)
-               vertices_z(start_index+i,j) = rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(3)
+         do i = start_index, final_index
+            do j = 1, NumOfVertices
+               vertices_x(i,j) = STL% ObjectsList(SortedIndex(i))% vertices(j)% coords(1)
+               vertices_y(i,j) = STL% ObjectsList(SortedIndex(i))% vertices(j)% coords(2)
+               vertices_z(i,j) = STL% ObjectsList(SortedIndex(i))% vertices(j)% coords(3)
             end do
-            normals_x(start_index+i) = rootSTL% ObjectsList(SortedIndex(start_index+i))% normal(1)
-            normals_y(start_index+i) = rootSTL% ObjectsList(SortedIndex(start_index+i))% normal(2)
-            normals_z(start_index+i) = rootSTL% ObjectsList(SortedIndex(start_index+i))% normal(3)
+            normals_x(i) = STL% ObjectsList(SortedIndex(i))% normal(1)
+            normals_y(i) = STL% ObjectsList(SortedIndex(i))% normal(2)
+            normals_z(i) = STL% ObjectsList(SortedIndex(i))% normal(3)
          end do  
 
-         kdtreevertices = OBB(STLNum)% LocVertices
-   
-         call GetVertices( kdtreevertices, rootAxis, SplittingPlanes )
+         if( STL% show ) call DescribeSTLPartitions(nProcs-1,(final_index-start_index+1))
 
-         do j = 1, 8
-            locVertices(j,:,nProcs) = kdtreevertices(:,j)
-         end do
-
-         if( rootSTL% show ) call DescribeSTLPartitions(nProcs-1,(final_index-start_index))
+         start_index = final_index + 1
 
       end do
 
-      start_index = NumOfObjsPP; final_index = NumOfObjsPP
-
+      start_index = elems_per_domain(1)+1
       do nProcs = 2, MPI_Process% nProcs
 
-         start_index  = final_index + 1
-         final_index  = (start_index-1) + NumOfObjsPP
-
-         if( nProcs .eq. MPI_Process% nProcs ) final_index = NumOfObjs
+         final_index = start_index + elems_per_domain(nProcs) - 1
             
-         NumOfObjsPartion = (final_index-start_index) + 1
+         NumOfObjsPartion = final_index-start_index+1
 
          call mpi_isend(NumOfObjsPartion, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
 
@@ -331,82 +706,65 @@ contains
          call mpi_isend(vertices_y(start_index:final_index,3), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,12), ierr )
 
          call mpi_isend(vertices_z(start_index:final_index,3), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,13), ierr )
- 
-         call mpi_isend(locVertices(:,1,nProcs), 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,14), ierr )
- 
-         call mpi_isend(locVertices(:,2,nProcs), 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,15), ierr )
-  
-         call mpi_isend(locVertices(:,3,nProcs), 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,16), ierr )
 
-         call mpi_isend(rootAxis, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,17), ierr )  
+         call mpi_waitall(13, send_req(nProcs-1,:), array_of_statuses, ierr)
 
-         call mpi_waitall(17, send_req(nProcs-1,:), array_of_statuses, ierr)
+         start_index = final_index + 1
 
       end do  
 
-      call rootSTL% destroy()
+      call STL% destroy()
 
-      allocate(rootSTL% ObjectsList(NumOfObjsPP))
+      allocate(STL% ObjectsList(elems_per_domain(1)))
 
-      do i = 1, NumOfObjsPP
-         allocate(rootSTL% ObjectsList(i)% vertices(NDIM))
-         rootSTL% ObjectsList(i)% normal(1) = normals_x(i)
-         rootSTL% ObjectsList(i)% normal(2) = normals_y(i)
-         rootSTL% ObjectsList(i)% normal(3) = normals_z(i)
-         do j = 1, NDIM
-            rootSTL% ObjectsList(i)% vertices(j)% coords(1) = vertices_x(i,j)
-            rootSTL% ObjectsList(i)% vertices(j)% coords(2) = vertices_y(i,j)
-            rootSTL% ObjectsList(i)% vertices(j)% coords(3) = vertices_z(i,j)
+      do i = 1, elems_per_domain(1)
+         allocate(STL% ObjectsList(i)% vertices(NumOfVertices))
+         STL% ObjectsList(i)% normal(1) = normals_x(i)
+         STL% ObjectsList(i)% normal(2) = normals_y(i)
+         STL% ObjectsList(i)% normal(3) = normals_z(i)
+         do j = 1, NumOfVertices
+            STL% ObjectsList(i)% vertices(j)% coords(1) = vertices_x(i,j)
+            STL% ObjectsList(i)% vertices(j)% coords(2) = vertices_y(i,j)
+            STL% ObjectsList(i)% vertices(j)% coords(3) = vertices_z(i,j)
          end do 
-         rootSTL% ObjectsList(i)% index = i
+         STL% ObjectsList(i)% index = i
       end do 
 
-      rootSTL% NumOfObjs = NumOfObjsPP
+      STL% NumOfObjs = elems_per_domain(1)
 
-      do j = 1, 8
-         rootVertices(:,j) = locVertices(j,:,1)
-      end do
-
-      deallocate(send_req, locVertices, vertices_x, vertices_y, vertices_z, normals_x, normals_y, normals_z)
-#else
-      if( rootSTL% show ) call rootSTL% Describe( rootSTL% filename )
+      deallocate(send_req, vertices_x, vertices_y, vertices_z, normals_x, normals_y, normals_z)
 #endif
-
    end subroutine SendSTL2Partitions
 
-
-   subroutine receiveSTLpartitions( partitionSTL, STLNum, partitionVertex, partitionAxis )
+   subroutine receiveSTLpartitions( STL, STLNum )
       implicit none
       !-arguments-----------------------------------------------------
-      type(STLfile), intent(inout) :: partitionSTL
+      type(STLfile), intent(inout) :: STL
       integer,       intent(in)    :: STLNum
-      real(kind=RP), intent(inout) :: partitionVertex(:,:)
-      integer,       intent(inout) :: partitionAxis
 #ifdef _HAS_MPI_
       !-local-variables-----------------------------------------------
       real(kind=RP), allocatable :: normals_x(:), normals_y(:), normals_z(:), &
                                     vertices_x(:,:), vertices_y(:,:),         &
-                                    vertices_z(:,:), locVertices(:,:)
-      integer                    :: NumOfObjs, ierr, recv_req(17), i, j,      &
-                                    array_of_statuses(MPI_STATUS_SIZE,17)
- 
+                                    vertices_z(:,:)
+      integer                    :: NumOfObjs, ierr, recv_req(13), i, j,      &
+                                    array_of_statuses(MPI_STATUS_SIZE,13)
+
       if( MPI_Process% isRoot ) return
 
-      partitionSTL% partition = MPI_Process% rank 
+      STL% partition = MPI_Process% rank 
 
-      call mpi_irecv( partitionSTL% NumOfObjs, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
+      call mpi_irecv( STL% NumOfObjs, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
 
       call mpi_wait(recv_req(1), MPI_STATUS_IGNORE, ierr)
 
-      NumOfObjs = partitionSTL% NumOfObjs
+      NumOfObjs = STL% NumOfObjs
 
       allocate( normals_x(NumOfObjs),       &
                 normals_y(NumOfObjs),       &
                 normals_z(NumOfObjs),       &
                 vertices_x(NumOfObjs,NDIM), &
                 vertices_y(NumOfObjs,NDIM), &
-                vertices_z(NumOfObjs,NDIM), &
-                locVertices(8,NDIM)         )
+                vertices_z(NumOfObjs,NDIM)  )
 
       call mpi_irecv( normals_x, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr )  
 
@@ -432,133 +790,222 @@ contains
       
       call mpi_irecv( vertices_z(:,3), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(13), ierr )
 
-      call mpi_irecv( locVertices(:,1), 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(14), ierr )    
-                   
-      call mpi_irecv( locVertices(:,2), 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(15), ierr )  
-                      
-      call mpi_irecv( locVertices(:,3), 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(16), ierr ) 
+      call mpi_waitall(13, recv_req, array_of_statuses, ierr)
 
-      call mpi_irecv( partitionAxis, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(17), ierr  )
-
-      call mpi_waitall(17, recv_req, array_of_statuses, ierr)
-
-      allocate(partitionSTL% ObjectsList(NumOfObjs))
+      allocate(STL% ObjectsList(NumOfObjs))
 
       do i = 1, NumOfObjs
-         partitionSTL% ObjectsList(i)% NumOfVertices = 3
-         allocate(partitionSTL% ObjectsList(i)% vertices(3))
-         do j = 1, partitionSTL% ObjectsList(i)% NumOfVertices
-            partitionSTL% ObjectsList(i)% vertices(j)% coords(1) = vertices_x(i,j)
-            partitionSTL% ObjectsList(i)% vertices(j)% coords(2) = vertices_y(i,j)
-            partitionSTL% ObjectsList(i)% vertices(j)% coords(3) = vertices_z(i,j)
+         STL% ObjectsList(i)% NumOfVertices = NumOfVertices
+         allocate(STL% ObjectsList(i)% vertices(NumOfVertices))
+         do j = 1, NumOfVertices
+            STL% ObjectsList(i)% vertices(j)% coords(1) = vertices_x(i,j)
+            STL% ObjectsList(i)% vertices(j)% coords(2) = vertices_y(i,j)
+            STL% ObjectsList(i)% vertices(j)% coords(3) = vertices_z(i,j)
          end do
-         partitionSTL% ObjectsList(i)% normal(1) = normals_x(i)
-         partitionSTL% ObjectsList(i)% normal(2) = normals_y(i)
-         partitionSTL% ObjectsList(i)% normal(3) = normals_z(i)
-         partitionSTL% ObjectsList(i)% index = i
+         STL% ObjectsList(i)% normal(1) = normals_x(i)
+         STL% ObjectsList(i)% normal(2) = normals_y(i)
+         STL% ObjectsList(i)% normal(3) = normals_z(i)
+         STL% ObjectsList(i)% index = i
       end do
-
-      partitionVertex(1,:) = locVertices(:,1)
-      partitionVertex(2,:) = locVertices(:,2)
-      partitionVertex(3,:) = locVertices(:,3)
 
       deallocate( normals_x,  &
                   normals_y,  &
                   normals_z,  &
                   vertices_x, &
                   vertices_y, &
-                  vertices_z, &
-                  locVertices )
+                  vertices_z  )
 #endif
    end subroutine receiveSTLpartitions
 
-   subroutine GetBRvertices( vertices, BandRegionCoeff, axis, STLNum, BRvertices )
-   
-      implicit none
-      !-arguments---------------------------------------------
-      real(kind=RP), intent(in)  :: vertices(:,:),      &
-                                    BandRegionCoeff 
-      integer,       intent(in)  :: axis, STLNum
-      real(kind=RP), intent(out) :: BRvertices(NDIM,8)
-      !-local-variables---------------------------------------
-      integer :: v_indeces(4,2)
-
-      if( axis .eq. 1 ) then
-         v_indeces(:,1) = (/1,4,8,5/)
-         v_indeces(:,2) = (/2,3,7,6/)
-      elseif( axis .eq. 2 ) then
-         v_indeces(:,1) = (/1,5,6,2/)
-         v_indeces(:,2) = (/4,8,7,3/)
-      else
-         v_indeces(:,1) = (/1,2,3,4/)
-         v_indeces(:,2) = (/5,6,7,8/)      
-      end if
-
-      BRvertices = BandRegionCoeff*OBB(STLNum)% LocVertices
-
-      if( MPI_Process% rank .ne. 0 ) then
-         BRvertices(axis,v_indeces(:,1)) = vertices(axis,v_indeces(:,1))  
-      end if
-      if( MPI_Process% rank .ne. (MPI_Process% nProcs-1) ) then
-         BRvertices(axis,v_indeces(:,2)) = vertices(axis,v_indeces(:,2))
-      end if
-      
-   end subroutine GetBRvertices
 
 
-   subroutine GetMaskCandidates( elements, no_of_elements, no_of_DoFs, STLNum, NumOfSTL ) 
-      use ElementClass
-      implicit none
-      !-arguments----------------------------------------------------------------
-      type(element),  intent(inout) :: elements(:)
-      integer,        intent(in)    :: no_of_elements, no_of_DoFs, &
-                                       STLNum, NumOfSTL
-      !-local-variables-----------------------------------------------------------
-      type(point_type), allocatable :: x(:)
-      integer                       :: eID, i, j, k, ierr
+   subroutine sendSTLRoot( STL )
 
-      allocate(x(no_of_DoFs))
-      Mask% LocNumOfObjs = 0
+      implicit none 
 
-      do eID = 1, no_of_elements
-         if( .not. allocated(elements(eID)% isInsideBody) ) then
-            call elements(eID)% ConstructIBM(elements(eID)% Nxyz(1), elements(eID)% Nxyz(2), elements(eID)% Nxyz(3), NumOfSTL )
-         end if
-         
-         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2) ; do i = 0, elements(eID)% Nxyz(1)
-
-            if( elements(eID)% isInsideBody(i,j,k) ) cycle
-
-            elements(eID)% isInsideBody(i,j,k) = OBB(STLNum)% isPointInside( coords = elements(eID)% geom% x(:,i,j,k) )
-
-            if( elements(eID)% isInsideBody(i,j,k) ) then
-               Mask% LocNumOfObjs                    = Mask% LocNumOfObjs + 1
-               x(Mask% LocNumOfObjs)% coords         = elements(eID)% geom% x(:,i,j,k)
-               x(Mask% LocNumOfObjs)% local_Position = (/i,j,k/)
-               x(Mask% LocNumOfObjs)% element_index  = eID
-               x(Mask% LocNumOfObjs)% partition      = MPI_Process% rank
-            end if
-         end do; end do; end do
-          
-      end do
+      type(STLfile), intent(in) :: STL 
 #ifdef _HAS_MPI_
-      call mpi_allreduce(Mask% LocNumOfObjs, Mask% NumOfObjs, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-      Mask% NumOfObjs = Mask% LocNumOfObjs
+      real(kind=RP), allocatable :: normals_x(:), normals_y(:), normals_z(:),   &
+                                    vertices_x(:,:), vertices_y(:,:), vertices_z(:,:)
+      integer                    :: NumOfObjs, i, j, ierr, send_req(13), &
+                                    array_of_statuses(MPI_STATUS_SIZE,13)
+
+      if( MPI_Process% isRoot ) return
+
+      NumOfObjs = stl% NumOfObjs
+
+      allocate( normals_x(NumOfObjs),                & 
+                normals_y(NumOfObjs),                &
+                normals_z(NumOfObjs),                &
+                vertices_x(NumOfObjs,NumOfVertices), &
+                vertices_y(NumOfObjs,NumOfVertices), &
+                vertices_z(NumOfObjs,NumOfVertices)  ) 
+      !MUST BE IN THE GLOBAL REF FRAME
+      do i = 1, NumOfObjs
+         normals_x(i) = STL% ObjectsList(i)% normal(1) 
+         normals_y(i) = STL% ObjectsList(i)% normal(2)  
+         normals_z(i) = STL% ObjectsList(i)% normal(3)  
+         do j = 1, NumOfVertices
+            vertices_x(i,j) = STL% ObjectsList(i)% vertices(j)% coords(1) 
+            vertices_y(i,j) = STL% ObjectsList(i)% vertices(j)% coords(2) 
+            vertices_z(i,j) = STL% ObjectsList(i)% vertices(j)% coords(3) 
+         end do 
+      end do 
+      
+      call mpi_isend(NumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+
+      call mpi_wait(send_req(1),MPI_STATUS_IGNORE,ierr)
+
+      call mpi_isend(normals_x, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+
+      call mpi_isend(normals_y, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+
+      call mpi_isend(normals_z, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(4), ierr )
+
+      call mpi_isend(vertices_x(:,1), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(5), ierr )
+
+      call mpi_isend(vertices_y(:,1), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(6), ierr )
+
+      call mpi_isend(vertices_z(:,1), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(7), ierr )
+
+      call mpi_isend(vertices_x(:,2), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(8), ierr )
+
+      call mpi_isend(vertices_y(:,2), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(9), ierr )
+
+      call mpi_isend(vertices_z(:,2), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(10), ierr )
+
+      call mpi_isend(vertices_x(:,3), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(11), ierr )
+
+      call mpi_isend(vertices_y(:,3), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(12), ierr )
+
+      call mpi_isend(vertices_z(:,3), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(13), ierr )
+
+      call mpi_waitall(13, send_req, array_of_statuses, ierr)
 #endif
-      allocate(Mask% x(Mask% NumOfObjs))
+   end subroutine sendSTLRoot
 
-      do i = 1, Mask% LocNumOfObjs
-         Mask% x(i)% coords            = x(i)% coords
-         Mask% x(i)% local_Position    = x(i)% local_Position
-         Mask% x(i)% element_index     = x(i)% element_index
-         Mask% x(i)% partition         = x(i)% partition
-         Mask% x(i)% index             = i     
-      end do
+   subroutine recvSTLRootandPlot( STL, iter )
 
-      deallocate(x)
+      implicit none 
 
-   end subroutine GetMaskCandidates
+      type(STLfile), intent(in) :: STL 
+      integer,       intent(in) :: iter
+#ifdef _HAS_MPI_
+      type(STLfile)              :: STLplot 
+      real(kind=RP), allocatable :: normals_x(:), normals_y(:), normals_z(:),          & 
+                                    vertices_x(:,:), vertices_y(:,:), vertices_z(:,:)
+      integer,       allocatable :: NumOfPartitionObjs(:), recv_req(:,:)
+      integer                    :: nProcs, ierr, array_of_statuses(MPI_STATUS_SIZE,13), &
+                                    i, j, start 
+
+      if( .not. MPI_Process% isRoot ) return
+
+      allocate( NumOfPartitionObjs(MPI_Process% nProcs-1), &
+                recv_req(MPI_Process% nProcs-1,13)         )
+
+      do nProcs = 2, MPI_Process% nProcs 
+         call mpi_irecv( NumOfPartitionObjs(nProcs-1), 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )  
+         call mpi_wait(recv_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr)
+      end do 
+
+      STLplot% NumOfObjs = sum(NumOfPartitionObjs) + STL% NumOfObjs
+      STLplot% filename  = STL% filename
+      
+      allocate(STLplot% ObjectsList(STLplot% NumOfObjs))
+
+      do i = 1, STL% NumOfObjs
+         STLplot% ObjectsList(i)% normal = STL% ObjectsList(i)% normal 
+         allocate(STLplot% ObjectsList(i)% vertices(NumOfVertices))
+         do j = 1, NumOfVertices
+            STLplot% ObjectsList(i)% vertices(j)% coords = STL% ObjectsList(i)% vertices(j)% coords 
+         end do 
+      end do 
+         
+      start = STL% NumOfObjs 
+
+      do nProcs =  2, MPI_Process% nProcs 
+
+         allocate( normals_x(NumOfPartitionObjs(nProcs-1)),                &
+                   normals_y(NumOfPartitionObjs(nProcs-1)),                &
+                   normals_z(NumOfPartitionObjs(nProcs-1)),                &
+                   vertices_x(NumOfPartitionObjs(nProcs-1),NumOfVertices), &
+                   vertices_y(NumOfPartitionObjs(nProcs-1),NumOfVertices), &
+                   vertices_z(NumOfPartitionObjs(nProcs-1),NumOfVertices)  )
+
+         call mpi_irecv( normals_x, NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )  
+
+         call mpi_irecv( normals_y, NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )  
+                      
+         call mpi_irecv( normals_z, NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )  
+
+         call mpi_irecv( vertices_x(:,1), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,5), ierr )  
+
+         call mpi_irecv( vertices_y(:,1), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,6), ierr )  
+                      
+         call mpi_irecv( vertices_z(:,1), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,7), ierr ) 
+         
+         call mpi_irecv( vertices_x(:,2), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,8), ierr )  
+
+         call mpi_irecv( vertices_y(:,2), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,9), ierr )  
+
+         call mpi_irecv( vertices_z(:,2), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,10), ierr ) 
+         
+         call mpi_irecv( vertices_x(:,3), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,11), ierr )  
+
+         call mpi_irecv( vertices_y(:,3), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,12), ierr )  
+                      
+         call mpi_irecv( vertices_z(:,3), NumOfPartitionObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,13), ierr ) 
+
+         call mpi_waitall(13, recv_req(nProcs-1,:), array_of_statuses, ierr)
+
+         do i = 1, NumOfPartitionObjs(nProcs-1)
+            start = start + 1
+            STLplot% ObjectsList(start)% normal(1) = normals_x(i)
+            STLplot% ObjectsList(start)% normal(2) = normals_y(i)
+            STLplot% ObjectsList(start)% normal(3) = normals_z(i)
+            allocate(STLplot% ObjectsList(start)% vertices(NumOfVertices))
+            do j = 1, NumOfVertices
+               STLplot% ObjectsList(start)% vertices(j)% coords(1) = vertices_x(i,j) 
+               STLplot% ObjectsList(start)% vertices(j)% coords(2) = vertices_y(i,j) 
+               STLplot% ObjectsList(start)% vertices(j)% coords(3) = vertices_z(i,j) 
+            end do 
+         end do 
+
+         deallocate( normals_x,  &
+                     normals_y,  & 
+                     normals_z,  &  
+                     vertices_x, & 
+                     vertices_y, & 
+                     vertices_z  )
+
+      end do 
+
+      deallocate( NumOfPartitionObjs, &
+                  recv_req            )
+
+      call STLplot% plot( iter )
+      call STLplot% destroy()
+#else 
+      call STL% plot( iter )
+#endif
+   end subroutine recvSTLRootandPlot
+
+   subroutine plotSTL( STL, iter )
+
+      implicit none 
+
+      type(STLfile), intent(in) :: STL 
+      integer,       intent(in) :: iter
+
+      if( MPI_Process% doMPIAction ) then 
+         call sendSTLRoot( STL )
+      end if 
+
+      if( MPI_Process% isRoot ) then 
+         call recvSTLRootandPlot( STL, iter )
+      end if 
+
+   end subroutine plotSTL
 
 
    subroutine RecvPointsListpartitions( PointsList )
@@ -805,369 +1252,829 @@ contains
 #endif
    end subroutine sendPointsList2Root
 
+!____________________________________________________________________________________________________________________________
 
-
-   subroutine recvPointsMaskRoot()
-      implicit none
-      !-local-variables--------------------------------------------------
-      integer              :: i 
-#ifdef _HAS_MPI_      
-      integer              :: nProcs, ierr, recv_req,   &
-                              status(MPI_STATUS_SIZE) 
-      integer, allocatable :: NumOfIntersectionsLoc(:), &
-                              NumOfIntersections(:)  
-
-      allocate( NumOfIntersectionsLoc(Mask% NumOfObjs), &
-                NumOfIntersections(Mask% NumOfObjs)     )
-            
-      NumOfIntersections = 0
-
-      do nProcs = 2, MPI_Process% nProcs
-      
-         call mpi_irecv( NumOfIntersectionsLoc, Mask% NumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req, ierr )  
-            
-         call mpi_wait(recv_req, status, ierr)                      
-                      
-         NumOfIntersections = NumOfIntersections + NumOfIntersectionsLoc
-
-      end do
-
-      do i = 1, Mask% NumOfObjs
-         Mask% x(i)% NumOfIntersections = Mask% x(i)% NumOfIntersections + NumOfIntersections(i)
-         Mask% x(i)% isInsideBody = .false.
-         if(mod(Mask% x(i)% NumOfIntersections,2) .ne. 0 ) Mask% x(i)% isInsideBody = .true.
-      end do
-
-      deallocate(NumOfIntersections,NumOfIntersectionsLoc)
-#else
-      do i = 1, Mask% NumOfObjs
-         Mask% x(i)% isInsideBody = .false.
-         if(mod(Mask% x(i)% NumOfIntersections,2) .ne. 0 ) Mask% x(i)% isInsideBody = .true.
-      end do
-#endif          
-   end subroutine recvPointsMaskRoot
-   
-   subroutine sendPointsMask2Root()
-      implicit none
-#ifdef _HAS_MPI_  
-      !-local-variables-----------------------------------------------------------
-      integer              :: ierr, send_req, i,      &
-                              status(MPI_STATUS_SIZE)
-      integer, allocatable :: NumOfIntersectionsLoc(:)
-      
-      if( MPI_Process% isRoot ) return
-     
-      allocate( NumOfIntersectionsLoc(Mask% NumOfObjs) )
-
-      do i = 1, Mask% NumOfObjs
-         NumOfIntersectionsLoc(i) = Mask% x(i)% NumOfIntersections
-      end do
-
-      call mpi_isend( NumOfIntersectionsLoc, Mask% NumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req, ierr )
-      
-      call mpi_wait(send_req, status, ierr)              
-  
-      deallocate( NumOfIntersectionsLoc )
-#endif  
-   end subroutine sendPointsMask2Root
-   
- 
-   subroutine recvPointsMaskPartitions()
-      implicit none
-#ifdef _HAS_MPI_    
-      !-local-variables-----------------------------------------------------------  
-      integer              :: ierr, i, recv_req,      &
-                              status(MPI_STATUS_SIZE)
-      logical, allocatable :: isInsideBody(:)
-      
-      if( MPI_Process% isRoot ) return 
-
-      allocate( isInsideBody(Mask% NumOfObjs) )      
- 
-      call mpi_irecv( isInsideBody, Mask% NumOfObjs, MPI_LOGICAL, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req, ierr )  
-
-      call mpi_wait(recv_req, status, ierr)     
-
-      do i = 1, Mask% NumOfObjs
-         Mask% x(i)% isInsideBody = isInsideBody(i)  
-      end do 
- 
-      deallocate( isInsideBody )
-#endif
-   end subroutine recvPointsMaskPartitions
-
-   subroutine sendPointsMask2Partitions()
-      implicit none
-#ifdef _HAS_MPI_  
-      !-local-variables-----------------------------------------------------------------------------
-      integer              :: nProcs, ierr, i, &
-                              statuses(MPI_STATUS_SIZE)
-      integer              :: send_req
-      logical, allocatable :: isInsideBody(:)
-      
-      allocate( isInsideBody(Mask% NumOfObjs) )
-        
-      do i = 1, Mask% NumOfObjs
-         isInsideBody(i) = Mask% x(i)% isInsideBody
-      end do
-      
-      do nProcs = 2, MPI_Process% nProcs          
-      
-         call mpi_isend( isInsideBody, Mask% NumOfObjs, MPI_LOGICAL, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req, ierr )
-         
-         call mpi_wait(send_req, statuses, ierr )
-
-      end do
-      
-      deallocate( isInsideBody )
-#endif   
-   end subroutine sendPointsMask2Partitions
-
-   subroutine recvNormalsRoot( PointsList, ranks )
+   subroutine RecvFacesPartitions( )
       implicit none 
-      !-arguments-------------------------------------------------------------------------
-      type(IBMPoints), intent(inout) :: PointsList
-      real(kind=RP),   intent(in)    :: ranks(:)
-      !-local-variables-------------------------------------------------------------------
 #ifdef _HAS_MPI_
-      real(kind=RP), allocatable :: normals_x(:,:), normals_y(:,:), normals_z(:,:)
-      integer,       allocatable :: recv_req(:,:)
-      integer                    :: i, ierr, rank, nProcs,                          &
-                                    array_of_statuses(MPI_STATUS_SIZE,3)
+      !-local-variables-----------------------------------------------------------
+      real(kind=RP), allocatable :: coords(:,:), xiB(:), xiI(:)
+      integer,       allocatable :: face_order(:,:), face_index(:)
+      integer                    :: i, j, k, fID, m, l, nProcs, ierr, domain,       &
+                                    recv_req(11), NumOfFaces, NumOfObjs, NumOfDoFs, &
+                                    array_of_statuses(MPI_STATUS_SIZE,11) 
 
-      allocate( normals_x(PointsList% NumOfObjs,MPI_Process% nProcs-1), &
-                normals_y(PointsList% NumOfObjs,MPI_Process% nProcs-1), &
-                normals_z(PointsList% NumOfObjs,MPI_Process% nProcs-1), &
-                recv_req(MPI_Process% nProcs-1,3)                       )
- 
-      do nProcs = 2, MPI_Process% nProcs 
- 
-         call mpi_irecv( normals_x(:,nProcs-1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+      if( MPI_Process% isRoot ) return
+      
+      do domain = 0, MPI_Process% nProcs-1
 
-         call mpi_irecv( normals_y(:,nProcs-1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+         call mpi_irecv( NumOfFaces, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
 
-         call mpi_irecv( normals_z(:,nProcs-1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+         call mpi_wait(recv_req(1), MPI_STATUS_IGNORE, ierr) 
 
-         call mpi_waitall(3, recv_req(nProcs-1,:), array_of_statuses, ierr ) 
+         IBM_HO_faces(domain)% NumOfFaces = NumOfFaces
+
+         if( NumOfFaces .eq. 0 ) cycle
+
+         call mpi_irecv( NumOfObjs, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr )
+
+         call mpi_wait(recv_req(2), MPI_STATUS_IGNORE, ierr)
+
+         IBM_HO_faces(domain)% NumOfObjs = NumOfObjs
+
+         call mpi_irecv( NumOfDoFs, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr )
+
+         call mpi_wait(recv_req(3), MPI_STATUS_IGNORE, ierr)
+
+         IBM_HO_faces(domain)% NumOfDoFs = NumOfDoFs
+
+         allocate( coords(NumOfObjs,NDIM),        &
+                   xiB(NumOfDoFs),                &
+                   xiI(NumOfDoFs),                &
+                   face_order(NumOfFaces,NDIM-1), &
+                   face_index(NumOfFaces)         )
+
+         call mpi_irecv( coords(:,1), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr )
+
+         call mpi_irecv( coords(:,2), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr )
+
+         call mpi_irecv( coords(:,3), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr )
+
+         call mpi_irecv( xiB, NumOfDoFs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr )
+
+         call mpi_irecv( xiI, NumOfDoFs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr )
+
+         call mpi_irecv( face_order(:,1), NumOfFaces, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr )
+
+         call mpi_irecv( face_order(:,2), NumOfFaces, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(10), ierr )
+
+         call mpi_irecv( face_index, NumOfFaces, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(11), ierr )
+
+         call mpi_waitall(11, recv_req, array_of_statuses, ierr)
+
+         if( domain .ne. MPI_Process% rank ) then 
+            allocate(IBM_HO_faces(domain)% faces(NumOfFaces))
+            m = 0; l = 0
+            do fID = 1, NumOfFaces
+               associate( f => IBM_HO_faces(domain)% faces(fID) )
+               f% Nf(1) = face_order(fID,1)
+               f% Nf(2) = face_order(fID,2)
+               f% ID   = face_index(fID)
+               call f% StencilConstruct()
+               do i = 0, face_order(fID,1); do j = 0, face_order(fID,2)
+                  l = l + 1
+                  f% stencil(i,j)% xiB = xiB(l)
+                  f% stencil(i,j)% xiI = xiI(l)
+                  do k = 0, f% stencil(i,j)% N
+                     m = m + 1 
+                     f% stencil(i,j)% x_s(:,k) = coords(m,:)
+                  end do
+               end do; end do 
+               end associate
+            end do
+         end if 
+
+         deallocate( coords,     &
+                     xiB,        &
+                     xiI,        &
+                     face_order, &
+                     face_index  )
 
       end do
+#endif
+   end subroutine RecvFacesPartitions
 
-      do i = 1, PointsList% NumOfObjs
-         rank = ranks(i)
-         if( rank .eq. 0 ) cycle
-         PointsList% x(i)% normal(1) = normals_x(i,rank)
-         PointsList% x(i)% normal(2) = normals_y(i,rank)
-         PointsList% x(i)% normal(3) = normals_z(i,rank)
-      end do 
-
-      deallocate( normals_x, &
-                  normals_y, &
-                  normals_z, &
-                  recv_req   )
-#endif 
-   end subroutine recvNormalsRoot
-
-   subroutine sendNormals2Root( PointsList )
+   subroutine SendFaces2Partitions( )
       implicit none 
-      !-arguments-----------------------------------------------------------------
-      type(IBMPoints), intent(in) :: PointsList
 #ifdef _HAS_MPI_
       !-local-variables----------------------------------------------------------
-      real(kind=RP), allocatable :: normals(:,:)
-      integer                    :: send_req(3), ierr, i,                &
-                                    array_of_statuses(MPI_STATUS_SIZE,3)
-          
-      if( MPI_Process% isRoot ) return
+      real(kind=RP), allocatable :: coords(:,:), xiB(:), xiI(:)
+      integer,       allocatable :: face_order(:,:), face_index(:),           &
+                                    send_req(:,:)
+      integer                    :: i, j, k, m, l, nProcs, ierr, domain, fID, &
+                                    NumOfObjs, NumOfFaces, NumOfDoFs,         &
+                                    array_of_statuses(MPI_STATUS_SIZE,11)
 
-      allocate(normals(PointsList% NumOfObjs,NDIM))
-
-      do i = 1, PointsList% NumOfObjs
-         normals(i,:) = PointsList% x(i)% normal
-      end do
-
-      call mpi_isend( normals(:,1), PointsList% NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
-
-      call mpi_isend( normals(:,2), PointsList% NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
-
-      call mpi_isend( normals(:,3), PointsList% NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
-
-      call mpi_waitall(3, send_req, array_of_statuses, ierr)
-
-      deallocate(normals)
-#endif
-   end subroutine sendNormals2Root
-
-   subroutine recvDistancesANDNormalspartitions( PointsList )
-      implicit none
-      !-arguments------------------------------------------------------------------------------
-      type(IBMPoints), intent(inout) :: PointsList
-#ifdef _HAS_MPI_
-      !-local-variables------------------------------------------------------------------------
-      real(kind=RP), allocatable :: normals(:,:), Dist(:)
-      integer                    :: i, ierr, recv_req(4),                &
-                                    array_of_statuses(MPI_STATUS_SIZE,4)
-
-      if( MPI_Process% isRoot ) return
-
-      allocate( normals(PointsList% NumOfObjs,NDIM), &
-                Dist(PointsList% NumOfObjs)          )
-
-      call mpi_irecv( normals(:,1), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr ) 
-
-      call mpi_irecv( normals(:,2), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr ) 
-      
-      call mpi_irecv( normals(:,3), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr ) 
-
-      call mpi_irecv( Dist, PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr ) 
-
-      call mpi_waitall(4, recv_req, array_of_statuses, ierr)
-
-      do i = 1, PointsList% NumOfObjs
-         PointsList% x(i)% normal = normals(i,:)
-         PointsList% x(i)% Dist   = Dist(i)
-      end do
-
-      deallocate( normals, &
-                  Dist     )
-#endif
-   end subroutine recvDistancesANDNormalspartitions
-
-   subroutine sendDistanceANDNormals2partitions( PointsList )
-      implicit none
-      !-arguments------------------------------------------------------------------------------
-      type(IBMPoints), intent(in) :: PointsList
-#ifdef _HAS_MPI_
-      !-local-variables------------------------------------------------------------------------
-      real(kind=RP), allocatable :: normals(:,:), Dist(:)
-      integer,       allocatable :: send_req(:,:)
-      integer                    :: i, ierr, nProcs, array_of_statuses(MPI_STATUS_SIZE,4)
-
-      allocate( normals(PointsList% NumOfObjs,NDIM), &
-                Dist(PointsList% NumOfObjs),         &
-                send_req(MPI_Process% nProcs-1,4)    )
-
-      do i = 1, PointsList% NumOfObjs
-         normals(i,:) = PointsList% x(i)% normal
-         Dist(i)      = PointsList% x(i)% Dist
-      end do
+      allocate(send_req(MPI_Process% nProcs-1,11))
 
       do nProcs = 2, MPI_Process% nProcs
+         do domain = 0, MPI_Process% nProcs-1
+            NumOfFaces = IBM_HO_faces(domain)% NumOfFaces
+            NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs
+            NumOfDoFs  = IBM_HO_faces(domain)% NumOfDoFs
 
-         call mpi_isend( normals(:,1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
+            call mpi_isend( NumOfFaces, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
 
-         call mpi_isend( normals(:,2), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+            call mpi_wait(send_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr)
+      
+            if( NumOfFaces .eq. 0 ) cycle
+      
+            call mpi_isend( NumOfObjs, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+      
+            call mpi_wait(send_req(nProcs-1,2), MPI_STATUS_IGNORE, ierr)
 
-         call mpi_isend( normals(:,3), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+            call mpi_isend( NumOfDoFs, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+      
+            call mpi_wait(send_req(nProcs-1,3), MPI_STATUS_IGNORE, ierr)
+ 
+            allocate( coords(NumOfObjs,NDIM),        &
+                      xiB(NumOfDoFs),                &
+                      xiI(NumOfDoFs),                &
+                      face_order(NumOfFaces,NDIM-1), &
+                      face_index(NumOfFaces)         )
+            
+            m = 0; l = 0
+            do fID = 1, NumOfFaces
+               associate( f => IBM_HO_faces(domain)% faces(fID) )
+               face_index(fID)   = f% ID 
+               face_order(fID,1) = f% Nf(1) 
+               face_order(fID,2) = f% Nf(2) 
+               do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+                  l = l + 1
+                  xiB(l) = f% stencil(i,j)% xiB 
+                  xiI(l) = f% stencil(i,j)% xiI 
+                  do k = 0, f% stencil(i,j)% N
+                     m = m + 1 
+                     coords(m,1) = f% stencil(i,j)% x_s(1,k)
+                     coords(m,2) = f% stencil(i,j)% x_s(2,k)
+                     coords(m,3) = f% stencil(i,j)% x_s(3,k)
+                  end do 
+               end do; end do 
+               end associate
+            end do   
+
+            call mpi_isend( coords(:,1), NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
+
+            call mpi_isend( coords(:,2), NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,5), ierr )
+
+            call mpi_isend( coords(:,3), NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,6), ierr )
+
+            call mpi_isend( xiB, NumOfDoFs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,7), ierr )
+
+            call mpi_isend( xiI, NumOfDoFs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,8), ierr )
+
+            call mpi_isend( face_order(:,1), NumOfFaces, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,9), ierr )
+
+            call mpi_isend( face_order(:,2), NumOfFaces, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,10), ierr )
+
+            call mpi_isend( face_index, NumOfFaces, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,11), ierr )
+      
+            call mpi_waitall(11, send_req(nProcs-1,:), array_of_statuses, ierr)
+
+            deallocate( coords,     &
+                        xiB,        &
+                        xiI,        &
+                        face_order, &
+                        face_index  )
+         end do 
+      end do
+      
+      deallocate( send_req )
+#endif
+   end subroutine SendFaces2Partitions
+
+   subroutine RecvFacesRoot( )
+      implicit none 
+#ifdef _HAS_MPI_
+      !-local-variables-------------------------------------------------------------------
+      real(kind=RP), allocatable :: coords(:,:), xiB(:), xiI(:)
+      integer,       allocatable :: face_order(:,:), face_index(:), recv_req(:,:)
+      integer                    :: i, j, k, m, l, N, fID, ierr,                         &
+                                    rank, nProcs, array_of_statuses(MPI_STATUS_SIZE,11), &
+                                    NumOfObjs, NumOfFaces, NumOfDoFs
+
+      allocate( recv_req(MPI_Process% nProcs-1,11) )
+
+      do nProcs = 2, MPI_Process% nProcs 
+
+         call mpi_irecv( NumOfFaces, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+
+         call mpi_wait(recv_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr) 
+
+         IBM_HO_faces(nProcs-1)% NumOfFaces = NumOfFaces
+
+         if( NumOfFaces .eq. 0 ) cycle
+
+         call mpi_irecv( NumOfObjs, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+
+         call mpi_wait(recv_req(nProcs-1,2), MPI_STATUS_IGNORE, ierr)
+
+         IBM_HO_faces(nProcs-1)% NumOfObjs = NumOfObjs
+
+         call mpi_irecv( NumOfDoFs, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+
+         call mpi_wait(recv_req(nProcs-1,3), MPI_STATUS_IGNORE, ierr)
+
+         IBM_HO_faces(nProcs-1)% NumOfDoFs = NumOfDoFs
+
+         allocate( coords(NumOfObjs,NDIM),        &
+                   xiB(NumOfDoFs),                &
+                   xiI(NumOfDoFs),                &
+                   face_order(NumOfFaces,NDIM-1), &
+                   face_index(NumOfFaces)         )
+
+         call mpi_irecv( coords(:,1), NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+
+         call mpi_irecv( coords(:,2), NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,5), ierr )
+
+         call mpi_irecv( coords(:,3), NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,6), ierr )
+
+         call mpi_irecv( xiB, NumOfDoFs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,7), ierr )
+
+         call mpi_irecv( xiI, NumOfDoFs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,8), ierr )
          
-         call mpi_isend( Dist, PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
+         call mpi_irecv( face_order(:,1), NumOfFaces, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,9), ierr )
+         
+         call mpi_irecv( face_order(:,2), NumOfFaces, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,10), ierr )
 
-         call mpi_waitall(4, send_req(nProcs-1,:), array_of_statuses, ierr)
+         call mpi_irecv( face_index, NumOfFaces, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,11), ierr )
+
+         call mpi_waitall(11, recv_req(nProcs-1,:), array_of_statuses, ierr)         
+         
+         allocate( IBM_HO_faces(nProcs-1)% faces(NumOfFaces) )
+         m = 0; l = 0
+         do fID = 1, NumOfFaces
+            associate( f => IBM_HO_faces(nProcs-1)% faces(fID) )
+            f% Nf(1) = face_order(fID,1)
+            f% Nf(2) = face_order(fID,2)
+            f% ID    = face_index(fID)
+            call f% StencilConstruct()
+            do i = 0, face_order(fID,1); do j = 0, face_order(fID,2) 
+               l = l + 1
+               f% stencil(i,j)% xiB = xiB(l)
+               f% stencil(i,j)% xiI = xiI(l)
+               do k = 0, f% stencil(i,j)% N
+                  m = m + 1 
+                  f% stencil(i,j)% x_s(:,k) = coords(m,:) 
+               end do 
+            end do; end do
+            end associate
+         end do 
+
+         deallocate( coords,     &
+                     xiB,        &
+                     xiI,        &
+                     face_order, &
+                     face_index  )
 
       end do
-
-      deallocate( normals, &
-                  Dist,    &
-                  send_req )
+      
+      deallocate( recv_req )
 #endif
-   end subroutine sendDistanceANDNormals2partitions
+   end subroutine RecvFacesRoot
+
+   subroutine SendFaces2Root()
+      implicit none 
+#ifdef _HAS_MPI_
+      !-local-variables--------------
+      real(kind=RP), allocatable :: coords(:,:), xiB(:), xiI(:)
+      integer,       allocatable :: face_order(:,:), face_index(:)
+      integer                    :: fID, i, j, k, m, l, send_req(11), ierr,  &
+                                    array_of_statuses(MPI_STATUS_SIZE,11),   &
+                                    domain, NumOfFaces, NumOfObjs, NumOfDoFs
+
+      if( MPI_Process% isRoot ) return
+
+      domain     = MPI_Process% rank   
+      NumOfFaces = IBM_HO_faces(domain)% NumOfFaces
+      NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs 
+      NumOfDoFs  = IBM_HO_faces(domain)% NumOfDoFs 
+
+      call mpi_isend( NumOfFaces, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+      call mpi_wait( send_req(1), MPI_STATUS_IGNORE, ierr )
+
+      if( NumOfFaces .eq. 0 ) return
+
+      call mpi_isend( NumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+      call mpi_wait( send_req(2), MPI_STATUS_IGNORE, ierr )
+
+      call mpi_isend( NumOfDoFs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+      call mpi_wait( send_req(3), MPI_STATUS_IGNORE, ierr )
+
+      allocate( coords(NumOfObjs,NDIM),        &
+                xiB(NumOfDoFs),                &
+                xiI(NumOfDoFs),                &
+                face_order(NumOfFaces,NDIM-1), &
+                face_index(NumOfFaces)         )
+
+      m = 0; l = 0
+      do fID = 1, NumOfFaces
+         associate(f => IBM_HO_faces(domain)% faces(fID))
+         face_order(fID,1) = f% Nf(1)
+         face_order(fID,2) = f% Nf(2)
+         face_index(fID)   = f% ID 
+         do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+            l = l + 1 
+            xiB(l) = f% stencil(i,j)% xiB
+            xiI(l) = f% stencil(i,j)% xiI
+            do k = 0, f% stencil(i,j)% N
+               m = m + 1 
+               coords(m,1) = f% stencil(i,j)% x_s(1,k)
+               coords(m,2) = f% stencil(i,j)% x_s(2,k)
+               coords(m,3) = f% stencil(i,j)% x_s(3,k)
+            end do 
+         end do; end do 
+         end associate
+      end do
+
+      call mpi_isend( coords(:,1), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(4), ierr )
+
+      call mpi_isend( coords(:,2), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(5), ierr )
+
+      call mpi_isend( coords(:,3), NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(6), ierr )
+
+      call mpi_isend( xiB, NumOfDoFs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(7), ierr )
+
+      call mpi_isend( xiI, NumOfDoFs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(8), ierr )
+
+      call mpi_isend( face_order(:,1), NumOfFaces, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(9), ierr )
+
+      call mpi_isend( face_order(:,2), NumOfFaces, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(10), ierr )
+
+      call mpi_isend( face_index, NumOfFaces, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(11), ierr )
+      
+      call mpi_waitall(11, send_req, array_of_statuses, ierr)
+
+      deallocate( coords,     &
+                  xiB,        &
+                  xiI,        &
+                  face_order, &
+                  face_index  )
+#endif
+   end subroutine SendFaces2Root
 
 
-   subroutine recvScalarPlotRoot( ObjectsList, STLNum, rootScalar, x, y, z, scalar )
+   subroutine RecvFacesStatePartitions( )
+      implicit none 
+#ifdef _HAS_MPI_
+      !-local-variables-----------------------------------------------------------
+      real(kind=RP), allocatable :: u(:), v(:), w(:)
+      integer                    :: i, j, k, fID, m, nProcs, ierr, domain, &
+                                    recv_req(3), NumOfFaces, NumOfObjs,    &
+                                    array_of_statuses(MPI_STATUS_SIZE,3) 
+
+      if( MPI_Process% isRoot ) return
+      
+      do domain = 0, MPI_Process% nProcs-1
+
+         NumOfFaces = IBM_HO_faces(domain)% NumOfFaces
+         NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs
+
+         if( NumOfFaces .eq. 0 ) cycle
+
+         allocate( u(NumOfObjs), &
+                   v(NumOfObjs), &
+                   w(NumOfObjs)  )
+
+         call mpi_irecv( u, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
+
+         call mpi_irecv( v, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr )
+
+         call mpi_irecv( w, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr )
+
+         call mpi_waitall(3, recv_req, array_of_statuses, ierr)
+
+         m = 0 
+         do fID = 1, NumOfFaces
+            associate( f => IBM_HO_faces(domain)% faces(fID) )
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               do k = 0, f% stencil(i,j)% N
+                  m = m + 1 
+                  f% stencil(i,j)% UU(IX,k) = u(m)
+                  f% stencil(i,j)% UU(IY,k) = v(m)
+                  f% stencil(i,j)% UU(IZ,k) = w(m)
+               end do
+            end do; end do 
+            end associate
+         end do
+
+         deallocate( u, &
+                     v, &
+                     w  )
+
+      end do
+#endif
+   end subroutine RecvFacesStatePartitions
+
+   subroutine SendFacesState2Partitions( )
+      implicit none 
+#ifdef _HAS_MPI_
+      !-local-variables----------------------------------------------------------
+      real(kind=RP), allocatable :: u(:), v(:), w(:)
+      integer,       allocatable :: send_req(:,:)
+      integer                    :: i, j, k, m, nProcs, ierr, domain, fID, &
+                                    NumOfObjs, NumOfFaces,                 &
+                                    array_of_statuses(MPI_STATUS_SIZE,3)
+
+      allocate(send_req(MPI_Process% nProcs-1,3))
+
+      do nProcs = 2, MPI_Process% nProcs
+         do domain = 0, MPI_Process% nProcs-1
+
+            NumOfFaces = IBM_HO_faces(domain)% NumOfFaces
+            NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs
+
+            if( NumOfFaces .eq. 0 ) cycle
+ 
+            allocate( u(NumOfObjs), &
+                      v(NumOfObjs), &
+                      w(NumOfObjs)  )
+            
+            m = 0 
+            do fID = 1, NumOfFaces
+               associate( f => IBM_HO_faces(domain)% faces(fID) )
+               do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+                  do k = 0, f% stencil(i,j)% N
+                     m = m + 1 
+                     u(m) = f% stencil(i,j)% UU(IX,k)
+                     v(m) = f% stencil(i,j)% UU(IY,k)
+                     w(m) = f% stencil(i,j)% UU(IZ,k)
+                  end do 
+               end do; end do 
+               end associate
+            end do   
+
+            call mpi_isend( u, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
+
+            call mpi_isend( v, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+ 
+            call mpi_isend( w, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+      
+            call mpi_waitall(3, send_req(nProcs-1,:), array_of_statuses, ierr)
+
+            deallocate( u, &
+                        v, &
+                        w  )
+         end do 
+      end do
+      
+      deallocate( send_req )
+#endif
+   end subroutine SendFacesState2Partitions
+
+   subroutine RecvFacesStateRoot()
+      implicit none 
+#ifdef _HAS_MPI_
+      !-local-variables-------------------------------------------------------------------
+      real(kind=RP), allocatable :: u(:), v(:), w(:)
+      logical,       allocatable :: state(:)
+      integer,       allocatable :: recv_req(:,:)
+      integer                    :: i, j, k, m, N, fID, ierr, l,                  &
+                                    nProcs, array_of_statuses(MPI_STATUS_SIZE,4), &
+                                    NumOfObjs, NumOfFaces, NumOfDoFs, domain
+
+      if( .not. MPI_Process% isRoot ) return
+
+      allocate( recv_req(MPI_Process% nProcs-1,4) )
+
+      do nProcs = 2, MPI_Process% nProcs 
+         do domain = 0, MPI_Process% nProcs-1
+
+            NumOfFaces = IBM_HO_faces(domain)% NumOfFaces
+            NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs
+            NumOfDoFs  = IBM_HO_faces(domain)% NumOfDoFs
+
+            if( NumOfFaces .eq. 0 ) cycle 
+
+            allocate( u(NumOfObjs),    &
+                      v(NumOfObjs),    &
+                      w(NumOfObjs),    &
+                      state(NumOfDoFs) )
+
+            call mpi_irecv( u, NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+
+            call mpi_irecv( v, NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+
+            call mpi_irecv( w, NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+            
+            call mpi_irecv( state, NumOfDoFs, MPI_LOGICAL, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+
+            call mpi_waitall(4, recv_req(nProcs-1,:), array_of_statuses, ierr)         
+         
+            m = 0; l = 0
+            do fID = 1, NumOfFaces
+               associate( f => IBM_HO_faces(domain)% faces(fID) )
+               do i = 0, f% Nf(1); do j = 0, f% Nf(2) 
+                  l = l + 1 
+                  if( .not. state(l) ) then 
+                     m = m + (f% stencil(i,j)% N + 1)
+                  else
+                     do k = 0, f% stencil(i,j)% N
+                        m = m + 1 
+                        f% stencil(i,j)% UU(IX,k) = u(m) 
+                        f% stencil(i,j)% UU(IY,k) = v(m) 
+                        f% stencil(i,j)% UU(IZ,k) = w(m) 
+                     end do 
+                  end if 
+               end do; end do
+               end associate
+            end do 
+
+            deallocate( u,    &
+                        v,    &
+                        w,    &
+                        state )
+
+         end do
+      end do
+      
+      deallocate( recv_req )
+#endif
+   end subroutine RecvFacesStateRoot
+
+   subroutine SendFacesState2Root()
+      
+      implicit none 
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: u(:), v(:), w(:)
+      logical,       allocatable :: state(:)
+      integer                    :: NumOfObjs, domain, fID, m, i, j, k, l, ierr, &
+                                    array_of_statuses(MPI_STATUS_SIZE,4),        &
+                                    send_req(4), NumOfFaces, NumOfDoFs
+
+      if( MPI_Process% isRoot ) return
+
+      do domain = 0, MPI_Process% nProcs-1
+
+         NumOfFaces = IBM_HO_faces(domain)% NumOfFaces
+         NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs  
+         NumOfDoFs  = IBM_HO_faces(domain)% NumOfDoFs  
+
+         if( NumOfFaces .eq. 0 ) cycle 
+
+         allocate( u(NumOfObjs),    &
+                   v(NumOfObjs),    &
+                   w(NumOfObjs),    &
+                   state(NumOfDoFs) )
+
+         m = 0; l = 0
+         do fID = 1, NumOfFaces
+            associate( f => IBM_HO_faces(domain)% faces(fID) )
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               l = l + 1
+               state(l) = f% stencil(i,j)% state
+               do k = 0, f% stencil(i,j)% N 
+                  m    = m + 1
+                  u(m) = f% stencil(i,j)% UU(IX,k)
+                  v(m) = f% stencil(i,j)% UU(IY,k)
+                  w(m) = f% stencil(i,j)% UU(IZ,k)
+               end do 
+            end do; end do 
+            end associate 
+         end do 
+
+         call mpi_isend( u, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+
+         call mpi_isend( v, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+
+         call mpi_isend( w, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+
+         call mpi_isend( state, NumOfDoFs, MPI_LOGICAL, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(4), ierr )
+         
+         call mpi_waitall(4, send_req, array_of_statuses, ierr)
+
+         deallocate( u,    &
+                     v,    & 
+                     w,    &
+                     state )
+
+      end do
+#endif
+   end subroutine SendFacesState2Root
+
+   subroutine MPIProcedures_IBM_HO_faces()
+
+      implicit none 
+
+      if( MPI_Process% doMPIAction ) then
+         call SendFaces2Root()
+      end if
+      
+      if( MPI_Process% doMPIRootAction ) then 
+         call RecvFacesRoot()
+      end if
+
+      if( MPI_Process% doMPIRootAction ) then 
+         call SendFaces2partitions()
+      end if
+ 
+      if( MPI_Process% doMPIAction ) then
+         call RecvFacespartitions()
+      end if
+
+   end subroutine MPIProcedures_IBM_HO_faces
+
+   subroutine MPIStateProcedures_IBM_HO_faces()
+
+      implicit none 
+
+      if( MPI_Process% doMPIAction ) then
+         call SendFacesState2Root()
+      end if
+      
+      if( MPI_Process% doMPIRootAction ) then 
+         call RecvFacesStateRoot()
+      end if
+
+      if( MPI_Process% doMPIRootAction ) then 
+         call SendFacesState2partitions()
+      end if
+ 
+      if( MPI_Process% doMPIAction ) then
+         call RecvFacesStatepartitions()
+      end if
+
+   end subroutine MPIStateProcedures_IBM_HO_faces
+
+   subroutine IBM_HO_findElements( elements )
+      use ElementClass
+      implicit none 
+
+      type(element), intent(inout) :: elements(:)
+
+      real(kind=RP) :: xi(NDIM)
+      logical       :: FOUND
+      integer       :: domain, fID, i, j, k, eID
+      
+      do domain = 0, MPI_Process% nProcs-1
+         do fID = 1, IBM_HO_faces(domain)% NumOfFaces
+            associate( f => IBM_HO_faces(domain)% faces(fID) )
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               f% stencil(i,j)% state = .false.
+               do eID = 1, size(elements)
+                  associate(e => elements(eID))
+                  if( e% FindPointWithCoords(f% stencil(i,j)% x_s(:,0), 0, xi) ) then
+                     f% stencil(i,j)% state     = .true.
+                     f% stencil(i,j)% partition = MPI_Process% rank 
+                     f% stencil(i,j)% xi_s(:,0) = xi 
+                     f% stencil(i,j)% eIDs(0)   = eID
+                     do k = 1, f% stencil(i,j)% N 
+                        FOUND = e% FindPointWithCoords(f% stencil(i,j)% x_s(:,k), 0, f% stencil(i,j)% xi_s(:,k))
+                        f% stencil(i,j)% eIDs(k) = eID
+                     end do
+                     exit 
+                  end if 
+                  end associate
+               end do 
+            end do; end do 
+            end associate 
+         end do
+      end do
+  
+   end subroutine IBM_HO_findElements
+
+   subroutine Set_IBM_HO_faces( faces )
+
+      implicit none 
+
+      type(face), intent(inout) :: faces(:)
+
+      integer :: i, j, k, fID, m, domain
+
+      allocate( IBM_HO_faces(0:MPI_Process% nProcs-1) )
+ 
+      domain = MPI_Process% rank
+
+      IBM_HO_faces(domain)% NumOfObjs  = 0
+      IBM_HO_faces(domain)% NumOfFaces = 0 
+      IBM_HO_faces(domain)% NumOfDoFs  = 0 
+      do fID = 1, size(faces)
+         associate(f => faces(fID))
+         if( f% HO_IBM ) then 
+            IBM_HO_faces(domain)% NumOfFaces = IBM_HO_faces(domain)% NumOfFaces + 1
+            IBM_HO_faces(domain)% NumOfObjs  = IBM_HO_faces(domain)% NumOfObjs + (f% stencil(i,j)% N+1)*(f% Nf(1)+1)*(f% Nf(2)+1) 
+            IBM_HO_faces(domain)% NumOfDoFs  = IBM_HO_faces(domain)% NumOfDoFs + (f% Nf(1)+1)*(f% Nf(2)+1) 
+         end if 
+         end associate 
+      end do
+      
+      allocate(IBM_HO_faces(domain)% faces(IBM_HO_faces(domain)% NumOfFaces))
+
+      m = 0 
+      do fID = 1, size(faces)
+         associate(f => faces(fID))
+         if( f% HO_IBM ) then 
+            m = m + 1 
+            IBM_HO_faces(domain)% faces(m)% Nf(1) = f% Nf(1)
+            IBM_HO_faces(domain)% faces(m)% Nf(2) = f% Nf(2)
+            IBM_HO_faces(domain)% faces(m)% ID    = f% ID 
+            f% HO_ID                              = m
+            f% domain                             = MPI_Process% rank
+            call IBM_HO_faces(domain)% faces(m)% StencilConstruct()
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               IBM_HO_faces(domain)% faces(m)% stencil(i,j)% xiB = f% stencil(i,j)% xiB
+               IBM_HO_faces(domain)% faces(m)% stencil(i,j)% xiI = f% stencil(i,j)% xiI
+               do k = 0, f% stencil(i,j)% N 
+                  IBM_HO_faces(domain)% faces(m)% stencil(i,j)% x_s(:,k) = f% stencil(i,j)% x_s(:,k)
+               end do 
+            end do; end do 
+         end if 
+         end associate 
+      end do
+
+   end subroutine Set_IBM_HO_faces
+
+!________________________________________________________________________________________________________________________________
+
+   subroutine recvScalarPlotRoot( stl, STLNum, x, y, z, scalar )
 
       implicit none
-      type(Object_type),          intent(in)    :: ObjectsList(:)
+
+      type(STLfile),              intent(in)    :: stl
       integer,                    intent(in)    :: STLNum
-      real(kind=RP),              intent(in)    :: rootScalar(:,:)
       real(kind=RP), allocatable, intent(inout) :: x(:), y(:), z(:), scalar(:)
       !-local-variables-------------------------------------------------------------------
       real(kind=RP)              :: coords(NDIM)
-      integer                    :: i, j, k, rootNumOfObjs       
+      integer                    :: i, j, k, NumOfObjs       
 #ifdef _HAS_MPI_      
-      integer                    :: ierr, nProcs, rank, ObjsSize, start_index,        &
-                                    final_index, array_of_statuses(MPI_STATUS_SIZE,4)
-      integer,       allocatable :: recv_req(:,:), recv_Firstreq(:), NumOfObjs(:)
+      integer                    :: ierr, nProcs, start_index, final_index, &
+                                    array_of_statuses(MPI_STATUS_SIZE,4)
+      integer,       allocatable :: recv_req(:,:), recv_Firstreq(:), NumOfObjspartition(:)
       real(kind=RP), allocatable :: COORD_x(:), COORD_y(:), COORD_z(:), state(:)
 #endif
       if( .not. MPI_Process% isRoot ) return
 
-      rootNumOfObjs = 3*size(ObjectsList)
+      NumOfObjs = NumOfVertices * stl% NumOfObjs
 #ifdef _HAS_MPI_ 
-
-      allocate( NumOfObjs(MPI_Process% nProcs-1),    &
-                recv_Firstreq(MPI_Process% nProcs-1) )
+      allocate( NumOfObjspartition(MPI_Process% nProcs-1), &
+                recv_Firstreq(MPI_Process% nProcs-1)       )
 
       do nProcs = 2, MPI_Process% nProcs
          
-         call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_Firstreq(nProcs-1), ierr ) 
+         call mpi_irecv( NumOfObjspartition(nProcs-1), 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_Firstreq(nProcs-1), ierr ) 
          call mpi_wait( recv_Firstreq(nProcs-1), MPI_STATUS_IGNORE, ierr )
-
-         NumOfObjs(nProcs-1) = ObjsSize
 
       end do 
 
       deallocate(recv_Firstreq)
 
-      allocate( x(rootNumOfObjs+sum(NumOfObjs)),      &
-                y(rootNumOfObjs+sum(NumOfObjs)),      &
-                z(rootNumOfObjs+sum(NumOfObjs)),      &
-                scalar(rootNumOfObjs+sum(NumOfObjs)), &
-                COORD_x(sum(NumOfObjs)),              &
-                COORD_y(sum(NumOfObjs)),              &
-                COORD_z(sum(NumOfObjs)),              &
-                state(sum(NumOfObjs)),                &
-                recv_req(MPI_Process% nProcs-1,4)     )
+      allocate( x(NumOfObjs+sum(NumOfObjspartition)),      &
+                y(NumOfObjs+sum(NumOfObjspartition)),      &
+                z(NumOfObjs+sum(NumOfObjspartition)),      &
+                scalar(NumOfObjs+sum(NumOfObjspartition)), &
+                recv_req(MPI_Process% nProcs-1,4)          )
+
+      start_index = NumOfObjs
  
       do nProcs = 2, MPI_Process% nProcs  
 
-         start_index = sum(NumOfObjs(1:nProcs-2)) + 1 
-         final_index = (start_index-1) + NumOfObjs(nProcs-1)
+         allocate( COORD_x(NumOfObjspartition(nProcs-1)), &
+                   COORD_y(NumOfObjspartition(nProcs-1)), & 
+                   COORD_z(NumOfObjspartition(nProcs-1)), & 
+                   state(NumOfObjspartition(nProcs-1))    )
 
-         call mpi_irecv( COORD_x(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+         call mpi_irecv( COORD_x, NumOfObjspartition(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
 
-         call mpi_irecv( COORD_y(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+         call mpi_irecv( COORD_y, NumOfObjspartition(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
         
-         call mpi_irecv( COORD_z(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+         call mpi_irecv( COORD_z, NumOfObjspartition(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
         
-         call mpi_irecv( state(start_index:final_index),   NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+         call mpi_irecv( state,   NumOfObjspartition(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
 
          call mpi_waitall(4, recv_req(nProcs-1,:), array_of_statuses, ierr)  
 
-      end do
-      do i = 1, sum(NumOfObjs)
-         x(rootNumOfObjs+i)      = COORD_x(i)
-         y(rootNumOfObjs+i)      = COORD_y(i)
-         z(rootNumOfObjs+i)      = COORD_z(i)
-         scalar(rootNumOfObjs+i) = state(i)
-      end do  
+         do i = 1, NumOfObjspartition(nProcs-1)
+            x(start_index+i)      = COORD_x(i)
+            y(start_index+i)      = COORD_y(i)
+            z(start_index+i)      = COORD_z(i)
+            scalar(start_index+i) = state(i)
+         end do
 
-      deallocate( NumOfObjs, COORD_x, COORD_y, COORD_z, state, recv_req )
+         start_index = start_index + NumOfObjspartition(nProcs-1)
+
+         deallocate(COORD_x, COORD_y, COORD_z, state)
+
+      end do
+
+      deallocate( NumOfObjspartition, recv_req )
 #else
-      allocate( x(rootNumOfObjs),      &
-                y(rootNumOfObjs),      &
-                z(rootNumOfObjs),      &
-                scalar(rootNumOfObjs)  )
+      allocate( x(NumOfObjs),     &
+                y(NumOfObjs),     &
+                z(NumOfObjs),     &
+                scalar(NumOfObjs) )
 #endif  
       k = 0
-      do i = 1, size(ObjectsList)
-         do j = 1, size(ObjectsList(i)% vertices)
-            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+      do i = 1, stl% NumOfObjs
+         associate(obj => stl% ObjectsList(i))
+         do j = 1, NumOfVertices
+            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords, GLOBAL, coords)
             k         = k + 1
             x(k)      = coords(1)
             y(k)      = coords(2)
             z(k)      = coords(3)
-            scalar(k) = Rootscalar(i,j)
+            scalar(k) = obj% IntegrationVertices(j)% ScalarValue
          end do
+         end associate
       end do
 
    end subroutine recvScalarPlotRoot
 
-   subroutine sendScalarPlotRoot( ObjectsList, STLNum, partitionScalar )
-      implicit none 
+   subroutine sendScalarPlotRoot( stl, STLNum )
 
+      implicit none 
       !-arguments-------------------------------------------------------------------------
-      type(Object_type), intent(in) :: ObjectsList(:)
-      integer,           intent(in) :: STLNum
-      real(kind=RP),     intent(in) :: partitionScalar(:,:)      
+      type(STLfile), intent(in) :: stl
+      integer,       intent(in) :: STLNum    
 #ifdef _HAS_MPI_      
       !-local-variables-------------------------------------------------------------------
       integer                    :: ierr, i, j, k, NumOfObjs, status(MPI_STATUS_SIZE), &
@@ -1178,7 +2085,7 @@ contains
 
       if( MPI_Process% isRoot ) return
 
-      NumOfObjs = 3*size(ObjectsList)
+      NumOfObjs = NumOfVertices * stl% NumOfObjs
 
       call mpi_isend( NumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_Firstreq, ierr )
 
@@ -1190,15 +2097,17 @@ contains
                 state(NumOfObjs)    )
                   
       k = 0
-      do i = 1, size(ObjectsList)
-         do j = 1, size(ObjectsList(i)% vertices)
-            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+      do i = 1, stl% NumOfObjs
+         associate(obj => stl% ObjectsList(i))
+         do j = 1, NumOfVertices
+            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords, GLOBAL, coords)
             k          = k + 1
             COORD_x(k) = coords(1)
             COORD_y(k) = coords(2)
             COORD_z(k) = coords(3)
-            state(k)   = partitionScalar(i,j)
+            state(k)   = obj% IntegrationVertices(j)% ScalarValue
          end do
+         end associate
       end do
 
       call mpi_isend( COORD_x, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
@@ -1215,122 +2124,120 @@ contains
 #endif
    end subroutine sendScalarPlotRoot
 
-
-   subroutine recvVectorPlotRoot( ObjectsList, STLNum, rootVector, x, y, z, vector_x, vector_y, vector_z )
+   subroutine recvVectorPlotRoot( stl, STLNum, x, y, z, vector_x, vector_y, vector_z )
 
       implicit none
-      type(Object_type),          intent(in)    :: ObjectsList(:)
+      type(STLfile),              intent(in)    :: stl
       integer,                    intent(in)    :: STLNum
-      real(kind=RP),              intent(in)    :: rootVector(:,:,:)
       real(kind=RP), allocatable, intent(inout) :: x(:), y(:), z(:), vector_x(:), &
                                                    vector_y(:), vector_z(:)
       !-local-variables-------------------------------------------------------------------
       real(kind=RP)              :: coords(NDIM)
-      integer                    :: i, j, k, rootNumOfObjs       
+      integer                    :: i, j, k, NumOfObjs       
 #ifdef _HAS_MPI_      
-      integer                    :: ierr, nProcs, rank, ObjsSize, start_index,        &
-                                    final_index, array_of_statuses(MPI_STATUS_SIZE,6)
-      integer,       allocatable :: recv_req(:,:), recv_Firstreq(:), NumOfObjs(:)
+      integer                    :: ierr, nProcs, start_index, final_index, &
+                                    array_of_statuses(MPI_STATUS_SIZE,6)
+      integer,       allocatable :: recv_req(:,:), recv_Firstreq(:), NumOfObjsPartion(:)
       real(kind=RP), allocatable :: COORD_x(:), COORD_y(:), COORD_z(:), state_x(:),   &
                                     state_y(:), state_z(:)
 #endif
       if( .not. MPI_Process% isRoot ) return
 
-      rootNumOfObjs = 3*size(ObjectsList)
+      NumOfObjs = NumOfVertices * stl% NumOfObjs
 #ifdef _HAS_MPI_ 
+      allocate( NumOfObjsPartion(MPI_Process% nProcs-1), &
+                recv_Firstreq(MPI_Process% nProcs-1)     )
 
-      allocate( NumOfObjs(MPI_Process% nProcs-1),    &
-                recv_Firstreq(MPI_Process% nProcs-1) )
-
-      NumOfObjs = 0
+      NumOfObjsPartion = 0
 
       do nProcs = 2, MPI_Process% nProcs
          
-         call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_Firstreq(nProcs-1), ierr ) 
+         call mpi_irecv( NumOfObjsPartion(nProcs-1), 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_Firstreq(nProcs-1), ierr ) 
          call mpi_wait( recv_Firstreq(nProcs-1), MPI_STATUS_IGNORE, ierr )
-
-         NumOfObjs(nProcs-1) = ObjsSize
 
       end do 
 
       deallocate(recv_Firstreq)
+  
+      allocate( x(NumOfObjs+sum(NumOfObjsPartion)),        &
+                y(NumOfObjs+sum(NumOfObjsPartion)),        &
+                z(NumOfObjs+sum(NumOfObjsPartion)),        &
+                vector_x(NumOfObjs+sum(NumOfObjsPartion)), &
+                vector_y(NumOfObjs+sum(NumOfObjsPartion)), &
+                vector_z(NumOfObjs+sum(NumOfObjsPartion)), &
+                recv_req(MPI_Process% nProcs-1,6)          )
 
-      allocate( x(rootNumOfObjs+sum(NumOfObjs)),        &
-                y(rootNumOfObjs+sum(NumOfObjs)),        &
-                z(rootNumOfObjs+sum(NumOfObjs)),        &
-                vector_x(rootNumOfObjs+sum(NumOfObjs)), &
-                vector_y(rootNumOfObjs+sum(NumOfObjs)), &
-                vector_z(rootNumOfObjs+sum(NumOfObjs)), &
-                COORD_x(sum(NumOfObjs)),                &
-                COORD_y(sum(NumOfObjs)),                &
-                COORD_z(sum(NumOfObjs)),                &
-                state_x(sum(NumOfObjs)),                &
-                state_y(sum(NumOfObjs)),                &
-                state_z(sum(NumOfObjs)),                & 
-                recv_req(MPI_Process% nProcs-1,6)       )
+      start_index = NumOfObjs
 
       do nProcs = 2, MPI_Process% nProcs  
 
-         start_index = sum(NumOfObjs(1:nProcs-2)) + 1 
-         final_index = (start_index-1) + NumOfObjs(nProcs-1)
+         allocate( COORD_x(NumOfObjsPartion(nProcs-1)), &
+                   COORD_y(NumOfObjsPartion(nProcs-1)), &
+                   COORD_z(NumOfObjsPartion(nProcs-1)), &
+                   state_x(NumOfObjsPartion(nProcs-1)), &
+                   state_y(NumOfObjsPartion(nProcs-1)), &
+                   state_z(NumOfObjsPartion(nProcs-1))  )
 
-         call mpi_irecv( COORD_x(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+         call mpi_irecv( COORD_x, NumOfObjsPartion(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
          
-         call mpi_irecv( COORD_y(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+         call mpi_irecv( COORD_y, NumOfObjsPartion(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
         
-         call mpi_irecv( COORD_z(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+         call mpi_irecv( COORD_z, NumOfObjsPartion(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
         
-         call mpi_irecv( state_x(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+         call mpi_irecv( state_x, NumOfObjsPartion(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
         
-         call mpi_irecv( state_y(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,5), ierr )
+         call mpi_irecv( state_y, NumOfObjsPartion(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,5), ierr )
 
-         call mpi_irecv( state_z(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,6), ierr )
+         call mpi_irecv( state_z, NumOfObjsPartion(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,6), ierr )
 
          call mpi_waitall(6, recv_req(nProcs-1,:), array_of_statuses, ierr)    
-           
+
+         do i = 1, NumOfObjsPartion(nProcs-1)
+            x(start_index+i)        = COORD_x(i)
+            y(start_index+i)        = COORD_y(i)
+            z(start_index+i)        = COORD_z(i)
+            vector_x(start_index+i) = state_x(i)
+            vector_y(start_index+i) = state_y(i)
+            vector_z(start_index+i) = state_z(i)
+         end do
+         start_index = start_index + NumOfObjsPartion(nProcs-1)
+
+         deallocate(COORD_x, COORD_y, COORD_z, state_x, state_y, state_z)
       end do
 
-      do i = 1, sum(NumOfObjs)
-         x(rootNumOfObjs+i)        = COORD_x(i)
-         y(rootNumOfObjs+i)        = COORD_y(i)
-         z(rootNumOfObjs+i)        = COORD_z(i)
-         vector_x(rootNumOfObjs+i) = state_x(i)
-         vector_y(rootNumOfObjs+i) = state_y(i)
-         vector_z(rootNumOfObjs+i) = state_z(i)
-      end do
-
-      deallocate( NumOfObjs, COORD_x, COORD_y, COORD_z, state_x, state_y, state_z, recv_req )
+      deallocate( NumOfObjsPartion, recv_req )
 #else
-      allocate( x(rootNumOfObjs),        &
-                y(rootNumOfObjs),        &
-                z(rootNumOfObjs),        &
-                vector_x(rootNumOfObjs), &
-                vector_y(rootNumOfObjs), &
-                vector_z(rootNumOfObjs)  )
+      allocate( x(NumOfObjs),        &
+                y(NumOfObjs),        &
+                z(NumOfObjs),        &
+                vector_x(NumOfObjs), &
+                vector_y(NumOfObjs), &
+                vector_z(NumOfObjs)  )
 #endif  
       k = 0
-      do i = 1, size(ObjectsList)
-         do j = 1, size(ObjectsList(i)% vertices)
-            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+      do i = 1, stl% NumOfObjs
+         associate(obj => stl% ObjectsList(i) )
+         do j = 1, NumOfVertices
+            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords,GLOBAL,coords)
             k           = k + 1
             x(k)        = coords(1)
             y(k)        = coords(2)
             z(k)        = coords(3)
-            vector_x(k) = rootVector(1,i,j)
-            vector_y(k) = rootVector(2,i,j)
-            vector_z(k) = rootVector(3,i,j)
+            vector_x(k) = obj% IntegrationVertices(j)% VectorValue(IX) 
+            vector_y(k) = obj% IntegrationVertices(j)% VectorValue(IY)
+            vector_z(k) = obj% IntegrationVertices(j)% VectorValue(IZ)
          end do
+         end associate 
       end do
 
    end subroutine recvVectorPlotRoot
 
-   subroutine sendVectorPlotRoot( ObjectsList, STLNum, partitionVector )
+   subroutine sendVectorPlotRoot( stl, STLNum )
       implicit none 
 
        !-arguments-------------------------------------------------------------------------
-      type(Object_type), intent(in) :: ObjectsList(:)
-      integer,           intent(in) :: STLNum
-      real(kind=RP),     intent(in) :: partitionVector(:,:,:)      
+      type(STLfile), intent(in) :: stl
+      integer,       intent(in) :: STLNum    
 #ifdef _HAS_MPI_      
       !-local-variables-------------------------------------------------------------------
       integer                    :: ierr, i, j, k, NumOfObjs, status(MPI_STATUS_SIZE), &
@@ -1342,7 +2249,7 @@ contains
 
       if( MPI_Process% isRoot ) return
 
-      NumOfObjs = 3*size(ObjectsList)
+      NumOfObjs = NumOfVertices * stl% NumOfObjs
 
       call mpi_isend( NumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_Firstreq, ierr )
 
@@ -1356,17 +2263,19 @@ contains
                 state_z(NumOfObjs)  )
                   
       k = 0
-      do i = 1, size(ObjectsList)
-         do j = 1, size(ObjectsList(i)% vertices)
-            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+      do i = 1, stl% NumOfObjs
+         associate( obj => stl% ObjectsList(i))
+         do j = 1, NumOfVertices
+            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords,GLOBAL,coords)
             k          = k + 1
             COORD_x(k) = coords(1)
             COORD_y(k) = coords(2)
             COORD_z(k) = coords(3)
-            state_x(k) = partitionVector(1,i,j)
-            state_y(k) = partitionVector(2,i,j)
-            state_z(k) = partitionVector(3,i,j)
+            state_x(k) = obj% IntegrationVertices(j)% VectorValue(IX)
+            state_y(k) = obj% IntegrationVertices(j)% VectorValue(IY)
+            state_z(k) = obj% IntegrationVertices(j)% VectorValue(IZ)
          end do
+         end associate
       end do
 
       call mpi_isend( COORD_x, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )

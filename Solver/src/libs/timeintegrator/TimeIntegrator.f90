@@ -595,7 +595,7 @@
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
             call sem% mesh% IBM% MoveBody( sem% mesh% elements,                  &
-                                           sem% mesh% no_of_elements,            &
+                                           sem% mesh% faces,                     &
                                            sem% mesh% NDOF, sem% mesh% child, t, &
                                            k+1,                                  &
                                            self % autosave % Autosave(k+1)       )
