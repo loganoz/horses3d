@@ -179,8 +179,8 @@ ifeq ($(WITH_PETSC),YES)
   ifdef PETSC_DIR
 	PETSC_DIR := $(strip $(PETSC_DIR))
     MACROS+= -DHAS_PETSC
-    LIBS += -L$(PETSC_DIR)/lib -lpetsc
-    EXTLIB_INC+= -I$(PETSC_DIR)/include
+	LIBS += -L$(PETSC_DIR)/$(PETSC_ARCH)/lib -lpetsc
+	EXTLIB_INC+= -I$(PETSC_DIR)/include -I$(PETSC_DIR)/$(PETSC_ARCH)/include
   else 
     $(error option WITH_PETSC = YES requires defining path to PETSC with PETSC_DIR)
   endif 
