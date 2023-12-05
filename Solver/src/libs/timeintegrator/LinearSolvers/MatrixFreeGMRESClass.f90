@@ -623,7 +623,6 @@ contains
          
          if (.not. this % UserDef_Ax) then
             if (.not. associated(this % p_sem) ) error stop 'MatFreeGMRES needs sem or MatrixAction'
-            call this % p_sem % mesh % storage % local2GlobalQ(this % p_sem % NDOF)
             this % Ur   = this % p_sem % mesh % storage % Q
             this % F_Ur = this % p_F (this % Ur, ComputeTimeDerivative)    ! need to compute the time derivative?
          end if
@@ -780,15 +779,12 @@ contains
          
          ! Obtain derivative with new Q
          this % p_sem % mesh % storage % Q = u
-         call this % p_sem % mesh % storage % global2LocalQ
          CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, this % timesolve + this % dtsolve, CTD_IGNORE_MODE)
-         call this % p_sem % mesh % storage % local2GlobalQdot(this % p_sem % NDOF)
          
          F = this % p_sem % mesh % storage % Qdot
 
          ! Restore original Q
          this % p_sem % mesh % storage % Q = u_p   ! TODO: this step can be avoided if Ur is not read in the "child" GMRES (the preconditioner)
-         call this % p_sem % mesh % storage % global2LocalQ
       END FUNCTION p_F
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

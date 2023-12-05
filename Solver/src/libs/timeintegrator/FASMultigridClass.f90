@@ -1479,8 +1479,6 @@ module FASMultigridClass
                error stop "FASMultigrid :: IRK Smoother not ready."
             case (SGS_SMOOTHER)
 
-               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
-
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
                   if( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
@@ -1490,8 +1488,6 @@ module FASMultigridClass
 
             case (ILU_SMOOTHER)
 
-               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
-
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
                   if( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
@@ -1500,8 +1496,6 @@ module FASMultigridClass
                end do
 
             case (BIRK5_SMOOTHER)
-
-               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
 
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
@@ -1555,8 +1549,6 @@ module FASMultigridClass
          if ( present(dts) ) then
             if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
          end if
-         call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
-
 
          select type (Adense => this % A)
             type is (DenseBlockDiagMatrix_t)
@@ -1576,7 +1568,6 @@ module FASMultigridClass
          end select
 
          this % p_sem % mesh % storage % Q = this % p_sem % mesh % storage % Q - this % dQ
-         call this % p_sem % mesh % storage % global2localq
       end do ! k
 
 !$omp parallel do schedule(runtime)
@@ -1631,8 +1622,6 @@ module FASMultigridClass
          if ( present(dts) ) then
             if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
          end if
-         call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
-
 
          select type (Acsr => this % A)
             type is (csrMat_t)
@@ -1664,7 +1653,6 @@ module FASMultigridClass
          end select
 
          this % p_sem % mesh % storage % Q = this % p_sem % mesh % storage % Q - this % dQ
-         call this % p_sem % mesh % storage % global2localq
 
       end do
 
@@ -1718,7 +1706,6 @@ module FASMultigridClass
          if ( present(dts) ) then
             if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
          end if
-         call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
 
          select type (Acsr => this % A)
             type is (csrMat_t)
@@ -1742,7 +1729,6 @@ module FASMultigridClass
          end select
 
          this % p_sem % mesh % storage % Q = this % p_sem % mesh % storage % Q - this % dQ
-         call this % p_sem % mesh % storage % global2localq
 
       end do
 

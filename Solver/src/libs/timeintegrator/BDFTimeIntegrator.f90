@@ -242,8 +242,6 @@ contains
       
       this % inner_dt = dt            ! first inner_dt is the outer step dt 
       time = t
-      
-      call sem % mesh % storage % local2GlobalQ(sem % NDOF)
 !
 !     ********************
 !     Sub-time-step solver
@@ -347,9 +345,6 @@ contains
       !**************************
       
 !~       if (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
-      
-      call sem % mesh % storage % global2LocalQ
-      call sem % mesh % storage % global2LocalQdot
       
    end subroutine TakeBDFStep
 !
@@ -479,9 +474,7 @@ contains
       real(kind=RP)  :: RHS(NCONS*sem % NDOF)
       !----------------------------------------------------------------
       
-      call sem % mesh % storage % global2LocalQ
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
-      call sem % mesh % storage % local2GlobalQdot(sem % NDOF)
       
       RHS = BDF_GetRHS(sem % mesh % storage, dt)
       

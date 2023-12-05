@@ -459,9 +459,7 @@ CONTAINS
       REAL(KIND = RP)                         :: F(size(u))
       
       this % p_sem % mesh % storage % Q = u
-      call this % p_sem % mesh % storage % global2LocalQ
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      call this % p_sem % mesh % storage % local2GlobalQdot(this % p_sem % NDOF)
       F = this % p_sem % mesh % storage % Qdot
       
    END FUNCTION p_F

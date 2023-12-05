@@ -291,7 +291,6 @@ contains
       if (present(eps_in)) then
          eps = eps_in
       else
-         call sem % mesh % storage % local2GlobalQ (sem % NDOF)
          associate (Q => sem % mesh % storage % Q)
          eps = sqrt(EPSILON(eps))*(NORM2(Q)+1._RP) ! 1.e-8_RP: Sometimes gives better results
          end associate
@@ -355,8 +354,6 @@ contains
       call sem % mesh % SetStorageToEqn(C_BC)
 #endif
       
-      call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
-      call sem % mesh % storage % local2GlobalQ    (sem % NDOF)
       QDot0 = sem % mesh % storage % QDot
       Q0    = sem % mesh % storage % Q
 !
@@ -435,9 +432,7 @@ contains
 !$omp end do
 #endif
 
-               call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
                sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
-               call sem % mesh % storage % global2LocalQdot
                
    !
    !           Add the contributions to the Jacobian
@@ -464,7 +459,6 @@ contains
    !           Restore original values for Q (TODO: this can be improved)
    !           ----------------------------------------------------------
                sem % mesh % storage % Q = Q0
-               call sem % mesh % storage % global2LocalQ
 
             ENDDO ! thisdof = 1, ndofcol(thiscolor)
          ENDDO ! thiscolor = 1 , ecolors % num_of_colors
@@ -526,9 +520,7 @@ contains
 !$omp end do
 #endif
 
-            call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
-            call sem % mesh % storage % global2LocalQdot
             
 !
 !           Add the contributions to the Jacobian
@@ -547,7 +539,6 @@ contains
 !           Restore original values for Q (TODO: this can be improved)
 !           ----------------------------------------------------------
             sem % mesh % storage % Q = Q0
-            call sem % mesh % storage % global2LocalQ
          ENDDO
       ENDDO
 
