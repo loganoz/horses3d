@@ -5,6 +5,7 @@ module TessellationTypes
    use Utilities
    use IntegerDataLinkedList
    use ParamfileRegions                , only: readValueInRegion
+   use PhysicsStorage
 
    implicit none
 
@@ -40,15 +41,15 @@ module TessellationTypes
       class(point_type), pointer :: next => null(), prev => null()
       
       real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi, VectorValue
-      real(kind=rp)                  :: theta, dist, Rank, ScalarValue
+      real(kind=rp)                  :: theta, dist, Rank, ScalarValue, xiB, xiI
       integer                        :: index, element_index, NumOfIntersections = 0, &
                                         Translate = 0, partition, objIndex, isForcingPoint, &
-                                        STLNum, element_in, faceID 
+                                        STLNum, element_in, faceID, domain = 0, N
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
-                                        forcingPoint = .false., isInsideBox = .false.
+                                        forcingPoint = .false., isInsideBox = .false., state = .false.
       real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:)
-      real(kind=RP), allocatable     :: Q(:), U_x(:), U_y(:), U_z(:)
+      real(kind=RP)                  :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS)
       integer,       allocatable     :: domains(:), indeces(:)  !interPoint, index, domain
 
       contains
@@ -731,13 +732,14 @@ module TessellationTypes
       
          write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
          if( this% move ) then
-            write(STD_OUT,'(30X,A,A35,A10)') "->" , "Motion: " , this% motionType
             if( this% motionType .eq. ROTATION ) then 
+               write(STD_OUT,'(30X,A)') "->" , "Motion: rotation" 
                write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Angular Velocity: " , this% angularVelocity, " rad/s."
                write(STD_OUT,'(30X,A,A35,F10.3,A,F10.3,A,F10.3,A)') "->" , "Center of rotation: [" , this% rotationCenter(1), ',', & 
                                                                                                      this% rotationCenter(2), ',', & 
                                                                                                      this% rotationCenter(3), ']'
             elseif( this% motionType .eq. LINEAR ) then
+               write(STD_OUT,'(30X,A)') "->" , "Motion: linear translation"
                write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity, " m/s."
             end if
             write(STD_OUT,'(30X,A,A35,I10)') "->" , "Axis of motion: " , this% motionAxis
@@ -894,23 +896,22 @@ module TessellationTypes
       real*4, dimension(3)           :: norm, vertex
       character(len=80)              :: header = repeat(' ',80), rank 
             
-      !if( .not. MPI_Process% isRoot ) return 
+      if( .not. MPI_Process% isRoot ) return 
 
       funit = UnusedUnit()
-      write(rank,*)MPI_Process% rank 
-   filename = 'cylinder_'//trim(adjustl(rank))
- !  write(filename,'(A,A,I10.10)') trim(this% filename),'_', iter
 
-      open(funit,file='IBM/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
+      write(filename,'(A,A,I10.10)') trim(this% filename),'_', iter
+
+      open(funit,file='MESH/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
  
       write(funit) header, this% NumOfObjs 
       
       do i = 1, this% NumOfObjs
          norm = this% ObjectsList(i)% normal
-         write(funit) norm(1), norm(2), norm(3)
+         write(funit) norm(IX), norm(IY), norm(IZ)
          do j = 1, NumOfVertices      
             vertex = this% ObjectsList(i)% vertices(j)% coords * Lref
-            write(funit) vertex(1), vertex(2), vertex(3)
+            write(funit) vertex(IX), vertex(IY), vertex(IZ)
          end do
          write(funit) padding      
       end do

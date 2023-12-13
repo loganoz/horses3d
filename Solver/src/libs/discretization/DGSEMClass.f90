@@ -99,7 +99,8 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
-      use SurfaceMesh, only: surfacesMesh
+      use SurfaceMesh,      only: surfacesMesh
+      use MPI_IBMUtilities, only: fixingmpifaces
 
       IMPLICIT NONE
 !
@@ -340,9 +341,7 @@ Module DGSEMClass
          if( self% mesh% IBM% HO_IBM ) then 
             self% mesh% HO_IBM = .true.
 #ifdef _HAS_MPI_
-            call self% mesh% sendHOLogical_mpifaces()
-            call self% mesh% recvHOLogical_mpifaces() 
-            call self% mesh% SetmpiHO_IBMface()
+            call FixingmpiFaces( self% mesh% faces, self% mesh% MPIfaces, self% mesh% IBM% NumOfMaskObjs )
 #endif 
             call self% mesh% IBM% buildHOfaces( self% mesh% elements, self% mesh% faces )
          end if 

@@ -246,7 +246,7 @@ module SpatialDiscretization
 
          if( mesh % HO_IBM ) then 
             call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements )
-            call mesh% IBM% MPI_GatherStancilState()
+            call mesh% IBM% MPI_GatherStancilState( NCONS )
          end if 
 !
 !        -----------------------------------------
@@ -272,7 +272,6 @@ module SpatialDiscretization
 !
          if ( computeGradients ) then
             call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, GetGradients)
-            if( mesh % HO_IBM ) call mesh % SetIBM_HOGradient(NCONS)
          end if
 
 #ifdef _HAS_MPI_
@@ -282,6 +281,7 @@ module SpatialDiscretization
          end if
 !$omp end single
 #endif
+         if( mesh % HO_IBM ) call mesh % SetIBM_HOGradients(NCONS)
 !         call ComputeArtificialViscosity(mesh)
 !
 !        -----------------------
@@ -476,6 +476,7 @@ module SpatialDiscretization
                call mesh % GatherMPIFacesSolution(NCONS)
             end if
 !$omp end single
+           if( mesh % HO_IBM ) call mesh % SetSharedIBM_HOGradients(NCONS)
 !
 !           Compute viscosity at MPI faces
 !           ------------------------------
@@ -487,7 +488,6 @@ module SpatialDiscretization
                   call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
                   call mesh % GatherMPIFacesAviscflux(NCONS)
                end if
-               if( mesh% HO_IBM ) call mesh % FixmpiHO_IBMfaceGrad()
             end if
 !$omp end single
 !
@@ -615,10 +615,11 @@ module SpatialDiscretization
          if(  mesh% IBM% HO_IBM ) then
             do eID = 1, mesh % no_of_elements  
                associate ( e => mesh % elements(eID) ) 
-               if( e% HO_IBM ) e % storage % QDot = 0.0_RP 
+               if( e% HO_IBM ) e % storage % QDot = 0.0_RP  
                end associate 
             end do 
          end if
+
          if( mesh% IBM% active .AND. .NOT. mesh% IBM% HO_IBM ) then
             if( .not. mesh% IBM% semiImplicit ) then 
 !$omp do schedule(runtime) private(i,j,k,Source,Q_target)
@@ -665,7 +666,7 @@ module SpatialDiscretization
                end if 
             end if 
          end if
-
+         
       end subroutine TimeDerivative_ComputeQDot
 
       subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)

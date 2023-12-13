@@ -26,10 +26,10 @@
 
       type stencil_t
 
-         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xiI, xiB, u, v, w
+         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xiI, xiB, u, v, w, rho, p
          integer                    :: N, partition
          logical                    :: state = .false.
-         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), UU(:,:)
+         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), Q(:,:)
          integer,       allocatable :: eIDs(:)
 
          contains
@@ -46,7 +46,7 @@
 
       end type IBM_HO_faces_t
 
-      type(IBM_HO_faces_t), allocatable, public :: IBM_HO_faces(:)
+      type(IBM_HO_faces_t), allocatable, public :: IBM_HO_faces(:), IBM_HO_mpifaces(:)
 !
 !     ************************************************************************************
 !
@@ -1172,13 +1172,14 @@
 
       subroutine Face_HO_IBM_correction( self, nEqn, Nelx, Nely, sideOut, Q, eID )
          use MPI_Process_Info
+         use FluidData
          implicit none 
 
          class(face),   intent(inout) :: self 
          real(kind=RP), intent(inout) :: Q(nEqn,0:Nelx,0:Nely)
          integer,       intent(in)    :: nEqn, eID, Nelx, Nely, sideOut
 
-         real(kind=RP) :: rho
+         real(kind=RP) :: rho, p, u2, v2, w2 
          integer       :: i, j, side, domain 
 
          side = self% HOSIDE 
@@ -1188,13 +1189,18 @@
             associate( f => IBM_HO_faces(domain)% faces(self% HO_ID) )
             do i = 0, Nelx; do j = 0, Nely
 #if defined(NAVIERSTOKES)
-               rho          = Q(IRHO,i,j)  
-               Q(IRHOU,i,j) = rho * f% stencil(i,j)% u
-               Q(IRHOV,i,j) = rho * f% stencil(i,j)% v
-               Q(IRHOW,i,j) = rho * f% stencil(i,j)% w
+               Q(IRHO,i,j)  = f% stencil(i,j)% rho 
+               Q(IRHOU,i,j) = f% stencil(i,j)% u 
+               Q(IRHOV,i,j) = f% stencil(i,j)% v 
+               Q(IRHOW,i,j) = f% stencil(i,j)% w 
+               u2 = f% stencil(i,j)% u**2
+               v2 = f% stencil(i,j)% v**2
+               w2 = f% stencil(i,j)% w**2
+               Q(IRHOE,i,j) = f% stencil(i,j)% p/(thermodynamics% gamma - 1._RP) + 0.5_RP * 1._RP/f% stencil(i,j)% rho * &
+                              ( u2 + v2 + w2 ) 
 #endif
             end do; end do    
-            end associate
+            end associate      
          end if 
          
          end subroutine Face_HO_IBM_correction
@@ -1206,9 +1212,9 @@
             class(face), intent(inout) :: self 
             integer,     intent(in)    :: sideIn, sideOut
 
-            integer :: i, j
+            integer :: i, j 
 
-            do i = 0, self% Nf(1); do j = 0, self% Nf(2)
+            do i = 0, self% Nf(1); do j = 0, self% Nf(2) 
                self% storage(sideOut)% U_x(:,i,j) = self% storage(sideIn)% U_x(:,i,j) 
                self% storage(sideOut)% U_y(:,i,j) = self% storage(sideIn)% U_y(:,i,j) 
                self% storage(sideOut)% U_z(:,i,j) = self% storage(sideIn)% U_z(:,i,j) 
@@ -1231,7 +1237,7 @@
 
          do i = 0, this% Nf(1); do j = 0, this% Nf(2) 
             this% stencil(i,j)% N = N 
-            allocate( this% stencil(i,j)% UU(NDIM,0:N) )
+            allocate( this% stencil(i,j)% Q(NCONS,0:N) )
             if( .not. allocated(this% stencil(i,j)% x_s)  ) allocate(this% stencil(i,j)% x_s(NDIM,0:N))
             if( .not. allocated(this% stencil(i,j)% xi_s) ) allocate(this% stencil(i,j)% xi_s(NDIM,0:N))
             if( .not. allocated(this% stencil(i,j)% eIDs) ) allocate(this% stencil(i,j)% eIDs(0:N))
@@ -1262,51 +1268,74 @@
       end subroutine stencil_build
 
       subroutine stencil_ComputeState( this )
-
+         use VariableConversion, only:Pressure
          implicit none 
 
          class(stencil_t), intent(inout) :: this 
 
-         real(kind=RP)                 :: u_s, v_s, w_s 
-         real(kind=RP)                 :: uB, vB, wB, lj(0:this% N)
-         integer                       :: i
+         real(kind=RP)                 :: u_s, v_s, w_s, rho_s, p_s
+         real(kind=RP)                 :: uB, vB, wB, drhoB, dpB, p(0:this% N)
+         real(kind=RP)                 :: lj(0:this% N), dlj(0:this% N)
+         integer                       :: i, N 
          type(NodalStorage_t), pointer :: spA
-         
-         uB = 0.0_RP
-         vB = 0.0_RP
-         wB = 0.0_RP
+#if defined(NAVIERSTOKES)     
+         N = this% N 
 
-         spA => NodalStorage(this% N)
+         uB    = 0.0_RP
+         vB    = 0.0_RP
+         wB    = 0.0_RP
+         drhoB = 0.0_RP
+         dpB   = 0.0_RP
+
+         spA => NodalStorage(N)
       
-         lj = spA% lj(this% xiB)
+         lj  = spA% lj(this% xiB)
+         dlj = spA% dlj(this% xiB)
 
-         this% UU(IX,0) = uB 
-         this% UU(IY,0) = vB 
-         this% UU(IZ,0) = wB 
-
-         do i = 1, this% N 
-            this% UU(IX,0) = this% UU(IX,0) - this% UU(IX,i) * lj(i)
-            this% UU(IY,0) = this% UU(IY,0) - this% UU(IY,i) * lj(i)
-            this% UU(IZ,0) = this% UU(IZ,0) - this% UU(IZ,i) * lj(i)
+         this% Q(IRHO ,0) = drhoB
+         this% Q(IRHOU,0) = uB 
+         this% Q(IRHOV,0) = vB 
+         this% Q(IRHOW,0) = wB 
+         p(0)             = dpB 
+         
+         do i = 1, N 
+            p(i) = Pressure(this% Q(:,i))
          end do
-         this% UU(IX,0) = this% UU(IX,0)/lj(0)
-         this% UU(IY,0) = this% UU(IY,0)/lj(0)
-         this% UU(IZ,0) = this% UU(IZ,0)/lj(0)
+
+         do i = 1, N
+            this% Q(IRHO ,0) = this% Q(IRHO ,0) - this% Q(IRHO ,i) * dlj(i) 
+            this% Q(IRHOU,0) = this% Q(IRHOU,0) - this% Q(IRHOU,i) * lj(i)
+            this% Q(IRHOV,0) = this% Q(IRHOV,0) - this% Q(IRHOV,i) * lj(i)
+            this% Q(IRHOW,0) = this% Q(IRHOW,0) - this% Q(IRHOW,i) * lj(i)
+            p(0)             = p(0) - p(i) * dlj(i)
+         end do
+         this% Q(IRHO ,0) = this% Q(IRHO, 0)/dlj(0)
+         this% Q(IRHOU,0) = this% Q(IRHOU,0)/lj(0)
+         this% Q(IRHOV,0) = this% Q(IRHOV,0)/lj(0)
+         this% Q(IRHOW,0) = this% Q(IRHOW,0)/lj(0)
+         p(0)             = p(0)/dlj(0)
 
          lj = spA% lj(this% xiI)
 
-         u_s = 0.0_RP 
-         v_s = 0.0_RP 
-         w_s = 0.0_RP 
-         do i = 0, this% N 
-            u_s = u_s + this% UU(IX,i) * lj(i)
-            v_s = v_s + this% UU(IY,i) * lj(i)
-            w_s = w_s + this% UU(IZ,i) * lj(i)
+         u_s   = 0.0_RP 
+         v_s   = 0.0_RP 
+         w_s   = 0.0_RP 
+         rho_s = 0.0_RP 
+         p_s   = 0.0_RP
+
+         do i = 0, N 
+            u_s   = u_s   + this% Q(IRHOU,i) * lj(i)
+            v_s   = v_s   + this% Q(IRHOV,i) * lj(i)
+            w_s   = w_s   + this% Q(IRHOW,i) * lj(i)
+            rho_s = rho_s + this% Q(IRHO ,i) * lj(i) 
+            p_s   = p_s   + p(i)             * lj(i) 
          end do   
-#if defined(NAVIERSTOKES)   
-         this% u = u_s
-         this% v = v_s 
-         this% w = w_s 
+
+         this% u   = u_s
+         this% v   = v_s 
+         this% w   = w_s 
+         this% rho = rho_s 
+         this% p   = p_s 
 #endif   
       end subroutine stencil_ComputeState
 

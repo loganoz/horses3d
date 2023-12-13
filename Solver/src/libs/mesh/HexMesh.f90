@@ -120,11 +120,8 @@ MODULE HexMeshClass
 #endif
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
-            procedure :: SetIBM_HOGradient             => HexMesh_SetIBM_HOGradient
-            procedure :: recvHOLogical_mpifaces        => HexMesh_recvHOLogical_mpifaces
-            procedure :: sendHOLogical_mpifaces        => HexMesh_sendHOLogical_mpifaces
-            procedure :: SetmpiHO_IBMface              => HexMesh_SetmpiHO_IBMface
-            procedure :: FixmpiHO_IBMfaceGrad          => HexMesh_FixmpiHO_IBMfaceGrad
+            procedure :: SetIBM_HOGradients            => HexMesh_SetIBM_HOGradients
+            procedure :: SetSharedIBM_HOGradients      => HexMesh_SetSharedIBM_HOGradients
       end type HexMesh
 
       integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
@@ -204,7 +201,7 @@ MODULE HexMeshClass
                call self% IBM% destruct( .false. )
             end if
          end if
-         
+
       END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
@@ -2176,7 +2173,7 @@ slavecoord:             DO l = 1, 4
             self % MPIfaces % faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
 
          end do
-   
+
       end subroutine HexMesh_UpdateFacesWithPartition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2371,7 +2368,7 @@ slavecoord:             DO l = 1, 4
                   end if
                end select
 
-               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?      
+               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
@@ -2416,16 +2413,16 @@ slavecoord:             DO l = 1, 4
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
                if (self % elements(eID) % faceSide(side) == LEFT) then
-                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has  
-                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.  
+                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
                else
-                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has  
-                  CLN(2) = f % NfRight(2)  ! not been accounted yet.  
+                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
                end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
-                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct? 
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
                      if (CLN(1) /= CLN(2)) then
                         buffer = CLN(1)
                         CLN(1) = CLN(2)
@@ -2964,7 +2961,7 @@ slavecoord:             DO l = 1, 4
                write(fid) Q
                deallocate(Q)
 #endif
-          end if 
+          end if
 
             end associate
          end do
@@ -2993,7 +2990,7 @@ slavecoord:             DO l = 1, 4
          integer                          :: fid, eID
          integer                          :: no_stat_s
          integer(kind=AddrInt)            :: pos
-         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
 !
 !        Gather reference quantities
@@ -3144,7 +3141,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
-               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF             
+               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF
                end associate
             end do
 
@@ -3218,7 +3215,7 @@ slavecoord:             DO l = 1, 4
              NS_from_NSSA = loadFromNSSA
          else
              NS_from_NSSA = .FALSE.
-         end if 
+         end if
          expectedNoEqs = NCONS
 !
 !        Get the file title
@@ -3621,7 +3618,7 @@ slavecoord:             DO l = 1, 4
 
                end do                  ; end do                ; end do
             end if
-            
+
             end associate
          end do
 !
@@ -3644,7 +3641,7 @@ slavecoord:             DO l = 1, 4
             if( self% IBM% active ) then
                fe % geom % dWall = huge(1.0_RP)
             endif
-            
+
             if( .not. self% IBM% active ) then
                do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
                   xP = fe % geom % x(:,i,j)
@@ -3659,7 +3656,7 @@ slavecoord:             DO l = 1, 4
 
                 end do                ; end do
             end if
-            
+
             end associate
          end do
 
@@ -3835,10 +3832,10 @@ slavecoord:             DO l = 1, 4
       ! This is a fix to prevent a seg fault in debug mode
       ! implemented by g.rubio@upm.es 09/2023
       if ( trim(time_int) == "explicit" ) then
-         bdf_order = 1  
-         RKSteps_num = 0   
-      endif  
-#endif 
+         bdf_order = 1
+         RKSteps_num = 0
+      endif
+#endif
 !     Construct global and elements' storage
 !     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
@@ -4329,166 +4326,50 @@ slavecoord:             DO l = 1, 4
 
    end subroutine HexMesh_Assign
 
-   subroutine HexMesh_SetIBM_HOGradient( self, nEqn )
+   subroutine HexMesh_SetIBM_HOGradients( self, nEqn )
 
-      implicit none 
+      implicit none
 
-      class(HexMesh), intent(inout) :: self 
+      class(HexMesh), intent(inout) :: self
       integer,        intent(in)    :: nEqn
 
-      real(kind=RP)      :: Q(nEqn)
       integer            :: fID, sideOut, sideIn
       integer, parameter :: otherSide(2) = (/2,1/)
-
+!$omp do schedule(runtime) private(sideIn,sideOut)
       do fID = 1, size(self% faces)
          associate(f => self% faces(fID))
-         if( f% HO_IBM ) then
+         if( f% HO_IBM .and. .not. f% faceType .eq. HMESH_MPI ) then
             sideOut = f% HOSIDE
             sideIn  = otherSide(sideOut)
-            call f% HO_IBM_Gradcorrection( sideIn, sideOut ) 
+            call f% HO_IBM_Gradcorrection( sideIn, sideOut )
          end if
          end associate
       end do
+!$omp end do
+   end subroutine HexMesh_SetIBM_HOGradients  
 
-   end subroutine HexMesh_SetIBM_HOGradient
+   subroutine HexMesh_SetSharedIBM_HOGradients( self, nEqn )
 
-   subroutine HexMesh_recvHOLogical_mpifaces( self )
-
-      implicit none 
-
-      class(HexMesh), intent(inout) :: self 
-#ifdef _HAS_MPI_       
-      logical, allocatable :: isHO_IBM(:)
-      integer, allocatable :: recv_req(:)
-      integer              :: domain, NumOfObjs, ierr, mpifID, fID
-
-      if ( .not. MPI_Process % doMPIAction ) return
-
-      allocate( recv_req(MPI_Process% nProcs) )
-
-      do domain = 1, MPI_Process% nProcs 
-
-         NumOfObjs = self% MPIfaces% faces(domain)% no_of_faces
-
-         if ( NumOfObjs .eq. 0 ) cycle
-
-         allocate(isHO_IBM(NumOfObjs))
-
-         call mpi_irecv(isHO_IBM, NumOfObjs, MPI_LOGICAL, domain-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(domain), ierr)
-
-         call mpi_wait( recv_req(domain), MPI_STATUS_IGNORE, ierr )
-
-         do mpifID = 1, NumOfObjs
-            fID = self% MPIfaces% faces(domain)% faceIDs(mpifID)
-            self% faces(fID)% mpiHO_IBM = isHO_IBM(mpifID)
-         end do
-         
-         deallocate(isHO_IBM)
-      end do
-
-      deallocate( recv_req )
-#endif 
-   end subroutine HexMesh_recvHOLogical_mpifaces
-
-
-   subroutine HexMesh_sendHOLogical_mpifaces( self )
-
-      implicit none 
-
-      class(HexMesh), intent(inout) :: self 
-#ifdef _HAS_MPI_  
-      logical, allocatable :: isHO_IBM(:)
-      integer, allocatable :: send_req(:)
-      integer              :: domain, mpifID, fID, NumOfObjs, ierr, dummyreq
-
-      if ( .not. MPI_Process % doMPIAction ) return
-
-      allocate( send_req(MPI_Process% nProcs) )
-
-      do domain = 1, MPI_Process% nProcs
-
-         NumOfObjs = self% MPIfaces% faces(domain)% no_of_faces
-         if ( NumOfObjs .eq. 0 ) cycle
-         
-         allocate(isHO_IBM(NumOfObjs))
-
-         do mpifID = 1, NumOfObjs
-            fID = self% MPIfaces% faces(domain)% faceIDs(mpifID)
-
-            isHO_IBM(mpifID) = self% faces(fID)% HO_IBM 
-         end do 
-         
-         call mpi_isend( isHO_IBM, NumOfObjs, MPI_LOGICAL, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain), ierr )
-
-         call mpi_wait( send_req(domain), MPI_STATUS_IGNORE, ierr )
-
-         deallocate(isHO_IBM)
-
-      end do
-
-      deallocate(send_req)
-#endif
-   end subroutine HexMesh_sendHOLogical_mpifaces
-
-   subroutine HexMesh_SetmpiHO_IBMface( self )
-
-      implicit none 
+      implicit none
 
       class(HexMesh), intent(inout) :: self
+      integer,        intent(in)    :: nEqn
 
-      integer :: fID, Nxi, Neta, i, j
-
-      if ( .not. MPI_Process % doMPIAction ) return
-
+      integer            :: fID, sideOut, sideIn
+      integer, parameter :: otherSide(2) = (/2,1/)
+!$omp do schedule(runtime) private(sideIn,sideOut)
       do fID = 1, size(self% faces)
          associate(f => self% faces(fID))
-         if( .not. f% mpiHO_IBM .and. f% fmpi .and. f% HO_IBM ) then 
-            f% HO_IBM   = .false.
-            f% fmpi     = .false.
-            f% corrGrad = .true. 
-            deallocate(f% stencil)
-            self% IBM% NumOfMaskObjs = self% IBM% NumOfMaskObjs - (f% Nf(1)+1)*(f% Nf(2)+1)
-         endif 
-         if( f% mpiHO_IBM .and. .not. f% HO_IBM ) then 
-            f% HO_IBM = .true.
-            f% HOSIDE = maxloc(f% elementIDs, dim=1) 
-            self% elements(f% elementIDs(f% HOSIDE))% HO_IBM = .true. 
-            Nxi = f% Nf(1); Neta = f% Nf(2)
-            allocate(f% stencil(0:Nxi,0:Neta))
-            do j = 0, Neta; do i = 0, Nxi  
-               f% stencil(i,j)% x = f% geom% x(:,i,j) 
-            end do; end do 
-            self% IBM% NumOfMaskObjs = self% IBM% NumOfMaskObjs + (f% Nf(1)+1)*(f% Nf(2)+1)
-         endif
-         end associate 
-      end do 
-
-   end subroutine HexMesh_SetmpiHO_IBMface
-
-   subroutine HexMesh_FixmpiHO_IBMfaceGrad( self )
-
-      implicit none 
-
-      class(HexMesh), intent(inout) :: self 
-
-      integer            :: domain, mpifID, fID, sideOut, sideIn
-      integer, parameter :: otherSide(2) = (/2,1/)
-
-      if ( .not. MPI_Process % doMPIAction ) return
-
-      do domain = 1, MPI_Process% nProcs
-         do mpifID = 1, self% MPIfaces% faces(domain)% no_of_faces
-            fID = self% MPIfaces% faces(domain)% faceIDs(mpifID)
-            associate(f => self% faces(fID))
-            if( self% faces(fID)% mpiHO_IBM .or. f% corrGrad ) then 
+         if( f% faceType .eq. HMESH_MPI ) then 
+            if( f% HO_IBM .or. f% corrGrad  ) then
                sideOut = f% HOSIDE
                sideIn  = otherSide(sideOut)
                call f% HO_IBM_Gradcorrection( sideIn, sideOut )
             end if
-            end associate 
-         end do 
-      end do 
-
-   end subroutine HexMesh_FixmpiHO_IBMfaceGrad
+         end if
+         end associate
+      end do
+!$omp end do
+   end subroutine HexMesh_SetSharedIBM_HOGradients  
 
 END MODULE HexMeshClass
