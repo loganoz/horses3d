@@ -653,3 +653,21 @@ jobs:
           ./horses3d.ns CylinderGMM.control
         if: '!cancelled()'
 
+#
+# 26) Cylinder with Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_pAdaptationRL.control
+        if: '!cancelled()'
+

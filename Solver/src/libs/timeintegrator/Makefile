@@ -29,6 +29,8 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/FASMultigridClass.o \
 		./build_ns/MultiTauEstimationClass.o \
 		./build_ns/pAdaptationClass.o \
+		./build_ns/pAdaptationClassTE.o \
+		./build_ns/pAdaptationClassRL.o \
 		./build_ns/TimeIntegrator.o 
 
 LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
@@ -52,6 +54,8 @@ LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		./build_nssa/FASMultigridClass.o \
 		./build_nssa/MultiTauEstimationClass.o \
 		./build_nssa/pAdaptationClass.o \
+		./build_nssa/pAdaptationClassTE.o \
+		./build_nssa/pAdaptationClassRL.o \
 		./build_nssa/TimeIntegrator.o 
 		
 LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
@@ -75,6 +79,8 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/FASMultigridClass.o \
 		./build_ins/MultiTauEstimationClass.o \
 		./build_ins/pAdaptationClass.o \
+		./build_ins/pAdaptationClassTE.o \
+		./build_ins/pAdaptationClassRL.o \
 		./build_ins/TimeIntegrator.o 
 
 
@@ -99,6 +105,8 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/FASMultigridClass.o \
 		./build_ch/MultiTauEstimationClass.o \
 		./build_ch/pAdaptationClass.o \
+		./build_ch/pAdaptationClassTE.o \
+		./build_ch/pAdaptationClassRL.o \
 		./build_ch/TimeIntegrator.o 
 
 LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
@@ -122,6 +130,8 @@ LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/FASMultigridClass.o \
 		./build_mu/MultiTauEstimationClass.o \
 		./build_mu/pAdaptationClass.o \
+		./build_mu/pAdaptationClassTE.o \
+		./build_mu/pAdaptationClassRL.o \
 		./build_mu/TimeIntegrator.o 
 
 LIB = timeintegrator

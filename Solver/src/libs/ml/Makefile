@@ -9,7 +9,8 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 
 
-LIBOBJS = ./build/Clustering.o
+LIBOBJS = ./build/Clustering.o \
+		./build/ReinforcementLearning.o
 LIB = ml
 
 ############################################
