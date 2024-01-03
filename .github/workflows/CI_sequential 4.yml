@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['gfortran', 'ifort']
+        compiler: ['gfortran'] #compiler: ['gfortran','ifort']
         mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
