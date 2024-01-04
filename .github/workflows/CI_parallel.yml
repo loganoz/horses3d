@@ -46,13 +46,14 @@ jobs:
           sudo apt-get install openmpi-bin libopenmpi-dev
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
-      - name: cache-intel-compilers
-        if: (matrix.compiler == 'ifort')
-        id: cache-intel-compilers
-        uses: actions/cache@v3
-        with:
-          path: /opt/intel
-          key: intel-${{ runner.os }}-compilers-b
+      # UNCOMMENT TO USE CACHED IFORT 
+      #- name: cache-intel-compilers
+      #  if: (matrix.compiler == 'ifort')
+      #  id: cache-intel-compilers
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: /opt/intel
+      #    key: intel-${{ runner.os }}-compilers-b
 
       - name: Intel Apt repository
       # UNCOMMENT TO USE CACHED IFORT 
