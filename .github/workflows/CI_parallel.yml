@@ -46,26 +46,28 @@ jobs:
           sudo apt-get install openmpi-bin libopenmpi-dev
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
-      - name: cache-intel-compilers
-        if: (matrix.compiler == 'ifort')
-        id: cache-intel-compilers
-        uses: actions/cache@v3
-        with:
-          path: /opt/intel
-          key: intel-${{ runner.os }}-compilers-b
+      # UNCOMMENT TO USE CACHED IFORT 
+      #- name: cache-intel-compilers
+      #  if: (matrix.compiler == 'ifort')
+      #  id: cache-intel-compilers
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: /opt/intel
+      #    key: intel-${{ runner.os }}-compilers-b
 
       - name: Intel Apt repository
-        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+      # UNCOMMENT TO USE CACHED IFORT 
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
-          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
           sudo apt-get update
 
       - name: Install Intel oneAPI
-        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl ninja-build
+      # UNCOMMENT TO USE CACHED IFORT
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
 
       # - name: cache-metis
       #   id: cache-metis
@@ -83,7 +85,7 @@ jobs:
           wget "https://src.fedoraproject.org/lookaside/pkgs/metis/metis-5.1.0.tar.gz/5465e67079419a69e0116de24fce58fe/metis-5.1.0.tar.gz" 
           tar -xvf metis-5.1.0.tar.gz
           cd metis-5.1.0
-          make config cc=icc
+          make config cc=icx
           make
           mv /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/libmetis /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/lib
           mv /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/programs /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/bin
