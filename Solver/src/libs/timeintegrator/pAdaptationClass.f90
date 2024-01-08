@@ -134,6 +134,7 @@ module pAdaptationClass
       import DGSem
       import FTValueDictionary
       import RP
+      import ComputeTimeDerivative_f
       !--------------------------------------
       implicit none
       !--------------------------------------
