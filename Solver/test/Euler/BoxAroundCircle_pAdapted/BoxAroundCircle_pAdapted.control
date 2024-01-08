@@ -30,6 +30,7 @@ write dt restriction  = .TRUE.
 
 !-Adaptation-----------------------------------
 #define p-adaptation
+   adaptation type       = TE
    Truncation error type = isolated
    truncation error      = 1.d-2
    Nmax                  = [10,10,10]

@@ -792,12 +792,12 @@ readloop:do
             case ("rl")
                adaptationType = 1
             case default
-               adaptationType = 1
-               write(STD_OUT,*) "Unknown type. Default type used for p-adaptation: Reinforcement Learning"
+               adaptationType = 0
+               write(STD_OUT,*) "Unknown type. Default type used for p-adaptation: Truncation Error"
          end select
       else
-         adaptationType = 1
-         write(STD_OUT,*) "Default type used for p-adaptation: Reinforcement Learning"
+         adaptationType = 0
+         write(STD_OUT,*) "Default type used for p-adaptation: Truncation Error"
       end if
 
    end function
