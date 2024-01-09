@@ -1148,10 +1148,56 @@ initial cfl & \textit{REAL}: CFL and DCFL number for initial residual smoothing.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{p-Adaptation Methods}
-The p-adaptation methods are used when the p-adaptation region is specified in the control file:\\
+The p-adaptation methods are used when the p-adaptation region is specified in the control file. There are two different types of p-adaptation algorithms: A Truncation Error (TE) algorithm and a Reinforcement Learning (RL) algorithm.
 
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{General keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{General keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+adaptation type & \textit{CHARACTER}: Can be either "TE" or "RL". & TE \\ \hline
+
+Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm (limited to 6 for RL adaptation type). &
+					\textbf{Mandatory keyword} \\ \hline
+
+Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. &
+					[1,1,1] \\ \hline
+
+conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  &
+					-- \\ \hline
+
+order across faces &
+			\textit{CHARACTER}: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only $N*2/3$ and $N-1$ are supported. &
+					$N-1$ \\ \hline
+
+mode &
+			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be performed by \textit{time} or by \textit{iteration}. &
+					\textit{static} \\ \hline
+
+interval &
+			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
+					\textit{huge number} \\ \hline
+
+restart files &
+			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
+					.FALSE. \\ \hline
+
+adjust nz &
+    \textit{LOGICAL}: If .TRUE., the order across faces is adjusted in the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-coded) in limiting the jumps in the polynomial order. &
+            .FALSE. \\ \hline
+\end{longtable}
+
+\section{Truncation Error p-Adaptation}
+This algorithm can perform a p-adaptation to decrease the truncation error below a threshold.
 \begin{lstlisting}
 #define p-adaptation
+   adaptation type       = TE
    Truncation error type = isolated
    truncation error      = 1.d-2
    Nmax                  = [10,10,10]
@@ -1172,12 +1218,12 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
 \end{lstlisting}
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
-\caption{Keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\caption{Keywords for the TE p-adaptation algorithm.} \label{tab:TEpAdaptationKey} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endfirsthead
 
-\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\caption{Keywords for the TE p-adaptation algorithm - continued.} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
@@ -1188,41 +1234,12 @@ truncation error & \textit{REAL}: Target truncation error for the p-adaptation a
 
 coarse truncation error & \textit{REAL}: Truncation error used for coarsening. & same as truncation error \\ \hline
 
-Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. &
-					\textbf{Mandatory keyword} \\ \hline
-
-Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. &
-					[1,1,1] \\ \hline
-
-conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  &
-					-- \\ \hline
-
-order across faces &
-			\textit{CHARACTER}: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only $N*2/3$ and $N-1$ are supported. &
-					$N-1$ \\ \hline
-
 increasing & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used. &
 					.FALSE. \\ \hline
 
 write error files &
 			\textit{LOGICAL}: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder \textit{./TauEstimation/}. When the simulation has several adaptation stages, the new information is just appended. &
 			 		.FALSE. \\ \hline
-
-adjust nz &
-			\textit{LOGICAL}: If .TRUE., the order across faces is adjusted i    n the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-cod    ed) in allowing jumps in the polynomial order of at most 1. &
-					.FALSE. \\ \hline
-
-mode &
-			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be by \textit{time} or by \textit{iteration}. &
-					\textit{static} \\ \hline
-
-interval &
-			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
-					\textit{huge number} \\ \hline
-
-restart files &
-			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
-					.FALSE. \\ \hline
 
 max N decrease &
 			\textit{INTEGER}: Maximum decrease in the polynomial order in every p-adaptation procedure. &
@@ -1250,8 +1267,45 @@ padapted $\ll \textit{keyword} \gg$ &
 
 \end{longtable}
 
+\section{Reinforcement Learning p-Adaptation}
+This algorithm can perform a p-adaptation based on a trained RL agent.
+
+\begin{lstlisting}
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 1d-2
+   Nmax                  = [6, 6, 2]
+   Nmin                  = [2, 2, 2]
+   Conforming boundaries = [cylinder]
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 50
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the RL p-adaptation algorithm.} \label{tab:RLpAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the RL p-adaptation algorithm - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+agent file & \textit{CHARACTER}: Relative path to the binary file that provide the policy of the RL agent. & \textbf{Mandatory keyword} \\ \hline
+
+tolerance & \textit{REAL}: Tolerance for the RL agent. The smaller the tolerance, the wider the adapted region. & 0.01 \\ \hline
+
+
+\end{longtable}
+
+
 \section{Multiple truncation error estimations} \label{sec:MultiTau}
-A static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:
+When using Truncation Error based adaptation, a static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:
 
 \begin{lstlisting}
 #define multi tau-estimation
