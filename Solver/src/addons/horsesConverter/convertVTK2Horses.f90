@@ -43,6 +43,7 @@ MODULE convertVTK2Horses
 !
             type(Mesh_t)                               :: mesh
 			type(VTKResult_t)                          :: vtkResult
+													 
             integer                                    :: eID, pointID
             real(kind=RP)                              :: x(NDIM)
 			real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
@@ -52,7 +53,7 @@ MODULE convertVTK2Horses
 			real(kind=RP), parameter   				   :: TOL = 0.0001_RP
 			real(kind=RP)						   :: MIN_ERR = 10
 			real(kind=RP)                                              :: MAX_ERR = 0_RP
-			logical                                                    :: OutofTol=.false.
+			logical                                                    :: OutofTol=.false.	 
 			
 !
 !  		Write Header Log
@@ -111,7 +112,7 @@ MODULE convertVTK2Horses
 !        Write each element zone
 !        -----------------------
          do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
+            e => mesh % elements(eID) 
 			
             e % Nout = Nout
 !
@@ -131,9 +132,7 @@ MODULE convertVTK2Horses
             call ProjectStoragePoints(e, Tset(e % Nout(1), e % Nmesh(1)) % T, &
                                                     Tset(e % Nout(2), e % Nmesh(2)) % T, &
                                                     Tset(e % Nout(3), e % Nmesh(3)) % T)
-            end associate
          end do
-			
 !
 !        Fill Data
 !        -------------------------------
@@ -167,22 +166,24 @@ MODULE convertVTK2Horses
 
 		 write(STD_OUT,'(30X,A,A30)') "->","Looking for element points: "
 		 pIDstartGlobal=0
-		 l=1
-!$omp parallel shared(mesh, VTKresult,pIDstartGlobal, l, MAX_ERR, MIN_ERR, OutofTol)
-!$omp do schedule(runtime) private(i,j,k,x,ii,pointID,pIDstart,pointIDMinErr,MIN_ERR)			 
+		 counter=0
+!$omp parallel do schedule(runtime) default(private) shared(mesh, VTKresult, counter, MAX_ERR, MIN_ERR, OutofTol) firstprivate(pIDstartGlobal)		 
 		 DO eID=1, mesh % no_of_elements
 			pIDstart=pIDstartGlobal
-			associate ( e => mesh % elements(eID) )
-			IF (eID .eq. l*int(mesh % no_of_elements/10)) then
-				write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Elements: ", eID," of ", mesh % no_of_elements
-				l=l+1	
-			END IF			
 			
+!$omp critical
+		    counter = counter + 1
+			IF (mod(counter,int(mesh % no_of_elements/10)).eq.0)then
+				write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Elements: ", counter," of ", mesh % no_of_elements
+			END IF			
+!$omp end critical
+
+			e => mesh % elements(eID) 
 			allocate( e % Qout(1:5,0:e % Nout(1),0:e % Nout(2),0:e % Nout(3)) )
 			e % Qout=0.0_RP
 			DO k = 0, e % Nout(3) ; DO j = 0, e % Nout(2) ; DO i = 0, e % Nout(1)
 				x= e % xOut (:,i,j,k)
-				MIN_ERR=10
+				MIN_ERR=10			  
 				DO ii=1, VTKresult % nPoints
 					pointID = pIDstart+INT((-1_RP)**(ii+1_RP)*CEILING(real(ii)/2_RP))
 					if (pointID.le.0) pointID=pointID+VTKresult % nPoints
@@ -196,7 +197,6 @@ MODULE convertVTK2Horses
 							GO TO 10
 						end if
 					end if
-
 					if (ii.eq.VTKresult % nPoints) then 
 						e % Qout(1:5,i,j,k)=VTKresult % Q(1:5,pointIDMinErr )
 						pIDstart=pointID
@@ -212,14 +212,13 @@ MODULE convertVTK2Horses
 				END DO 
 10                              CONTINUE
 			end do               ; end do                ; end do
-			end associate
+			pIDstartGlobal=pIDstart
 		 END DO 
-!$omp end do
-!$omp end parallel
+!$omp end parallel do
 		if (OutofTol) then
 			write(STD_OUT,'(10X,A,F10.6)')"Default tolerance for nodes= ", TOL
 			write(STD_OUT,'(10X,A,F10.6)')"Maximum error due to unmatch location= ", MAX_ERR
-		end if
+		end if				  
 !
 !        	Write Solution of VTK result to .hsol
 !        	-------------------------------------	
@@ -228,7 +227,8 @@ MODULE convertVTK2Horses
 			write(STD_OUT,'(/)')
 			write(STD_OUT,'(10X,A,A)') "Finish - OF2Horses"
 			write(STD_OUT,'(10X,A,A)') "------------------"
-
+			
+			nullify(e)
         END SUBROUTINE convertOFVTK2Horses
 
 END MODULE convertVTK2Horses
