@@ -41,13 +41,13 @@ MODULE convertVTK2Horses
 !        Local variables
 !        ---------------
 !
-            type(Mesh_t), target                               :: mesh
+            type(Mesh_t), target                       :: mesh
 			type(VTKResult_t)                          :: vtkResult
-													 
+			type(element_t), pointer      			   :: e => null()										 
             integer                                    :: eID, pointID
             real(kind=RP)                              :: x(NDIM)
 			real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
-            integer                                    :: i, j, k, ii, fid, iSol, pIDstart, pIDstartGlobal
+            integer                                    :: i, j, k, ii, fid, iSol, pIDstart, pIDstartGlobal, counter
 			integer                       			   :: pos, pos2, pointIDMinErr
 			character(len=LINE_LENGTH) 				   :: dir, time
 			real(kind=RP), parameter   				   :: TOL = 0.0001_RP
