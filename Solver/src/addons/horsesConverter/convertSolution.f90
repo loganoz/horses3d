@@ -1,8 +1,8 @@
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////
-!   HORSES3D to Foam Result - Solution2FoamModule
+!   HORSES3D - convertSolution
 !
-!      This module convert Horses3D mesh storage and result to foam output with homogeneous nodes
+!      This module converts result of one particular .mesh file to another .mesh file with identical geometry
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -140,9 +140,9 @@ MODULE convertSolution
 !
          integer                       :: i, j, k, l, m, n, counter
 		 integer					   :: eID1, eID2, eIDOut, eIDf, eID
-		 real(kind=RP)  			   :: xi(NDIM)
+		 real(kind=RP)  			   :: xi(NDIM), rhoEClosest, rhoClosest
 		 logical                       :: success = .false.
-
+		 logical                       :: success2 = .false.
 		 
          real(kind=RP) , allocatable   :: lxi(:), leta(:), lzeta(:)
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
@@ -158,9 +158,10 @@ MODULE convertSolution
          write(STD_OUT,'(10X,A,A)') "Interpolate Result:"
          write(STD_OUT,'(10X,A,A)') "------------------"
 
-																											 
-!$omp parallel shared(mesh1, mesh2, counter, eIDOut )
-!$omp do schedule(runtime) private(i,j,k,l,m,n,eID1,xi,lxi,leta,lzeta, success, eIDf, eID)
+	    rhoEClosest=1.0_RP
+        rhoClosest =1.0_RP
+!$omp parallel shared(mesh1, mesh2, counter, eIDOut)
+!$omp do schedule(runtime) private(i,j,k,l,m,n,eID1,xi,lxi,leta,lzeta, success, eIDf, eID,rhoEClosest)
 		 
 		 do eID2=1, mesh2 % no_of_elements
 			eIDf = eIDOut
@@ -185,7 +186,7 @@ MODULE convertSolution
 						eID1=eIDf-1+INT((-1)**(eID+1)*CEILING(REAL(eID/2_RP)))
 						if (eID1.le.0) eID1=eID1+mesh1 % no_of_elements
 						if (eID1.gt.mesh1 % no_of_elements) eID1=eID1-mesh1 % no_of_elements
-						success = FindPointWithCoords(mesh1 % elements(eID1), e % xOut(:,i, j, k), xi)
+						success = FindPointWithCoords(mesh1 % elements(eID1), e % xOut(:,i, j, k), 0.01_RP, xi)
 						if (success) then 
 							eIDf=eID1
 							exit
@@ -193,10 +194,28 @@ MODULE convertSolution
 					 end do 
 					 
 					 if (.not.success) then
-						write(STD_OUT,'(10X,A,I6)') "ERROR-Element Outside Range, eID ", eID2
-						write(STD_OUT,'(10X,A )') "CHECK-Meshes geometry, must be similar"
-						CALL EXIT(0)
+						write(STD_OUT,'(10X,A,I6)') "WARNING-Element Outside Range, eID ", eID2
+						write(STD_OUT,'(10X,A )') "CHECK-Meshes geometry, must be similar - Increasing Tolerance"
+						success2=.false.
+						do eID=1, mesh1 % no_of_elements
+							eID1=eIDf-1+INT((-1)**(eID+1)*CEILING(REAL(eID/2_RP)))
+							if (eID1.le.0) eID1=eID1+mesh1 % no_of_elements
+							if (eID1.gt.mesh1 % no_of_elements) eID1=eID1-mesh1 % no_of_elements
+							success2 = FindPointWithCoords(mesh1 % elements(eID1), e % xOut(:,i, j, k), 0.2_RP, xi)
+							if (success2) then 
+								exit
+							end if 
+						end do 
+						if (.not.success2) then
+							write(STD_OUT,'(20X,A,I6)') "WARNING-Element Outside Range - assigned zero velocity (wall), eID ", eID2
+							e % Qout(1,i,j,k)    = rhoClosest
+                            e % Qout(2:4,i,j,k)  = 0.0_RP
+                            e % Qout(5,i,j,k)    = rhoEClosest
+							CYCLE 
+						end if 
+!						CALL EXIT(0)
 					 end if 
+					 success=success2					  
 
 !
 !        		Get the Lagrange interpolants
@@ -221,7 +240,10 @@ MODULE convertSolution
 				  do n = 0, e1 % Nmesh(3)    ; do m = 0, e1 % Nmesh(2)  ; do l = 0, e1 % Nmesh(1)
 						e % Qout(:,i,j,k) = e % Qout(:,i,j,k) + e1 % Q (:,l,m,n) * lxi(l) * leta(m) *  lzeta(n)
 				  end do               ; end do             ; end do
-
+				  
+                  rhoClosest = e % Qout(1,i,j,k)
+                  rhoEClosest = e % Qout(5,i,j,k)	 
+				  
 				  deallocate( lxi, leta, lzeta)
 				  end associate
 				  end associate
@@ -236,7 +258,7 @@ MODULE convertSolution
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      logical function FindPointWithCoords(self, x, xi)
+      logical function FindPointWithCoords(self, x, INSIDE_TOL, xi)
 !
 !        **********************************************************
 !
@@ -251,13 +273,14 @@ MODULE convertSolution
          implicit none
          class(Element_t),      intent(in)  :: self
          real(kind=RP)	,       intent(in)  :: x(NDIM)
+		 real(kind=RP)  ,       intent(in)  :: INSIDE_TOL												   
          real(kind=RP)  ,       intent(out) :: xi(NDIM)
 !
 !        ----------------------------------
 !        Newton iterative solver parameters
 !        ----------------------------------
 !
-         integer,       parameter   :: N_MAX_ITER = 400
+         integer,       parameter   :: N_MAX_ITER = 50
          real(kind=RP), parameter   :: TOL = 1.0e-6_RP
          integer,       parameter   :: STEP = 1.0_RP
 !
@@ -266,7 +289,6 @@ MODULE convertSolution
 !        ---------------
 !
          integer                       :: i, j, k, iter
-         real(kind=RP), parameter      :: INSIDE_TOL = 1.0e-1_RP
          real(kind=RP)                 :: lxi   (0:self % Nmesh(1))
          real(kind=RP)                 :: leta  (0:self % Nmesh(2))
          real(kind=RP)                 :: lzeta (0:self % Nmesh(3))
@@ -307,9 +329,9 @@ MODULE convertSolution
 !           Stopping criteria: there are several
 !           ------------------------------------
             if ( maxval(abs(F)) .lt. TOL ) exit            
-			if ( abs(xi(1)) .ge. 4.5_RP ) exit
-            if ( abs(xi(3)) .ge. 4.5_RP ) exit
-            if ( abs(xi(2)) .ge. 4.5_RP ) exit
+			if ( abs(xi(1)) .ge. 2.5_RP ) exit
+            if ( abs(xi(3)) .ge. 2.5_RP ) exit
+            if ( abs(xi(2)) .ge. 2.5_RP ) exit
 			
 !
 !           Perform a step
