@@ -43,14 +43,17 @@ MODULE convertVTK2Horses
 !
             type(Mesh_t), target                       :: mesh
 			type(VTKResult_t)                          :: vtkResult
-			type(element_t), pointer      			   :: e => null()
+			type(element_t), pointer      			   :: e => null()										 
             integer                                    :: eID, pointID
             real(kind=RP)                              :: x(NDIM)
 			real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
             integer                                    :: i, j, k, ii, fid, iSol, pIDstart, pIDstartGlobal, counter
-			integer                       			   :: pos, pos2
+			integer                       			   :: pos, pos2, pointIDMinErr
 			character(len=LINE_LENGTH) 				   :: dir, time
-			real(kind=RP), parameter   				   :: TOL = 1.0e-4_RP
+			real(kind=RP), parameter   				   :: TOL = 0.0001_RP
+			real(kind=RP)						   :: MIN_ERR = 10
+			real(kind=RP)                                              :: MAX_ERR = 0_RP
+			logical                                                    :: OutofTol=.false.	 
 			
 !
 !  		Write Header Log
@@ -164,7 +167,7 @@ MODULE convertVTK2Horses
 		 write(STD_OUT,'(30X,A,A30)') "->","Looking for element points: "
 		 pIDstartGlobal=0
 		 counter=0
-!$omp parallel do schedule(runtime) default(private) shared(mesh, VTKresult, counter) firstprivate(pIDstartGlobal)		 
+!$omp parallel do schedule(runtime) default(private) shared(mesh, VTKresult, counter, MAX_ERR, MIN_ERR, OutofTol) firstprivate(pIDstartGlobal)		 
 		 DO eID=1, mesh % no_of_elements
 			pIDstart=pIDstartGlobal
 			
@@ -180,25 +183,42 @@ MODULE convertVTK2Horses
 			e % Qout=0.0_RP
 			DO k = 0, e % Nout(3) ; DO j = 0, e % Nout(2) ; DO i = 0, e % Nout(1)
 				x= e % xOut (:,i,j,k)
+				MIN_ERR=10			  
 				DO ii=1, VTKresult % nPoints
 					pointID = pIDstart+INT((-1_RP)**(ii+1_RP)*CEILING(real(ii)/2_RP))
 					if (pointID.le.0) pointID=pointID+VTKresult % nPoints
 				    if (pointID.gt.VTKresult % nPoints) pointID=pointID-VTKresult % nPoints
-					if ( maxval(abs(VTKresult % x % data(1:3,pointID)-x)).lt.TOL) then
-						e % Qout(1:5,i,j,k)=VTKresult % Q(1:5,pointID)
-						pIDstart=pointID
-						exit
+					if ( maxval(abs(VTKresult % x % data(1:3,pointID)-x)).lt.MIN_ERR) then 
+						pointIDMinErr = pointID
+						MIN_ERR	= maxval(abs(VTKresult % x % data(1:3,pointID)-x))
+						if ( maxval(abs(VTKresult % x % data(1:3,pointID)-x)).lt.TOL) then
+							e % Qout(1:5,i,j,k)=VTKresult % Q(1:5,pointID)
+							pIDstart=pointID
+							GO TO 10
+						end if
 					end if
 					if (ii.eq.VTKresult % nPoints) then 
-						write(STD_OUT,'(10X,A)') "ERROR-Node is not in VTK file"
-						write(STD_OUT,'(10X,A)') "CHECK-Mesh and polynomial used in horsesMesh2OF and OF2Horses - must identical"
-						CALL EXIT(0)
-				    end if 
+						e % Qout(1:5,i,j,k)=VTKresult % Q(1:5,pointIDMinErr )
+						pIDstart=pointID
+						if (MIN_ERR.gt.MAX_ERR) then
+							MAX_ERR=MIN_ERR
+						end if 
+						if (.not.OutofTol) then
+							write(STD_OUT,'(10X,A)')"WARNING - Outside tolerance - closest point selected"
+							write(STD_OUT,'(10X,A)')"CHECK   - Mesh and polynomial used in horsesMesh2OF and OF2Horses"
+							OutofTol=.true.
+						end if 
+					end if 
 				END DO 
+10                              CONTINUE
 			end do               ; end do                ; end do
 			pIDstartGlobal=pIDstart
 		 END DO 
 !$omp end parallel do
+		if (OutofTol) then
+			write(STD_OUT,'(10X,A,F10.6)')"Default tolerance for nodes= ", TOL
+			write(STD_OUT,'(10X,A,F10.6)')"Maximum error due to unmatch location= ", MAX_ERR
+		end if				  
 !
 !        	Write Solution of VTK result to .hsol
 !        	-------------------------------------	
