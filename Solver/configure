@@ -143,27 +143,15 @@ done
 
 
 for subdir in $COMPONENTS_TEST_CASES; do
-    # Tests
 	cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
 	mkdir -p ./test/Components/$subdir/MESH
 	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
 	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
 	rm -f ./test/Components/$subdir/Makefile-e
-
-    # Tutorials
-    cp -v ./tutorials/Components/Makefile.components ./tutorials/Components/$subdir/Makefile
-	mkdir -p ./tutorials/Components/$subdir/MESH
-	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./tutorials/Components/$subdir/Makefile
-	sed -i -e "s#@PROG_NAME#$subdir#g" ./tutorials/Components/$subdir/Makefile
-	rm -f ./tutorials/Components/$subdir/Makefile-e
 done
 
 for subdir in $ADDONS; do
-    # Tests
 	ln -fsv $PWD/bin/horsesConverter ./test/$subdir
-
-    # Tutorials
-    ln -fsv $PWD/bin/horsesConverter ./tutorials/$subdir
 done
 
 # Comment gradients as it is outdated
