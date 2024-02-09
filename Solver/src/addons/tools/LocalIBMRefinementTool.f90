@@ -168,9 +168,9 @@ module LocalIBMRefinementTool
          call CheckGMSHversion (meshFileName, gmsh_version)
          select case (gmsh_version)
             case (4)
-               call ConstructSimpleMesh_FromGMSHFile_v4_( mesh, meshFileName, AllNx, AllNy, AllNz )
+               call ConstructSimpleMesh_FromGMSHFile_v4_( mesh, meshFileName, AllNx=AllNx, AllNy=AllNy, AllNz=AllNz)
             case (2)
-               call ConstructSimpleMesh_FromGMSHFile_v2_( mesh, meshFileName, AllNx, AllNy, AllNz )
+               call ConstructSimpleMesh_FromGMSHFile_v2_( mesh, meshFileName, AllNx=AllNx, AllNy=AllNy, AllNz=AllNz)
             case default
                error stop "ReadMeshFile :: Unrecognized GMSH version."
          end select
