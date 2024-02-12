@@ -15,7 +15,8 @@ solution file name    = "RESULTS/actuatorP1.hsol"
 save gradients with solution = .false.
 restart               = .false.
 restart file name     = "RESULTS/actuatorP1.hsol"
-!restart polorder      = 1
+
+!restart polorder      = 1 ! you can later restart a P2 simulation using the P1 restart file
 
 ! ACTUATOR LINE
 use actuatorline = .true.
