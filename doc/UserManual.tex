@@ -191,6 +191,8 @@ convergence tolerance & \textit{REAL}: Residual convergence tolerance for steady
 
 partitioning  & \textit{CHARACTER}: Specifies the method for partitioning the mesh in MPI simulations. Options are: 'metis' (the code must have been linked to METIS at compilation time, see Chapter~\ref{sect:compiling}), or 'SFC' (to use a space-filling curve method, no special compilation is needed for this option). & 'metis' \\ \hline
 
+partitioning with weights & \textit{LOGICAL}: Specifies if the method for partitioning the mesh in MPI simulations takes the local polynomial order as weights. Necessary for local polynomial refinement & .TRUE. \\ \hline
+
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
 
 $j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \sin(\pi j_C(7) z) $\
