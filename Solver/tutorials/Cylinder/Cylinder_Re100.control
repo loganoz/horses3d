@@ -5,7 +5,6 @@ Number of time steps  = 10000
 Output Interval       = 100
 autosave mode         = "iteration"
 autosave interval     = 2500
-Convergence tolerance = 1.d-10
 cfl                   = 0.6
 dcfl                  = 0.6
 mach number           = 0.2
@@ -17,7 +16,7 @@ save gradients with solution = .false.
 restart               = .true.
 restart file name     = "RESULTS/Cylinder_Re40.hsol"
 riemann solver        = roe
-simulation type       = steady-state
+simulation type       = unsteady
 time integration      = explicit
 explicit method       = RK3
 
