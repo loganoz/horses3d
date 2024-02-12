@@ -16,7 +16,7 @@ save gradients with solution = .false.
 restart               = .true.
 restart file name     = "RESULTS/Cylinder_Re40.hsol"
 riemann solver        = roe
-simulation type       = unsteady
+simulation type       = time-accurate
 time integration      = explicit
 explicit method       = RK3
 
