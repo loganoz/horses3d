@@ -14,7 +14,7 @@ module readGMSH
 
    contains
 
-   subroutine ConstructSimpleMesh_FromGMSHFile_v4_(self, fileName, Nx, Ny, Nz)
+   subroutine ConstructSimpleMesh_FromGMSHFile_v4_(self, fileName, locR, AllNx, AllNy, AllNz)
    
       !use PhysicsStorage
    
@@ -25,12 +25,14 @@ module readGMSH
 !
       type(HexMesh)                    :: self
       character(len=*)                 :: fileName
-      integer,         intent(in)      :: Nx(:), Ny(:), Nz(:)
+      type(LocalRef_t), optional, intent(in)  :: locR
+      integer, optional,intent(in)     :: AllNx(:), AllNy(:), AllNz(:)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
+      integer                         :: Nx, Ny, Nz     !<  Polynomial orders for each element
       character(len=1024)             :: tmps
       real(kind=RP)                   :: tmpd
       integer                         :: tmpi, tmpi1, tmpi2, tmpi3, tmp_eltag
@@ -251,9 +253,11 @@ module readGMSH
       allocate( self % elements(numberOfelements) )
       allocate( self % nodes(numberOfNodes) )
       allocate( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
-      self % Nx = Nx
-      self % Ny = Ny
-      self % Nz = Nz
+      if (present(AllNx)) then
+          self % Nx = AllNx
+          self % Ny = AllNy
+          self % Nz = AllNz
+      end if 
       
 !----Set-nodes-----------------------------------------------------------
       do msh_nodeblock=1, msh_no_nodeblocks
@@ -284,11 +288,19 @@ module readGMSH
                    error stop
                 end if
                 
-                call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
+            if( present(locR) ) then 
+               call locR % getOrderOfPosition(corners, Nx, Ny, Nz)
+               ! call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
+               call self % elements(l) % Construct (Nx, Ny, Nz, nodeIDs, l, l) 
+            else
+               call self % elements(l) % Construct (AllNx(l), AllNy(l), AllNz(l), nodeIDs , l, l)
+            end if
+
              end do ! msh_element_blocks(msh_elblock) % no_els
           end if ! if el_type .eq. org_element_type
        end do ! msh_no_elblocks
        if (.not. (j .eq. numberOfElements)) error stop "Read_GMSH :: Not all elements assigned."      
+
    
 !------Deallocate-msh-vairables-------------------------------------------
        do msh_nodeblock=1, msh_no_nodeblocks
@@ -306,7 +318,7 @@ module readGMSH
       
     end subroutine ConstructSimpleMesh_FromGMSHFile_v4_
     
-    subroutine ConstructSimpleMesh_FromGMSHFile_v2_(self, filename, Nx, Ny, Nz)
+    subroutine ConstructSimpleMesh_FromGMSHFile_v2_(self, filename, locR, AllNx, AllNy, AllNz)
     
                 USE Physics
             use PartitionedMeshClass
@@ -319,12 +331,14 @@ module readGMSH
 !
        type(HexMesh)                    :: self
        character(len=*)                 :: fileName
-       integer,          intent(in)     :: Nx(:), Ny(:), Nz(:)
+       type(LocalRef_t), optional, intent(in)  :: locR
+       integer, optional,intent(in)     :: AllNx(:), AllNy(:), AllNz(:)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
+      integer                         :: Nx, Ny, Nz     !<  Polynomial orders for each element
        character(len=1024)             :: tmps
        real(kind=RP)                   :: tmpd
        integer                         :: tmpi, tmpi1, tmpi2, tmpi3, tmp_eltag
@@ -558,9 +572,9 @@ module readGMSH
        allocate( self % elements(numberOfelements) )
        allocate( self % nodes(numberOfNodes) )
        allocate( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
-       self % Nx = Nx
-       self % Ny = Ny
-       self % Nz = Nz
+       self % Nx = AllNx
+       self % Ny = AllNy
+       self % Nz = AllNz
 !~ !----Set-nodes-----------------------------------------------------------
        do msh_node=1, msh_nodes % no_nodes
           x = msh_nodes % cords(msh_node,1:NDIM)!/L_ref
@@ -585,7 +599,13 @@ module readGMSH
              error stop   
           end if
 
-          call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
+            if( present(locR) ) then 
+               call locR % getOrderOfPosition(corners, Nx, Ny, Nz)
+               ! call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
+               call self % elements(l) % Construct (Nx, Ny, Nz, nodeIDs, l, l) 
+            else
+               call self % elements(l) % Construct (AllNx(l), AllNy(l), AllNz(l), nodeIDs , l, l)
+            end if
 
        end do ! msh_elements_3D % no_els
        if (.not. (j .eq. numberOfElements)) error stop "Read_GMSH :: Not all elements assigned."

@@ -1,4 +1,4 @@
-   subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
+   subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights)
 !
 !     *********************************************************************
 !        This subroutine performs the mesh partitioning using METIS
@@ -11,6 +11,7 @@
       integer,       intent(in)              :: no_of_domains
       integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
       integer,       intent(out)             :: nodesDomain(size(mesh % nodes))
+      logical,       intent(in)              :: useWeights
 !
 !     ---------------
 !     Local Variables
@@ -32,6 +33,7 @@
       integer                :: objval                ! objective calculated value
       integer, parameter     :: MIN_EDGE_CUT = -1     ! option to minimize edge-cut
       integer, parameter     :: MIN_COMM_VOL = 1      ! option to minimize the communication volume
+      integer, allocatable, target   :: weights(:)
 #ifdef _HAS_METIS_
 !
 !     **************
@@ -79,6 +81,21 @@
 !     -----------------
       opts(5) = 0
 !
+!     *******************************
+!     Calculate weights based on NDOF
+!     *******************************
+!
+      if (useWeights) then
+          allocate(weights(ne))
+          do ielem=1,ne
+              weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
+          end do
+          ! weights(ne+1) = product(mesh % elements(ielem) % Nxyz + 1)
+          ! eptr(ne+1) = i - 1
+          if (maxval(weights) .ne. minval(weights)) then
+              vwgt => weights
+          endif
+      end if 
 !     **********************
 !     Perform the partitions
 !     **********************

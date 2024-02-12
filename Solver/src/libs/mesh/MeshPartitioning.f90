@@ -10,11 +10,12 @@ module MeshPartitioning
    public   PerformMeshPartitioning
 
    contains
-      subroutine PerformMeshPartitioning(mesh, no_of_domains, partitions)
+      subroutine PerformMeshPartitioning(mesh, no_of_domains, partitions, useWeights)
          implicit none
          type(HexMesh), intent(in)  :: mesh
          integer,       intent(in)  :: no_of_domains
          type(PartitionedMesh_t)    :: partitions(no_of_domains)
+         logical,       intent(in)  :: useWeights
 !
 !        ---------------
 !        Local variables
@@ -31,7 +32,7 @@ module MeshPartitioning
 !
 !        Get each domain elements and nodes
 !        ----------------------------------
-         call GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions)
+         call GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights)
 !
 !        Get the partition boundary faces
 !        --------------------------------
@@ -43,7 +44,7 @@ module MeshPartitioning
          call WritePartitionsFile(mesh, elementsDomain)
       end subroutine PerformMeshPartitioning
 
-      subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions)
+      subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights)
          use IntegerDataLinkedList
          use MPI_Process_Info
          implicit none
@@ -51,6 +52,7 @@ module MeshPartitioning
          integer,       intent(in)              :: no_of_domains
          integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
          type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)      
+         logical,       intent(in)  :: useWeights
 !
 !        ---------------
 !        Local variables
@@ -70,12 +72,12 @@ module MeshPartitioning
 !           Space-filling curve partitioning
 !           --------------------------------
             case (SFC_PARTITIONING)
-               call GetSFCElementsPartition(no_of_domains, mesh % no_of_elements, elementsDomain)
+               call GetSFCElementsPartition(mesh, no_of_domains, mesh % no_of_elements, elementsDomain, useWeights=useWeights)
 !     
 !           METIS partitioning
 !           ------------------
             case (METIS_PARTITIONING)
-               call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
+               call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights)
          end select
 !
 !        ****************************************
@@ -345,20 +347,39 @@ module MeshPartitioning
 !     --------------------------------
 !     Space-filling curve partitioning
 !     --------------------------------
-      subroutine GetSFCElementsPartition(no_of_domains, nelem, elementsDomain)
+      subroutine GetSFCElementsPartition(mesh, no_of_domains, nelem, elementsDomain, useWeights)
          implicit none
          !-arguments--------------------------------------------------
+         type(HexMesh), intent(in)        :: mesh
          integer, intent(in)    :: no_of_domains
          integer, intent(in)    :: nelem
          integer, intent(inout) :: elementsDomain(nelem)
+         logical, intent(in)    :: useWeights
          !-local-variables--------------------------------------------
          integer :: elems_per_domain(no_of_domains)
          integer :: biggerdomains
          integer :: first, last, domain
+         integer :: ielem, ndof, max_dof, dof_in_domain
+         integer :: dof_per_domain(no_of_domains), start_index(no_of_domains+1)
+         logical                :: neddWeights
+         integer, allocatable, target   :: weights(:)
          !------------------------------------------------------------
+
+         if (useWeights) then
+             allocate(weights(nelem))
+             do ielem=1,nelem
+                 weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
+             end do
+             if (maxval(weights) .eq. minval(weights)) then
+                 neddWeights = .false.
+                 deallocate(weights)
+             else
+                 neddWeights = .true.
+                 ndof = sum(weights)
+             endif
+         end if 
          
          elems_per_domain = nelem / no_of_domains
-         
          biggerdomains = mod(nelem,no_of_domains)
          elems_per_domain(1:biggerdomains) = elems_per_domain(1:biggerdomains) + 1
          
@@ -368,6 +389,41 @@ module MeshPartitioning
             elementsDomain(first:last) = domain
             first = last + 1
          end do
+
+         if (neddWeights) then
+
+             max_dof = ndof / no_of_domains
+             start_index = 1
+             do domain = 1, no_of_domains
+                 start_index(domain+1) = start_index(domain) + elems_per_domain(domain)
+             end do
+
+             do domain = 1, no_of_domains-1
+                 if (start_index(domain) .ge. start_index(domain+1)) start_index(domain+1) = start_index(domain) + 1
+                 dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
+                 do ielem=1,nelem
+                     if (dof_in_domain .lt. max_dof) then
+                         start_index(domain+1) = start_index(domain+1) + 1
+                         dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
+                         if (abs(dof_in_domain-max_dof) .le. abs(dof_in_domain-max_dof+weights(start_index(domain+1)+1))) exit
+                     else
+                         start_index(domain+1) = start_index(domain+1) - 1
+                         dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
+                         if (abs(dof_in_domain-max_dof) .le. abs(dof_in_domain-max_dof-weights(start_index(domain+1)-1))) exit
+                     end if
+                 end do
+             end do
+
+             dof_per_domain = 0
+             do domain = 1, no_of_domains
+                 dof_per_domain(domain) = sum(weights(start_index(domain):start_index(domain+1)-1))
+             end do
+
+             do domain = 1, no_of_domains
+                elementsDomain(start_index(domain):start_index(domain+1)-1) = domain
+             end do
+
+         end if
          
       end subroutine GetSFCElementsPartition
 !
