@@ -70,7 +70,7 @@ module SpatialDiscretization
          if ( .not. controlVariables % ContainsKey(CHDiscretizationKey) ) then
             print*, "Input file is missing entry for keyword: Cahn-Hilliard discretization"
             errorMessage(STD_OUT)
-            error stop
+            stop
          end if
 
          CHDiscretizationName = controlVariables % stringValueForKey(CHDiscretizationKey, requestedLength = LINE_LENGTH)
@@ -93,7 +93,7 @@ module SpatialDiscretization
             write(STD_OUT,'(A)') "  * BR2"
             write(STD_OUT,'(A)') "  * IP"
             errorMessage(STD_OUT)
-            error stop 
+            stop 
 
          end select
 
@@ -149,7 +149,7 @@ module SpatialDiscretization
          case default
             print*, "Unrecognized mode"
             errorMessage(STD_OUT)
-            error stop
+            stop
          end select
 !
 !        **************************************
@@ -192,7 +192,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
 errorMessage(STD_OUT)
-error stop
+stop
 !         call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
@@ -206,7 +206,7 @@ error stop
 #ifdef _HAS_MPI_
 !$omp single
 errorMessage(STD_OUT)
-error stop
+stop
 !         call mesh % UpdateMPIFacesGradients
 !$omp end single
 #endif
@@ -284,7 +284,7 @@ error stop
 #ifdef _HAS_MPI_
 !$omp single
 errorMessage(STD_OUT)
-error stop
+stop
 !         call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
@@ -298,7 +298,7 @@ error stop
 #ifdef _HAS_MPI_
 !$omp single
 errorMessage(STD_OUT)
-error stop
+stop
 !         call mesh % UpdateMPIFacesGradients
 !$omp end single
 #endif
@@ -382,7 +382,7 @@ error stop
          REAL(KIND=RP)                   :: time
          integer,             intent(in) :: mode
          
-         error stop 'ComputeTimeDerivativeIsolated not implemented for Cahn-Hilliard'
+         ERROR stop 'ComputeTimeDerivativeIsolated not implemented for Cahn-Hilliard'
       end subroutine ComputeTimeDerivativeIsolated
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
@@ -401,7 +401,7 @@ error stop
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID
+         integer     :: eID , i, j, k, ierr, fID, m
 !
 !        ****************
 !        Volume integrals
@@ -422,7 +422,21 @@ error stop
             associate( f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               CALL computeElementInterfaceFlux( f ) 
+               if (f % IsMortar==1) then 
+                  associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                     fstar=0.0_RP
+                  end associate
+                  associate(fstar=>mesh% faces(fID)%storage(2)%fStar)
+                     fstar=0.0_RP
+                  end associate
+                  do m=1,4
+                     if (f%Mortar(m) .ne. 0) then 
+                        CALL computeElementInterfaceFlux(fma=mesh % faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                     end if 
+                  end do  
+               elseif (f % IsMortar==0) then
+                  CALL computeElementInterfaceFlux( f ) 
+               end if 
  
             case (HMESH_BOUNDARY) 
                CALL computeBoundaryFlux(f, t) 
@@ -432,7 +446,7 @@ error stop
             case default
                print*, "Unrecognized face type"
                errorMessage(STD_OUT)
-               error stop
+               stop
                 
             end select 
             end associate 
@@ -464,7 +478,7 @@ error stop
          if ( MPI_Process % doMPIAction ) then
 !$omp single
 errorMessage(STD_OUT)
-error stop
+stop
 !            call mesh % GatherMPIFacesGradients
 !$omp end single
 !
@@ -477,11 +491,34 @@ error stop
                associate( f => mesh % faces(fID)) 
                select case (f % faceType) 
                case (HMESH_MPI) 
+                  if (f%IsMortar==1) then 
+                     associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                        fstar=0.0_RP
+                     end associate
+                     do m=1,4
+                        if (mesh % faces(fID)%Mortar(m) .ne. 0) then
+                           CALL computeElementInterfaceFlux(fma=mesh % faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                        end if 
+                     end do 
+                  end if 
                   CALL computeMPIFaceFlux( f ) 
                end select 
                end associate 
             end do 
 !$omp end do 
+
+!$omp single
+            if ( mesh % nonconforming ) then
+               call mesh % UpdateMPIFacesMortarflux(NCONS)
+            end if
+      !$omp end single
+      
+      
+      !$omp single
+            if ( mesh % nonconforming ) then
+               call mesh % GatherMPIFacesMortarFlux(NCONS)         
+            end if
+      !$omp end single
 !
 !           ***********************************************************
 !           Surface integrals and scaling of elements with shared faces
@@ -574,7 +611,7 @@ error stop
          if ( MPI_Process % doMPIAction ) then
 !$omp single
 errorMessage(STD_OUT)
-error stop
+stop
 !            call mesh % GatherMPIFacesGradients
 !$omp end single
 !
@@ -680,16 +717,19 @@ error stop
 ! 
 !///////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine computeElementInterfaceFlux(f)
+      subroutine computeElementInterfaceFlux(f, fma)
          use FaceClass
          use Physics
          use PhysicsStorage
          IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
+         TYPE(Face)   , INTENT(inout) :: f 
+         type(Face), optional, intent(inout) :: fma   
+
          integer       :: i, j
          real(kind=RP) :: flux(1:NCOMP,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu
 
+         !if (f % IsMortar==0 .OR. f % IsMortar==2) then 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
@@ -725,7 +765,15 @@ error stop
 !        Return the flux to elements
 !        ---------------------------
 !
+      if (f % IsMortar==0) then 
          call f % ProjectFluxToElements(NCOMP, flux, (/1,2/))
+      end if 
+      if (f % IsMortar==2 .and. present(fma)) then 
+         call fma % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=(/1,0/), &
+            fma=f, flux_M1=flux)
+         call f % ProjectFluxToElements(NCONS, flux, (/0,2/))
+      end if 
+      !end if 
 
       end subroutine computeElementInterfaceFlux
 
@@ -776,6 +824,11 @@ error stop
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
          call f % ProjectFluxToElements(NCOMP, flux, (/thisSide, HMESH_NONE/))
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2big(NCONS, flux)
+            
+         end if 
 
       end subroutine ComputeMPIFaceFlux
 
@@ -949,5 +1002,4 @@ error stop
          end do                ; end do
 
       end subroutine GetPoiseuilleFlow_Face
-
 end module SpatialDiscretization
