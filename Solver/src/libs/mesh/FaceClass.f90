@@ -62,7 +62,7 @@
    !
 
          type Face
-         integer, allocatable            :: Mortar(:)                !fID of the slave mortar 
+         integer, allocatable            :: Mortar(:)                !fID of the slave mortar slve
          integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
          integer                         :: Mortarpos                !Mortar index (only for slave faces, from 1 to 4; 0 if not slave mortar face)
          logical                         :: flat
@@ -353,7 +353,7 @@
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
-      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot, fma, fmb, fmc, fmd)
+      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)              :: self
@@ -741,6 +741,7 @@
    !
          integer       :: i, j, k, l, m, ii, jj, lm, a, b 
          real(kind=RP) :: AVn_e_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
@@ -1014,23 +1015,23 @@
          select case (fma%Mortarpos)
          case (1)
  
-             Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-             Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
+             Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+             Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
              !write(*,*) 'mortar1 1 out', Mout(:,:,1)
              !write(*,*) 'mortar1 2 out', Mout(:,:,2)
          case (2)
-            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)
-            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
              !write(*,*) 'mortar2 1 out', Mout(:,:,1)
              !write(*,*) 'mortar2 2 out', Mout(:,:,2)
          case (3)
-            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
             ! write(*,*) 'mortar3 1 out', Mout(:,:,1)
              !write(*,*) 'mortar3 2 out', Mout(:,:,2)
          case (4)
-            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)
-            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
             ! write(*,*) 'mortar4 1 out', Mout(:,:,1)
             ! write(*,*) 'mortar4 2 out', Mout(:,:,2)
          end select 
@@ -1137,6 +1138,7 @@
          integer                :: i, j, ii, jj, l, m, side, lm, a, b
          real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
          real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+
          fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
    
          select case ( whichElement )
@@ -1312,6 +1314,7 @@
          real(kind=RP), intent(in), optional  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
          integer,       intent(in)  :: whichElements(2)
          integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
+
    !
    !     ---------------
    !     Local variables
@@ -1430,17 +1433,17 @@
 
       select case (fma%Mortarpos)
       case (1)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
+          Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+          Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
       case (2)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)  
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
+          Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)  
+          Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
       case (3)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
+          Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+          Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
       case (4)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
+          Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+          Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
       end select 
 
       hStarAux = 0.0_RP 
@@ -1480,16 +1483,16 @@ subroutine Face_Interpolatebig2small(self, nEqn, fma, grad)
    select case (fma%Mortarpos)
    case (1)
        MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-       MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 1, 1) % T)
+       MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
    case (2)
        MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
-       MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 1, 1) % T)
+       MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
    case (3)
        MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-       MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 2, 1) % T)
+       MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
    case (4)
        MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-       MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 2, 1) % T)
+       MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
    end select 
    if (present(grad)) then 
       select case(grad)
@@ -1567,17 +1570,17 @@ SUBROUTINE Face_Interpolatesmall2big(self, nEqn, flux_M)
 
    select case (self%Mortarpos)
    case (1)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % T)
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
    case (2)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % T)  
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)  
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
    case (3)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % T)
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
    case (4)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % T)
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
    end select 
 
    fStarAux(1:nEqn,:,:) = 0.0_RP 
@@ -1617,17 +1620,17 @@ SUBROUTINE Face_Interpolatesmall2biggrad(self, nEqn, Hflux)
 
    select case (self%Mortarpos)
    case (1)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % T)
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
    case (2)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % T)  
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)  
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
    case (3)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % T)
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
    case (4)
-       Mout(:,:,1)=(TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % T)
-       Mout(:,:,2)=(TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % T)
+       Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
+       Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
    end select 
 
 

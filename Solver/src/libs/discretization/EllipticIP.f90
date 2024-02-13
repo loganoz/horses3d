@@ -204,7 +204,7 @@ module EllipticIP
 !        ---------------
 !
          integer :: Nx, Ny, Nz
-         integer :: i, j, k
+         integer :: i, j, k, m
          integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
          logical :: HOElements
 
