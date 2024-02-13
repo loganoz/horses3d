@@ -203,7 +203,7 @@ module EllipticIP
 !        ---------------
 !
          integer :: Nx, Ny, Nz
-         integer :: i, j, k
+         integer :: i, j, k, m
          integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
 !
 !        *********************************
@@ -246,7 +246,22 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
-            call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            if (mesh % faces(fID) % IsMortar==1) then 
+               associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                  unStar=0.0_RP
+               end associate
+               associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                  unStar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                  call IP_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                  f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do 
+            elseif(mesh % faces(fID) % IsMortar==0) then
+               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
          end do
 !$omp end do 
 
@@ -286,10 +301,34 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
+            if (mesh% faces(fID)%IsMortar==1) then 
+               associate(UnStar=>mesh% faces(fID)%storage(1)%UnStar)
+                  UnStar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call IP_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do
+            end if 
             call IP_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do 
-!
+         
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(NCONS)
+         end if
+   !$omp end single
+   
+   
+   !$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(NCONS)
+         end if
+   !$omp end single
 !        **************************************************
 !        Compute face integrals for elements with MPI faces
 !        **************************************************
@@ -350,7 +389,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients, fma, fmb, fmc, fmd)
+      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients, fma)
          use Physics  
          use ElementClass
          use FaceClass
@@ -364,9 +403,9 @@ module EllipticIP
          integer, intent(in)              :: nEqn, nGradEqn
          procedure(GetGradientValues_f)   :: GetGradients
          type(Face), optional             :: fma
-         type(Face), optional             :: fmb
-         type(Face), optional             :: fmc
-         type(Face), optional             :: fmd
+         !type(Face), optional             :: fmb
+         !type(Face), optional             :: fmc
+         !type(Face), optional             :: fmd
 
 !
 !        ---------------
@@ -376,14 +415,14 @@ module EllipticIP
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), allocatable  :: HfluxM1(:,:,:,:)
-         real(kind=RP), allocatable  :: HfluxM2(:,:,:,:)
-         real(kind=RP), allocatable  :: HfluxM3(:,:,:,:)
-         real(kind=RP), allocatable  :: HfluxM4(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM1(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM2(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM3(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM4(:,:,:,:)
          integer       :: i,j, lm
-         integer :: Nfm(4,2) 
+         !integer :: Nfm(4,2) 
 
-         if (f % IsMortar ==0 ) then 
+         !if (f % IsMortar ==0 ) then 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
@@ -407,106 +446,12 @@ module EllipticIP
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
+         if (f % IsMortar==0) then 
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
-         end  if 
-         if (f % IsMortar == 1) then 
-            do lm=1,4
-               Nfm(1,:)=fma % Nf
-               Nfm(2,:)=fmb % Nf
-               Nfm(3,:)=fmc % Nf
-               Nfm(4,:)=fmd % Nf
-               if (lm==1) allocate(HfluxM1(nGradEqn,NDIM,0:fma % Nf(1), 0:fma % Nf(2)))
-               if (lm==2) allocate(HfluxM2(nGradEqn,NDIM,0:fmb % Nf(1), 0:fmb % Nf(2)))
-               if (lm==3) allocate(HfluxM3(nGradEqn,NDIM,0:fmc % Nf(1), 0:fmc % Nf(2)))
-               if (lm==4) allocate(HfluxM4(nGradEqn,NDIM,0:fmd % Nf(1), 0:fmd % Nf(2)))
-
-               do j = 0,  Nfm(lm,2)  ; do i = 0, Nfm(lm,1)
-                  select case (lm)
-                  case (1)
-#ifdef MULTIPHASE
-               call GetGradients(nEqn, nGradEqn, Q = fma % storage(1) % Q(:,i,j), U = UL, rho_ = fma % storage(1) % rho(i,j))
-               call GetGradients(nEqn, nGradEqn, Q = fma % storage(2) % Q(:,i,j), U = UR, rho_ = fma % storage(2) % rho(i,j))
-#else
-               call GetGradients(nEqn, nGradEqn, Q = fma % storage(1) % Q(:,i,j), U = UL)
-               call GetGradients(nEqn, nGradEqn, Q = fma % storage(2) % Q(:,i,j), U = UR)
-#endif
-                  case (2)
-#ifdef MULTIPHASE
-               call GetGradients(nEqn, nGradEqn, Q = fmb % storage(1) % Q(:,i,j), U = UL, rho_ = fmb % storage(1) % rho(i,j))
-               call GetGradients(nEqn, nGradEqn, Q = fmb % storage(2) % Q(:,i,j), U = UR, rho_ = fmb % storage(2) % rho(i,j))
-#else
-               call GetGradients(nEqn, nGradEqn, Q = fmb % storage(1) % Q(:,i,j), U = UL)
-               call GetGradients(nEqn, nGradEqn, Q = fmb % storage(2) % Q(:,i,j), U = UR)
-#endif
-                  case (3)
-#ifdef MULTIPHASE
-               call GetGradients(nEqn, nGradEqn, Q = fmc % storage(1) % Q(:,i,j), U = UL, rho_ = fmc % storage(1) % rho(i,j))
-               call GetGradients(nEqn, nGradEqn, Q = fmc % storage(2) % Q(:,i,j), U = UR, rho_ = fmc % storage(2) % rho(i,j))
-#else
-               call GetGradients(nEqn, nGradEqn, Q = fmc % storage(1) % Q(:,i,j), U = UL)
-               call GetGradients(nEqn, nGradEqn, Q = fmc % storage(2) % Q(:,i,j), U = UR)
-#endif
-                  case (4)
-#ifdef MULTIPHASE
-               call GetGradients(nEqn, nGradEqn, Q = fmd % storage(1) % Q(:,i,j), U = UL, rho_ = fmd % storage(1) % rho(i,j))
-               call GetGradients(nEqn, nGradEqn, Q = fmd % storage(2) % Q(:,i,j), U = UR, rho_ = fmd % storage(2) % rho(i,j))
-#else
-               call GetGradients(nEqn, nGradEqn, Q = fmd % storage(1) % Q(:,i,j), U = UL)
-               call GetGradients(nEqn, nGradEqn, Q = fmd % storage(2) % Q(:,i,j), U = UR)
-#endif
-
-                  end select 
-
-#ifdef MULTIPHASE
-!           The multiphase solver needs the Chemical potential as first entropy variable
-!           ----------------------------------------------------------------------------
-               select case (lm)
-               case(1)
-               UL(IGMU) = fma % storage(1) % mu(1,i,j)
-               UR(IGMU) = fma % storage(2) % mu(1,i,j)
-               case(2)
-               UL(IGMU) = fmb % storage(1) % mu(1,i,j)
-               UR(IGMU) = fmb % storage(2) % mu(1,i,j)
-               case(3)
-               UL(IGMU) = fmc % storage(1) % mu(1,i,j)
-               UR(IGMU) = fmc % storage(2) % mu(1,i,j)
-               case(4)
-               UL(IGMU) = fmd % storage(1) % mu(1,i,j)
-               UR(IGMU) = fmd % storage(2) % mu(1,i,j)
-               end select 
-#endif
-
-
-               if (lm==1) Uhat = 0.5_RP * (UL - UR) * fma % geom % jacobian(i,j)
-               if (lm==2) Uhat = 0.5_RP * (UL - UR) * fmb % geom % jacobian(i,j)
-               if (lm==3) Uhat = 0.5_RP * (UL - UR) * fmc % geom % jacobian(i,j)
-               if (lm==4) Uhat = 0.5_RP * (UL - UR) * fmd % geom % jacobian(i,j)
-               select case (lm)
-               case (1)
-               HfluxM1(:,IX,i,j) = Uhat * fma % geom % normal(IX,i,j)
-               HfluxM1(:,IY,i,j) = Uhat * fma % geom % normal(IY,i,j)
-               HfluxM1(:,IZ,i,j) = Uhat * fma % geom % normal(IZ,i,j)
-               case(2)
-               HfluxM2(:,IX,i,j) = Uhat * fmb % geom % normal(IX,i,j)
-               HfluxM2(:,IY,i,j) = Uhat * fmb % geom % normal(IY,i,j)
-               HfluxM2(:,IZ,i,j) = Uhat * fmb % geom % normal(IZ,i,j)
-               case(3)
-               HfluxM3(:,IX,i,j) = Uhat * fmc % geom % normal(IX,i,j)
-               HfluxM3(:,IY,i,j) = Uhat * fmc % geom % normal(IY,i,j)
-               HfluxM3(:,IZ,i,j) = Uhat * fmc % geom % normal(IZ,i,j)
-               case(4)
-               HfluxM4(:,IX,i,j) = Uhat * fmd % geom % normal(IX,i,j)
-               HfluxM4(:,IY,i,j) = Uhat * fmd % geom % normal(IY,i,j)
-               HfluxM4(:,IZ,i,j) = Uhat * fmd % geom % normal(IZ,i,j)
-               end select 
-               end do               ; end do
-
-            end do 
-            call f % ProjectMortarGradientFluxToElements(nGradEqn, HFlux,(/1,0/),1,fma, fmb, fmc, fmd, HFluxM1, HFluxM2, HFluxM3, HFluxM4)
-            call fma % ProjectGradientFluxToElements(nGradEqn, HFluxM1,(/0,2/),1)
-            call fmb % ProjectGradientFluxToElements(nGradEqn, HFluxM2,(/0,2/),1)
-            call fmc % ProjectGradientFluxToElements(nGradEqn, HFluxM3,(/0,2/),1)
-            call fmd % ProjectGradientFluxToElements(nGradEqn, HFluxM4,(/0,2/),1)
+         end if 
+         if (f % IsMortar==2 .and. present(fma)) then 
+            call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, HFlux=HFlux,whichElements=(/0,2/),factor=1)
+            call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/0,2/),1)
          end if 
          
       end subroutine IP_GradientInterfaceSolution   
@@ -559,7 +504,11 @@ module EllipticIP
 
          thisSide = maxloc(f % elementIDs, dim = 1)
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
-         
+         if (f % IsMortar==2) then 
+
+            call f% Interpolatesmall2biggrad(NCONS, HFlux)
+            
+         end if 
       end subroutine IP_GradientInterfaceSolutionMPI   
 
       subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
