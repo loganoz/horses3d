@@ -235,7 +235,7 @@
    !        Local variables
    !        ---------------
    !
-            integer  :: i, j, k, l, N(3)
+            integer  :: i, j, k, l, N(3), m
             real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK, QdotFR, QdotBK
             real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT, QdotBOT, QdotT
             real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR, QdotL, QdotR
@@ -286,40 +286,82 @@
             nullify (spAxi, spAeta, spAzeta)
             if (present(faces)) then 
                if (fL % IsMortar==1) then 
-                  call fL   % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot,&
-                  faces(fL % ID +1), faces(fL % ID +2), faces(fL % ID +3), faces(fL % ID +4))
+                  if (fL % n_mpi_mortar .ne. 0) then 
+                     call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
+                  end if 
+                  do m=1,4
+                     if (fL % Mortar(m) .ne. 0) then 
+                        call fL % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot,&
+                        faces(fL % Mortar(m)))
+                     end if 
+                  end do 
                else 
                   call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
                end if 
                if (fR % IsMortar==1) then 
-                  call fR   % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot,&
-                  faces(fR % ID +1), faces(fR % ID +2), faces(fR % ID +3), faces(fR % ID +4))
+                  if (fR % n_mpi_mortar .ne. 0) then 
+                     call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
+                  end if 
+                  do m=1,4
+                     if (fR % Mortar(m) .ne. 0) then 
+                        call fR % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT  ), QdotR, computeQdot,&
+                        faces(fR % Mortar(m)))
+                     end if 
+                  end do 
                else 
                   call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
                end if 
                if (fFR % IsMortar==1) then 
-                  call fFR   % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QFR   , self % faceSide(EFRONT ), QdotFR, computeQdot,&
-                  faces(fFR % ID +1), faces(fFR % ID +2), faces(fFR % ID +3), faces(fFR % ID +4))
+                  if (fFR % n_mpi_mortar .ne. 0) then 
+                     call fFR   % AdaptSolutionToFace(nEqn, N(1), N(3), QFR   , self % faceSide(EFRONT ), QdotFR, computeQdot)
+                  end if 
+                  do m=1,4
+                     if (fFR % Mortar(m) .ne. 0) then 
+                        call fFR % AdaptSolutionToMortarFace(nEqn, N(1), N(3), QFR   , self % faceSide(EFRONT  ), QdotFR, computeQdot,&
+                        faces(fFR % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fFR   % AdaptSolutionToFace(nEqn, N(2), N(3), QFR   , self % faceSide(EFRONT ), QdotFR, computeQdot)
+                  call fFR   % AdaptSolutionToFace(nEqn, N(1), N(3), QFR   , self % faceSide(EFRONT ), QdotFR, computeQdot)
                end if 
                if (fBK % IsMortar==1) then 
-                  call fBK   % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QBK   , self % faceSide(EBACK  ), QdotBK, computeQdot,&
-                  faces(fBK % ID +1), faces(fBK % ID +2), faces(fBK % ID +3), faces(fBK % ID +4))
+                  if (fBK % n_mpi_mortar .ne. 0) then 
+                     call fBK   % AdaptSolutionToFace(nEqn, N(1), N(3), QBK   , self % faceSide(EBACK  ), QdotBK, computeQdot)
+                  end if 
+                  do m=1,4
+                     if (fBK% Mortar(m) .ne. 0) then 
+                        call fBK % AdaptSolutionToMortarFace(nEqn, N(1), N(3), QBK   , self % faceSide(EBACK  ), QdotBK, computeQdot,&
+                        faces(fBK % Mortar(m)))
+                     end if
+                  end do 
                else 
-                  call fBK   % AdaptSolutionToFace(nEqn, N(2), N(3), QBK   , self % faceSide(EBACK  ), QdotBK, computeQdot)
+                  call fBK   % AdaptSolutionToFace(nEqn, N(1), N(3), QBK   , self % faceSide(EBACK  ), QdotBK, computeQdot)
                end if 
                if (fBOT % IsMortar==1) then 
-                  call fBOT   % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QBOT   , self % faceSide(EBOTTOM), QdotBOT, computeQdot,&
-                  faces(fBOT % ID +1), faces(fBOT % ID +2), faces(fBOT % ID +3), faces(fBOT % ID +4))
+                  if (fBOT % n_mpi_mortar .ne. 0) then 
+                     call fBOT   % AdaptSolutionToFace(nEqn, N(1), N(2), QBOT   , self % faceSide(EBOTTOM), QdotBOT, computeQdot)
+                  end if 
+                  do m=1,4
+                     if (fBOT % Mortar(m) .ne. 0) then 
+                        call fBOT % AdaptSolutionToMortarFace(nEqn, N(1), N(2), QBOT   , self % faceSide(EBOTTOM  ), QdotBOT, computeQdot,&
+                        faces(fBOT % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fBOT   % AdaptSolutionToFace(nEqn, N(2), N(3), QBOT   , self % faceSide(EBOTTOM), QdotBOT, computeQdot)
+                  call fBOT   % AdaptSolutionToFace(nEqn, N(1), N(2), QBOT   , self % faceSide(EBOTTOM), QdotBOT, computeQdot)
                end if 
                if (fT % IsMortar==1) then 
-                  call fT   % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QT   , self % faceSide(ETOP   ), QdotT, computeQdot,&
-                  faces(fT % ID +1), faces(fT % ID +2), faces(fT % ID +3), faces(fT % ID +4))
+                  if (fT % n_mpi_mortar .ne. 0) then 
+                     call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ), QdotT, computeQdot)
+                  end if 
+                  do m=1,4
+                     if (fT% Mortar(m) .ne. 0) then 
+                        call fT % AdaptSolutionToMortarFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP  ), QdotT, computeQdot,&
+                        faces(fT % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fT   % AdaptSolutionToFace(nEqn, N(2), N(3), QT   , self % faceSide(ETOP   ), QdotT, computeQdot)
+                  call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ), QdotT, computeQdot)
                end if 
             else 
                call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
@@ -344,7 +386,7 @@
    !        Local variables
    !        ---------------
    !
-            integer  :: i, j, k, l, N(3)
+            integer  :: i, j, k, l, m, N(3)
             real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxFR, UyFR, UzFR
             real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxBK, UyBK, UzBK
             real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxBT, UyBT, UzBT
@@ -395,41 +437,83 @@
             nullify (spAxi, spAeta, spAzeta)
             if (present(faces)) then 
                if (fL % IsMortar==1) then 
-                  call fL   % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ),&
-                  faces(fL % ID +1), faces(fL % ID +2), faces(fL % ID +3), faces(fL % ID +4))
+                  if (fL % n_mpi_mortar .ne. 0) then 
+                     call fL   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
+                  end if 
+                  do m=1,4
+                     if (fL % Mortar(m) .ne. 0) then 
+                        call fL % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT), faces(fL % Mortar(m)))
+                     end if 
+                  end do 
                else 
                   call fL   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
                end if 
+
                if (fR % IsMortar==1) then 
-                  call fR   % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT  ),&
-                  faces(fR % ID +1), faces(fR % ID +2), faces(fR % ID +3), faces(fR % ID +4))
+                  if (fR % n_mpi_mortar .ne. 0) then 
+                     call fR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT  ))
+                  end if 
+                  do m=1,4
+                     if (fR % Mortar(m) .ne. 0) then 
+                        call fR % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT), faces(fR % Mortar(m)))
+                     end if 
+                  end do 
                else 
                   call fR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT  ))
                end if 
+
                if (fFR % IsMortar==1) then 
-                  call fFR   % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxFR, UyFR, UzFR, self % faceSide(EFRONT  ),&
-                  faces(fFR % ID +1), faces(fFR % ID +2), faces(fFR % ID +3), faces(fFR % ID +4))
+                 if (fFR % n_mpi_mortar .ne. 0) then 
+                     call fFR   % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxFR , UyFR , UzFR , self % faceSide(EFRONT  ))
+                  end if 
+                  do m=1,4
+                     if (fFR % Mortar(m) .ne. 0) then 
+                        call fFR % AdaptGradientsToMortarFace(nGradEqn, N(1), N(3), UxFR , UyFR , UzFR , self % faceSide(EFRONT), faces(fFR % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fFR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxFR, UyFR, UzFR, self % faceSide(EFRONT  ))
+                  call fFR   % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxFR , UyFR , UzFR , self % faceSide(EFRONT  ))
                end if 
+
                if (fBK % IsMortar==1) then 
-                  call fBK   % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxBK, UyBK, UzBK, self % faceSide(EBACK  ),&
-                  faces(fBK % ID +1), faces(fBK % ID +2), faces(fBK % ID +3), faces(fBK % ID +4))
+                                    if (fBK % n_mpi_mortar .ne. 0) then 
+                     call fBK   % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxBK , UyBK , UzBK , self % faceSide(EBACK  ))
+                  end if 
+                  do m=1,4
+                     if (fBK % Mortar(m) .ne. 0) then 
+                        call fBK % AdaptGradientsToMortarFace(nGradEqn, N(1), N(3), UxBK , UyBK , UzBK , self % faceSide(EBACK), faces(fBK % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fBK   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxBK, UyBK, UzBK, self % faceSide(EBACK  ))
+                  call fBK   % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxBK , UyBK , UzBK , self % faceSide(EBACK  ))
                end if 
+
                if (fBOT % IsMortar==1) then 
-                  call fBOT   % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxBT, UyBT, UzBT, self % faceSide(EBOTTOM  ),&
-                  faces(fBOT % ID +1), faces(fBOT % ID +2), faces(fBOT % ID +3), faces(fBOT % ID +4))
+                                  if (fBOT % n_mpi_mortar .ne. 0) then 
+                     call fBOT   % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxBT , UyBT , UzBT , self % faceSide(EBOTTOM  ))
+                  end if 
+                  do m=1,4
+                     if (fBOT % Mortar(m) .ne. 0) then 
+                        call fBOT % AdaptGradientsToMortarFace(nGradEqn, N(1), N(2), UxBT , UyBT , UzBT , self % faceSide(EBOTTOM), faces(fBOT % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fBOT   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxBT, UyBT, UzBT, self % faceSide(EBOTTOM  ))
+                  call fBOT   % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxBT , UyBT , UzBT , self % faceSide(EBOTTOM  ))
                end if 
+
                if (fT % IsMortar==1) then 
-                  call fT   % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxT , UyT , UzT , self % faceSide(ETOP  ),&
-                  faces(fT % ID +1), faces(fT % ID +2), faces(fT % ID +3), faces(fT % ID +4))
+                   if (fT % n_mpi_mortar .ne. 0) then 
+                     call fT   % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP  ))
+                  end if 
+                  do m=1,4
+                     if (fT % Mortar(m) .ne. 0) then 
+                        call fT % AdaptGradientsToMortarFace(nGradEqn, N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP), faces(fT % Mortar(m)))
+                     end if 
+                  end do 
                else 
-                  call fT   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxT , UyT , UzT , self % faceSide(ETOP  ))
+                  call fT   % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP  ))
                end if 
+               
             else 
             call fL   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
             call fR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT ))
