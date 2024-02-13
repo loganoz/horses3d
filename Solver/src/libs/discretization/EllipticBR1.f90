@@ -567,6 +567,12 @@ module EllipticBR1
             
          end if 
          
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2biggrad(nGradEqn, uStar_n)
+            
+         end if 
+         
       end subroutine BR1_ComputeMPIFaceAverage   
 
       subroutine BR1_ComputeBoundaryFlux(self, f, nEqn, nGradEqn, time, GetGradients)
