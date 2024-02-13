@@ -353,7 +353,7 @@
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
-      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot, fma, fmb, fmc, fmd)
+      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)              :: self
@@ -741,6 +741,7 @@
    !
          integer       :: i, j, k, l, m, ii, jj, lm, a, b 
          real(kind=RP) :: AVn_e_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
@@ -1137,6 +1138,7 @@
          integer                :: i, j, ii, jj, l, m, side, lm, a, b
          real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
          real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+
          fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
    
          select case ( whichElement )
@@ -1312,6 +1314,7 @@
          real(kind=RP), intent(in), optional  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
          integer,       intent(in)  :: whichElements(2)
          integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
+
    !
    !     ---------------
    !     Local variables

@@ -172,12 +172,12 @@ module EllipticBR1
                end associate
                do m=1,4
                   if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
-                   call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
-                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
-                  end if 
-               end do 
-            elseif (mesh % faces(fID) % IsMortar==0) then
-               call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+                     call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                    end if 
+                 end do 
+              elseif (mesh % faces(fID) % IsMortar==0) then
+                 call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
             end if 
          end do
 !$omp end do nowait
@@ -378,6 +378,19 @@ module EllipticBR1
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do 
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(nGradEqn)
+         end if
+   !$omp end single
+   
+   
+   !$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(nGradEqn)
+         end if
+   !$omp end single
 !
 !$omp do schedule(runtime) private(eID) 
          do iEl = 1, size(mesh % HO_ElementsMPI)
@@ -575,6 +588,12 @@ module EllipticBR1
             
          end if 
          
+         
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2biggrad(nGradEqn, uStar_n)
+            
+         end if 
          
       end subroutine BR1_ComputeMPIFaceAverage   
 

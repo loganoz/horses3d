@@ -40,16 +40,6 @@ module SpatialDiscretization
             type(Face), optional, intent(inout) :: fma
          end subroutine computeElementInterfaceFluxF
 
-         SUBROUTINE computeElementInterfaceFluxMF(f, fma, fmb, fmc, fmd)
-            use FaceClass
-            IMPLICIT NONE
-            TYPE(Face)   , INTENT(inout) :: f
-            TYPE(Face)   , INTENT(inout) :: fma
-            TYPE(Face)   , INTENT(inout) :: fmb 
-            TYPE(Face)   , INTENT(inout) :: fmc 
-            TYPE(Face)   , INTENT(inout) :: fmd
-         end subroutine computeElementInterfaceFluxMF
-
          SUBROUTINE computeMPIFaceFluxF(f)
             use FaceClass
             IMPLICIT NONE
@@ -68,7 +58,6 @@ module SpatialDiscretization
       end interface
 
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
-      procedure(computeElementInterfaceFluxMF), pointer :: computeElementInterfaceFluxM
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
       procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
 
@@ -250,7 +239,6 @@ module SpatialDiscretization
 !        --------------
          if (.not. sem % mesh % child) then
                computeElementInterfaceFlux => computeElementInterfaceFlux_NSSA
-               computeElementInterfaceFluxM => computeElementInterfaceFluxM_NSSA
                computeMPIFaceFlux          => computeMPIFaceFlux_NSSA
                computeBoundaryFlux         => computeBoundaryFlux_NSSA
          end if
