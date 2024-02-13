@@ -373,8 +373,10 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, m
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS)
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, m  
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
+         real(kind=RP), allocatable :: Source_HO(:,:,:,:)
+         integer,       allocatable :: i_(:), j_(:), k_(:)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -667,19 +669,24 @@ module SpatialDiscretization
 !        Add IBM source term
 !        *********************
          if( mesh% IBM% active ) then
-            if( .not. mesh% IBM% semiImplicit .and. t .gt. 0.0_RP ) then 
-!$omp do schedule(runtime) private(i,j,k,Source)
-               do eID = 1, mesh % no_of_elements  
-                  associate ( e => mesh % elements(eID) ) 
-                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                     if( e% isInsideBody(i,j,k) ) then
-                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
-                        e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
-                     end if
-                  end do                  ; end do                ; end do
-                  end associate
-               end do
-!$omp end do      
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isInsideBody(i,j,k) ) then
+                           if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
+                              Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
+                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
+                           else 
+                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                           end if 
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
+                     end associate
+                  end do
+!$omp end do       
                if( mesh% IBM% Wallfunction ) then
 !$omp single
                   call mesh% IBM% GetBandRegionStates( mesh% elements )
