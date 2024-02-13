@@ -357,7 +357,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, m
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS)
 !
 !        ***********************************************
@@ -430,10 +430,20 @@ module SpatialDiscretization
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             if (mesh % faces(fID) % IsMortar==1) then 
-               call computeElementInterfaceFluxM(mesh % faces(fID), mesh % faces(fID+1),&
-               mesh % faces(fID+2), mesh % faces(fID+3), mesh % faces(fID+4))
-            else 
-               call computeElementInterfaceFlux(mesh % faces(fID))
+               associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                  fstar=0.0_RP
+               end associate
+               associate(fstar=>mesh% faces(fID)%storage(2)%fStar)
+                  fstar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call computeElementInterfaceFlux(fma=mesh % faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m)), m=m)
+                  end if 
+               end do 
+            elseif (mesh % faces(fID) % IsMortar==0) then 
+               call computeElementInterfaceFlux(f=mesh % faces(fID))
+   
             end if 
          end do
 !$omp end do nowait
@@ -496,9 +506,37 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % faces_mpi)
                fID = mesh % faces_mpi(iFace)
+               if (mesh% faces(fID)%IsMortar==1) then 
+                  !write(*,*) 'big mortar face mpi'
+                  associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                     fstar=0.0_RP
+                  end associate
+                  do m=1,4
+                     if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                        !write(*,*) mesh % faces(fID)%Mortar(m), mesh % faces(mesh % faces(fID)%Mortar(m))%IsMortar
+                        call computeElementInterfaceFlux(fma=mesh % faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                     end if 
+                  end do 
+               end if 
                call computeMPIFaceFlux(mesh % faces(fID))
             end do
 !$omp end do
+
+
+!$omp single
+      if ( mesh % nonconforming ) then
+         call mesh % UpdateMPIFacesMortarflux(NCONS)
+      end if
+!$omp end single
+
+
+!$omp single
+      if ( mesh % nonconforming ) then
+         call mesh % GatherMPIFacesMortarFlux(NCONS)         
+      end if
+!$omp end single
+
+
 !
 !           ***********************************************************
 !           Surface integrals and scaling of elements with shared faces
@@ -1014,15 +1052,16 @@ module SpatialDiscretization
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine computeElementInterfaceFlux(f, fma, fmb, fmc, fmd)
+      subroutine computeElementInterfaceFlux(f, fma, m)
         use FaceClass
         use RiemannSolvers_NS
         implicit none
         type(Face)   , intent(inout) :: f
         type(Face), optional, intent(inout) :: fma 
-        type(Face), optional, intent(inout) :: fmb 
-        type(Face), optional, intent(inout) :: fmc 
-        type(Face), optional, intent(inout) :: fmd 
+        integer, optional :: m 
+        !type(Face), optional, intent(inout) :: fmb 
+        !type(Face), optional, intent(inout) :: fmc 
+        !type(Face), optional, intent(inout) :: fmd 
 
         integer       :: i, j
         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
@@ -1035,7 +1074,7 @@ module SpatialDiscretization
 
 
         !if (f % IsMortar == 0 .OR. f % IsMortar==2) then 
-      if (f % IsMortar == 0 ) then 
+      !if (f % IsMortar == 0 ) then 
 !
 !        ---------------------------
 !        Artificial viscosity fluxes
@@ -1111,9 +1150,18 @@ module SpatialDiscretization
   !        Return the flux to elements
   !        ---------------------------
   !
+      if (f % IsMortar==0) then 
            Sidearray = (/1,2/)
            call f % ProjectFluxToElements(NCONS, flux, Sidearray)
      end if 
+     if (f % IsMortar==2 .and. present(fma)) then 
+         Sidearray = (/1,0/)
+         call fma % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=Sidearray, &
+            fma=f, flux_M1=flux)
+            Sidearray = (/0,2/)
+            call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+     end if 
+     !end if 
 
      end subroutine computeElementInterfaceFlux
 
@@ -1209,7 +1257,11 @@ module SpatialDiscretization
 
          Sidearray = (/thisSide, HMESH_NONE/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray )
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2big(NCONS, flux)
 
+         end if 
       end subroutine ComputeMPIFaceFlux
 
       SUBROUTINE computeBoundaryFlux(f, time, mesh)
@@ -1352,241 +1404,4 @@ module SpatialDiscretization
       call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
       end subroutine computeBoundaryFlux
-
-      subroutine computeElementInterfaceFluxM(f, fma,fmb, fmc, fmd)
-        use FaceClass
-        use RiemannSolvers_NS
-        implicit none
-        type(Face)   , intent(inout) :: f
-        type(Face), intent (inout) :: fma 
-        type(Face), intent (inout) :: fmb 
-        type(Face), intent (inout) :: fmc 
-        type(Face), intent (inout) :: fmd 
-
-        integer       :: i, j, lm
-        real(kind=RP) :: fluxM1(1:NCONS, 0:fma % Nf(1), 0:fma % Nf(2))
-        real(kind=RP) :: fluxM2(1:NCONS, 0:fmb % Nf(1), 0:fmb % Nf(2))
-        real(kind=RP) :: fluxM3(1:NCONS, 0:fmc % Nf(1), 0:fmc % Nf(2))
-        real(kind=RP) :: fluxM4(1:NCONS, 0:fmd % Nf(1), 0:fmd % Nf(2))
-        real(kind=RP) :: inv_fluxM1(1:NCONS, 0:fma % Nf(1), 0:fma % Nf(2))
-        real(kind=RP) :: inv_fluxM2(1:NCONS, 0:fmb % Nf(1), 0:fmb % Nf(2))
-        real(kind=RP) :: inv_fluxM3(1:NCONS, 0:fmc % Nf(1), 0:fmc % Nf(2))
-        real(kind=RP) :: inv_fluxM4(1:NCONS, 0:fmd % Nf(1), 0:fmd % Nf(2))
-        real(kind=RP) :: visc_fluxM1(1:NCONS, 0:fma % Nf(1), 0:fma % Nf(2))
-        real(kind=RP) :: visc_fluxM2(1:NCONS, 0:fmb % Nf(1), 0:fmb % Nf(2))
-        real(kind=RP) :: visc_fluxM3(1:NCONS, 0:fmc % Nf(1), 0:fmc % Nf(2))
-        real(kind=RP) :: visc_fluxM4(1:NCONS, 0:fmd % Nf(1), 0:fmd % Nf(2))
-        real(kind=RP) :: Avisc_fluxM1(1:NCONS, 0:fma % Nf(1), 0:fma % Nf(2))
-        real(kind=RP) :: Avisc_fluxM2(1:NCONS, 0:fmb % Nf(1), 0:fmb % Nf(2))
-        real(kind=RP) :: Avisc_fluxM3(1:NCONS, 0:fmc % Nf(1), 0:fmc % Nf(2))
-        real(kind=RP) :: Avisc_fluxM4(1:NCONS, 0:fmd % Nf(1), 0:fmd % Nf(2))
-        real(kind=RP) :: mu_left(3), mu_right(3)
-        integer       :: Sidearray(2)
-        integer :: Nfm(4,2) 
-
-        Nfm(1,:)=fma % Nf
-        Nfm(2,:)=fmb % Nf
-        Nfm(3,:)=fmc % Nf
-        Nfm(4,:)=fmd % Nf
-
-     do lm=1,4   
-!
-!        ---------------------------
-!        Artificial viscosity fluxes
-!        ---------------------------
-!
-        if ( ShockCapturingDriver % isActive ) then
-           if (lm==1) Avisc_fluxM1 = 0.5_RP * (fma % storage(1) % AviscFlux + fma % storage(2) % AviscFlux)
-           if (lm==2) Avisc_fluxM2 = 0.5_RP * (fmb % storage(1) % AviscFlux + fmb % storage(2) % AviscFlux)
-           if (lm==3) Avisc_fluxM3 = 0.5_RP * (fmc % storage(1) % AviscFlux + fmc % storage(2) % AviscFlux)
-           if (lm==4) Avisc_fluxM4 = 0.5_RP * (fmd % storage(1) % AviscFlux + fmd % storage(2) % AviscFlux)
-        else
-           if (lm==1) Avisc_fluxM1 = 0._RP 
-           if (lm==2) Avisc_fluxM2 = 0._RP 
-           if (lm==3) Avisc_fluxM3 = 0._RP 
-           if (lm==4) Avisc_fluxM4 = 0._RP 
-        end if
-!
-!        --------------
-!        Viscous fluxes
-!        --------------
-!
-        if (flowIsNavierStokes) then
-           do j = 0, Nfm(lm,2)
-              do i = 0,  Nfm(lm,1)
-               if (lm==1) then 
-                 mu_left(1) = fma % storage(1) % mu_NS(1,i,j)
-                 mu_left(2) = 0.0_RP
-                 mu_left(3) = fma % storage(1) % mu_NS(2,i,j)
-
-                 mu_right(1) = fma % storage(2) % mu_NS(1,i,j)
-                 mu_right(2) = 0.0_RP
-                 mu_right(3) = fma % storage(2) % mu_NS(2,i,j)
-               elseif (lm==2) then 
-                  mu_left(1) = fmb % storage(1) % mu_NS(1,i,j)
-                  mu_left(2) = 0.0_RP
-                  mu_left(3) = fmb % storage(1) % mu_NS(2,i,j)
- 
-                  mu_right(1) = fmb % storage(2) % mu_NS(1,i,j)
-                  mu_right(2) = 0.0_RP
-                  mu_right(3) = fmb % storage(2) % mu_NS(2,i,j)
-               elseif(lm==3) then 
-                  mu_left(1) = fmc % storage(1) % mu_NS(1,i,j)
-                  mu_left(2) = 0.0_RP
-                  mu_left(3) = fmc % storage(1) % mu_NS(2,i,j)
- 
-                  mu_right(1) = fmc % storage(2) % mu_NS(1,i,j)
-                  mu_right(2) = 0.0_RP
-                  mu_right(3) = fmc % storage(2) % mu_NS(2,i,j)
-               elseif(lm==4) then 
-                  mu_left(1) = fmd % storage(1) % mu_NS(1,i,j)
-                  mu_left(2) = 0.0_RP
-                  mu_left(3) = fmd % storage(1) % mu_NS(2,i,j)
- 
-                  mu_right(1) = fmd % storage(2) % mu_NS(1,i,j)
-                  mu_right(2) = 0.0_RP
-                  mu_right(3) = fmd % storage(2) % mu_NS(2,i,j)
-               end if 
-                 select case (lm)
-                 case (1)
-                 call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                    EllipticFlux = ViscousFlux, &
-                                                    f = fma, &
-                                                    QLeft = fma % storage(1) % Q(:,i,j), &
-                                                    QRight = fma % storage(2) % Q(:,i,j), &
-                                                    U_xLeft = fma % storage(1) % U_x(:,i,j), &
-                                                    U_yLeft = fma % storage(1) % U_y(:,i,j), &
-                                                    U_zLeft = fma % storage(1) % U_z(:,i,j), &
-                                                    U_xRight = fma % storage(2) % U_x(:,i,j), &
-                                                    U_yRight = fma % storage(2) % U_y(:,i,j), &
-                                                    U_zRight = fma % storage(2) % U_z(:,i,j), &
-                                                    mu_left = mu_left, mu_right = mu_right, &
-                                                    nHat = fma % geom % normal(:,i,j) , &
-                                                    dWall = fma % geom % dWall(i,j), &
-                                                    flux  = visc_fluxM1(:,i,j) )
-                 case (2)
-                 call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                     EllipticFlux = ViscousFlux, &
-                                                     f = fmb, &
-                                                     QLeft = fmb % storage(1) % Q(:,i,j), &
-                                                     QRight = fmb % storage(2) % Q(:,i,j), &
-                                                     U_xLeft = fmb % storage(1) % U_x(:,i,j), &
-                                                     U_yLeft = fmb % storage(1) % U_y(:,i,j), &
-                                                     U_zLeft = fmb % storage(1) % U_z(:,i,j), &
-                                                     U_xRight = fmb % storage(2) % U_x(:,i,j), &
-                                                     U_yRight = fmb % storage(2) % U_y(:,i,j), &
-                                                     U_zRight = fmb % storage(2) % U_z(:,i,j), &
-                                                     mu_left = mu_left, mu_right = mu_right, &
-                                                     nHat = fmb % geom % normal(:,i,j) , &
-                                                     dWall = fmb % geom % dWall(i,j), &
-                                                     flux  = visc_fluxM2(:,i,j) )
-                    
-                 case (3)
-                 call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                     EllipticFlux = ViscousFlux, &
-                                                     f = fmc, &
-                                                     QLeft = fmc % storage(1) % Q(:,i,j), &
-                                                     QRight = fmc % storage(2) % Q(:,i,j), &
-                                                     U_xLeft = fmc % storage(1) % U_x(:,i,j), &
-                                                     U_yLeft = fmc % storage(1) % U_y(:,i,j), &
-                                                     U_zLeft = fmc % storage(1) % U_z(:,i,j), &
-                                                     U_xRight = fmc % storage(2) % U_x(:,i,j), &
-                                                     U_yRight = fmc % storage(2) % U_y(:,i,j), &
-                                                     U_zRight = fmc % storage(2) % U_z(:,i,j), &
-                                                     mu_left = mu_left, mu_right = mu_right, &
-                                                     nHat = fmc % geom % normal(:,i,j) , &
-                                                     dWall = fmc % geom % dWall(i,j), &
-                                                     flux  = visc_fluxM3(:,i,j) )
-                 case(4)
-                 call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                     EllipticFlux = ViscousFlux, &
-                                                     f = fmd, &
-                                                     QLeft = fmd % storage(1) % Q(:,i,j), &
-                                                     QRight = fmd % storage(2) % Q(:,i,j), &
-                                                     U_xLeft = fmd % storage(1) % U_x(:,i,j), &
-                                                     U_yLeft = fmd % storage(1) % U_y(:,i,j), &
-                                                     U_zLeft = fmd % storage(1) % U_z(:,i,j), &
-                                                     U_xRight = fmd % storage(2) % U_x(:,i,j), &
-                                                     U_yRight = fmd % storage(2) % U_y(:,i,j), &
-                                                     U_zRight = fmd % storage(2) % U_z(:,i,j), &
-                                                     mu_left = mu_left, mu_right = mu_right, &
-                                                     nHat = fmd % geom % normal(:,i,j) , &
-                                                     dWall = fmd % geom % dWall(i,j), &
-                                                     flux  = visc_fluxM4(:,i,j) )
-
-                 end select 
-
-              end do
-           end do
-        else
-           if (lm==1) visc_fluxM1 = 0.0_RP
-           if (lm==2) visc_fluxM2 = 0.0_RP
-           if (lm==3) visc_fluxM3 = 0.0_RP
-           if (lm==4) visc_fluxM4 = 0.0_RP
-        end if
-
-        do j = 0, Nfm(lm,2)
-           do i = 0, Nfm(lm,1)
-!
-!              --------------
-!              Invscid fluxes
-!              --------------
-!
-              select case (lm)
-              case (1)
-              call RiemannSolver(QLeft  = fma % storage(1) % Q(:,i,j), &
-                                 QRight = fma % storage(2) % Q(:,i,j), &
-                                 nHat   = fma % geom % normal(:,i,j), &
-                                 t1     = fma % geom % t1(:,i,j), &
-                                 t2     = fma % geom % t2(:,i,j), &
-                                 flux   = inv_fluxM1(:,i,j) )
-              case (2)
-              call RiemannSolver(QLeft  = fmb % storage(1) % Q(:,i,j), &
-                                   QRight = fmb % storage(2) % Q(:,i,j), &
-                                   nHat   = fmb % geom % normal(:,i,j), &
-                                   t1     = fmb % geom % t1(:,i,j), &
-                                   t2     = fmb% geom % t2(:,i,j), &
-                                   flux   = inv_fluxM2(:,i,j) )
-              case (3)
-              call RiemannSolver(QLeft  = fmc % storage(1) % Q(:,i,j), &
-                                   QRight = fmc % storage(2) % Q(:,i,j), &
-                                   nHat   = fmc % geom % normal(:,i,j), &
-                                   t1     = fmc % geom % t1(:,i,j), &
-                                   t2     = fmc % geom % t2(:,i,j), &
-                                   flux   = inv_fluxM3(:,i,j) )
-              case (4)
-              call RiemannSolver(QLeft  = fmd % storage(1) % Q(:,i,j), &
-                                   QRight = fmd % storage(2) % Q(:,i,j), &
-                                   nHat   = fmd % geom % normal(:,i,j), &
-                                   t1     = fmd % geom % t1(:,i,j), &
-                                   t2     = fmd % geom % t2(:,i,j), &
-                                   flux   = inv_fluxM4(:,i,j) )
-              end select 
-!
-!              Multiply by the Jacobian
-!              ------------------------
-              if (lm==1) fluxM1(:,i,j) = ( inv_fluxM1(:,i,j) - visc_fluxM1(:,i,j)) * fma % geom % jacobian(i,j) - Avisc_fluxM1(:,i,j)
-              if (lm==2) fluxM2(:,i,j) = ( inv_fluxM2(:,i,j) - visc_fluxM2(:,i,j)) * fmb % geom % jacobian(i,j) - Avisc_fluxM2(:,i,j)
-              if (lm==3) fluxM3(:,i,j) = ( inv_fluxM3(:,i,j) - visc_fluxM3(:,i,j)) * fmc % geom % jacobian(i,j) - Avisc_fluxM3(:,i,j)
-              if (lm==4) fluxM4(:,i,j) = ( inv_fluxM4(:,i,j) - visc_fluxM4(:,i,j)) * fmd % geom % jacobian(i,j) - Avisc_fluxM4(:,i,j)
-
-           end do
-        end do
-     end do 
-!
-!        ---------------------------
-!        Return the flux to elements
-!        ---------------------------
-!
-        Sidearray = (/1,0/)
-        call f % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=Sidearray, &
-        flux_M1=fluxM1, flux_M2=fluxM2, flux_M3=fluxM3, flux_M4=fluxM4, fma=fma, fmb=fmb, fmc=fmc, fmd=fmd)
-        Sidearray = (/0,2/)
-        call fma % ProjectFluxToElements(NCONS, fluxM1, Sidearray)
-        call fmb % ProjectFluxToElements(NCONS, fluxM2, Sidearray)
-        call fmc % ProjectFluxToElements(NCONS, fluxM3, Sidearray)
-        call fmd % ProjectFluxToElements(NCONS, fluxM4, Sidearray)
-
-     end subroutine computeElementInterfaceFluxM
-
 end module SpatialDiscretization
