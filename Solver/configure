@@ -88,7 +88,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
 ##################################################
 ## 	GENERATE TUTORIALS			##
 ##################################################
-TUTORIAL_CASES="./Cylinder "
+TUTORIAL_CASES="../Cylinder \
+                ../Wind_Turbine "
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
