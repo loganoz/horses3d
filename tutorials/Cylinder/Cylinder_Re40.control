@@ -1,0 +1,60 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/cyl_circ.msh"
+Polynomial order      = 3
+Number of time steps  = 10000
+Output Interval       = 100
+autosave mode         = "iteration"
+autosave interval     = 2500
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 0.2
+Reynolds number       = 40.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+solution file name    = "RESULTS/Cylinder_Re40.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/Cylinder_Re40.hsol"
+riemann solver        = roe
+simulation type       = steady-state
+time integration      = explicit
+explicit method       = RK3
+
+#define boundary cylinder
+  type = NoSlipWall
+#end
+
+#define boundary left__right
+  type = FreeSlipWall
+#end
+
+#define boundary inlet
+  type = Inflow
+#end
+
+#define boundary outlet
+  type = Outflow
+#end
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = cylinder
+   Variable = drag
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = cylinder
+   Variable = lift
+   Direction = [0.0,1.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [2.0,0.0,0.5]
+   Variable = u
+#end
