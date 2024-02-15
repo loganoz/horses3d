@@ -476,7 +476,7 @@ module SpatialDiscretization
                call mesh % GatherMPIFacesSolution(NCONS)
             end if
 !$omp end single
-           if( mesh % HO_IBM ) call mesh % SetSharedIBM_HOGradients(NCONS)
+            if( mesh % HO_IBM ) call mesh % SetSharedIBM_HOGradients(NCONS)
 !
 !           Compute viscosity at MPI faces
 !           ------------------------------
@@ -613,11 +613,13 @@ module SpatialDiscretization
 !        Add IBM source term
 !        *********************
          if(  mesh% IBM% HO_IBM ) then
+!$omp do schedule(runtime) 
             do eID = 1, mesh % no_of_elements  
                associate ( e => mesh % elements(eID) ) 
                if( e% HO_IBM ) e % storage % QDot = 0.0_RP  
                end associate 
             end do 
+!$omp end do
          end if
 
          if( mesh% IBM% active .AND. .NOT. mesh% IBM% HO_IBM ) then

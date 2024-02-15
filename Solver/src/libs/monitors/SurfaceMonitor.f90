@@ -113,13 +113,17 @@ module SurfaceMonitorClass
             do STLNum = 1, mesh% IBM% NumOfSTL
                if( mesh% IBM% Integral(STLNum)% compute ) cycle
                if( trim(mesh% IBM% STLfilename(STLNum)) .eq. trim(markerName) ) then
-                 if( .not. mesh% IBM% ComputeBandRegion ) then
+                 if( .not. mesh% IBM% ComputeBandRegion .and. .not. mesh% IBM% HO_IBM ) then
                      write(*,'(A)') "Warning: for surface monitors with IBM, 'band region' must be set '.true.'"
                      error stop
                   end if
                   self% marker = STLNum    
                   call mesh% IBM% stl(STLNum)% SetIntegrationPoints( .false. )
-                  call mesh% IBM% stl(STLNum)% SetIntegration( mesh% IBM% NumOfInterPoints )                   
+                  if( mesh% IBM% HO_IBM ) then 
+                     call mesh% IBM% buildHOIntegrationPoints( mesh% elements, STLnum )
+                  else
+                     call mesh% IBM% stl(STLNum)% SetIntegration( mesh% IBM% NumOfInterPoints )  
+                  end if                 
                   self% IBM    = .true.
                   mesh% IBM% Integral(STLNum)% compute = .true.
                   mesh% IBM% Integral(STLNum)% ListComputed = .false.         

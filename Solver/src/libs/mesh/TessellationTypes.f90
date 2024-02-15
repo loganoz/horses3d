@@ -871,11 +871,11 @@ module TessellationTypes
                                                            obj% IntegrationVertices(indecesR(m))% coords   )
          end do
          obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IX) = &
-         sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IX))/NumOfVertices
+                                       sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IX))/NumOfVertices
          obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IY) = &
-         sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IY))/NumOfVertices
+                                       sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IY))/NumOfVertices
          obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IZ) = &
-         sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IZ))/NumOfVertices
+                                       sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IZ))/NumOfVertices
          end associate 
       end do
 
@@ -934,7 +934,6 @@ module TessellationTypes
       this% NumOfObjs = NumOfObjs
 
       allocate( this% ObjectsList(NumOfObjs) )
-
 !$omp parallel
 !$omp do schedule(runtime) private(j)
       do i = 1, NumOfObjs
@@ -1378,7 +1377,7 @@ module TessellationTypes
       integer,        intent(in)    :: NumOfInterPoints
 
       integer :: i, j
- 
+
       do i = 1, this% NumOfObjs
          do j = 1, NumOfIntegrationVertices
             allocate( this% ObjectsList(i)% IntegrationVertices(j)% domains(NumOfInterPoints),                 &

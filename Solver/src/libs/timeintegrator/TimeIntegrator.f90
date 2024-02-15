@@ -594,11 +594,11 @@
 !        Moving Body IMMERSED BOUNDARY
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
-            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                  &
-                                           sem% mesh% faces,                     &
-                                           sem% mesh% NDOF, sem% mesh% child, t, &
-                                           k+1,                                  &
-                                           self % autosave % Autosave(k+1)       )
+            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
+                                           sem% mesh% faces,                      &
+                                           sem% mesh% NDOF, sem% mesh% child, dt, &
+                                           k+1,                                   &
+                                           self % autosave % Autosave(k+1)        )
          end if
  
 !
