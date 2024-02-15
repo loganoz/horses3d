@@ -27,31 +27,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['gfortran', 'ifort']
+        compiler: ['gfortran','ifort']
         mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
         mkl: ['YES','NO']
         exclude:
         - compiler: gfortran
-          mode: RELEASE
-          comm: SEQUENTIAL
-          enable_threads: YES
-          mkl: 'YES'
-        - compiler: gfortran
-          mode: DEBUG
-          comm: SEQUENTIAL
-          enable_threads: YES
           mkl: 'YES'          
         - compiler: ifort
-          mode: RELEASE
-          comm: SEQUENTIAL
-          enable_threads: YES
-          mkl: 'NO'
-        - compiler: ifort
-          mode: DEBUG
-          comm: SEQUENTIAL
-          enable_threads: YES
           mkl: 'NO'          
     # Steps represent a sequence of tasks that will be executed as part of the job
 
@@ -67,26 +51,29 @@ jobs:
 #          dpkg -L libhdf5-dev
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
-      - name: cache-intel-compilers
-        # if: (matrix.compiler == 'ifort')
-        id: cache-intel-compilers
-        uses: actions/cache@v3
-        with:
-          path: /opt/intel
-          key: intel-${{ runner.os }}-compilers-b
+      # UNCOMMENT TO USE CACHED IFORT 
+      #- name: cache-intel-compilers
+      #  if: (matrix.compiler == 'ifort')
+      #  id: cache-intel-compilers
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: /opt/intel
+      #    key: intel-${{ runner.os }}-compilers-b
+
 
       - name: Intel Apt repository
-        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+      # UNCOMMENT TO USE CACHED IFORT 
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
-          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
           sudo apt-get update
 
       - name: Install Intel oneAPI
-        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl ninja-build
+      # UNCOMMENT TO USE CACHED IFORT
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |

@@ -72,6 +72,9 @@ with the desired options (bold are default):
 \item COMPILER=ifort/\textbf{gfortran}
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item ENABLE\_THREADS=NO/\textbf{YES}
+\item WITH\_PETSC=YES/\textbf{NO}
+\item WITH\_METIS=YES/\textbf{NO}
+\item WITH\_HDF5=YES/\textbf{NO}
 \item WITH\_MKL=YES/\textbf{NO}
 \end{itemize}
 
@@ -86,9 +89,11 @@ For example:
 
 \item The COM=PARALLEL flag enables distributed memory simulations using MPI.
 
-\item To compile the code linking it with METIS (that is an option for creating the mesh partitions of MPI runs), it is needed that before compilation and running, an environment variable called METIS\_HOME is found. This variable must contain the path to the HDF5 installation folder (it must have been compiled with the same compiler as HORSES3D).
+\item The WITH\_METIS=YES flag activates METIS linking. To compile the code linking it with METIS (that is an option for creating the mesh partitions of MPI runs), it is needed that before compilation and running, an environment variable called METIS\_DIR is found. This variable must contain the path to the METIS installation folder (it must have been compiled with the same compiler as HORSES3D).
 
-\item To compile the code linking it with HDF5 (necessary for reading HOPR meshes), it is needed that before compilation and running, an environment variable called HDF5\_ROOT is found. This variable must contain the path to the METIS installation folder (it must have been compiled with the same compiler as HORSES3D). In addition, the lib folder must be added to the environment variable LD\_LIBRARY\_PATH.
+\item The WITH\_HDF5=YES flag activates HDF5 linking. To compile the code linking it with HDF5 (necessary for reading HOPR meshes), it is needed that before compilation and running, an environment variable called HDF5\_DIR is found. This variable must contain the path to the HDF5 installation folder (it must have been compiled with the same compiler as HORSES3D). In addition, the lib folder must be added to the environment variable LD\_LIBRARY\_PATH.
+
+\item The WITH\_PETSC=YES flag activates PETSC linking. To compile the code linking it with PETSC, it is needed that before compilation and running, an environment variable called PETSC\_DIR is found. This variable must contain the path to the PETSC installation folder.
 
 \item If you use \textit{environment modules}, it is advised to use the HORSES3D module file:\\
 \begin{lstlisting}[language=bash]
@@ -185,6 +190,8 @@ output interval   & \textit{INTEGER}: In steady-state, this keyword indicates th
 convergence tolerance & \textit{REAL}: Residual convergence tolerance for steady-state cases & \textbf{Mandatory\ keyword} \\ \hline
 
 partitioning  & \textit{CHARACTER}: Specifies the method for partitioning the mesh in MPI simulations. Options are: 'metis' (the code must have been linked to METIS at compilation time, see Chapter~\ref{sect:compiling}), or 'SFC' (to use a space-filling curve method, no special compilation is needed for this option). & 'metis' \\ \hline
+
+partitioning with weights & \textit{LOGICAL}: Specifies if the method for partitioning the mesh in MPI simulations takes the local polynomial order as weights. Necessary for local polynomial refinement & .TRUE. \\ \hline
 
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
 
@@ -1143,10 +1150,56 @@ initial cfl & \textit{REAL}: CFL and DCFL number for initial residual smoothing.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{p-Adaptation Methods}
-The p-adaptation methods are used when the p-adaptation region is specified in the control file:\\
+The p-adaptation methods are used when the p-adaptation region is specified in the control file. There are two different types of p-adaptation algorithms: A Truncation Error (TE) algorithm and a Reinforcement Learning (RL) algorithm.
 
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{General keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{General keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+adaptation type & \textit{CHARACTER}: Can be either "TE" or "RL". & TE \\ \hline
+
+Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm (limited to 6 for RL adaptation type). &
+					\textbf{Mandatory keyword} \\ \hline
+
+Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. &
+					[1,1,1] \\ \hline
+
+conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  &
+					-- \\ \hline
+
+order across faces &
+			\textit{CHARACTER}: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only $N*2/3$ and $N-1$ are supported. &
+					$N-1$ \\ \hline
+
+mode &
+			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be performed by \textit{time} or by \textit{iteration}. &
+					\textit{static} \\ \hline
+
+interval &
+			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
+					\textit{huge number} \\ \hline
+
+restart files &
+			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
+					.FALSE. \\ \hline
+
+adjust nz &
+    \textit{LOGICAL}: If .TRUE., the order across faces is adjusted in the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-coded) in limiting the jumps in the polynomial order. &
+            .FALSE. \\ \hline
+\end{longtable}
+
+\section{Truncation Error p-Adaptation}
+This algorithm can perform a p-adaptation to decrease the truncation error below a threshold.
 \begin{lstlisting}
 #define p-adaptation
+   adaptation type       = TE
    Truncation error type = isolated
    truncation error      = 1.d-2
    Nmax                  = [10,10,10]
@@ -1167,12 +1220,12 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
 \end{lstlisting}
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
-\caption{Keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\caption{Keywords for the TE p-adaptation algorithm.} \label{tab:TEpAdaptationKey} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endfirsthead
 
-\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\caption{Keywords for the TE p-adaptation algorithm - continued.} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
@@ -1183,41 +1236,12 @@ truncation error & \textit{REAL}: Target truncation error for the p-adaptation a
 
 coarse truncation error & \textit{REAL}: Truncation error used for coarsening. & same as truncation error \\ \hline
 
-Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. &
-					\textbf{Mandatory keyword} \\ \hline
-
-Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. &
-					[1,1,1] \\ \hline
-
-conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  &
-					-- \\ \hline
-
-order across faces &
-			\textit{CHARACTER}: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only $N*2/3$ and $N-1$ are supported. &
-					$N-1$ \\ \hline
-
 increasing & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used. &
 					.FALSE. \\ \hline
 
 write error files &
 			\textit{LOGICAL}: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder \textit{./TauEstimation/}. When the simulation has several adaptation stages, the new information is just appended. &
 			 		.FALSE. \\ \hline
-
-adjust nz &
-			\textit{LOGICAL}: If .TRUE., the order across faces is adjusted i    n the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-cod    ed) in allowing jumps in the polynomial order of at most 1. &
-					.FALSE. \\ \hline
-
-mode &
-			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be by \textit{time} or by \textit{iteration}. &
-					\textit{static} \\ \hline
-
-interval &
-			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
-					\textit{huge number} \\ \hline
-
-restart files &
-			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
-					.FALSE. \\ \hline
 
 max N decrease &
 			\textit{INTEGER}: Maximum decrease in the polynomial order in every p-adaptation procedure. &
@@ -1245,8 +1269,45 @@ padapted $\ll \textit{keyword} \gg$ &
 
 \end{longtable}
 
+\section{Reinforcement Learning p-Adaptation}
+This algorithm can perform a p-adaptation based on a trained RL agent.
+
+\begin{lstlisting}
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 1d-2
+   Nmax                  = [6, 6, 2]
+   Nmin                  = [2, 2, 2]
+   Conforming boundaries = [cylinder]
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 50
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the RL p-adaptation algorithm.} \label{tab:RLpAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the RL p-adaptation algorithm - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+agent file & \textit{CHARACTER}: Relative path to the binary file that provide the policy of the RL agent. & \textbf{Mandatory keyword} \\ \hline
+
+tolerance & \textit{REAL}: Tolerance for the RL agent. The smaller the tolerance, the wider the adapted region. & 0.01 \\ \hline
+
+
+\end{longtable}
+
+
 \section{Multiple truncation error estimations} \label{sec:MultiTau}
-A static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:
+When using Truncation Error based adaptation, a static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:
 
 \begin{lstlisting}
 #define multi tau-estimation
@@ -1802,19 +1863,19 @@ The options are:
 \end{multicols}
 
 \subsection{Statistics Files (*.stats.hsol)}
-Statistics files generate following variables by default (being Sij the components of the Reynolds Stress tensor):
+Statistics files can generate the standard variables as well as the following variables (being $S_{ij}$ the components of the Reynolds Stress tensor):
 
 \begin{multicols}{3}
 \begin{itemize}
-\item Umean
-\item Vmean
-\item Wmean
-\item Sxx
-\item Syy
-\item Szz
-\item Sxy
-\item Sxz
-\item Syz
+\item $umean$
+\item $vmean$
+\item $wmean$
+\item $S_{xx}$
+\item $S_{yy}$
+\item $S_{zz}$
+\item $S_{xy}$
+\item $S_{xz}$
+\item $S_{yz}$
 \end{itemize}
 \end{multicols}
 
@@ -1833,6 +1894,10 @@ Some remarks:
 \begin{itemize}
 \item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations.
 \item Only constant time-stepping is supported.
+\item If the hsol files have the gradients, the following flag must be used
+\begin{lstlisting}[language=bash]
+	$ --has-gradients
+\end{lstlisting}
 \item Dynamic p-adaptation is currently not supported.
 \end{itemize}
 

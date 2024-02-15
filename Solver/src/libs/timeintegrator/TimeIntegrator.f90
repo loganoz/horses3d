@@ -27,7 +27,9 @@
       use Utilities                       , only: ToLower, AlmostEqual
       use FileReadingUtilities            , only: getFileName
       use ProblemFileFunctions            , only: UserDefinedPeriodicOperation_f
-      use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
+      use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC, getAdaptationType
+      use pAdaptationClassTE              , only: pAdaptationTE_t 
+      use pAdaptationClassRL              , only: pAdaptationRL_t
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
@@ -47,7 +49,7 @@
          REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
-         type(pAdaptation_t)                    :: pAdaptator
+         class(pAdaptation_t), allocatable      :: pAdaptator
          type(MultiTauEstim_t)                  :: TauEstimator
          character(len=LINE_LENGTH)             :: integration_method
          integer                                :: RKStep_key
@@ -100,6 +102,7 @@
          character(len=STRING_CONSTANT_LENGTH) :: keyword
          logical                               :: limit
          real(RP)                              :: limiter_minimum
+         integer                               :: adaptationType  ! 0 for Truncation Error and 1 for Reinforcement Learning (VI algorithm)
 !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
@@ -225,6 +228,16 @@
 !        ----------------
 !
          call self % autosave   % Configure (controlVariables, initial_time)
+         ! Check the type input and allocate the pAdaptator
+         adaptationType = getAdaptationType()
+         select case (adaptationType)
+            case(0)
+               allocate(pAdaptationTE_t::self % pAdaptator)
+            case(1)
+               allocate(pAdaptationRL_t::self % pAdaptator)
+            case default
+               error stop 'Adaptation type not recognized'
+         end select
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
          call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
 
@@ -361,7 +374,7 @@
                call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
             end if
 
-            call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
 
          end do
@@ -511,7 +524,7 @@
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
-         call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
       end if
 
@@ -710,7 +723,7 @@
 !        p- Adapt
 !        --------------
          IF( self % pAdaptator % hasToAdapt(k+1) ) then
-            call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !

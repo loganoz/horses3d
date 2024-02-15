@@ -70,8 +70,8 @@ MODULE HexMeshClass
          class(Zone_t), dimension(:), allocatable  :: zones
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
-         integer                                   :: dir2D                         ! If it is in fact a 2D mesh, dir 2D stores the global direction IX, IY or IZ
-         integer                                   :: dir2D_ctrl                    ! dir2D as in the control file
+         integer                                   :: dir2D       = 0               ! If it is in fact a 2D mesh, dir 2D stores the global direction IX, IY or IZ
+         integer                                   :: dir2D_ctrl  = 0               ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
          logical                                   :: HO_IBM = .FALSE.

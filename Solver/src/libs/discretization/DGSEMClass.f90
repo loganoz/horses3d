@@ -129,6 +129,7 @@ Module DGSEMClass
       integer                     :: ierr
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       logical                     :: useRelaxPeriodic                   ! The periodic construction in direction z use a relative tolerance
+      logical                     :: useWeightsPartition                ! Partitioning mesh using DOF of elements as weights
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
@@ -235,6 +236,7 @@ Module DGSEMClass
 
 
       useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
+      useWeightsPartition = controlVariables % getValueOrDefault("partitioning with weights", .true.)
 !
 !     **********************************************************
 !     *                  MPI PREPROCESSING                     *
@@ -261,7 +263,7 @@ Module DGSEMClass
 !
 !           Perform the partitioning
 !           ------------------------
-            call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions)
+            call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition)
 !
 !           Send the partitions
 !           -------------------

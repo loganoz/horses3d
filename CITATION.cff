@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+preferred-citation:
+  authors:
+    - family-names: Ferrer
+      given-names: Esteban
+    - family-names: Rubio
+      given-names: Gonzalo
+    - family-names: Ntoukas
+      given-names: Gerasimos
+    - family-names: Laskowski
+      given-names: Wojciech
+    - family-names: Mariño
+      given-names: Óscar A.
+    - family-names: Colombo
+      given-names: Stefano
+    - family-names: Mateo-Gabín
+      given-names: Andrés
+    - family-names: Marbona
+      given-names: Himpu
+    - family-names: Manrique de Lara
+      given-names: Fernando
+    - family-names: Huergo
+      given-names: David
+    - family-names: Manzanero
+      given-names: Juan
+    - family-names: Rueda-Ramírez
+      given-names: Andrés M.
+    - family-names: Kopriva
+      given-names: David A.
+    - family-names: Valero
+      given-names: Eusebio
+  doi: 10.1016/j.cpc.2023.108700
+  journal: "Computer Physics Communications"
+  keywords:
+    - Navier-Stokes
+    - Discontinuous Galerkin
+    - High-order method
+    - Multiphase
+    - Aeroacoustics
+    - Immersed boundary method
+  month: 6
+  start: 108700
+  title: "HORSES3D: A high-order discontinuous Galerkin solver for flow simulations and multi-physics applications"
+  type: article
+  volume: 287
+  year: 2023

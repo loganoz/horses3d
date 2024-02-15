@@ -1,0 +1,7 @@
+hmesh file   = "./MESH/naca_bc001_0000000000.surf.hmesh"
+hsol file    = "RESULTS/surfaces/naca_bc001_0000000001.surf.hsol"
+output variables = Cf
+output mode = FE
+dimensionless = .true.
+! has gradients = .true.
+additional variables = "[u_tau]"
