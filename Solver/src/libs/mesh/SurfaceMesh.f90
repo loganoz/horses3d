@@ -89,7 +89,7 @@ Module SurfaceMesh
 
         !local variables
         integer                                                 :: numberOfSurfaces, numberOfFaces, numberOfSurfacesBC, surfaceCont
-        integer                                                 :: maxNumberFaces, nf
+        integer                                                 :: maxNumberFaces, nf, numberOfFacesTotal
         integer, dimension(NDIM)                                :: numberOfSurfacesSlices
         integer                                                 :: i, j, ierr
         integer                                                 :: idSliceX, idSliceY, idSliceZ, idBC
@@ -100,7 +100,7 @@ Module SurfaceMesh
         real(kind=RP), dimension(:), allocatable                :: posSliceX, posSliceY, posSliceZ
         real(kind=RP), dimension(:), allocatable                :: limSliceX, limSliceY, limSliceZ
         logical, dimension(:), allocatable                      :: surfaceActive
-        logical                                                 :: isNoSlip
+        logical                                                 :: isNoSlip, surfaceHasFacesInPartitions
 
         numberOfSurfaces = 0
         self % active = .false.
@@ -216,9 +216,17 @@ Module SurfaceMesh
                 idSliceX = idSliceX + 1
                 safedeallocate(facesIDs)
                 call getSliceFaces(1, posSliceX(i), mesh, numberOfFaces, facesIDs, limSliceX)
+                if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+                    call mpi_allreduce(numberOfFaces, numberOfFacesTotal, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+                else
+                    numberOfFacesTotal = numberOfFaces
+                end if
+                surfaceHasFacesInPartitions = numberOfFacesTotal .gt. 0
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sx', idSliceX
                 zoneName = "sliceSurface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false.)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false., surfaceHasFacesInPartitions)
             end do slicex_loop
         end if 
 !
@@ -228,9 +236,17 @@ Module SurfaceMesh
                 idSliceY = idSliceY + 1
                 safedeallocate(facesIDs)
                 call getSliceFaces(2, posSliceY(i), mesh, numberOfFaces, facesIDs, limSliceY)
+                if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+                    call mpi_allreduce(numberOfFaces, numberOfFacesTotal, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+                else
+                    numberOfFacesTotal = numberOfFaces
+                end if
+                surfaceHasFacesInPartitions = numberOfFacesTotal .gt. 0
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sy', idSliceY
                 zoneName = "sliceSurface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false.)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs,.false.,surfaceHasFacesInPartitions)
             end do slicey_loop
         end if 
 !
@@ -240,9 +256,17 @@ Module SurfaceMesh
                 idSliceZ = idSliceZ + 1
                 safedeallocate(facesIDs)
                 call getSliceFaces(3, posSliceZ(i), mesh, numberOfFaces, facesIDs,limSliceZ)
+                if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+                    call mpi_allreduce(numberOfFaces, numberOfFacesTotal, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+                else
+                    numberOfFacesTotal = numberOfFaces
+                end if
+                surfaceHasFacesInPartitions = numberOfFacesTotal .gt. 0
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sz', idSliceZ
                 zoneName = "sliceSurface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false.)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs,.false.,surfaceHasFacesInPartitions)
             end do slicez_loop
         end if 
 !
@@ -261,9 +285,17 @@ Module SurfaceMesh
                 numberOfFaces = mesh % zones(j) % no_of_faces
                 allocate( facesIDs(numberOfFaces) )
                 facesIDs = mesh % zones(j) % faces
+                if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+                    call mpi_allreduce(numberOfFaces, numberOfFacesTotal, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+                else
+                    numberOfFacesTotal = numberOfFaces
+                end if
+                surfaceHasFacesInPartitions = numberOfFacesTotal .gt. 0
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_bc', idBC
                 zoneName = "BC_Surface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_BC, fileName, zoneName, numberOfFaces, facesIDs, isNoSlip)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_BC, fileName, zoneName, numberOfFaces, facesIDs, isNoSlip, surfaceHasFacesInPartitions)
             end do bcs_loop
         end if 
         ! get whether at least one partition has faces of the surface
@@ -513,11 +545,12 @@ Module SurfaceMesh
 
         !local variables
         integer                                             :: i
-        integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
+        integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces, numberOfFacesTotal
         integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file, fileName, zoneName
         character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
         logical                                             :: isNoSlip
+        logical                                             :: surfaceHasFacesInPartitions
 
         if (controlVariables % containsKey("acoustic solid surface")) then
             zones_str = controlVariables % stringValueForKey("acoustic solid surface", LINE_LENGTH)
@@ -577,16 +610,27 @@ Module SurfaceMesh
         else
             error stop "acoustic surface for integration is not defined"
         end if
+
+        no_of_faces = sum(faces_per_zone)
+
+        if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(no_of_faces, numberOfFacesTotal, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+        else
+            numberOfFacesTotal = no_of_faces
+        end if
+        surfaceHasFacesInPartitions = numberOfFacesTotal .gt. 0
 !
 !       now create the zone and set type, name and flag
 !       --------------------------------------------------
         write(fileName,'(A,A)') trim(solution_file),'_fwh'
         zoneName = "FWH_Surface"
-        call createSingleSurface(self, FWH_POSITION, SURFACE_TYPE_FWH, fileName, zoneName, sum(faces_per_zone), facesIDs, isNoSlip)
+        call createSingleSurface(self, FWH_POSITION, SURFACE_TYPE_FWH, fileName, zoneName, no_of_faces, facesIDs, isNoSlip, surfaceHasFacesInPartitions)
 !         
     End Subroutine createFWHSurface
 !         
-    Subroutine createSingleSurface(self, surface_index, surface_type, file_name, zone_name, no_of_faces, facesIDs, isNoSlip)
+    Subroutine createSingleSurface(self, surface_index, surface_type, file_name, zone_name, no_of_faces, facesIDs, isNoSlip, has_faces)
         implicit none
 
         class(SurfaceMesh_t)                                :: self
@@ -594,11 +638,12 @@ Module SurfaceMesh
         character(len=LINE_LENGTH), intent(in)              :: file_name, zone_name
         integer, dimension(:), intent(in)                   :: facesIDs
         logical, intent(in)                                 :: isNoSlip
+        logical, intent(in)                                 :: has_faces
 
         self % surfaceTypes(surface_index) = surface_type
         self % file_names(surface_index) = trim(file_name)
         ! not set active nor create zone if there are no faces
-        if (no_of_faces .le. 0) return
+        if (.not. has_faces) return
         call self % zones(surface_index) % CreateFictitious(-1, trim(zone_name), no_of_faces, facesIDs)
         self % surfaceActive(surface_index) = .true.
         self % isNoSlip(surface_index) = isNoSlip
@@ -900,6 +945,7 @@ Module SurfaceMesh
       class(Face), pointer                                 :: faces(:)
       integer, dimension(MPI_Process % nProcs)             :: no_of_faces_p, displs
       integer, dimension(1)                                :: idInGlobal
+      integer, dimension(:), allocatable                   :: elementsID_p
 
       faces => mesh % faces
 
@@ -921,9 +967,14 @@ Module SurfaceMesh
           end do
       end if
 
+      allocate(elementsID_p(surface_zone%no_of_faces))
+      do i=1, surface_zone % no_of_faces
+          eID = faces(surface_zone % faces(i)) % elementIDs(1)
+          elementsID_p(i) = mesh % elements(eID) % globID
+      end do
+
       ! get the global element ID and the face ID as a single 2D array for the root process, will be used to sort
-      call mpi_gatherv(mesh % elements(faces(surface_zone % faces) % elementIDs(1)) % globID, surface_zone % no_of_faces,MPI_INT, &
-                                     zoneInfoArray(:,1), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+      call mpi_gatherv(elementsID_p, surface_zone % no_of_faces,MPI_INT, zoneInfoArray(:,1), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
       call mpi_gatherv(surface_zone % faces, surface_zone % no_of_faces,MPI_INT, &
                                      zoneInfoArray(:,2), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
       ! get the sorted array
