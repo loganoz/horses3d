@@ -10,7 +10,8 @@ MOD_FLAG?=-J
 
 LIBOBJS_NS = ./build_ns/ActuatorLine.o \
 			 ./build_ns/mkl_dfti.o \
-			 ./build_ns/TripForceClass.o 
+			 ./build_ns/TripForceClass.o \
+			 ./build_ns/SpongeClass.o 
 		
 LIBOBJS_NSSA =  ./build_nssa/ActuatorLine.o \
 				./build_nssa/mkl_dfti.o \
