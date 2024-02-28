@@ -58,13 +58,13 @@ The following external routines/libraries can be used with **HORSES3D**, but are
 
     - ENABLE_THREADS=NO/**YES**
 
-    - WITH_PETSC=y/**n**
+    - WITH_PETSC=YES/**NO**
 
-    - WITH_METIS=y/**n**
+    - WITH_METIS=YES/**NO**
 
-    - WITH_HDF5=y/**n**
+    - WITH_HDF5=YES/**NO**
 
-    - WITH_MKL=y/**n**
+    - WITH_MKL=YES/**NO**
 
     For example:
 
