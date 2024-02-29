@@ -15,13 +15,16 @@ LIBOBJS_NS = ./build_ns/ActuatorLine.o \
 		
 LIBOBJS_NSSA =  ./build_nssa/ActuatorLine.o \
 				./build_nssa/mkl_dfti.o \
-				./build_nssa/TripForceClass.o 
+				./build_nssa/TripForceClass.o \
+				./build_nssa/SpongeClass.o 
 		
-LIBOBJS_iNS = ./build_ins/ActuatorLine.o 
+LIBOBJS_iNS = ./build_ins/ActuatorLine.o \
+			  ./build_ins/SpongeClass.o 
 		
 LIBOBJS_CH = ./build_ch/ActuatorLine.o 
 
-LIBOBJS_MU = ./build_mu/ActuatorLine.o 
+LIBOBJS_MU = ./build_mu/ActuatorLine.o \
+			 ./build_mu/SpongeClass.o 
 
 LIB = sources
 

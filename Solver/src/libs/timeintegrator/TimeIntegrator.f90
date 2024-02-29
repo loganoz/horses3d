@@ -853,7 +853,9 @@
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
+#if defined(NAVIERSTOKES)
       use SpongeClass, only: sponge
+#endif
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -876,8 +878,9 @@
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
+#if defined(NAVIERSTOKES)
       call sponge % writeBaseFlow(sem % mesh, k, t)
-
+#endif
    END SUBROUTINE SaveRestart
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////

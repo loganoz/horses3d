@@ -3,8 +3,8 @@
 !This class represents the numerical source term as a sponge to complement BC
 
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
 Module SpongeClass  !
+#if defined(NAVIERSTOKES)
     use SMConstants
     use HexMeshClass
     use SolutionFile
@@ -400,7 +400,7 @@ Module SpongeClass  !
     End Subroutine  readBaseFlow
 !
     Subroutine  writeBaseFlow(self,mesh,iter,time,last)
-        use FluidData_NS, only: thermodynamics, refValues, dimensionless
+        use FluidData, only: thermodynamics, refValues, dimensionless
         Implicit None
         class(sponge_t)                                         :: self
         type(HexMesh), intent(in)                               :: mesh
@@ -479,5 +479,5 @@ Module SpongeClass  !
 
     End Subroutine  writeBaseFlow
 !
-End Module SpongeClass
 #endif
+End Module SpongeClass
