@@ -408,6 +408,7 @@
       use ShockCapturing
       use TripForceClass, only: randomTrip
       use ActuatorLine, only: farm
+      use SpongeClass, only: sponge
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
@@ -447,7 +448,7 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -457,6 +458,7 @@
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
       ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
+      saveOrders         = controlVariables % logicalValueForKey("save mesh order")
 
 !
 !     ---------------
@@ -478,6 +480,7 @@
           call farm % ConstructFarm(controlVariables, t)
           call farm % UpdateFarm(t, sem % mesh)
       end if
+      call sponge % construct(sem % mesh,controlVariables)
 #endif
 !
 !     ----------------------------------
@@ -650,7 +653,8 @@
          END SELECT
 
 #if defined(NAVIERSTOKES)
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
+         if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
+         call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
 !
 !        Compute the new time
@@ -764,7 +768,8 @@
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
+         if(ActuatorLineFlag)  call farm % WriteFarmForces(t, k, last=.true.)
+         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if
 
@@ -794,7 +799,9 @@
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
          if(ActuatorLineFlag) call farm % DestructFarm
+         call sponge % destruct()
 #endif
+      if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)
 
    end subroutine IntegrateInTime
 
@@ -846,6 +853,9 @@
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
+#if defined(NAVIERSTOKES)
+      use SpongeClass, only: sponge
+#endif
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -868,7 +878,9 @@
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
-
+#if defined(NAVIERSTOKES)
+      call sponge % writeBaseFlow(sem % mesh, k, t)
+#endif
    END SUBROUTINE SaveRestart
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////

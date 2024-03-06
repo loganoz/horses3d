@@ -56,6 +56,7 @@ Module LocalRefinementTool  !
         meshFileName = controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) 
         fileName = controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH) 
 
+        print *, "start mesh reading"
         call ConstructSimpleMesh(mesh, meshFileName, locR)
 !
 !       -----------------
@@ -182,6 +183,7 @@ Module LocalRefinementTool  !
        use LocalRefinement
        use readHDF5
        use readSpecM
+       use readGMSH
        use FileReadingUtilities, only: getFileExtension
        Implicit None
 
@@ -198,14 +200,23 @@ Module LocalRefinementTool  !
 !          ---------------
 !
            character(len=LINE_LENGTH) :: ext
+           integer                    :: gmsh_version
 
            ext = getFileExtension(trim(meshFileName))
            if (trim(ext)=='h5') then
                call ConstructSimpleMesh_FromHDF5File_(mesh, meshFileName, locR=locR)
            elseif (trim(ext)=='mesh') then
                call ConstructSimpleMesh_FromSpecFile_(mesh, meshFileName, locR=locR)
-           ! elseif (trim(ext)=='msh') then
-               ! call ConstructSimpleMesh_FromGmshFile_(mesh, meshFileName, locR
+           elseif (trim(ext)=='msh') then
+               call CheckGMSHversion (meshFileName, gmsh_version)
+               select case (gmsh_version)
+                  case (4)
+                     call ConstructSimpleMesh_FromGMSHFile_v4_( mesh, meshFileName, locR=locR )
+                  case (2)
+                     call ConstructSimpleMesh_FromGMSHFile_v2_( mesh, meshFileName, locR=locR )
+                  case default
+                     error stop "ReadMeshFile :: Unrecognized GMSH version."
+               end select
            else
                error stop 'Mesh file extension not recognized.'
            end if

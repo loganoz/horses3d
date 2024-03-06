@@ -128,7 +128,7 @@ module pAdaptationClassRL
          end do
       end if
       
-!     Truncation error threshold
+!     Tolerance
 !     --------------------------
       if ( allocated(R_tolerance) ) then
          this % reqTE = R_tolerance !Required for static adaptation mode

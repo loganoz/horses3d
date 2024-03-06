@@ -3,6 +3,10 @@
 module ActuatorLine
 #if defined(NAVIERSTOKES)
     use SMConstants
+    use MPI_Process_Info
+#ifdef _HAS_MPI_
+    use mpi
+#endif
     implicit none
 
 private
@@ -71,8 +75,10 @@ public farm
     logical                        :: calculate_with_projection
     logical                        :: active = .false.
     logical                        :: save_average = .false.
+    logical                        :: save_instant = .false.
     character(len=LINE_LENGTH)     :: file_name
     integer                        :: number_iterations
+    integer                        :: save_iterations
 
    contains
         procedure   :: ConstructFarm
@@ -102,6 +108,7 @@ contains
        use FileReadingUtilities      , only: getFileName
        use PhysicsStorage
        use fluiddata
+       use MPI_Process_Info
        implicit none
        class(farm_t) , intent(inout)                :: self
        TYPE(FTValueDictionary), intent(in)          :: controlVariables
@@ -115,14 +122,16 @@ contains
          CHARACTER(LEN=LINE_LENGTH) :: solution_file
          real(kind=RP)              :: initial_azimutal
 
+    if (.not. controlVariables % logicalValueForKey("use actuatorline")) return
+
     self % epsilon_type = controlVariables % getValueOrDefault("actuator epsilon type", 0)
     self % calculate_with_projection = controlVariables % getValueOrDefault("actuator calculate with projection", .false.)
     self % save_average = controlVariables % getValueOrDefault("actuator save average", .false.)
-
+    self % save_instant = controlVariables % getValueOrDefault("actuator save instant", .false.)
+    self % save_iterations = controlVariables % getValueOrDefault("actuator save iteration", 1)
 
     arg='./ActuatorDef/Act_ActuatorDef.dat'
-    fid=10
-    OPEN(fid,file=trim(arg),status="old",action="read", iostat=io)
+    OPEN( newunit = fid,file=trim(arg),status="old",action="read")
 
     READ(fid,'(A132)') char1
     READ(fid,'(A132)') char1
@@ -138,44 +147,42 @@ contains
 
     allocate(self%turbine_t(self%num_turbines))
 
-     do i = 1, self%num_turbines
-        READ(fid,*) self%turbine_t(i)%hub_cood_x, self%turbine_t(i)%hub_cood_y, self%turbine_t(i)%hub_cood_z
-     ENDDO
-     ! print *, "hub: ", self%turbine_t(1)%hub_cood_x, " ", self%turbine_t(1)%hub_cood_y, " ", self%turbine_t(1)%hub_cood_z
+    do i = 1, self%num_turbines
+       READ(fid,*) self%turbine_t(i)%hub_cood_x, self%turbine_t(i)%hub_cood_y, self%turbine_t(i)%hub_cood_z
+    ENDDO
 
-     READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
 
-     do i = 1, self%num_turbines
-        READ(fid,*) self%turbine_t(i)%radius
-     ENDDO
+    do i = 1, self%num_turbines
+       READ(fid,*) self%turbine_t(i)%radius
+    ENDDO
 
-     READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
 
-     do i = 1, self%num_turbines
-        READ(fid,*) self%turbine_t(i)%normal_x, self%turbine_t(i)%normal_y, self%turbine_t(i)%normal_z
-     ENDDO
+    do i = 1, self%num_turbines
+       READ(fid,*) self%turbine_t(i)%normal_x, self%turbine_t(i)%normal_y, self%turbine_t(i)%normal_z
+    ENDDO
     
-    ! write(*,*) normal_x(:), normal_y(:), normal_z(:)
-     READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
 
-     do i = 1, self%num_turbines
-        READ(fid,*) self%turbine_t(i)%rot_speed
-     ENDDO
+    do i = 1, self%num_turbines
+       READ(fid,*) self%turbine_t(i)%rot_speed
+    ENDDO
 
-     READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
 
-     do i = 1, self%num_turbines
-        READ(fid,*) self%turbine_t(i)%blade_pitch
-     ENDDO
+    do i = 1, self%num_turbines
+       READ(fid,*) self%turbine_t(i)%blade_pitch
+    ENDDO
     
 
-     READ(fid,'(A132)') char1
-     READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
 
-     ! Read blade info, we assume all 3 blades are the same for one turbine
-     READ(fid,*) self%turbine_t(1)%num_blade_sections
+    ! Read blade info, we assume all 3 blades are the same for one turbine
+    READ(fid,*) self%turbine_t(1)%num_blade_sections
 
-     write(*,*) "Number of blade sections:", self%turbine_t(1)%num_blade_sections
+    write(*,*) "Number of blade sections:", self%turbine_t(1)%num_blade_sections
 
      associate (num_blade_sections => self%turbine_t(1)%num_blade_sections)
 
@@ -257,8 +264,7 @@ contains
 
   do i = 1, self%turbine_t(1)%num_blade_sections
       arg=trim('./ActuatorDef/'//trim(self%turbine_t(1)%blade_t(1)%airfoil_files(i,1)))
-      fid=10
-      OPEN(fid,file=trim(arg),status="old",action="read", iostat=io)
+      OPEN( newunit = fid,file=trim(arg),status="old",action="read")
       READ(fid,'(A132)') char1
       READ(fid,*) self%turbine_t(1)%blade_t(1)%airfoil_t(i)%num_aoa 
       close(fid)
@@ -277,7 +283,7 @@ contains
          do k = 1, num_re
 
             arg=trim('./ActuatorDef/'//trim(self%turbine_t(1)%blade_t(1)%airfoil_files(i,k)))
-            OPEN(fid,file=trim(arg),status="old",action="read", iostat=io)
+            OPEN( newunit = fid,file=trim(arg),status="old",action="read")
             READ(fid,'(A132)') char1
 
             READ(fid,*) n_aoa
@@ -345,15 +351,17 @@ contains
     self%turbine_t(:)%blade_t(3)%azimuth_angle = initial_azimutal + PI*4.0_RP/3.0_RP
 
     ! average_conditions are thrust and rotor force
-    if (self % save_average) then
-        if (self % calculate_with_projection) then
-            allocate ( self%turbine_t(1)%average_conditions(self%turbine_t(1)%num_blade_sections,2) )
-        else
-            ! additional average_conditions are velocity, AoA and Re, writen before forces
-            allocate ( self%turbine_t(1)%average_conditions(self%turbine_t(1)%num_blade_sections,5) )
-        end if
-        self % turbine_t(1) % average_conditions(:,:) = 0.0_RP
-        self % number_iterations = 0
+    if (MPI_Process % isRoot) then
+      if (self % save_average) then
+          if (self % calculate_with_projection) then
+              allocate ( self%turbine_t(1)%average_conditions(self%turbine_t(1)%num_blade_sections,2) )
+          else
+              ! additional average_conditions are velocity, AoA and Re, writen before forces
+              allocate ( self%turbine_t(1)%average_conditions(self%turbine_t(1)%num_blade_sections,5) )
+          end if
+          self % turbine_t(1) % average_conditions(:,:) = 0.0_RP
+          self % number_iterations = 0
+      end if
     end if
 !
 !   Get the solution file name
@@ -364,25 +372,27 @@ contains
 !
 !   Create output files
 !   -------------------
-    write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_Forces.dat"
-    open ( newunit = fID , file = trim(arg) , status = "unknown" ,    action = "write" ) 
-    write(fid,*) 'time, thrust_1, blade_torque_1, blade_root_bending_1,thrust_2, blade_torque_12 blade_root_bending_2,thrust_3, blade_torque_3, blade_root_bending_3'
-    close(fid)
+    if (MPI_Process % isRoot) then
+      write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_Forces.dat"
+      open ( newunit = fID , file = trim(arg) , status = "unknown" ,    action = "write" ) 
+      write(fid,*) 'time, thrust_1, blade_torque_1, blade_root_bending_1,thrust_2, blade_torque_12 blade_root_bending_2,thrust_3, blade_torque_3, blade_root_bending_3'
+      close(fid)
 !
-    write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_CP_CT.dat"
-    open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
-    write(fid,*) 'time, Cp (power coef.), Ct (thust coef.)'
-    close(fid)
+      write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_CP_CT.dat"
+      open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
+      write(fid,*) 'time, Cp (power coef.), Ct (thust coef.)'
+      close(fid)
 !
-    if (self % save_average) then
-        write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_average.dat"
-        open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
-        if (self % calculate_with_projection) then
-            write(fid,*) 'R, Tangential_Force, Axial_Force'
-        else
-            write(fid,*) 'R, U, AoA, Re, Tangential_Force, Axial_Force'
-        end if
-        close(fid)
+      if (self % save_average) then
+          write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_average.dat"
+          open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
+          if (self % calculate_with_projection) then
+              write(fid,*) 'R, Tangential_Force, Axial_Force'
+          else
+              write(fid,*) 'R, U, AoA, Re, Tangential_Force, Axial_Force'
+          end if
+          close(fid)
+      end if
     end if
 !
     self % active = .true.
@@ -437,6 +447,7 @@ contains
    use fluiddata
    use HexMeshClass
    use PhysicsStorage
+   use MPI_Process_Info
    implicit none
 
    class(Farm_t), intent(inout)      :: self
@@ -446,10 +457,10 @@ contains
    !local variables
    integer                           :: ii, jj, i, j, k
    real(kind=RP)                     :: theta,t, interp, tolerance
-   logical                           :: found
-   integer                           :: eID
+   logical                           :: found, allfound
+   integer                           :: eID, ierr
    real(kind=RP), dimension(NDIM)    :: x, xe
-   real(kind=RP), dimension(NCONS)   :: Q
+   real(kind=RP), dimension(NCONS)   :: Q, Qtemp
    real(kind=RP), dimension(:), allocatable  :: aoa
 
     if (.not. self % active) return
@@ -465,6 +476,10 @@ contains
 !    calculate for all mesh points its contribution based on the gaussian interpolation
 !    ----------------------------------------------------------------------------------
 !
+      if ( (MPI_Process % doMPIAction) ) then
+            print*, "MPI not implemented yet for AL projection mode"
+            call exit(99)
+      end if
 !$omp do schedule(runtime)private(ii,jj)
       do jj = 1, self%turbine_t(1)%num_blades
 
@@ -495,7 +510,7 @@ contains
 !    use the local Q based on the position of the actuator line point
 !    ----------------------------------------------------------------
 !
-!$omp do schedule(runtime)private(ii,jj,eID,Q,x,xe,found)
+!$omp do schedule(runtime)private(ii,jj,eID,Q,Qtemp,x,xe,found)
      do jj = 1, self%turbine_t(1)%num_blades
        self%turbine_t(1)%blade_t(jj)%local_lift(:) = 0.0_RP
        self%turbine_t(1)%blade_t(jj)%local_drag(:) = 0.0_RP
@@ -515,14 +530,23 @@ contains
 !
           x = [self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,3)]
           found = mesh % FindPointWithCoords(x, eID, xe)
-          if (.not. found) then
+          if (found) then
+            ! averaged state values of the cell
+            Qtemp = element_averageQ(mesh,eID)
+          else
+            Qtemp = 0.0_RP
+          end if
+          if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(Qtemp, Q, NCONS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+          else
+              Q = Qtemp
+          end if
+          if (all(Q .eq. 0.0_RP)) then
             print*, "Actuator line point not found in mesh, x: ", x
             call exit(99)
           end if
-          ! averaged state values of the cell
-          Q = element_averageQ(mesh,eID)
-          ! or use point in the middle of the element
-          !Q = e % Storage % Q(:,e%Nxyz(1)/2,e%Nxyz(2)/2,e%Nxyz(3)/2)
           call FarmUpdateLocalForces(self, ii, jj, Q, theta, interp)
         end do
      enddo
@@ -629,21 +653,25 @@ else ! no projection
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine WriteFarmForces(self,time,last)
+   subroutine WriteFarmForces(self,time,iter,last)
    use fluiddata
    use PhysicsStorage
+   use MPI_Process_Info
    implicit none
 
-   class(Farm_t), intent(inout)     :: self
-   real(kind=RP),intent(in)      ::  time
+   class(Farm_t), intent(inout)  :: self
+   real(kind=RP),intent(in)      :: time
+   integer, intent(in)           :: iter
    logical, optional             :: last
-   integer                       ::   fid, io
+   integer                       :: fid, io
    CHARACTER(LEN=LINE_LENGTH)    :: arg
-   real(kind=RP)                 ::  t
+   real(kind=RP)                 :: t
    integer                       :: ii, jj
    logical                       :: saveAverage
+   logical                       :: save_instant
 
     if (.not. self % active) return
+    if ( .not. MPI_Process % isRoot ) return
 
     if (present(last)) then
         saveAverage = last
@@ -651,6 +679,7 @@ else ! no projection
         saveAverage = .false.
     end if
 
+   save_instant = self%save_instant .and. ( mod(iter,self % save_iterations) .eq. 0 )
    t = time * Lref / refValues%V
 
    
@@ -708,6 +737,21 @@ else ! no projection
       end if 
       close(fid)
     end if
+
+     if (save_instant) then
+         do jj = 1, self%turbine_t(1)%num_blades
+          write(arg , '(2A,I3.3,A,I10.10,A)') trim(self%file_name) , "_Actuator_Line_instant_",jj ,"_" ,iter, ".dat"
+          open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
+          write(fid,*) 'R, U, AoA, Re'
+          do ii = 1, self % turbine_t(1) % num_blade_sections
+              write(fid,"(4(2X,ES24.16))") self%turbine_t(1)%blade_t(1)%r_R(ii), &
+                 self%turbine_t(1)%blade_t(jj)%local_velocity(ii), &
+                 ( self%turbine_t(1)%blade_t(jj)%local_angle(ii) - (self%turbine_t(1)%blade_t(jj)%twist(ii) + self%turbine_t(1)%blade_pitch) ) * 180.0_RP / PI, &
+                 self%turbine_t(1)%blade_t(jj)%local_Re(ii)
+          end do
+          close(fid)
+         end do
+     end if 
   !endif
 
 end subroutine WriteFarmForces
@@ -778,7 +822,7 @@ end subroutine WriteFarmForces
                       ! (2.0_RP*self%turbine_t(1)%radius*sin(angle_temp))) ))
 
         ! 2 possibility: use the local radius and angle
-        tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(1)%num_blades*(self%turbine_t(1)%radius-self%turbine_t(1)%blade_t(jj)%r_R(ii)) / (2.0_RP*self%turbine_t(1)%blade_t(jj)%r_R(ii)*sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii)))) ))
+        tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(1)%num_blades*(self%turbine_t(1)%radius-self%turbine_t(1)%blade_t(jj)%r_R(ii)) / abs(2.0_RP*self%turbine_t(1)%blade_t(jj)%r_R(ii)*sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii)))) ))
 !
 !       --------------------------------
 !       Save forces on the blade segment
@@ -801,6 +845,7 @@ end subroutine WriteFarmForces
                                   
         self%turbine_t(1)%blade_t(jj)%local_thrust(ii) = lift_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) & 
                                                          + drag_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
+
 !
     End Subroutine FarmUpdateLocalForces
 !

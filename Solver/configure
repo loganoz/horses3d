@@ -1,6 +1,6 @@
 #!/bin/bash
 #######################################################################
-###	This script configures the test cases:
+###	This script configures the test cases and tutorials:
 ###		-> Copies Makefiles with the solver absolute path
 ###		-> Generates the required folders.
 ###		-> Generates links to the solver.
@@ -85,6 +85,12 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Particles/Pouransari \
             ./Particles/ParticleBoundaryCond "
 
+##################################################
+## 	GENERATE TUTORIALS			##
+##################################################
+TUTORIAL_CASES="Cylinder \
+                Wind_Turbine"
+
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
 		       HexMappings \
@@ -98,9 +104,15 @@ ADDONS="./AddOns/horsesConverter/MappingResult \
 cp -vf ../utils/modulefile/horses/dev-default ../utils/modulefile/horses/dev
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
 
+# Tests
 cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
 rm -f ./test/Makefile.template-e
+
+# Tutorials
+cp -vf ../utils/ProblemFile/Makefile ../tutorials/Makefile.template
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../tutorials/Makefile.template
+rm -f ../tutorials/Makefile.template-e
 
 cp -vf ./Makefile.in ./Makefile
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./Makefile
@@ -116,6 +128,18 @@ for subdir in $TEST_CASES; do
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
+done
+
+for subdir in $TUTORIAL_CASES; do
+	mkdir -p ../tutorials/$subdir/MESH
+	mkdir -p ../tutorials/$subdir/SETUP
+	mkdir -p ../tutorials/$subdir/RESULTS
+	cp -v ../tutorials/Makefile.template ../tutorials/$subdir/SETUP/Makefile
+	ln -fsv $PWD/bin/horses3d.ns ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.ch ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.ins ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ../tutorials/$subdir
 done
 
 
