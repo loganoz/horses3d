@@ -1281,9 +1281,9 @@ This algorithm can perform a p-adaptation based on a trained RL agent.
    Nmin                  = [2, 2, 2]
    Conforming boundaries = [cylinder]
    restart files         = .FALSE.
-   order across faces    = N*2/3
    mode                  = iteration
-   interval              = 50
+   interval              = 10
+   threshold             = 2.0
 #end
 \end{lstlisting}
 
@@ -1301,6 +1301,8 @@ This algorithm can perform a p-adaptation based on a trained RL agent.
 agent file & \textit{CHARACTER}: Relative path to the binary file that provide the policy of the RL agent. & \textbf{Mandatory keyword} \\ \hline
 
 tolerance & \textit{REAL}: Tolerance for the RL agent. The smaller the tolerance, the wider the adapted region. & 0.01 \\ \hline
+
+threshold & \textit{REAL}: The mesh will be adapted only if the percentage of the elements that require adaptation (in relation to the total number of elements) is above the threshold. & 0.0 \\ \hline
 
 
 \end{longtable}

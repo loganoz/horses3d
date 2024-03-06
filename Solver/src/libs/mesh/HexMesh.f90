@@ -2780,27 +2780,95 @@ slavecoord:             DO l = 1, 4
          !------------------------------------------
          class(HexMesh),   intent(in)     :: self
          character(len=*), intent(in)     :: fileName          !<  Name of file containing polynomial orders to initialize
-         !------------------------------------------
+         !--local-variables-------------------------
          integer                          :: fd       ! File unit
          integer                          :: k
          character(len=LINE_LENGTH)       :: OrderFileName
-         !------------------------------------------
+         !--local-MPI-variables---------------------
+         integer                          :: Nx(self % no_of_elements), total_Nx(self % no_of_allElements)
+         integer                          :: Ny(self % no_of_elements), total_Ny(self % no_of_allElements)
+         integer                          :: Nz(self % no_of_elements), total_Nz(self % no_of_allElements)
+         integer                          :: globIDs(self % no_of_elements), all_globIDs(self % no_of_allElements), all_globIDs_copy(self % no_of_allElements)
+         integer                          :: displ(MPI_Process % nProcs), no_of_elements_array(MPI_Process % nProcs)
+         integer                          :: zID, eID, ierr
 
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+!
+!        Share info with other processes
+!        -------------------------------
+
+         call mpi_allgather(self % no_of_elements, 1, MPI_INT, no_of_elements_array, 1, MPI_INT, MPI_COMM_WORLD, ierr)
+!
+!        Compute the displacements
+!        -------------------------
+         displ(1) = 0
+         do zID = 1, MPI_Process % nProcs-1
+            displ(zID+1) = displ(zID) + no_of_elements_array(zID)
+         end do
+!
+!        Get global element IDs in all partitions
+!        -----------------------------------------
+         do eID=1, self % no_of_elements
+            globIDs(eID) = self % elements(eID) % globID
+         end do
+
+         call mpi_allgatherv(globIDs, self % no_of_elements, MPI_INT, all_globIDs, no_of_elements_array , displ, MPI_INT, MPI_COMM_WORLD, ierr)
+         all_globIDs_copy(:) = all_globIDs(:)
+!
+!        Get polynomial order in all partitions
+!        ----------------------------------------
+         do eID = 1, self % no_of_elements
+            Nx(eID) = self % elements(eID) % Nxyz(1)
+            Ny(eID) = self % elements(eID) % Nxyz(2)
+            Nz(eID) = self % elements(eID) % Nxyz(3)
+         enddo
+
+         call mpi_allgatherv(Nx, self % no_of_elements, MPI_INT, total_Nx, no_of_elements_array, displ, MPI_INT, MPI_COMM_WORLD, ierr)
+
+         call mpi_allgatherv(Ny, self % no_of_elements, MPI_INT, total_Ny, no_of_elements_array, displ, MPI_INT, MPI_COMM_WORLD, ierr)
+
+         call mpi_allgatherv(Nz, self % no_of_elements, MPI_INT, total_Nz, no_of_elements_array, displ, MPI_INT, MPI_COMM_WORLD, ierr)
+
+!
+!        Reorganize polynomial order
+!        ----------------------
+         call QsortWithFriend(all_globIDs, total_Nx)
+         all_globIDs(:) = all_globIDs_copy(:)
+
+         call QsortWithFriend(all_globIDs, total_Ny)
+         all_globIDs(:) = all_globIDs_copy(:)
+
+         call QsortWithFriend(all_globIDs, total_Nz)
 !
 !        Create file: it will be contained in ./MESH
 !        -------------------------------------------
-         OrderFileName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".omesh"
+         if ( MPI_Process % isRoot ) then
+            OrderFileName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".omesh"
+            open( newunit = fd , FILE = TRIM(OrderFileName), ACTION = 'write')
 
+            write(fd,*) self % no_of_allElements
 
-         open( newunit = fd , FILE = TRIM(OrderFileName), ACTION = 'write')
-
-            write(fd,*) size(self % elements)
-
-            do k=1, size(self % elements)
-               write(fd,*) self % elements(k) % Nxyz
+            do k=1, self % no_of_allElements
+               write(fd,*) total_Nx(k), total_Ny(k), total_Nz(k)
             end do
 
+            close (fd)
+         end if
+#endif
+      else
+         OrderFileName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".omesh"
+         open( newunit = fd , FILE = TRIM(OrderFileName), ACTION = 'write')
+
+         write(fd,*) self % no_of_allElements
+
+         do k=1, self % no_of_allElements
+            write(fd,*) self % elements(k) % Nxyz
+         end do
+
          close (fd)
+
+      end if
 
       end subroutine HexMesh_ExportOrders
 !
@@ -4048,80 +4116,59 @@ slavecoord:             DO l = 1, 4
 !  --------------------------------------------------------
 !  Adapts a mesh to new polynomial orders NNew
 !  --------------------------------------------------------
-   subroutine HexMesh_pAdapt (self, NNew, controlVariables)
-      implicit none
-      !-arguments-----------------------------------------
-      class(HexMesh), target  , intent(inout)   :: self
-      integer                 , intent(in)      :: NNew(NDIM,self % no_of_elements)
-      type(FTValueDictionary) , intent(in)      :: controlVariables
-      !-local-variables-----------------------------------
-      integer :: eID, fID, zoneID
-      logical :: saveGradients, FaceComputeQdot
-      logical :: analyticalJac   ! Do we need analytical Jacobian storage?
-      type(IntegerDataLinkedList_t) :: elementList
-      type(IntegerDataLinkedList_t) :: facesList
-      type(IntegerDataLinkedList_t) :: zoneList
-      integer         , allocatable :: zoneArray(:)
-      integer         , allocatable :: facesArray(:)
-      integer         , allocatable :: elementArray(:)
-      type(Zone_t)    , pointer :: zone
-      type(Element)   , pointer :: e
-      type(Face)      , pointer :: f
+subroutine HexMesh_pAdapt (self, NNew, controlVariables)
+   implicit none
+   !-arguments-----------------------------------------
+   class(HexMesh), target  , intent(inout)   :: self
+   integer                 , intent(in)      :: NNew(NDIM,self % no_of_elements)
+   type(FTValueDictionary) , intent(in)      :: controlVariables
+   !-local-variables-----------------------------------
+   integer :: eID, fID
+   logical :: saveGradients, FaceComputeQdot
+   logical :: analyticalJac   ! Do we need analytical Jacobian storage?
+   type(Element)   , pointer :: e
+   type(Face)      , pointer :: f
+
 #if (!defined(NAVIERSTOKES))
-      logical, parameter            :: computeGradients = .true.
+   logical, parameter            :: computeGradients = .true.
 #endif
-      !---------------------------------------------------
+   !---------------------------------------------------
 
 !     **************************************
 !     Check if resulting mesh is anisotropic
 !     **************************************
-      if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
+   if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
 
-      self % NDOF = 0
-      do eID=1, self % no_of_elements
-         self % NDOF = self % NDOF + product( NNew(:,eID) + 1 )
-      end do
+   self % NDOF = 0
+   do eID=1, self % no_of_elements
+      self % NDOF = self % NDOF + product( NNew(:,eID) + 1 )
+   end do
 
 !     ********************
 !     Some initializations
 !     ********************
-      saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
-      FaceComputeQdot = controlVariables % containsKey("acoustic analogy")
-
-      facesList      = IntegerDataLinkedList_t(.FALSE.)
-      elementList    = IntegerDataLinkedList_t(.FALSE.)
-      zoneList = IntegerDataLinkedList_t(.FALSE.)
-      analyticalJac  = self % storage % anJacobian
+   saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+   FaceComputeQdot = controlVariables % containsKey("acoustic analogy")
+   analyticalJac  = self % storage % anJacobian
 
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
-!$omp parallel do schedule(runtime) private(fID, e)
-      do eID=1, self % no_of_elements
-         e => self % elements(eID)   ! Associate fails(!) here
-         if ( all( e % Nxyz == NNew(:,eID)) ) then
-            cycle
-         else
-            call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
+!$omp parallel do schedule(runtime) private(e)
+   do eID=1, self % no_of_elements
+      e => self % elements(eID)   ! Associate fails(!) here
+      if ( all( e % Nxyz == NNew(:,eID)) ) then
+         cycle
+      else
+         call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
 !$omp critical
-            self % Nx(eID) = NNew(1,eID)
-            self % Ny(eID) = NNew(2,eID)
-            self % Nz(eID) = NNew(3,eID)
-            call elementList % add (eID)
-            do fID=1, 6
-               call facesList   % add (e % faceIDs(fID))
-               if (self % faces(e % faceIDs(fID)) % FaceType  /= HMESH_BOUNDARY) then
-                  call elementList % add ( mpi_partition % global2localeID (e % Connection(fID) % globID) )
-               end if
-            end do
+         self % Nx(eID) = NNew(1,eID)
+         self % Ny(eID) = NNew(2,eID)
+         self % Nz(eID) = NNew(3,eID)
 !$omp end critical
-
-         end if
-!~         end associate
-      end do
-!$omp end parallel do
-
-      call facesList % ExportToArray(facesArray, .TRUE.)
+      end if
+   end do
+!$omp end parallel do    
 
 !     *************************
 !     Adapt corresponding faces
@@ -4129,97 +4176,244 @@ slavecoord:             DO l = 1, 4
 
 !     Destruct faces storage
 !     ----------------------
-!$omp parallel do schedule(runtime)
-      do fID=1, size(facesArray)
-         call self % faces( facesArray(fID) ) % storage % destruct
-      end do
+!$omp parallel do schedule(runtime) 
+   do fID=1, self % no_of_faces  !Destruct All faces storage
+      call self % faces(fID) % storage % destruct
+   end do
 !$omp end parallel do
 
 !     Set connectivities
 !     ------------------
-      call self % SetConnectivitiesAndLinkFaces (self % nodeType, facesArray)
+   call self % SetConnectivitiesAndLinkFaces (self % nodeType)
 
 !     Construct faces storage
 !     -----------------------
-!$omp parallel do private(f) schedule(runtime)
-      do fID=1, size(facesArray)
-         f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers
-         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac, FaceComputeQdot)
-         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac, FaceComputeQdot)
-      end do
+!$omp parallel do schedule(runtime) private(f)
+   do fID=1, self % no_of_faces  !Construct All faces storage
+      f => self % faces( fID )
+      call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac, FaceComputeQdot)
+      call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac, FaceComputeQdot)
+   end do
 !$omp end parallel do
 
 !     ********************
 !     Reconstruct geometry
 !     ********************
 
-      !* 1. Adapted elements
-      !* 2. Surrounding faces of adapted elements
-      !* 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
-      !* 4. Faces and elements that share a boundary with a reconstructed face (3D non-conforming representations)
-
-
-      if (self % anisotropic .and. (.not. self % meshIs2D) ) then
-
-!        Check if any of the faces belongs to a boundary
-!        -----------------------------------------------
-         do fID=1, size(facesArray)
-            associate (f => self % faces( facesArray(fID) ) )
-            if ( f % FaceType == HMESH_BOUNDARY ) then
-               call zoneList % add (f % zone)
-            end if
-            end associate
-         end do
-
-!        Add the corresponding faces and elements
-!        ----------------------------------------
-         call zoneList % ExportToArray (zoneArray)
-
-         do zoneID=1, size(zoneArray)
-            zone => self % zones( zoneArray(zoneID) )    ! Compiler bug(?): If zone was implemented as associate, gfortran would not compile
-            do fID=1, zone % no_of_faces
-               call facesList   % add ( zone % faces(fID) )
-               call elementList % add ( self % faces(zone % faces(fID)) % elementIDs(1) )
-            end do
-         end do
-         deallocate (zoneArray   )
-      end if
-
-      deallocate ( facesArray )
-
-      call facesList   % ExportToArray(facesArray  , .TRUE.)
-      call elementList % ExportToArray(elementArray, .TRUE.)
+   !* 1. Adapted elements
+   !* 2. Surrounding faces of adapted elements
+   !* 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
+   !* 4. Faces and elements that share a boundary with a reconstructed face (3D non-conforming representations)
 
 !     Destruct old
 !     ------------
-      do eID=1, size (elementArray)
-         call self % elements (elementArray(eID)) % geom % destruct
+   do eID=1, self % no_of_elements
+      call self % elements (eID) % geom % destruct
+   end do
+   
+   do eID=1, self % no_of_elements 
+      e => self % elements(eID)
+      do fID=1, 6
+         call self % faces( e % faceIDs(fID) ) % geom % destruct
       end do
-      do fID=1, size (facesArray)
-         call self % faces (facesArray(fID)) % geom % destruct
-      end do
+   end do
 
-      call self % ConstructGeometry(facesArray, elementArray)
+!     Construct new
+!     ------------
+
+   call self % ConstructGeometry()
 
 #if defined(NAVIERSTOKES)
-      call self % ComputeWallDistances(facesArray, elementArray)
+   call self % ComputeWallDistances()
 #endif
 
 !     *********
 !     Finish up
 !     *********
-      call self % PrepareForIO
+   call self % PrepareForIO
+   nullify (e)
+   nullify (f)
 
-      call facesList    % destruct
-      call elementList  % destruct
-      call zoneList     % destruct
-      nullify (zone)
-      nullify (e)
-      nullify (f)
-      deallocate (facesArray  )
-      deallocate (elementArray)
+end subroutine HexMesh_pAdapt
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------------------
+!  Adapts a mesh to new polynomial orders NNew. 
+!  Optimized version of HexMesh_Adapt, but this one does not work with MPI
+!  ------------------------------------------------------------------------
+!    subroutine HexMesh_pAdapt_optimized (self, NNew, controlVariables)
+!       implicit none
+!       !-arguments-----------------------------------------
+!       class(HexMesh), target  , intent(inout)   :: self
+!       integer                 , intent(in)      :: NNew(NDIM,self % no_of_elements)
+!       type(FTValueDictionary) , intent(in)      :: controlVariables
+!       !-local-variables-----------------------------------
+!       integer :: eID, fID, zoneID
+!       logical :: saveGradients, FaceComputeQdot
+!       logical :: analyticalJac   ! Do we need analytical Jacobian storage?
+!       type(IntegerDataLinkedList_t) :: elementList
+!       type(IntegerDataLinkedList_t) :: facesList
+!       type(IntegerDataLinkedList_t) :: zoneList
+!       integer         , allocatable :: zoneArray(:)
+!       integer         , allocatable :: facesArray(:)
+!       integer         , allocatable :: elementArray(:)
+!       type(Zone_t)    , pointer :: zone
+!       type(Element)   , pointer :: e
+!       type(Face)      , pointer :: f
+! #if (!defined(NAVIERSTOKES))
+!       logical, parameter            :: computeGradients = .true.
+! #endif
+!       !---------------------------------------------------
 
-   end subroutine HexMesh_pAdapt
+! !     **************************************
+! !     Check if resulting mesh is anisotropic
+! !     **************************************
+!       if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
+
+!       self % NDOF = 0
+!       do eID=1, self % no_of_elements
+!          self % NDOF = self % NDOF + product( NNew(:,eID) + 1 )
+!       end do
+
+! !     ********************
+! !     Some initializations
+! !     ********************
+!       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+!       FaceComputeQdot = controlVariables % containsKey("acoustic analogy")
+
+!       facesList      = IntegerDataLinkedList_t(.FALSE.)
+!       elementList    = IntegerDataLinkedList_t(.FALSE.)
+!       zoneList = IntegerDataLinkedList_t(.FALSE.)
+!       analyticalJac  = self % storage % anJacobian
+
+! !     *********************************************
+! !     Adapt individual elements (geometry excluded)
+! !     *********************************************
+! !$omp parallel do schedule(runtime) private(fID, e)
+!       do eID=1, self % no_of_elements
+!          e => self % elements(eID)   ! Associate fails(!) here
+!          if ( all( e % Nxyz == NNew(:,eID)) ) then
+!             cycle
+!          else
+!             call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
+! !$omp critical
+!             self % Nx(eID) = NNew(1,eID)
+!             self % Ny(eID) = NNew(2,eID)
+!             self % Nz(eID) = NNew(3,eID)
+!             call elementList % add (eID)
+!             do fID=1, 6
+!                call facesList   % add (e % faceIDs(fID))
+!                if (self % faces(e % faceIDs(fID)) % FaceType  /= HMESH_BOUNDARY) then
+!                   call elementList % add ( mpi_partition % global2localeID (e % Connection(fID) % globID) )
+!                end if
+!             end do
+! !$omp end critical
+
+!          end if
+! !~         end associate
+!       end do
+! !$omp end parallel do
+
+!       call facesList % ExportToArray(facesArray, .TRUE.)
+
+! !     *************************
+! !     Adapt corresponding faces
+! !     *************************
+
+! !     Destruct faces storage
+! !     ----------------------
+! !$omp parallel do schedule(runtime)
+!       do fID=1, size(facesArray)
+!          call self % faces( facesArray(fID) ) % storage % destruct
+!       end do
+! !$omp end parallel do
+
+! !     Set connectivities
+! !     ------------------
+!       call self % SetConnectivitiesAndLinkFaces (self % nodeType, facesArray)
+
+! !     Construct faces storage
+! !     -----------------------
+! !$omp parallel do private(f) schedule(runtime)
+!       do fID=1, size(facesArray)
+!          f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers
+!          call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac, FaceComputeQdot)
+!          call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac, FaceComputeQdot)
+!       end do
+! !$omp end parallel do
+
+! !     ********************
+! !     Reconstruct geometry
+! !     ********************
+
+!       !* 1. Adapted elements
+!       !* 2. Surrounding faces of adapted elements
+!       !* 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
+!       !* 4. Faces and elements that share a boundary with a reconstructed face (3D non-conforming representations)
+
+
+!       if (self % anisotropic .and. (.not. self % meshIs2D) ) then
+
+! !        Check if any of the faces belongs to a boundary
+! !        -----------------------------------------------
+!          do fID=1, size(facesArray)
+!             associate (f => self % faces( facesArray(fID) ) )
+!             if ( f % FaceType == HMESH_BOUNDARY ) then
+!                call zoneList % add (f % zone)
+!             end if
+!             end associate
+!          end do
+
+! !        Add the corresponding faces and elements
+! !        ----------------------------------------
+!          call zoneList % ExportToArray (zoneArray)
+
+!          do zoneID=1, size(zoneArray)
+!             zone => self % zones( zoneArray(zoneID) )    ! Compiler bug(?): If zone was implemented as associate, gfortran would not compile
+!             do fID=1, zone % no_of_faces
+!                call facesList   % add ( zone % faces(fID) )
+!                call elementList % add ( self % faces(zone % faces(fID)) % elementIDs(1) )
+!             end do
+!          end do
+!          deallocate (zoneArray   )
+!       end if
+
+!       deallocate ( facesArray )
+
+!       call facesList   % ExportToArray(facesArray  , .TRUE.)
+!       call elementList % ExportToArray(elementArray, .TRUE.)
+
+! !     Destruct old
+! !     ------------
+!       do eID=1, size (elementArray)
+!          call self % elements (elementArray(eID)) % geom % destruct
+!       end do
+!       do fID=1, size (facesArray)
+!          call self % faces (facesArray(fID)) % geom % destruct
+!       end do
+
+!       call self % ConstructGeometry(facesArray, elementArray)
+
+! #if defined(NAVIERSTOKES)
+!       call self % ComputeWallDistances(facesArray, elementArray)
+! #endif
+
+! !     *********
+! !     Finish up
+! !     *********
+!       call self % PrepareForIO
+
+!       call facesList    % destruct
+!       call elementList  % destruct
+!       call zoneList     % destruct
+!       nullify (zone)
+!       nullify (e)
+!       nullify (f)
+!       deallocate (facesArray  )
+!       deallocate (elementArray)
+
+!    end subroutine HexMesh_pAdapt_optimized
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
