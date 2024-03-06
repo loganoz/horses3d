@@ -781,7 +781,7 @@ jobs:
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
         if: '!cancelled()'
 
-      - name: Build Cylinder_pAdaptationRL
+      - name: Run Cylinder_pAdaptationRL
         working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
