@@ -585,7 +585,7 @@ readloop:do
       
       if ( .not. allocated(this % conformingBoundaries) ) return
       
-      write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
+      ! write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
       
 !     ************************
 !     Loop over the boundaries
@@ -594,8 +594,8 @@ readloop:do
          
          if ( all ( this % conformingBoundaries /= trim(mesh % zones(zoneID) % Name) ) ) cycle
          
-         write(STD_OUT,*) '## Boundary:', mesh % zones(zoneID) % Name
-         write(STD_OUT,*) '   Sweep   |   Last'
+         ! write(STD_OUT,*) '## Boundary:', mesh % zones(zoneID) % Name
+         ! write(STD_OUT,*) '   Sweep   |   Last'
          sweep = 0
          
          ! Perform a number of sweeps until the representation is conforming
@@ -622,7 +622,7 @@ readloop:do
                
             end do
             
-            write(STD_OUT,'(I10,X,A,X,L)') sweep ,'|', finalsweep 
+            ! write(STD_OUT,'(I10,X,A,X,L)') sweep ,'|', finalsweep 
             
             if (finalsweep) then
                if (sweep > 1) last = .FALSE.
@@ -631,7 +631,7 @@ readloop:do
          end do
       end do
       
-      write(STD_OUT,*) '#####################################'
+      ! write(STD_OUT,*) '#####################################'
       
    end subroutine makeBoundariesPConforming
 !
@@ -798,7 +798,6 @@ readloop:do
          end select
       else
          adaptationType = 0
-         write(STD_OUT,*) "Default type used for p-adaptation: Truncation Error"
       end if
 
    end function
