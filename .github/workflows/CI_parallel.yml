@@ -782,7 +782,7 @@ jobs:
         if: '!cancelled()'
 
       - name: Run Cylinder_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL/SETUP
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns Cylinder_pAdaptationRL.control

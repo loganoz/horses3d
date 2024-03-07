@@ -423,7 +423,7 @@ module pAdaptationClassRL
 !     ----------------------------------
 !
       call Stopwatch % Start("pAdapt: Adaptation")
-      call sem % mesh % pAdapt (NNew, controlVariables)
+      call sem % mesh % pAdapt_MPI (NNew, controlVariables)
       call Stopwatch % Pause("pAdapt: Adaptation")
       
       ! Reconstruct probes
