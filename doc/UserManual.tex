@@ -1662,7 +1662,7 @@ Volume monitors compute the average of a quantity in the whole domain. They can 
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endfirsthead
 
-\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\caption{Keywords for volume monitors - continued.} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
@@ -1692,6 +1692,58 @@ variable 	&
 
 
 \end{longtable}
+
+\section{Load Balancing Monitors}
+Load balancing monitors compute the DOF in each partition of the mesh to check the unbalance. 
+
+\begin{lstlisting}
+#define load balancing monitor 1
+   name     = SomeName
+   variable = SomeVariable
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for load balancing monitors.} \label{tab:VolMonitorsKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for load balancing monitors - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	&
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item max dof per partition
+\item min dof per partition
+\item avg dof per partition
+\item absolute dof unbalancing
+\item relative dof unbalancing
+\end{itemize}
+\end{multicols}
+
+			 &
+							\textbf{Mandatory Keyword} \\ \hline
+
+
+\end{longtable}
+
+The variable \emph{absolute dof unbalancing} is computed as follows:
+\begin{equation}
+    absolute\, dof\, unbalancing = max\,dof\,per\,partition - min\,dof\,per\,partition
+\end{equation}
+The variable \emph{relative dof unbalancing} is computed as follows:
+\begin{equation}
+    relative\, dof\, unbalancing = 100 * absolute\, dof\, unbalancing / avg\,dof\,per\,partition
+\end{equation}
 
 \chapter{Advanced User Setup}
 

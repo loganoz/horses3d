@@ -18,6 +18,7 @@ LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
 		./build_ns/ResidualsMonitor.o \
 		./build_ns/SurfaceMonitor.o \
 		./build_ns/VolumeMonitor.o \
+		./build_ns/LoadBalancingMonitor.o \
 		./build_ns/Monitors.o \
 		./build_ns/FWHDefinitions.o \
 		./build_ns/FWHObseverClass.o \
@@ -31,6 +32,7 @@ LIBOBJS_NSSA = 	./build_nssa/MonitorDefinitions.o \
 		./build_nssa/ResidualsMonitor.o \
 		./build_nssa/SurfaceMonitor.o \
 		./build_nssa/VolumeMonitor.o \
+		./build_nssa/LoadBalancingMonitor.o \
 		./build_nssa/Monitors.o
 
 LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
@@ -41,6 +43,7 @@ LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
 		./build_ins/ResidualsMonitor.o \
 		./build_ins/SurfaceMonitor.o \
 		./build_ins/VolumeMonitor.o \
+		./build_ins/LoadBalancingMonitor.o \
 		./build_ins/Monitors.o
 
 LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
@@ -51,6 +54,7 @@ LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
 		./build_ch/ResidualsMonitor.o \
 		./build_ch/SurfaceMonitor.o \
 		./build_ch/VolumeMonitor.o \
+		./build_ch/LoadBalancingMonitor.o \
 		./build_ch/Monitors.o
 
 LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
@@ -61,6 +65,7 @@ LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
 		./build_mu/ResidualsMonitor.o \
 		./build_mu/SurfaceMonitor.o \
 		./build_mu/VolumeMonitor.o \
+		./build_mu/LoadBalancingMonitor.o \
 		./build_mu/Monitors.o
 
 LIB = monitors
