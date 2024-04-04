@@ -2861,9 +2861,9 @@ slavecoord:             DO l = 1, 4
          OrderFileName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".omesh"
          open( newunit = fd , FILE = TRIM(OrderFileName), ACTION = 'write')
 
-         write(fd,*) self % no_of_allElements
+         write(fd,*) self % no_of_elements
 
-         do k=1, self % no_of_allElements
+         do k=1, self % no_of_elements
             write(fd,*) self % elements(k) % Nxyz
          end do
 
