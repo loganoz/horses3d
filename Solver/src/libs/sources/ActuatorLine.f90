@@ -91,6 +91,7 @@ public farm
         procedure   :: GaussianInterpolation
         procedure   :: FarmUpdateLocalForces
         procedure   :: FarmUpdateBladeForces
+        procedure   :: FindActuatorPointElement
     end type
 
     type(Farm_t)                  :: farm
@@ -272,7 +273,7 @@ contains
         case (1)
             write(STD_OUT,'(30X,A,A)') "->", 'Epsilon calculated based on drag value'
         case (2)
-            write(STD_OUT,'(30X,A,A)') "->", 'Epsilon calculated based on element size and polynomial order'
+            write(STD_OUT,'(30X,A)') 'Epsilon calculated based on element size and polynomial order'
             write(STD_OUT,'(30X,A,A28,F10.3)') "->", 'Constant for Epsilon: ',self%gauss_epsil
             if (self%calculate_with_projection) write(STD_OUT,'(30X,A)') 'Warining, epsilon calculated using properties of element 1'
         case default
@@ -480,7 +481,7 @@ contains
    real(kind=RP)                     :: theta,t, interp, tolerance, delta_temp
    logical                           :: found, allfound
    integer                           :: eID, ierr
-   real(kind=RP), dimension(NDIM)    :: x, xe
+   real(kind=RP), dimension(NDIM)    :: x, xi
    real(kind=RP), dimension(NCONS)   :: Q, Qtemp
    real(kind=RP), dimension(:), allocatable  :: aoa
 
@@ -536,7 +537,7 @@ contains
 !    use the local Q based on the position of the actuator line point
 !    ----------------------------------------------------------------
 !
-!$omp do schedule(runtime)private(ii,jj,eID,Q,Qtemp,x,xe,found)
+!$omp do schedule(runtime)private(ii,jj,eID,Q,Qtemp,delta_temp,xi,found)
      do jj = 1, self%turbine_t(1)%num_blades
        self%turbine_t(1)%blade_t(jj)%local_lift(:) = 0.0_RP
        self%turbine_t(1)%blade_t(jj)%local_drag(:) = 0.0_RP
@@ -555,7 +556,8 @@ contains
 !         -----------------------------------
 !
           x = [self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,3)]
-          found = mesh % FindPointWithCoords(x, eID, xe)
+          ! found = mesh % FindPointWithCoords(x, eID, xi)
+          call self % FindActuatorPointElement(mesh, x, tolerance, eID, xi, found)
           if (found) then
             ! averaged state values of the cell
             Qtemp = element_averageQ(mesh,eID)
@@ -986,6 +988,48 @@ end subroutine WriteFarmForces
                   POW2(x(2) - self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,2)) + POW2(x(3) - self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,3))) / POW2(epsil) ) / ( POW3(epsil) * pi**(3.0_RP/2.0_RP) )
 
     End Function GaussianInterpolation
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+! based on HexMesh_FindPointWithCoords, without curvature and with tolerance
+    Subroutine FindActuatorPointElement(self, mesh, x, tolerance, eID, xi, success)
+       use HexMeshClass
+       Implicit None
+
+       class(Farm_t), intent(inout)                  :: self
+       type(HexMesh), intent(in)                     :: mesh
+       real(kind=RP), dimension(NDIM), intent(in)    :: x       ! physical space
+       real(kind=RP), intent(in)                     :: tolerance
+       integer, intent(out)                          :: eID 
+       real(kind=RP), dimension(NDIM), intent(out)   :: xi      ! computational space
+       logical, intent(out)                          :: success
+       !
+       logical                                       :: found
+
+       success = .false.
+
+       if( POW2(x(2)-self%turbine_t(1)%hub_cood_y)+POW2(x(3)-self%turbine_t(1)%hub_cood_z) > POW2(self%turbine_t(1)%radius+tolerance) &
+            .or. (x(1) > self%turbine_t(1)%hub_cood_x+tolerance .or. x(1) < self%turbine_t(1)%hub_cood_x-tolerance)) return
+!
+!      Search in linear (not curved) mesh (faster and safer)
+!      For AL the mesh is expected to be linear
+!      -----------------------------------------------------
+       do eID = 1, mesh % no_of_elements
+          found = mesh % elements(eID) % FindPointInLinElement(x, mesh % nodes)
+          if ( found ) exit
+       end do
+!
+!      If found in linear mesh, use FindPointWithCoords in that element and, if necessary, in neighbors...
+!        ---------------------------------------------------------------------------------------------------
+       if (eID <= mesh % no_of_elements) then
+          found = mesh % FindPointWithCoordsInNeighbors(x, xi, eID, 2)
+          if ( found ) then
+             success = .true.
+             return
+          end if
+       end if
+
+    End Subroutine FindActuatorPointElement
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
