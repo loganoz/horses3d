@@ -20,10 +20,9 @@ restart file name     = "RESULTS/actuatorP1.hsol"
 
 ! ACTUATOR LINE
 use actuatorline = .true.
-actuator epsilon type = 0
+actuator epsilon type = 2
 actuator calculate with projection = .false.
 actuator save average = .true.
-actuator initial azimuthal = .true.
 
 riemann solver         = "lax-friedrichs"
 

@@ -1,10 +1,8 @@
 Flow equations        = "NS"
 mesh file name        = "MESH/cyl_circ.msh"
 Polynomial order      = 3
-Number of time steps  = 10000
-Output Interval       = 100
-autosave mode         = "iteration"
-autosave interval     = 2500
+Number of time steps  = 1000000
+Output Interval       = 5000
 Convergence tolerance = 1.d-10
 cfl                   = 0.6
 dcfl                  = 0.6
@@ -12,12 +10,19 @@ mach number           = 0.2
 Reynolds number       = 100.0
 AOA theta             = 0.0
 AOA phi               = 0.0
+
 solution file name    = "RESULTS/Cylinder_Re100.hsol"
 save gradients with solution = .false.
 restart               = .true.
 restart file name     = "RESULTS/Cylinder_Re40.hsol"
 riemann solver        = roe
 simulation type       = time-accurate
+final time            = 200
+
+autosave mode         = "time"
+autosave interval     = 10.0
+
+
 time integration      = explicit
 explicit method       = RK3
 
