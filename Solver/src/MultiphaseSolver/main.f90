@@ -335,7 +335,7 @@
 
          call Subsection_Header("Preprocessing")
 
-         write(STD_OUT,'(30X,A,I0,A,F5.2,A,I0,A)')      "->   ", mesh % no_of_elements, &
+         write(STD_OUT,'(30X,A,I0,A,F5.2,A,I0,A)')      "->   ", mesh % no_of_allElements, &
                                                       " elements with polynomial order ",Naverage," (NDOF = ",NDOF,")."
          write(STD_OUT,'(30X,A,A30,ES10.3,A,ES10.3,A)') "->", "Preprocessing time: ",t_elaps," seconds (total CPU time: ",t_cpu,")."
 
