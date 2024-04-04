@@ -279,7 +279,6 @@ contains
             write(STD_OUT,'(30X,A,A28,ES10.3)') "->", 'Fixed Epsilon value: ',self%gauss_epsil
         end select
         write(STD_OUT,'(30X,A,A28,F10.3,F10.3)') "->", 'Tip correction constants: ', self%turbine_t(1)%blade_t(1)%tip_c1, self%turbine_t(1)%blade_t(1)%tip_c2
-        write(STD_OUT,'(30X,A,A28,L1)') "->", "Initial azimuthal angle: ", controlVariables%logicalValueForKey("actuator initial azimuthal")
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Projection formulation: ", self % calculate_with_projection
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save blade average values: ", self % save_average
     end if
@@ -364,12 +363,9 @@ contains
    enddo
 
     ! azimuthal angle for the 3 blades
-    ! initial azimuthal angle valid for restaring a simulation with same rotational speed and refValues
-    if (controlVariables % logicalValueForKey("actuator initial azimuthal")) then
-        initial_azimutal = self%turbine_t(1)%rot_speed*(t0*Lref/refValues%V)
-    else
-        initial_azimutal = 0.0_RP
-    end if
+    ! initial azimuthal angle valid for restaring a simulation with same rotational speed and refValues. Instant azimuthal angle is
+    ! calculated with constant rot speed
+    initial_azimutal = 0.0_RP
     ! azimuth_angle angle of blades is the angle to respect to +y axis, the angular velocity vector will point to +x
     self%turbine_t(:)%blade_t(1)%azimuth_angle = initial_azimutal
     self%turbine_t(:)%blade_t(2)%azimuth_angle = initial_azimutal + PI*2.0_RP/3.0_RP
@@ -491,6 +487,7 @@ contains
     if (.not. self % active) return
 
    t = time * Lref / refValues%V
+   ! only for constant rot_speed
    theta = self%turbine_t(1)%rot_speed * t
    interp = 1.0_RP
    tolerance=0.2_RP*self%turbine_t(1)%radius
@@ -575,6 +572,7 @@ contains
           else
               Q = Qtemp
               self % turbine_t(1) % blade_t(jj) % gauss_epsil_delta(ii) = delta_temp
+
           end if
           if (all(Q .eq. 0.0_RP)) then
             print*, "Actuator line point not found in mesh, x: ", x
