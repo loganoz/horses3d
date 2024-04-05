@@ -102,7 +102,10 @@ Physical Surface("inlet", 33) = {8};
 Physical Surface("outlet", 34) = {14};
 Physical Surface("up", 35) = {18};
 Physical Surface("down", 36) = {10};
-Physical Surface("walls", 37) = {13, 2, 17, 3, 4, 1, 9, 20};
-Physical Surface("cylinder", 38) = {19, 6, 16, 12};
+Physical Surface("wall1", 37) = {13, 17, 9, 20};
+Physical Surface("wall2", 38) = {2, 3, 4, 1};
+Physical Surface("cylinder", 39) = {19, 6, 16, 12};
 //The whole volume is limited by Surfaces 1, 2, 3 and 4.
-Physical Volume("fluid", 39) = {4, 3, 2, 1};
+Physical Volume("fluid", 40) = {4, 3, 2, 1};
+// uncoment next line to assing a order 3
+// Mesh.ElementOrder = 3; 
