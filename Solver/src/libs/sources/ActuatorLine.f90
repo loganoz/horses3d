@@ -501,10 +501,6 @@ contains
 !    calculate for all mesh points its contribution based on the gaussian interpolation
 !    ----------------------------------------------------------------------------------
 !
-      if ( (MPI_Process % doMPIAction) ) then
-            print*, "MPI not implemented yet for AL projection mode"
-            call exit(99)
-      end if
 !$omp do schedule(runtime)private(ii,jj)
       do jj = 1, self%turbine_t(1)%num_blades
 
@@ -702,41 +698,62 @@ else ! no projection
    integer                       :: ii, jj
    logical                       :: saveAverage
    logical                       :: save_instant
+   integer                       :: ierr
+   real(kind=RP), dimension(:), allocatable :: local_thrust_temp, local_rotor_force_temp, local_gaussian_sum
 
-    if (.not. self % active) return
-    if ( .not. MPI_Process % isRoot ) return
+   if (.not. self % active) return
 
-    if (present(last)) then
-        saveAverage = last
-    else
-        saveAverage = .false.
-    end if
+   if (present(last)) then
+       saveAverage = last
+   else
+       saveAverage = .false.
+   end if
 
    save_instant = self%save_instant .and. ( mod(iter,self % save_iterations) .eq. 0 )
    t = time * Lref / refValues%V
 
    
- if (self%calculate_with_projection) then
-   ! this is necessary for Gaussian weighted sum
-   
-   do jj = 1, self%turbine_t(1)%num_blades
-       self%turbine_t(1)%blade_t(jj)%local_thrust(:) = 0.0_RP
-       self%turbine_t(1)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
-   end do
-
-   !$omp do schedule(runtime)private(ii,jj)
-      do jj = 1, self%turbine_t(1)%num_blades
+   if (self%calculate_with_projection) then
+     ! this is necessary for Gaussian weighted sum
      
-           do ii = 1, self%turbine_t(1)%num_blade_sections
-   
-               self%turbine_t(1)%blade_t(jj)%local_thrust(ii)=self%turbine_t(1)%blade_t(jj)%local_thrust(ii)+self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
-               self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)=self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)+self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
-   
-           enddo
-       enddo
-   !$omp end do
-   
+     do jj = 1, self%turbine_t(1)%num_blades
+         self%turbine_t(1)%blade_t(jj)%local_thrust(:) = 0.0_RP
+         self%turbine_t(1)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
+     end do
+  
+     if ( (MPI_Process % doMPIAction) ) then
+       associate (num_blade_sections => self%turbine_t(1)%num_blade_sections)
+         allocate( local_thrust_temp(num_blade_sections), local_rotor_force_temp(num_blade_sections), local_gaussian_sum(num_blade_sections) )
+
+         do jj = 1, self%turbine_t(1)%num_blades
+           local_thrust_temp = self%turbine_t(1)%blade_t(jj)%local_thrust_temp
+           local_rotor_force_temp = self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp
+           local_gaussian_sum = self%turbine_t(1)%blade_t(jj)%local_gaussian_sum
+  
+#ifdef _HAS_MPI_
+                call mpi_allreduce(local_thrust_temp, self%turbine_t(1)%blade_t(jj)%local_thrust_temp, num_blade_sections, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+                call mpi_allreduce(local_rotor_force_temp, self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp, num_blade_sections, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+                call mpi_allreduce(local_gaussian_sum, self%turbine_t(1)%blade_t(jj)%local_gaussian_sum, num_blade_sections, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+  
+         end do
+       endassociate
+     end if
+         
+!$omp do schedule(runtime)private(ii,jj)
+        do jj = 1, self%turbine_t(1)%num_blades
+             do ii = 1, self%turbine_t(1)%num_blade_sections
+     
+                 self%turbine_t(1)%blade_t(jj)%local_thrust(ii)=self%turbine_t(1)%blade_t(jj)%local_thrust(ii)+self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
+                 self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)=self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)+self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
+     
+             enddo
+         enddo
+!$omp end do
+     
    end if
+
+   if ( .not. MPI_Process % isRoot ) return
 
    ! save in memory the time step forces for each element blade and the whole blades
    call self % FarmUpdateBladeForces()
