@@ -278,8 +278,8 @@
 ############################
 # NUMERICAL PARAMETERS
 ############################
-2.5
 # Gaussian parameter epsilon
+2.5
 # tip correction cosntants c1 c2
 0.125 21.0
 
