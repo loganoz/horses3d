@@ -78,6 +78,7 @@ public farm
     logical                        :: save_average = .false.
     logical                        :: save_instant = .false.
     logical                        :: verbose = .false.
+    logical                        :: averageSubElement = .true.
     character(len=LINE_LENGTH)     :: file_name
     integer                        :: number_iterations
     integer                        :: save_iterations
@@ -94,10 +95,28 @@ public farm
         procedure   :: FindActuatorPointElement
     end type
 
+   Abstract Interface
+    Function element_averageQ_f(mesh,eID,xi)
+       use HexMeshClass
+       use PhysicsStorage
+       use NodalStorageClass
+       use SMConstants
+       implicit none
+
+       type(HexMesh), intent(in)    :: mesh
+       integer, intent(in)          :: eID 
+       integer                      :: k, j, i
+       real(kind=RP), dimension(NDIM), intent(in) :: xi
+
+       real(kind=RP), dimension(NCONS)   :: element_averageQ_f
+    End Function element_averageQ_f
+   End Interface
+
     type(Farm_t)                  :: farm
 
     ! max 10 airfoils file names per section
     integer, parameter           :: MAX_AIRFOIL_FILES = 10
+    procedure(element_averageQ_f), pointer :: element_averageQ
 
 !  ========
 contains
@@ -133,6 +152,13 @@ contains
     self % save_instant = controlVariables % getValueOrDefault("actuator save instant", .false.)
     self % save_iterations = controlVariables % getValueOrDefault("actuator save iteration", 1)
     self % verbose = controlVariables % getValueOrDefault("actuator verbose", .false.)
+    self % averageSubElement = controlVariables % getValueOrDefault("actuator average subelement", .true.)
+
+    if (self % averageSubElement) then
+        element_averageQ => semi_element_averageQ
+    else
+        element_averageQ => full_element_averageQ
+    end if 
 
     arg='./ActuatorDef/Act_ActuatorDef.dat'
     OPEN( newunit = fid,file=trim(arg),status="old",action="read")
@@ -281,6 +307,7 @@ contains
         end select
         write(STD_OUT,'(30X,A,A28,F10.3,F10.3)') "->", 'Tip correction constants: ', self%turbine_t(1)%blade_t(1)%tip_c1, self%turbine_t(1)%blade_t(1)%tip_c2
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Projection formulation: ", self % calculate_with_projection
+        if (.not. self%calculate_with_projection) write(STD_OUT,'(30X,A,A28,L1)') "->", "Average sub-Element: ", self % averageSubElement
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save blade average values: ", self % save_average
     end if
 
@@ -501,10 +528,6 @@ contains
 !    calculate for all mesh points its contribution based on the gaussian interpolation
 !    ----------------------------------------------------------------------------------
 !
-      if ( (MPI_Process % doMPIAction) ) then
-            print*, "MPI not implemented yet for AL projection mode"
-            call exit(99)
-      end if
 !$omp do schedule(runtime)private(ii,jj)
       do jj = 1, self%turbine_t(1)%num_blades
 
@@ -560,7 +583,8 @@ contains
           call self % FindActuatorPointElement(mesh, x, tolerance, eID, xi, found)
           if (found) then
             ! averaged state values of the cell
-            Qtemp = element_averageQ(mesh,eID)
+            Qtemp = element_averageQ(mesh,eID,xi)
+            ! Qtemp = semi_element_averageQ(mesh,eID,xi)
             delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
           else
             Qtemp = 0.0_RP
@@ -702,41 +726,62 @@ else ! no projection
    integer                       :: ii, jj
    logical                       :: saveAverage
    logical                       :: save_instant
+   integer                       :: ierr
+   real(kind=RP), dimension(:), allocatable :: local_thrust_temp, local_rotor_force_temp, local_gaussian_sum
 
-    if (.not. self % active) return
-    if ( .not. MPI_Process % isRoot ) return
+   if (.not. self % active) return
 
-    if (present(last)) then
-        saveAverage = last
-    else
-        saveAverage = .false.
-    end if
+   if (present(last)) then
+       saveAverage = last
+   else
+       saveAverage = .false.
+   end if
 
    save_instant = self%save_instant .and. ( mod(iter,self % save_iterations) .eq. 0 )
    t = time * Lref / refValues%V
 
    
- if (self%calculate_with_projection) then
-   ! this is necessary for Gaussian weighted sum
-   
-   do jj = 1, self%turbine_t(1)%num_blades
-       self%turbine_t(1)%blade_t(jj)%local_thrust(:) = 0.0_RP
-       self%turbine_t(1)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
-   end do
-
-   !$omp do schedule(runtime)private(ii,jj)
-      do jj = 1, self%turbine_t(1)%num_blades
+   if (self%calculate_with_projection) then
+     ! this is necessary for Gaussian weighted sum
      
-           do ii = 1, self%turbine_t(1)%num_blade_sections
-   
-               self%turbine_t(1)%blade_t(jj)%local_thrust(ii)=self%turbine_t(1)%blade_t(jj)%local_thrust(ii)+self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
-               self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)=self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)+self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
-   
-           enddo
-       enddo
-   !$omp end do
-   
+     do jj = 1, self%turbine_t(1)%num_blades
+         self%turbine_t(1)%blade_t(jj)%local_thrust(:) = 0.0_RP
+         self%turbine_t(1)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
+     end do
+  
+     if ( (MPI_Process % doMPIAction) ) then
+       associate (num_blade_sections => self%turbine_t(1)%num_blade_sections)
+         allocate( local_thrust_temp(num_blade_sections), local_rotor_force_temp(num_blade_sections), local_gaussian_sum(num_blade_sections) )
+
+         do jj = 1, self%turbine_t(1)%num_blades
+           local_thrust_temp = self%turbine_t(1)%blade_t(jj)%local_thrust_temp
+           local_rotor_force_temp = self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp
+           local_gaussian_sum = self%turbine_t(1)%blade_t(jj)%local_gaussian_sum
+  
+#ifdef _HAS_MPI_
+                call mpi_allreduce(local_thrust_temp, self%turbine_t(1)%blade_t(jj)%local_thrust_temp, num_blade_sections, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+                call mpi_allreduce(local_rotor_force_temp, self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp, num_blade_sections, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+                call mpi_allreduce(local_gaussian_sum, self%turbine_t(1)%blade_t(jj)%local_gaussian_sum, num_blade_sections, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+  
+         end do
+       endassociate
+     end if
+         
+!$omp do schedule(runtime)private(ii,jj)
+        do jj = 1, self%turbine_t(1)%num_blades
+             do ii = 1, self%turbine_t(1)%num_blade_sections
+     
+                 self%turbine_t(1)%blade_t(jj)%local_thrust(ii)=self%turbine_t(1)%blade_t(jj)%local_thrust(ii)+self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
+                 self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)=self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)+self%turbine_t(1)%blade_t(jj)%local_rotor_force_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
+     
+             enddo
+         enddo
+!$omp end do
+     
    end if
+
+   if ( .not. MPI_Process % isRoot ) return
 
    ! save in memory the time step forces for each element blade and the whole blades
    call self % FarmUpdateBladeForces()
@@ -879,7 +924,24 @@ end subroutine WriteFarmForces
         self%turbine_t(1)%blade_t(jj)%local_thrust(ii) = lift_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) & 
                                                          + drag_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
 
-!
+
+            !print *, "wind_speed_axial: ", wind_speed_axial
+            !print *, "wind_speed_rot: ", wind_speed_rot
+            !print *, "self%turbine_t(1)%blade_t(1)%local_velocity(ii): ", self%turbine_t(1)%blade_t(1)%local_velocity(ii)
+            !print *, "self%turbine_t(1)%blade_t(1)%local_angle(ii): ", self%turbine_t(1)%blade_t(1)%local_angle(ii)
+            !print *, "aoa: ", aoa
+            !print *, "vrel: ", self%turbine_t(1)%blade_t(jj)%local_velocity(ii)
+            !print *, "Cl: ", Cl
+            !print *, "Cd: ", Cd
+            !print *, "density: ", density
+            !print *, "interp: ", interp
+            !print *, "tip_correct: ", tip_correct
+            !print *, "other: ", self%turbine_t(1)%blade_t(jj)%chord(ii) * (self%turbine_t(1)%blade_t(jj)%r_R(ii) - self%turbine_t(1)%blade_t(jj)%r_R(ii-1))
+            !print *, "lift_force: ", lift_force
+            !print *, "drag_force: ", drag_force
+            !print *, "rotor_force: ", self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)
+            !print *, "local_thrust: ", self%turbine_t(1)%blade_t(jj)%local_thrust(ii)
+!!
     End Subroutine FarmUpdateLocalForces
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -1095,29 +1157,76 @@ function InterpolateAirfoilData(x1,x2,y1,y2,new_x)
     InterpolateAirfoilData=a*new_x+b
 end function
 
-function element_averageQ(mesh,eID)
+function full_element_averageQ(mesh,eID,xi)
    use HexMeshClass
    use PhysicsStorage
+   use NodalStorageClass
    implicit none
 
    type(HexMesh), intent(in)    :: mesh
    integer, intent(in)          :: eID 
    integer                      :: k, j, i
+   real(kind=RP), dimension(NDIM), intent(in) :: xi
 
    integer                      :: total_points
-   real(kind=RP), dimension(NCONS)   :: element_averageQ, Qsum
+   real(kind=RP), dimension(NCONS)   :: full_element_averageQ, Qsum
 
  
    Qsum(:) = 0.0_RP
    total_points = 0
    do k = 0, mesh%elements(eID) % Nxyz(3)   ; do j = 0, mesh%elements(eID) % Nxyz(2) ; do i = 0, mesh%elements(eID) % Nxyz(1)
-       Qsum(:)=Qsum(:)+mesh%elements(eID) % Storage % Q(:,k,j,i)
+       Qsum(:)=Qsum(:)+mesh%elements(eID) % Storage % Q(:,i,j,k)
        total_points=total_points + 1
    end do                  ; end do                ; end do
 
-   element_averageQ(:) = Qsum(:) / real(total_points,RP)
+   full_element_averageQ(:) = Qsum(:) / real(total_points,RP)
 
-end function element_averageQ
+end function full_element_averageQ
+
+Function semi_element_averageQ(mesh,eID,xi)
+   use HexMeshClass
+   use PhysicsStorage
+   use NodalStorageClass
+
+   Implicit None
+   type(HexMesh), intent(in)    :: mesh
+   integer, intent(in)          :: eID 
+   real(kind=RP), dimension(NDIM), intent(in) :: xi
+   real(kind=RP), dimension(NCONS)   :: semi_element_averageQ, Qsum
+
+   integer                      :: k, j, i, direction, N, ind
+   integer, dimension(NDIM)     :: firstNodeIndex
+   integer                      :: total_points
+   type(NodalStorage_t), pointer :: spAxi
+
+   ! fist get the sub element nodes index
+   do direction = 1, NDIM
+
+     N = mesh % elements(eID) % Nxyz(direction)
+     spAxi   => NodalStorage(N)
+
+     do ind = 0, N
+         firstNodeIndex(direction) = ind-1
+         if (xi(direction) .le. spAxi%x(ind)) exit
+     end do
+
+     if (firstNodeIndex(direction) .eq. -1) firstNodeIndex(direction) = 0
+
+   end do
+
+   nullify(spAxi)
+
+   ! now average on the sub element
+   Qsum(:) = 0.0_RP
+   total_points = 0
+   do k = firstNodeIndex(IZ), firstNodeIndex(IZ)+1   ; do j = firstNodeIndex(IY), firstNodeIndex(IY)+1 ; do i = firstNodeIndex(IX),firstNodeIndex(IX)+1
+       Qsum(:) = Qsum(:) + mesh % elements(eID) % Storage % Q(:,i,j,k)
+       total_points = total_points + 1
+   end do                  ; end do                ; end do
+
+   semi_element_averageQ(:) = Qsum(:) / real(total_points,RP)
+
+End Function semi_element_averageQ
 
 #endif
 end module 
