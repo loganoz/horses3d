@@ -1,0 +1,22 @@
+name: Build Documentation
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install ford
+        run: |
+          pip install ford
+
+      - name: Generate Documentation
+        run: |
+          ford doc/ford/ford-project-file.md
