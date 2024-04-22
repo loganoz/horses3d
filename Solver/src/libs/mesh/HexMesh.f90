@@ -4124,7 +4124,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    integer                 , intent(in)      :: NNew(NDIM,self % no_of_elements)
    type(FTValueDictionary) , intent(in)      :: controlVariables
    !-local-variables-----------------------------------
-   integer :: eID, fID
+   integer :: eID, fID, STLNum
    logical :: saveGradients, FaceComputeQdot
    logical :: analyticalJac   ! Do we need analytical Jacobian storage?
    type(Element)   , pointer :: e
@@ -4151,6 +4151,15 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
    FaceComputeQdot = controlVariables % containsKey("acoustic analogy")
    analyticalJac  = self % storage % anJacobian
+
+!     ************************
+!     Clean IBM Mask
+!     ************************
+   if (self % IBM% active) then
+      do STLNum = 1, self% IBM% NumOfSTL
+         call self% IBM% CleanMask( self % elements, self % no_of_elements, STLNum )
+      end do
+   end if
 
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
@@ -4223,6 +4232,26 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
 !     ------------
 
    call self % ConstructGeometry()
+
+!     ************************
+!     Construct IBM Mask
+!     ************************
+   if (self % IBM% active) then
+!$omp parallel do schedule(runtime) private(e)
+      do eID=1, self % no_of_elements
+         e => self % elements(eID) 
+         if (allocated(e% isInsideBody)) deallocate(e% isInsideBody)
+         if (allocated(e% isForcingPoint)) deallocate(e% isForcingPoint)
+         if (allocated(e% STL)) deallocate(e% STL)
+
+         call e % ConstructIBM(e% Nxyz(1), e% Nxyz(2), e% Nxyz(3), self% IBM% NumOfSTL)
+      end do
+!$omp end parallel do 
+
+      do STLNum = 1, self% IBM% NumOfSTL
+         call self% IBM% build(self % elements, self % no_of_elements, self % NDOF, .false.)
+      end do
+   end if
 
 #if defined(NAVIERSTOKES)
    call self % ComputeWallDistances()

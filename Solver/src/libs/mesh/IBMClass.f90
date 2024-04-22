@@ -722,8 +722,10 @@ module IBMClass
       end do  
 
       if( .not. present(movingSTL) )then
-         allocate( this% penalization(no_of_elements) )
-         this% penalization = this% eta
+         if (.not. allocated(this% penalization)) then
+            allocate( this% penalization(no_of_elements) )
+            this% penalization = this% eta
+         end if 
       end if 
 #if defined(NAVIERSTOKES)
       if( this% ComputeDistance ) then

@@ -674,3 +674,21 @@ jobs:
           ./horses3d.ns Cylinder_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 27) IBM Cylinder with Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build IBM_Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run IBM_Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns IBM_Cylinder_pAdaptationRL.control
+        if: '!cancelled()'
+

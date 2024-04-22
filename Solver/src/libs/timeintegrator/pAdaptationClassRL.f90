@@ -531,12 +531,26 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir1(dir, :))
                if (maxQ - minQ < this % tol) then
                   indices_dir1(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(1) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  else if (Pxyz(1) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 1
                   indices_dir1(:) = nint(2 * this % agent % smax * (Q_dir1(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(1) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  else if (Pxyz(1) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
             enddo
          enddo
       enddo
@@ -562,12 +576,26 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir2(dir, :))
                if (maxQ - minQ < this % tol) then
                   indices_dir2(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(2) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                  else if (Pxyz(2) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 2
                   indices_dir2(:) = nint(2 * this % agent % smax * (Q_dir2(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(2) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                  else if (Pxyz(2) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
             enddo
          enddo
       enddo
@@ -593,12 +621,26 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir3(dir, :))
                if (maxQ - minQ < this % tol) then
                   indices_dir3(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(3) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                  else if (Pxyz(3) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 3
                   indices_dir3(:) = nint(2 * this % agent % smax * (Q_dir3(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(3) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                  else if (Pxyz(3) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
             enddo
          enddo
       enddo
