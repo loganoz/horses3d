@@ -58,6 +58,7 @@ module pAdaptationClass
       real(kind=RP)     :: x_span(2)
       real(kind=RP)     :: y_span(2)
       real(kind=RP)     :: z_span(2)
+      integer           :: mode
       
       contains
          procedure      :: initialize => OverEnriching_Initialize
@@ -299,11 +300,25 @@ module pAdaptationClass
          call readValueInRegion ( trim ( paramFile )  , "x span" , x_span      , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "y span" , y_span      , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "z span" , z_span      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "mode"   , mode        , in_label , "# end" )
          
          if (allocated(order)) then
             this % order = order
          else
             this % order = 1
+         end if
+
+         if ( mode /= "" ) then
+            select case ( trim (mode) )
+               case ("increase")
+                  this % mode = 1
+               case ("set")
+                  this % mode = 2
+               case default
+                  this % mode = 1
+            end select
+         else
+            this % mode = 1
          end if
          
          this % x_span = getRealArrayFromString(x_span)
@@ -383,13 +398,13 @@ readloop:do
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine OverEnrichRegions(overenriching,mesh,NNew,Nmax)
+   subroutine OverEnrichRegions(overenriching,mesh,NNew,Nmax,Nmin)
       implicit none
       !---------------------------------------
       type(overenriching_t), allocatable :: overenriching(:)
       type(HexMesh), intent(in)          :: mesh
       integer                            :: NNew(:,:)
-      integer      , intent(in)          :: Nmax(3)
+      integer      , intent(in)          :: Nmax(3), Nmin(3)
       !---------------------------------------
       integer :: oID       ! Overenriching region counter
       integer :: eID       ! Element counter
@@ -417,21 +432,15 @@ readloop:do
                if( (corners(1,cornerID) > region % x_span(1) .and. corners(1,cornerID) < region % x_span(2)) .and. &
                    (corners(2,cornerID) > region % y_span(1) .and. corners(2,cornerID) < region % y_span(2)) .and. &
                    (corners(3,cornerID) > region % z_span(1) .and. corners(3,cornerID) < region % z_span(2)) ) then
-                   
-                  if ( NNew(1,eID) + region % order >= Nmax(1) ) then
-                     NNew(1,eID) = Nmax(1)
-                  else
-                     NNew(1,eID) = NNew(1,eID) + region % order
-                  end if
-                  if ( NNew(2,eID) + region % order >= Nmax(2) ) then
-                     NNew(2,eID) = Nmax(2)
-                  else
-                     NNew(2,eID) = NNew(2,eID) + region % order
-                  end if
-                  if ( NNew(3,eID) + region % order >= Nmax(3) ) then
-                     NNew(3,eID) = Nmax(3)
-                  else
-                     NNew(3,eID) = NNew(3,eID) + region % order
+
+                  if (region % mode == 1) then !Increase mode
+                     NNew(1,eID) = max(min(NNew(1,eID) + region % order, Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(NNew(2,eID) + region % order, Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(NNew(3,eID) + region % order, Nmax(3)), Nmin(3))
+                  else if (region % mode == 2) then !Set mode
+                     NNew(1,eID) = max(min(region % order, Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(region % order, Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(region % order, Nmax(3)), Nmin(3))
                   end if
                   
                   enriched(eID) = .TRUE.

@@ -71,6 +71,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderGMM \
             ./NavierStokes/Cylinder_pAdaptationRL \
             ./NavierStokes/IBM_Cylinder_pAdaptationRL \
+            ./NavierStokes/Cylinder_Overenriching_pAdaptationRL \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \

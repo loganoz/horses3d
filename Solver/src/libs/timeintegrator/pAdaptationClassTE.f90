@@ -587,7 +587,7 @@ module pAdaptationClassTE
 !     Overenrich specified regions
 !     ----------------------------
 !
-      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax)
+      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax, NMIN)
 !
 !     ---------------------------------------------------
 !     Restrict polynomial order decrease in every element

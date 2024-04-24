@@ -692,3 +692,21 @@ jobs:
           ./horses3d.ns IBM_Cylinder_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 28) Cylinder with Overenriching and Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build Cylinder_Overenriching_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_Overenriching_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_Overenriching_pAdaptationRL.control
+        if: '!cancelled()'
+

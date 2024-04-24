@@ -1319,6 +1319,43 @@ When using Truncation Error based adaptation, a static p-adaptation procedure ca
 #end
 \end{lstlisting}
 
+\section{Overenriching p-Adaptation}
+It is possible to define one or more boxes where the user can select the polynomial order and bypass the adaptation process. This functionality can be used only if a p-adaptation algorithm is being used at the same time.
+
+\begin{lstlisting}
+#define overenriching box 1
+   mode   = set
+   order  = 4
+   x span = [-1, 1]
+   y span = [-1, 1]
+   z span = [-1, 1]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the overenriching p-adaptation algorithm.} \label{tab:RLpAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the overenriching p-adaptation algorithm - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+mode & \textit{CHARACTER}: Overenriching mode. Can be \textit{set} or \textit{increase}. The \textit{set} mode will fix the polynomial specified by the \textit{order} keyword inside the box, but it is constrained by the bounds specified by the \textit{Nmax} and \textit{Nmin} keywords. The \textit{increase} mode will increase the polynomial order selected by the algorithm (each time a p-adaptation is performed) the amount specified by the \textit{order} keyword. In this second mode, \textit{order} may be a possitive or negative value. & \textit{increase} \\ \hline
+
+order & \textit{INTEGER}: Polynomial order to be used for the overenriching process. Its meaning depends on the selected \textit{mode}. & 1 \\ \hline
+
+x span & \textit{REAL(2)}: The boundaries of the box in the x direction. & \textbf{Mandatory keyword} \\ \hline
+
+y span & \textit{REAL(2)}: The boundaries of the box in the y direction. & \textbf{Mandatory keyword} \\ \hline
+
+z span & \textit{REAL(2)}: The boundaries of the box in the z direction. & \textbf{Mandatory keyword} \\ \hline
+
+
+\end{longtable}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \chapter{Immersed boundary method}
