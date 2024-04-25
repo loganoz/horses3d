@@ -1,0 +1,407 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../../favicon.png">
+
+    <title>Running a Simulation &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../../css/pygments.css" rel="stylesheet">
+    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>Running a Simulation</h1>
+    <div class="container p-2 mb-4 bg-light border rounded-3">
+      <div class="row align-items-center justify-content-between">
+        <div class="col">
+          <ul class="list-inline" style="margin-bottom:0px; display:inline">
+          </ul>
+        </div>
+        <div class="col">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../index.html'>Documentation</a></li>
+                <li class="breadcrumb-item"><a href='index.html'>User Manual</a></li>
+              <li class="breadcrumb-item active" aria-current="page">Running a Simulation</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+      <div class="col-3">
+        <div class="card card-body bg-light" id="sidebar-toc">
+          <ul class="nav flex-column align-items">
+            <li class="nav-item">
+              <a class="nav-link" href="../index.html">Documentation</a>
+            </li>
+          </ul>
+          <hr>
+          <nav class="nav nav-pills flex-column">
+              <a class="nav-link" href="index.html">User Manual</a>
+                <nav class="nav nav-pills flex-column">
+                                <a class="nav-link" href="input-and-output-files.html">Input and Output Files</a>
+              <a class="nav-link active disabled" href="running-a-simulation.html">Running a Simulation</a>
+              <a class="nav-link" href="spatial-discretization.html">Spatial Discretization</a>
+              <a class="nav-link" href="physics-related-keyword.html">Physics related keywords</a>
+              <a class="nav-link" href="implicit-solvers-with-newton-linearization.html">Implicit Solvers with Newton Linearization</a>
+              <a class="nav-link" href="explicit-solvers.html">Explicit Solvers</a>
+              <a class="nav-link" href="a-nonlinear-p-multigrid-FAS.html">Nonlinear p-Multigrid solver (FAS)</a>
+              <a class="nav-link" href="a-p-adaptation-methods.html">p-adaptation-methods</a>
+              <a class="nav-link" href="b-immersed-boundary-method.html">Immersed Boundary Method</a>
+              <a class="nav-link" href="monitors.html">Monitors</a>
+              <a class="nav-link" href="s-advanced-user-setup.html">Advanced User Setup</a>
+              <a class="nav-link" href="s-postprocessing.html">Postprocessing</a>
+              <a class="nav-link" href="t-appendix.html">Appendix</a>
+
+                </nav>
+          </nav>
+        </div>
+      </div>
+
+    <div class="col-9" id='text'>
+      <div class="toc">
+<ul>
+<li><a href="#control-file-control-overview">Control file (*.control) - Overview</a></li>
+<li><a href="#boundary-conditions">Boundary conditions</a></li>
+<li><a href="#restarting-a-case">Restarting a Case</a></li>
+</ul>
+</div>
+<h2 id="control-file-control-overview">Control file (*.control) - Overview</h2>
+<p>The control file is the main file for running a simulation. A list of all the mandatory keywords for running a simulation and some basic optional keywords is presented in the <a href="#runningkey">table</a> below. The specific keywords are listed in the other chapters.</p>
+<p><a name="runningkey"></a></p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>solution file name</td>
+<td><em>CHARACTER</em>: Path and name of the output file. The name of this file is used for naming other output files.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>simulation type</td>
+<td><em>CHARACTER</em>: Specifies if HORSES3D must perform a 'steady-state' or a 'time-accurate' simulation.</td>
+<td>'steady-state'</td>
+</tr>
+<tr>
+<td>time integration</td>
+<td><em>CHARACTER</em>: Can be 'implicit', 'explicit', or 'FAS'. The latter uses the Full Algebraic Storage (FAS) multigrid scheme, which can have implicit or explicit smoothers.</td>
+<td>'explicit'</td>
+</tr>
+<tr>
+<td>polynomial order</td>
+<td><em>INTEGER</em>: Polynomial order to be assigned uniformly to all the elements of the mesh. If the keyword <em>polynomial order file</em> is specified, the value of this keyword is overridden.</td>
+<td>--*</td>
+</tr>
+<tr>
+<td>polynomial order i <br> polynomial order j <br> polynomial order k</td>
+<td><em>INTEGER</em>: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword <em>polynomial order file</em> is specified, the value of this keyword is overridden.</td>
+<td>--*</td>
+</tr>
+<tr>
+<td>polynomial order file</td>
+<td><em>CHARACTER</em>: Path to a file containing the polynomial order of each element in the domain.</td>
+<td>--*</td>
+</tr>
+<tr>
+<td>restart</td>
+<td><em>LOGICAL</em>: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword <em>restart file name</em>.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>cfl</td>
+<td><em>REAL</em>: A constant related with the <em>convective</em> Courant-Friedrichs-Lewy (CFL) condition that the program will use to compute the time step size.</td>
+<td>--**</td>
+</tr>
+<tr>
+<td>dcfl</td>
+<td><em>REAL</em>: A constant related with the <em>diffusive</em> Courant-Friedrichs-Lewy (DCFL) condition that the program will use to compute the time step size.</td>
+<td>--**</td>
+</tr>
+<tr>
+<td>dt</td>
+<td><em>REAL</em>: Constant time step size.</td>
+<td>--**</td>
+</tr>
+<tr>
+<td>final time</td>
+<td><em>REAL</em>: This keyword is mandatory for time-accurate solvers.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>mesh file name</td>
+<td><em>CHARACTER</em>: Name of the mesh file. The currently supported formats are <em>.mesh</em> (SpecMesh file format) and <em>.h5</em> (HOPR hdf5 file format).</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>mesh inner curves</td>
+<td><em>LOGICAL</em>: Specifies if the mesh reader must suppose that the inner surfaces (faces connecting the elements of the mesh) are curved. This input variable only affects the hdf5 mesh reader.</td>
+<td>.TRUE.</td>
+</tr>
+<tr>
+<td>number of time steps</td>
+<td><em>INTEGER</em>: <em>Maximum</em> number of time steps that the program will compute.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>output interval</td>
+<td><em>INTEGER</em>: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>convergence tolerance</td>
+<td><em>REAL</em>: Residual convergence tolerance for steady-state cases.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>partitioning</td>
+<td><em>CHARACTER</em>: Specifies the method for partitioning the mesh in MPI simulations. Options are: 'metis' (the code must have been linked to METIS at compilation time, or 'SFC' (to use a space-filling curve method, no special compilation is needed for this option).</td>
+<td>'metis'</td>
+</tr>
+<tr>
+<td>partitioning with weights</td>
+<td><em>LOGICAL</em>: Specifies if the method for partitioning the mesh in MPI simulations takes the local polynomial order as weights. Necessary for local polynomial refinement.</td>
+<td>.TRUE.</td>
+</tr>
+<tr>
+<td>manufactured solution</td>
+<td><em>CHARACTER</em>: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j (<script type="math/tex">\rho</script>, <script type="math/tex">u</script>, <script type="math/tex">v</script>, <script type="math/tex">w</script>, $p$) of the form: <script type="math/tex">j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \sin(\pi j_C(7) z)</script>. Where <script type="math/tex">j_C(i)</script> are constants defined in the file <em>ManufacturedSolutions.f90</em>. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<p>* One of these keywords must be specified.</p>
+<p>*<em> For Euler simulations, the user must specify either the CFL number or the time-step size. For Navier-Stokes simulations, the user must specify the CFL and DCFL numbers </em>or* the time-step size.</p>
+<hr>
+<h2 id="boundary-conditions">Boundary conditions</h2>
+<p>The boundary conditions are specified as blocks in the control file. The block starts with the keywords <code>#define' and ends with</code>#end'. Inside the block, the options are specified as a pair of keywords and values, just like the normal body of the rest of the file.</p>
+<p>Each boundary condition can be individually defined, or if multiple boundaries are set with the same definition, it could be done in the same block (with the name separated by a double underscore `$_$' sign). The name of each boundary must match with the one specified in the mesh file.</p>
+<p>The block in general can be seen below. </p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define boundary myBoundary1__myBoundary2__myBoundary3</span>
+    type        = typeValue
+    parameter 1 = value_1
+    parameter 2 = value_2
+<span class="gh"># end</span>
+</code></pre></div>
+
+<p>The table below shows the values for the type keyword, and the possible values for the parameters depend on the boundary condition.
+| Keyword | Description | Default value |
+|---------|-------------|---------------|
+| type    | <em>CHARACTER</em>: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. | N/A |</p>
+<p>By default, NoSlipWall is adiabatic. Isothermal wall can be activated with the following block:</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define boundary myBoundary1__myBoundary2__myBoundary3</span>
+    type = NoSlipWall
+    wall type (adiabatic/isothermal) = isothermal
+    wall temperature = 2000.0d0  !Wall temperature in K
+<span class="gh"># end</span>
+</code></pre></div>
+
+<p>It is also possible to set a moving wall with the keyword wall velocity = <em>value</em>.</p>
+<p>For periodic boundary conditions, the second boundary that must be used as a complement must be specified by the keyword <code>coupled boundary</code>. These two boundaries must have the same node position in all directions but one. For mesh files generated by commercial software where this strict rule is not imposed, a comparison based on the minimum edge size of the face element can be used by a boolean parameter in the normal body of the control file (not in the block body), with the keyword <code>periodic relative tolerance</code>.</p>
+<!-- 
+%\emph{Juan's email (to be translated and adapted to the manual format as a complement):}
+%
+%Hola Gente,
+%
+%He tenido que hacer unas modificaciones bastante importantes en las BCs. Era la única parte del código que estaba “a la antigua” y no programada a objetos. Esto hacía que no fueran muy customizables, y por ejemplo las controlábamos con el número ese que siempre vale 0.0 jajaja. Ahora cada condición de contorno tiene los parámetros que necesitas y se pueden customizar. Lo malo es que ningún control file de los que tenéis van a seguir funcionando, pero os escribo los cambios para que sepáis adaptarlos, en cualquier caso, podéis pedirme ayuda y os cuento.
+%
+%Los cambios del código son:
+%
+%\begin{itemize}
+%
+%\item Las condiciones de contorno se definen igual que los monitores, con los $\#$define en la parte final del control file. Para definir una condicion de contorno se hace:
+%\begin{lstlisting}
+%        #define boundary name
+%             type = Inflow/Outflow/NoSlipWall/FreeSlipWall/Periodic/User-defined
+%             parametro1 = #valor
+%             parametro2 = #valor
+%        #end
+%\end{lstlisting}
+%\item Los parámetros1, … dependen de la condición de contorno que toque. Si no se especifica nada, pues está como estaba antes. Dos cambios importantes:
+%
+%          · He unificado las NoSlipWall (adiabatica e isoterma) en una sola. Por defecto es adiabática.
+%          · En las periódicas es obligatorio ahora indicar a qué boundary se acopla (lo cual supone poco esfuerzo y reduce el tiempo de búsqueda al código)
+%\begin{lstlisting}
+%                 #define boundary name
+%                       type = Periodic
+%                      coupled boundary = nombredelboundaryalqueseacopla
+%                 #end
+%\end{lstlisting}
+%\item Se pueden definir más de una condición de contorno del tirón, por ejemplo si boundary1, boundary2 y boundary3 son inflows se puede hacer:
+%\begin{lstlisting}
+%                 #define boundary boundary1__boundary2__boundary3
+%                         type = Inflow
+%                 #end
+%\end{lstlisting}
+%     es decir, separado con dos guiones bajos.
+%
+%\item Por pantalla, donde aparecía la info de las zones y tal, también aparece qué BC tiene y cuáles son los parámetros.
+%
+%\item La BC outflowspecifyP la llamo simplemente Outflow. Más que nada por que antes había algunos ficheros de control con la BC Outflow y no existía, pero por defecto se mandaba a Inflow. Para evitar problemas, pues Outflow.
+%
+%\item Los archivos de condición de contorno están en /physics/common en lugar de cada uno su archivo. Esto es por que al final son todas iguales y si se añade una nueva es más facil agregar un nuevo archivo que hacerlo individualmente en cada ecuación.
+%
+%\item Los bcTypeDictionary bcValueDictionary desaparecen. Las BC están en el module physics/common/BoundaryConditions.f90 como variable global, se llama BCs y dentro aloja todas las condiciones de contorno (una por zona, y en el mismo orden de las zonas).
+%
+%\end{itemize}
+%
+%Creo que eso es todo, lamento si os supone mucho cambio en vuestros ficheros de control que estéis corriendo a día de hoy, y si rompo algo que no reflejen los test. Pero estos cambios eran necesarios para darle más versatilidad (por ejemplo en multifase el inflow necesita bastante customización, para definir caudales de cada fase y cosas así). Además, creo que el enfoque OOP va en la dirección del resto del código.
+%
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ -->
+
+<hr>
+<h1 id="restarting-a-case">Restarting a Case</h1>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>restart</td>
+<td><em>LOGICAL</em>: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword <em>restart file name</em>.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>restart file name</td>
+<td><em>CHARACTER</em>: Name of the restart file to be written and, if keyword <em>restart</em> = .TRUE., also name of the restart file to be read for starting the simulation.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>restart polorder</td>
+<td><em>INTEGER</em>: Uniform polynomial order of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case.</td>
+<td>same as case's</td>
+</tr>
+<tr>
+<td>restart nodetype</td>
+<td><em>CHARACTER</em>: Node type of the solution to restart from (Gauss or Gauss-Lobatto). This keyword is only needed when the restart node type is different than the current case.</td>
+<td>same as case's</td>
+</tr>
+<tr>
+<td>restart polorder file</td>
+<td><em>CHARACTER</em>: File containing the polynomial orders of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case.</td>
+<td>same as case's</td>
+</tr>
+<tr>
+<td>get discretization error of</td>
+<td><em>CHARACTER</em>: Path to solution file. This can be used to estimate the discretization error of a solution when restarting from a higher-order solution.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>NS load from NSSA</td>
+<td><em>LOGICAL</em>: Used only for NS simulations that are restarted from RANS SA.</td>
+<td>.FALSE.</td>
+</tr>
+</tbody>
+</table>
+    </div>
+  </div>
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

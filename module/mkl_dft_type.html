@@ -1,0 +1,1389 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../favicon.png">
+
+    <title>MKL_DFT_TYPE &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../css/pygments.css" rel="stylesheet">
+    <link href="../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../page/index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>MKL_DFT_TYPE
+      <small>Module</small>
+      
+    </h1>
+      <div class="container p-2 mb-4 bg-light border rounded-3">
+    <div class="row align-items-center justify-content-between" id="info-bar">
+      <div class="col">
+        <ul class="list-inline" style="margin-bottom:0px;display:inline">
+            <li class="list-inline-item" id="meta-license"><i class="fa fa-legal"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a></li>
+
+            <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
+              <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
+                 title=" 0.1% of total for modules and submodules.">69 statements</a>
+            </li>
+
+            <li class="list-inline-item" id="source-file">
+              <i class="fa fa-code"></i>
+              <a href="../src/mkl_dfti.f90"> Source File</a>
+            </li>
+        </ul>
+      </div>
+      <div class="col">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../sourcefile/mkl_dfti.f90.html'>mkl_dfti.f90</a></li>
+            <li class="breadcrumb-item active" aria-current="page">MKL_DFT_TYPE</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
+  <script>
+    $(function () {
+    $('[data-bs-toggle="tooltip"]').tooltip()
+    })
+  </script>
+
+  </div>
+
+  <div class="row">
+    <div class="col-md-3">
+        <div id="sidebar">
+      <h3>Contents</h3>
+  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#vars-0"
+         aria-expanded="false" aria-controls="vars-0">
+         <h4 class="card-header bg-primary text-white">Variables</h4>
+      </a>
+      <div id="vars-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_spkp">DFTI_SPKP</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_dpkp">DFTI_DPKP</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_forward_domain">DFTI_FORWARD_DOMAIN</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_dimension">DFTI_DIMENSION</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_lengths">DFTI_LENGTHS</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_precision">DFTI_PRECISION</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_forward_scale">DFTI_FORWARD_SCALE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_backward_scale">DFTI_BACKWARD_SCALE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_number_of_transforms">DFTI_NUMBER_OF_TRANSFORMS</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_complex_storage">DFTI_COMPLEX_STORAGE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_real_storage">DFTI_REAL_STORAGE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_conjugate_even_storage">DFTI_CONJUGATE_EVEN_STORAGE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_placement">DFTI_PLACEMENT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_input_strides">DFTI_INPUT_STRIDES</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_output_strides">DFTI_OUTPUT_STRIDES</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_input_distance">DFTI_INPUT_DISTANCE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_output_distance">DFTI_OUTPUT_DISTANCE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_workspace">DFTI_WORKSPACE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_ordering">DFTI_ORDERING</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_transpose">DFTI_TRANSPOSE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_descriptor_name">DFTI_DESCRIPTOR_NAME</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_packed_format">DFTI_PACKED_FORMAT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_commit_status">DFTI_COMMIT_STATUS</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_version">DFTI_VERSION</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_number_of_user_threads">DFTI_NUMBER_OF_USER_THREADS</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_thread_limit">DFTI_THREAD_LIMIT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_committed">DFTI_COMMITTED</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_uncommitted">DFTI_UNCOMMITTED</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_complex">DFTI_COMPLEX</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_real">DFTI_REAL</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_single">DFTI_SINGLE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_double">DFTI_DOUBLE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_single_r">DFTI_SINGLE_R</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_double_r">DFTI_DOUBLE_R</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_complex_complex">DFTI_COMPLEX_COMPLEX</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_complex_real">DFTI_COMPLEX_REAL</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_real_complex">DFTI_REAL_COMPLEX</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_real_real">DFTI_REAL_REAL</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_inplace">DFTI_INPLACE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_not_inplace">DFTI_NOT_INPLACE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_ordered">DFTI_ORDERED</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_backward_scrambled">DFTI_BACKWARD_SCRAMBLED</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_allow">DFTI_ALLOW</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_avoid">DFTI_AVOID</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_none">DFTI_NONE</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_ccs_format">DFTI_CCS_FORMAT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_pack_format">DFTI_PACK_FORMAT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_perm_format">DFTI_PERM_FORMAT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_cce_format">DFTI_CCE_FORMAT</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_no_error">DFTI_NO_ERROR</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_memory_error">DFTI_MEMORY_ERROR</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_invalid_configuration">DFTI_INVALID_CONFIGURATION</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_inconsistent_configuration">DFTI_INCONSISTENT_CONFIGURATION</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_multithreaded_error">DFTI_MULTITHREADED_ERROR</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_bad_descriptor">DFTI_BAD_DESCRIPTOR</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_unimplemented">DFTI_UNIMPLEMENTED</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_mkl_internal_error">DFTI_MKL_INTERNAL_ERROR</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_number_of_threads_error">DFTI_NUMBER_OF_THREADS_ERROR</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_1d_length_exceeds_int32">DFTI_1D_LENGTH_EXCEEDS_INT32</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_1d_memory_exceeds_int32">DFTI_1D_MEMORY_EXCEEDS_INT32</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_max_message_length">DFTI_MAX_MESSAGE_LENGTH</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_max_name_length">DFTI_MAX_NAME_LENGTH</a>
+            <a class="list-group-item" href="../module/mkl_dft_type.html#variable-dfti_version_length">DFTI_VERSION_LENGTH</a>
+        </div>
+      </div>
+    </div>
+
+  
+  
+  
+  
+  
+  
+  
+  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#types-0"
+         aria-expanded="false" aria-controls="types-0">
+         <h4 class="card-header bg-primary text-white">Derived Types</h4>
+      </a>
+      <div id="types-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/mkl_dft_type.html#type-dfti_descriptor">DFTI_DESCRIPTOR</a>
+        </div>
+      </div>
+    </div>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+
+  </div>
+
+    </div>
+
+    <div class="col-md-9" id='text'>
+      
+      
+      
+      <br>
+
+
+        <section>
+          <h2>Variables</h2>
+            <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Visibility</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+<th></th><th scope="col">Initial</th>        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_spkp"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_SPKP</strong></td>
+<td> =</td>
+                <td>SELECTED_REAL_KIND(6, 37)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_dpkp"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_DPKP</strong></td>
+<td> =</td>
+                <td>SELECTED_REAL_KIND(15, 307)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_forward_domain"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_FORWARD_DOMAIN</strong></td>
+<td> =</td>
+                <td>0</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_dimension"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_DIMENSION</strong></td>
+<td> =</td>
+                <td>1</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_lengths"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_LENGTHS</strong></td>
+<td> =</td>
+                <td>2</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_precision"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_PRECISION</strong></td>
+<td> =</td>
+                <td>3</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_forward_scale"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_FORWARD_SCALE</strong></td>
+<td> =</td>
+                <td>4</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_backward_scale"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_BACKWARD_SCALE</strong></td>
+<td> =</td>
+                <td>5</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_number_of_transforms"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_NUMBER_OF_TRANSFORMS</strong></td>
+<td> =</td>
+                <td>7</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_complex_storage"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_COMPLEX_STORAGE</strong></td>
+<td> =</td>
+                <td>8</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_real_storage"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_REAL_STORAGE</strong></td>
+<td> =</td>
+                <td>9</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_conjugate_even_storage"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_CONJUGATE_EVEN_STORAGE</strong></td>
+<td> =</td>
+                <td>10</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_placement"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_PLACEMENT</strong></td>
+<td> =</td>
+                <td>11</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_input_strides"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_INPUT_STRIDES</strong></td>
+<td> =</td>
+                <td>12</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_output_strides"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_OUTPUT_STRIDES</strong></td>
+<td> =</td>
+                <td>13</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_input_distance"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_INPUT_DISTANCE</strong></td>
+<td> =</td>
+                <td>14</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_output_distance"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_OUTPUT_DISTANCE</strong></td>
+<td> =</td>
+                <td>15</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_workspace"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_WORKSPACE</strong></td>
+<td> =</td>
+                <td>17</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_ordering"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_ORDERING</strong></td>
+<td> =</td>
+                <td>18</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_transpose"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_TRANSPOSE</strong></td>
+<td> =</td>
+                <td>19</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_descriptor_name"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_DESCRIPTOR_NAME</strong></td>
+<td> =</td>
+                <td>20</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_packed_format"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_PACKED_FORMAT</strong></td>
+<td> =</td>
+                <td>21</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_commit_status"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_COMMIT_STATUS</strong></td>
+<td> =</td>
+                <td>22</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_version"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_VERSION</strong></td>
+<td> =</td>
+                <td>23</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_number_of_user_threads"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_NUMBER_OF_USER_THREADS</strong></td>
+<td> =</td>
+                <td>26</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_thread_limit"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_THREAD_LIMIT</strong></td>
+<td> =</td>
+                <td>27</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_committed"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_COMMITTED</strong></td>
+<td> =</td>
+                <td>30</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_uncommitted"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_UNCOMMITTED</strong></td>
+<td> =</td>
+                <td>31</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_complex"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_COMPLEX</strong></td>
+<td> =</td>
+                <td>32</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_real"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_REAL</strong></td>
+<td> =</td>
+                <td>33</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_single"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_SINGLE</strong></td>
+<td> =</td>
+                <td>35</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_double"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_DOUBLE</strong></td>
+<td> =</td>
+                <td>36</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_single_r"></span>
+              real(kind=DFTI_SPKP),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_SINGLE_R</strong></td>
+<td> =</td>
+                <td>REAL(35)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_double_r"></span>
+              real(kind=DFTI_DPKP),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_DOUBLE_R</strong></td>
+<td> =</td>
+                <td>REAL(36)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_complex_complex"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_COMPLEX_COMPLEX</strong></td>
+<td> =</td>
+                <td>39</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_complex_real"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_COMPLEX_REAL</strong></td>
+<td> =</td>
+                <td>40</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_real_complex"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_REAL_COMPLEX</strong></td>
+<td> =</td>
+                <td>41</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_real_real"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_REAL_REAL</strong></td>
+<td> =</td>
+                <td>42</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_inplace"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_INPLACE</strong></td>
+<td> =</td>
+                <td>43</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_not_inplace"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_NOT_INPLACE</strong></td>
+<td> =</td>
+                <td>44</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_ordered"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_ORDERED</strong></td>
+<td> =</td>
+                <td>48</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_backward_scrambled"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_BACKWARD_SCRAMBLED</strong></td>
+<td> =</td>
+                <td>49</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_allow"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_ALLOW</strong></td>
+<td> =</td>
+                <td>51</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_avoid"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_AVOID</strong></td>
+<td> =</td>
+                <td>52</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_none"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_NONE</strong></td>
+<td> =</td>
+                <td>53</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_ccs_format"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_CCS_FORMAT</strong></td>
+<td> =</td>
+                <td>54</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_pack_format"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_PACK_FORMAT</strong></td>
+<td> =</td>
+                <td>55</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_perm_format"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_PERM_FORMAT</strong></td>
+<td> =</td>
+                <td>56</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_cce_format"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_CCE_FORMAT</strong></td>
+<td> =</td>
+                <td>57</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_no_error"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_NO_ERROR</strong></td>
+<td> =</td>
+                <td>0</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_memory_error"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_MEMORY_ERROR</strong></td>
+<td> =</td>
+                <td>1</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_invalid_configuration"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_INVALID_CONFIGURATION</strong></td>
+<td> =</td>
+                <td>2</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_inconsistent_configuration"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_INCONSISTENT_CONFIGURATION</strong></td>
+<td> =</td>
+                <td>3</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_multithreaded_error"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_MULTITHREADED_ERROR</strong></td>
+<td> =</td>
+                <td>4</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_bad_descriptor"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_BAD_DESCRIPTOR</strong></td>
+<td> =</td>
+                <td>5</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_unimplemented"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_UNIMPLEMENTED</strong></td>
+<td> =</td>
+                <td>6</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_mkl_internal_error"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_MKL_INTERNAL_ERROR</strong></td>
+<td> =</td>
+                <td>7</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_number_of_threads_error"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_NUMBER_OF_THREADS_ERROR</strong></td>
+<td> =</td>
+                <td>8</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_1d_length_exceeds_int32"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_1D_LENGTH_EXCEEDS_INT32</strong></td>
+<td> =</td>
+                <td>9</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_1d_memory_exceeds_int32"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_1D_MEMORY_EXCEEDS_INT32</strong></td>
+<td> =</td>
+                <td>9</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_max_message_length"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_MAX_MESSAGE_LENGTH</strong></td>
+<td> =</td>
+                <td>80</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_max_name_length"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_MAX_NAME_LENGTH</strong></td>
+<td> =</td>
+                <td>10</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dfti_version_length"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>DFTI_VERSION_LENGTH</strong></td>
+<td> =</td>
+                <td>198</td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+        </section>
+        <br>
+
+
+
+
+        <section>
+          <h2>Derived Types</h2>
+              <div class="card">
+    <div class="card-header codesum">
+      <span class="anchor" id="type-dfti_descriptor"></span>
+      <h3>
+        type, public&nbsp;::&nbsp;
+        <a href='../type/dfti_descriptor.html'>DFTI_DESCRIPTOR</a>
+        
+      </h3>
+    </div>
+    <div class="card-body">
+      
+
+
+
+
+    </div>
+  </div>
+
+        </section>
+        <br>
+
+
+
+
+
+    </div>
+  </div>
+
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

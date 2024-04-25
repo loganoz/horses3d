@@ -1,0 +1,277 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="./favicon.png">
+
+    <title> HORSES3D </title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="./css/pygments.css" rel="stylesheet">
+    <link href="./css/font-awesome.min.css" rel="stylesheet">
+    <link href="./css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="./js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="./index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="page/index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="./lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="./lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="./lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="./lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="./lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="./lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <!-- Main component for a primary marketing message or call to action -->
+    <div class="p-5 mb-4 bg-light border rounded-3" id="jumbotron">
+      
+        <p> Find us on&hellip;</p>
+      <p>
+        <a class="btn btn-lg btn-primary" href="https://github.com/loganoz/horses3d" role="button">GitHub</a>
+        
+        
+        
+        
+      </p>
+    </div>
+
+      <div class="row" id='text'>
+        <div class=col-md-8>
+          <h1>HORSES3D</h1>
+          <hr>
+<h1 id="horses3d-high-order-dg-spectral-element-solver">HORSES3D High-Order (DG) Spectral Element Solver</h1>
+<p>MIT License</p>
+<p>Copyright (c) 2021 NUMATH https://numath.dmae.upm.es</p>
+<h2 id="synopsis">Synopsis</h2>
+<p><strong>HORSES3D</strong> is a multiphysics environment where the compressible Navier-Stokes equations, the incompressible Navier–Stokes equations, the Cahn–Hilliard equation and entropy–stable variants are solved. Arbitrary high–order, p–anisotropic discretisations are used, including static and dynamic p–adaptation methods (feature-based and truncation error-based). Explicit and implicit time-steppers for steady and time-marching solutions are available, including efficient multigrid and preconditioners. Numerical and analytical Jacobian computations with a coloring algorithm have been implemented. Multiphase flows are solved using a diffuse interface model: Navier–Stokes/Cahn–Hilliard. Turbulent models implemented include RANS: Spalart-Allmaras and LES: Smagorinsky, Wale, Vreman; including wall models. Immersed boundary methods can be used, to avoid creating body fitted meshes. Acoustic propagation can be computed using Ffowcs-Williams and Hawkings models.</p>
+<p>HORSES3D supports curvilinear, hexahedral, conforming meshes in GMSH, HDF5 and SpecMesh/HOHQMesh format. A hybrid CPU-based parallelisation strategy (shared and distributed memory) with OpenMP and MPI is followed.</p>
+<h2 id="external-libraries">External libraries</h2>
+<p>The following external routines/libraries can be used with <strong>HORSES3D</strong>, but are not necessary: METIS, MPI, HDF5, MKL, PETSc.</p>
+<h2 id="compilers-and-third-party-software">Compilers and third-party software</h2>
+<p><strong>HORSES3D</strong> is an object-oriented Fortran 2008 solver, that can be compiled using gcc and the Intel compiler, in Unix-based operating systems.</p>
+<ul>
+<li>
+<p>We recommend using recent versions of such compilers (2019 or newer).</p>
+</li>
+<li>
+<p>Make is necessary (e.g., Gnu's version, which is included in most linux distributions).</p>
+</li>
+<li>
+<p>Supported meshes are in GMSH, HDF5 (HOPR) and SpecMesh/HOHQMesh format.</p>
+</li>
+<li>
+<p>Post processing can be performed in tecplot or paraview.</p>
+</li>
+</ul>
+<h2 id="compiling-running">Compiling &amp; Running</h2>
+<ol>
+<li>
+<p>Go to the Solver folder and configure the project</p>
+<p><code>shell
+cd Solver
+./configure</code></p>
+</li>
+<li>
+<p>Build the solvers using <code>make</code> (see manual in the <code>/doc</code> folder)</p>
+<p><code>shell
+make clean
+make all [options]</code></p>
+<p>with the desired <em>options</em> (defaults are bold):</p>
+<ul>
+<li>
+<p>PLATFORM=MACOSX/<strong>LINUX</strong></p>
+</li>
+<li>
+<p>MODE=DEBUG/<strong>RELEASE</strong></p>
+</li>
+<li>
+<p>COMPILER=ifort/<strong>gfortran</strong></p>
+</li>
+<li>
+<p>COMM=PARALLEL/<strong>SEQUENTIAL</strong></p>
+</li>
+<li>
+<p>ENABLE_THREADS=NO/<strong>YES</strong></p>
+</li>
+<li>
+<p>WITH_PETSC=YES/<strong>NO</strong></p>
+</li>
+<li>
+<p>WITH_METIS=YES/<strong>NO</strong></p>
+</li>
+<li>
+<p>WITH_HDF5=YES/<strong>NO</strong></p>
+</li>
+<li>
+<p>WITH_MKL=YES/<strong>NO</strong></p>
+</li>
+</ul>
+<p>For example:</p>
+<p><code>shell
+make all COMPILER=ifort COMM=PARALLEL</code></p>
+</li>
+<li>
+<p>Run the solver for the parameter file <em>file.control</em> (see manual in the <code>/doc</code> folder and examples in <code>/test</code>)</p>
+<p><code>shell
+./horses3d.ns file.control</code></p>
+</li>
+<li>
+<p>Test cases for various physics are provided in the folder <code>/test</code></p>
+</li>
+</ol>
+<h2 id="additional-libraries">Additional libraries</h2>
+<ul>
+<li>
+<p>PETSc:</p>
+<p><code>shell
+export PETSC_DIR=path_to_petsc</code></p>
+</li>
+<li>
+<p>METIS:</p>
+<p><code>shell
+export METIS_DIR=path_to_metis</code></p>
+</li>
+<li>
+<p>HDF5:</p>
+<p><code>shell
+export HDF5_DIR=path_to_hdf5</code></p>
+</li>
+</ul>
+        </div>
+          <div class="col-md-4">
+            <div class="card card-body bg-light">
+              <h2 class="card-title">Developer Info</h2>
+              <h4 class="card-text">HORSES3D developers</h4>
+              <p class="card-text"></p>
+            </div>
+          </div>
+      </div>
+        <div class="row">
+          <hr>
+          <div class="col-xs-6 col-sm-3">
+            <div>
+              <h3>Source Files</h3>
+              <ul><li><a href='sourcefile/actuatorline.f90.html'>ActuatorLine.f90</a></li><li><a href='sourcefile/artificialviscosity.f90.html'>ArtificialViscosity.f90</a></li><li><a href='sourcefile/artificialviscosity.f90~2.html'>ArtificialViscosity.f90</a></li><li><a href='sourcefile/assert.f90.html'>Assert.f90</a></li></ul>
+            </div>
+            <div>
+              <ul>
+                <li><a href="./lists/files.html"><em>All source files&hellip;</em></a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-xs-6 col-sm-3">
+            <div>
+              <h3>Modules</h3>
+              <ul><li><a href='module/actuatorline.html'>ActuatorLine</a></li><li><a href='module/artificialviscosity.html'>ArtificialViscosity</a></li><li><a href='module/artificialviscosity~2.html'>ArtificialViscosity</a></li><li><a href='module/autosaveclass.html'>AutosaveClass</a></li></ul>
+            </div>
+            <div>
+              <ul>
+                <li><a href="./lists/modules.html"><em>All modules&hellip;</em></a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-xs-6 col-sm-3">
+            <div>
+              <h3>Procedures</h3>
+              <ul><li><a href='proc/aabtriangleintersection.html'>AABTriangleIntersection</a></li><li><a href='proc/add.html'>add</a></li><li><a href='proc/adddoubleprecisionvalueforkey.html'>addDoublePrecisionValueForKey</a></li><li><a href='proc/addintegervalueforkey.html'>addIntegerValueForKey</a></li></ul>
+            </div>
+            <div>
+              <ul>
+                <li><a href="./lists/procedures.html"><em>All procedures&hellip;</em></a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-xs-6 col-sm-3">
+            <div>
+              <h3>Derived Types</h3>
+              <ul><li><a href='type/assertinfoarray1d.html'>assertInfoArray1D</a></li><li><a href='type/assertinfoarray2d.html'>assertInfoArray2D</a></li><li><a href='type/autosave_t.html'>Autosave_t</a></li><li><a href='type/bassirebay1_t.html'>BassiRebay1_t</a></li></ul>
+            </div>
+            <div>
+              <ul>
+                <li><a href="./lists/types.html"><em>All derived types&hellip;</em></a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

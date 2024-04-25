@@ -1,0 +1,1032 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../../favicon.png">
+
+    <title>Physics related keywords &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../../css/pygments.css" rel="stylesheet">
+    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>Physics related keywords</h1>
+    <div class="container p-2 mb-4 bg-light border rounded-3">
+      <div class="row align-items-center justify-content-between">
+        <div class="col">
+          <ul class="list-inline" style="margin-bottom:0px; display:inline">
+          </ul>
+        </div>
+        <div class="col">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../index.html'>Documentation</a></li>
+                <li class="breadcrumb-item"><a href='index.html'>User Manual</a></li>
+              <li class="breadcrumb-item active" aria-current="page">Physics related keywords</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+      <div class="col-3">
+        <div class="card card-body bg-light" id="sidebar-toc">
+          <ul class="nav flex-column align-items">
+            <li class="nav-item">
+              <a class="nav-link" href="../index.html">Documentation</a>
+            </li>
+          </ul>
+          <hr>
+          <nav class="nav nav-pills flex-column">
+              <a class="nav-link" href="index.html">User Manual</a>
+                <nav class="nav nav-pills flex-column">
+                                <a class="nav-link" href="input-and-output-files.html">Input and Output Files</a>
+              <a class="nav-link" href="running-a-simulation.html">Running a Simulation</a>
+              <a class="nav-link" href="spatial-discretization.html">Spatial Discretization</a>
+              <a class="nav-link active disabled" href="physics-related-keyword.html">Physics related keywords</a>
+              <a class="nav-link" href="implicit-solvers-with-newton-linearization.html">Implicit Solvers with Newton Linearization</a>
+              <a class="nav-link" href="explicit-solvers.html">Explicit Solvers</a>
+              <a class="nav-link" href="a-nonlinear-p-multigrid-FAS.html">Nonlinear p-Multigrid solver (FAS)</a>
+              <a class="nav-link" href="a-p-adaptation-methods.html">p-adaptation-methods</a>
+              <a class="nav-link" href="b-immersed-boundary-method.html">Immersed Boundary Method</a>
+              <a class="nav-link" href="monitors.html">Monitors</a>
+              <a class="nav-link" href="s-advanced-user-setup.html">Advanced User Setup</a>
+              <a class="nav-link" href="s-postprocessing.html">Postprocessing</a>
+              <a class="nav-link" href="t-appendix.html">Appendix</a>
+
+                </nav>
+          </nav>
+        </div>
+      </div>
+
+    <div class="col-9" id='text'>
+      <div class="toc">
+<ul>
+<li><a href="#compressible-flow">Compressible flow</a><ul>
+<li><a href="#shock-capturing">Shock capturing</a><ul>
+<li><a href="#spectral-vanishing-viscosity">Spectral vanishing viscosity</a></li>
+</ul>
+</li>
+<li><a href="#acoustic">Acoustic</a></li>
+</ul>
+</li>
+<li><a href="#incopressible-navier-stokes">Incopressible navier-Stokes</a></li>
+<li><a href="#multiphase">Multiphase</a></li>
+<li><a href="#particles">Particles</a></li>
+<li><a href="#complementary-modes">Complementary Modes</a><ul>
+<li><a href="#wall-functions">Wall functions</a></li>
+<li><a href="#tripping">Tripping</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<h2 id="compressible-flow">Compressible flow</h2>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mach number</td>
+<td><em>REAL</em>:</td>
+<td>Mandatory keyword</td>
+</tr>
+<tr>
+<td>Reynolds number</td>
+<td><em>REAL</em>:</td>
+<td>Mandatory keyword</td>
+</tr>
+<tr>
+<td>Prandtl number</td>
+<td><em>REAL</em>:</td>
+<td>0.72</td>
+</tr>
+<tr>
+<td>Turbulent Prandtl number</td>
+<td><em>REAL</em>:</td>
+<td>Equal to Prandtl</td>
+</tr>
+<tr>
+<td>AOA theta</td>
+<td><em>REAL</em>: Angle of attack (degrees), based on the spherical coordinates polar angle (<script type="math/tex">\theta</script>) definition</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>AOA phi</td>
+<td><em>REAL</em>: Angle of attack (degrees), based on the spherical coordinates azimuthal angle (<script type="math/tex">\varphi</script>) definition</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>LES model</td>
+<td><em>CHARACTER</em>(*): Options are: Vreman, Wale, Smagorinsky, None</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Wall model</td>
+<td><em>CHARACTER</em>:</td>
+<td>linear</td>
+</tr>
+</tbody>
+</table>
+<h3 id="shock-capturing">Shock capturing</h3>
+<p>The shock-capturing module helps stabilize cases with discontinuous solutions, and may also improve the results of under-resolved turbulent cases. It is built on top of a <em>Sensors</em> module that detects problematic flow regions, classifying them according to the value of the sensor, <script type="math/tex"> s </script>, mapped into the interval <script type="math/tex"> a \in [0,1] </script>,</p>
+<p>
+<script type="math/tex; mode=display">
+    a = \left\{\begin{array}{ll}
+        0, & \text{if } s \leq s_0 - \Delta s / 2, \\
+        \frac{1}{2}\left[1+\sin\left(\frac{s-s_0}{\Delta s}\right)\right], & \text{if } s_0 - \Delta s / 2 < s < s_0 + \Delta s / 2,  \\
+        1, & \text{elsewhere}.
+    \end{array}\right.
+</script>
+</p>
+<p>The values of <script type="math/tex">s_0 = (s_1 + s_2)/2</script> and<script type="math/tex">\Delta s = s_2 - s_1</script> depend on the sensor thresholds<script type="math/tex">s_1</script> and<script type="math/tex">s_2</script>.</p>
+<p>At the moment, flow regions where <script type="math/tex">a \leq 0</script> are considered smooth and no stabilization algorithm can be imposed there. In the central region of the sensor, with <script type="math/tex">0 < a < 1</script>, the methods shown in the next table can be used and even scaled with the sensor value, so that their intensity increases in elements with more instabilities. Finally, the higher part of the sensor range can implement a different method from the table; however, the intensity is set to the maximum this time.</p>
+<p>All the methods implemented introduce artificial dissipation into the equations, which can be filtered with an SVV kernel to reduce the negative impact on the accuracy of the solution. Its intensity is controlled with the parameters<script type="math/tex">\mu</script> (similar to the viscosity of the Navier-Stokes equations) and<script type="math/tex">\alpha</script> (scaling of the density-regularization term of the Guermond-Popov flux), which can be set as constants or coupled to the value of the sensor or to a Smagorinsky formulation.</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enable shock-capturing</td>
+<td><em>LOGICAL</em>: Switch on/off the shock-capturing stabilization</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>Shock sensor</td>
+<td><em>CHARACTER</em>: Type of sensor to be used to detect discontinuous regions Options are: <ul><li>Zeros: always return 0</li><li>Ones: always return 1</li><li>Integral: integral of the sensor variable inside each element</li><li>Integral with sqrt: square root of the Integral sensor</li><li>Modal: based on the relative weight of the higher order modes</li><li>Truncation error: estimate the truncation error of the approximation</li><li>Aliasing error: estimate the aliasing error of the approximation</li><li>GMM: clustering sensor based on the divergence of the velocity and the gradient of the pressure</li></ul></td>
+<td>Integral</td>
+</tr>
+<tr>
+<td>Shock first method</td>
+<td><em>CHARACTER</em>: Method to be used in the middle region of the sensor (<script type="math/tex">a\in[0,1]</script>). Options are: <ul><li>None: Do not apply any smoothing</li><li>Non-filtered: Apply the selected viscous flux without SVV filtering</li><li>SVV: Apply an entropy-stable, SVV-filtered viscous flux</li></ul></td>
+<td>None</td>
+</tr>
+<tr>
+<td>Shock second method</td>
+<td><em>CHARACTER</em>: Method to be used in the top-most region of the sensor (<script type="math/tex">a=1</script>). Options are: <ul><li>None: Do not apply any smoothing</li><li>Non-filtered: Apply the selected viscous flux without SVV filtering</li><li>SVV: Apply an entropy-stable, SVV-filtered viscous flux</li></ul></td>
+<td>None</td>
+</tr>
+<tr>
+<td>Shock viscous flux 1</td>
+<td><em>CHARACTER</em>: Viscous flux to be applied in the elements where<script type="math/tex">a\in[0,1]</script>. Options are: <ul><li>Physical</li><li>Guermond-Popov (only with entropy variables gradients)</li></ul></td>
+<td>--</td>
+</tr>
+<tr>
+<td>Shock viscous flux 2</td>
+<td><em>CHARACTER</em>: Viscous flux to be applied in the elements where<script type="math/tex">a=1</script>. Options are: <ul><li>Physical</li><li>Guermond-Popov (only with entropy variables gradients)</li></ul></td>
+<td>--</td>
+</tr>
+<tr>
+<td>Shock update strategy</td>
+<td><em>CHARACTER</em>: Method to compute the variable parameter of the specified shock-capturing approach in the middle region of the sensor. Options are: <ul><li>Constant</li><li>Sensor</li><li>Smagorinsky: only for <em>non-filtered</em> and <em>SVV</em></li></ul></td>
+<td>Constant</td>
+</tr>
+<tr>
+<td>Shock mu 1</td>
+<td><em>REAL/CHARACTER(</em>)*: Viscosity parameter<script type="math/tex">\mu_1</script>, or<script type="math/tex">C_s</script> in the case of LES coupling</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>Shock alpha 1</td>
+<td><em>REAL</em>: Viscosity parameter<script type="math/tex">\alpha_1</script>
+</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>Shock mu 2</td>
+<td><em>REAL</em>: Viscosity parameter<script type="math/tex">\mu_2</script>
+</td>
+<td>
+<script type="math/tex">\mu_1</script>
+</td>
+</tr>
+<tr>
+<td>Shock alpha 2</td>
+<td><em>REAL</em>: Viscosity parameter<script type="math/tex">\alpha_2</script>
+</td>
+<td>
+<script type="math/tex">\alpha_1</script>
+</td>
+</tr>
+<tr>
+<td>Shock alpha/mu</td>
+<td><em>REAL</em>: Ratio between<script type="math/tex">\alpha</script> and <script type="math/tex">\mu</script>. It can be specified instead of <script type="math/tex">\alpha</script> itself to make it dependent on the corresponding values of<script type="math/tex">\mu</script>, and it is compulsory when using LES coupling</td>
+<td>--</td>
+</tr>
+<tr>
+<td>SVV filter cutoff</td>
+<td><em>REAL/CHARACTER(</em>)*: Cutoff of the filter kernel,<script type="math/tex">P</script>. If "automatic", its value is adjusted automatically</td>
+<td>"automatic"</td>
+</tr>
+<tr>
+<td>SVV filter shape</td>
+<td><em>CHARACTER(</em>)*: Options are: <ul><li>Power</li><li>Sharp</li><li>Exponential</li></ul></td>
+<td>Power</td>
+</tr>
+<tr>
+<td>SVV filter type</td>
+<td><em>CHARACTER(</em>)*: Options are: <ul><li>Low-pass</li><li>High-pass</li></ul></td>
+<td>High-pass</td>
+</tr>
+<tr>
+<td>Sensor variable</td>
+<td><em>CHARACTER(</em>)*: Variable used by the sensor to detect shocks. Options are: <ul><li>rho</li><li>rhou</li><li>rhov</li><li>rhow</li><li>u</li><li>v</li><li>w</li><li>p</li><li>rhop</li><li>grad rho</li><li>div v</li></ul></td>
+<td>rhop</td>
+</tr>
+<tr>
+<td>Sensor lower limit</td>
+<td><em>REAL</em>: Lower threshold of the central sensor region,<script type="math/tex">s_1</script>
+</td>
+<td><strong>Mandatory keyword</strong> (except GMM)</td>
+</tr>
+<tr>
+<td>Sensor higher limit</td>
+<td><em>REAL</em>: Upper threshold of the central sensor region,<script type="math/tex">s_2</script>
+</td>
+<td></td>
+</tr>
+<tr>
+<td>Sensor TE min N</td>
+<td><em>INTEGER</em>: Minimum polynomial order of the coarse mesh used for the truncation error estimation</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Sensor TE delta N</td>
+<td>Polynomial order difference between the solution mesh and its coarser representation</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Sensor TE derivative</td>
+<td><em>CHARACTER</em>: Whether the face terms must be considered in the estimation of the truncation error or not. Options are: <ul><li>Non-isolated</li><li>Isolated</li></ul></td>
+<td>Isolated</td>
+</tr>
+<tr>
+<td>Sensor number of clusters</td>
+<td><em>INTEGER</em>: Maximum number of clusters to use with the GMM sensor</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Sensor min. steps</td>
+<td><em>INTEGER</em>: Minimum number of time steps that an element will remain detected. The last positive value will be used if the sensor "undetects" an element too early</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h4 id="spectral-vanishing-viscosity">Spectral vanishing viscosity</h4>
+<p>The introduction of an SVV-filtered artificial flux helps dissipate high-frequency oscillations. The baseline viscous flux can be chosen as the Navier-Stokes viscous flux or the flux developed by Guermond and Popov. In any case, this flux is expressed in a modal base where it is filtered by any of the following three filter kernels:</p>
+<ul>
+<li>power: <script type="math/tex">\hat{F}^{\text{1D}}_i = (i/N)^P</script>,</li>
+<li>sharp: <script type="math/tex">\hat{F}^{\text{1D}}_i = 0</script> if <script type="math/tex">i<P</script>, <script type="math/tex">\hat{F}^{\text{1D}}_i = 1</script> elsewhere,</li>
+<li>exponential: <script type="math/tex">\hat{F}^{\text{1D}}_i = 0</script> if <script type="math/tex">i \leq P</script>, <script type="math/tex">\hat{F}^{\text{1D}}_i=\exp\left(-\frac{(i-N)^2}{(i-P)^2}\right)</script> elsewhere.</li>
+</ul>
+<p>The extension to three dimensions allows the introduction of two types of kernels based on the one-dimensional ones:</p>
+<ul>
+<li>high-pass: <script type="math/tex">\hat{F}^{\text{H}}_{ijk} = \hat{F}^{\text{1D}}_i \hat{F}^{\text{1D}}_j \hat{F}^{\text{1D}}_k</script>,</li>
+<li>low-pass: <script type="math/tex">\hat{F}^{\text{L}}_{ijk} = 1 - \left(1-\hat{F}^{\text{1D}}_i\right)\left(1-\hat{F}^{\text{1D}}_j\right)\left(1-\hat{F}^{\text{1D}}_k\right)</script>,</li>
+</ul>
+<p>being the low-pass one more dissipative and, thus, more suited to supersonic cases. The high-pass filter, on the other hand, works better as part of the SVV-LES framework for turbulent cases.</p>
+<p>The cutoff parameter <script type="math/tex">P</script> can be set as "automatic", which uses a sensor to differentiate troubled elements from smooth regions. The stabilisation strategy then depends on the region:</p>
+<ul>
+<li>smooth regions: <script type="math/tex">P=4</script>, <script type="math/tex">\mu=\mu_2</script>, <script type="math/tex">\alpha=\alpha_2</script>,</li>
+<li>shocks: <script type="math/tex">P=4</script>, <script type="math/tex">\mu=\mu_1</script>, <script type="math/tex">\alpha=\alpha_1</script>.</li>
+</ul>
+<p>In addition to this, the viscosity <script type="math/tex">\mu_1</script> can be set to "Smagorinsky" to use the implemented SVV-LES approach. In this case, the <script type="math/tex">\mu=\mu_{\text{LES}}</script> viscosity is computed following a Smagorinsky formulation with <script type="math/tex">C_s=\mu_2</script> and the viscosity parameters do not depend on the region anymore,</p>
+<p>
+<script type="math/tex; mode=display">
+    \mu = C_s^2 \Delta^2|S|^2, \quad \alpha = \alpha_1.
+</script>
+</p>
+<h3 id="acoustic">Acoustic</h3>
+<p>The Ffowcs Williams and Hawkings (FWH) acoustic analogy is implemented as a complement to the compressible NS solver. It can run both during the execution of the NS (in-time) or as at a post-process step. The version implemented includes both the solid and permeable surface variations, but both of them for a static body subjected to a constant external flow, i.e. a wind tunnel case scenario. The specifications for the FWH are divided in two parts: the general definitions (including the surfaces) and the observers definitions. The former is detailed in the table below, while the latter are defined in a block section, similar to the monitors (see <a href="monitors.html">monitors</a>):</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define acoustic observer 1</span>
+   name     = SomeName
+   position = [0.d0, 0.d0, 0.d0]
+<span class="gh">#end</span>
+<span class="gh"># end</span>
+</code></pre></div>
+
+<p>To run the in-time computation, the observers must be defined in the control file. Beware that adding an additional observer will require to run the simulation again. To use the post-process computation, the solution on the surface must be saved at a regular time. Beware that it will need more storage. To run the post-process calculation the horses.tools binary is used, with a control file similar to the one use for the NS simulation (without monitors), and adding the keywords ''tool type'' and ''acoustic files pattern'', as explained in the table below:</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>acoustic analogy</td>
+<td><em>CHARACTER(</em>)*: This is the main keyword for activating the acoustic analogy. The only options is: ''FWH''.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>acoustic analogy permeable</td>
+<td><em>LOGICAL</em>: Defines if uses a permeable or solid approach.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>acoustic solid surface</td>
+<td><em>CHARACTER(</em>)*: Array containing the name of each boundary to be used as a surface for integration. In the form: '[bc1,bc2,bc3]'. Mandatory for using the solid surface variant.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>acoustic surface file</td>
+<td><em>CHARACTER(</em>)*: Path to a fictitious surface that will be used for integration. It must be tailor-made for the mesh. Mandatory for using the permeable surface variant.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>observers flush interval</td>
+<td><em>INTEGER</em>: Iteration interval to flush the observers information to the files.</td>
+<td>100</td>
+</tr>
+<tr>
+<td>acoustic solution save</td>
+<td><em>LOGICAL</em>: Defines whether it saves the NS solution on the surface. Mandatory for post-process computation.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>acoustic save timestep</td>
+<td><em>REAL</em>: Controls the time or iteration at which the FWH will be calculated (and saved if specified). If the key is missing it will be done at each timestep.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>acoustic files pattern</td>
+<td><em>CHARACTER(</em>)*: Pattern to the path of all the saved solutions on the surface (To be used in horses.tools for the post-process calculation).</td>
+<td>--</td>
+</tr>
+<tr>
+<td>tool type</td>
+<td><em>CHARACTER(</em>)*: Necessary for post-process calculation. Defines the type of post-process of horses.tools. For the FWH analogy the value must be ''fwh post''</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<h2 id="incopressible-navier-stokes">Incopressible navier-Stokes</h2>
+<p>Among the various incompressible Navier-Stokes models, <code>HORSES3D</code> uses an artificial compressibility 
+formulation, which converts the elliptic problem into a hyperbolic system of equations, at the expense of a non divergence–free 
+velocity field. However, it allows one to avoid constructing an approximation that satisfies the inf–sup condition. 
+This methodology is well suited for use as a fluid flow engine for interface–tracking multiphase flow models, as it allows the 
+density to vary spatially. </p>
+<p>The artificial compressibility system of equations is:</p>
+<p>
+<script type="math/tex; mode=display">\begin{equation}
+  \rho_{t} + \vec{\nabla}\cdot\left(\rho\vec{u}\right)=0 ,
+  \label{eq:incomressible:continuity}
+\end{equation}</script>
+</p>
+<p>
+<script type="math/tex; mode=display">\begin{equation}
+\left(\rho\vec{u}\right)_t+\vec{\nabla}\cdot\left(\rho \vec{u}\vec{u}\right) = -\vec{\nabla}p + \vec{\nabla}\cdot\left(\frac{1}{\mathrm{Re}}\left(\vec{\nabla}\vec{u} + 
+\vec{\nabla}\vec{u}^{T}\right)\right)+\frac{1}{\mathrm{Fr^{2}}}\rho\vec{e}_{g},
+\label{eq:incomressible:momentum}
+\end{equation}</script>
+</p>
+<p>
+<script type="math/tex; mode=display">\begin{equation}
+  p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
+  \label{eq:incomressible:ACM}
+\end{equation}</script>
+</p>
+<p>The factor <script type="math/tex">\rho_0</script> is computed as <script type="math/tex">max(\rho_1/\rho_1,\rho_2/\rho_1)</script>.</p>
+<p>This solver is run with the binary horses3d.ins. </p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reference velocity (m/s)</td>
+<td><em>REAL</em>: Reference value for velocity</td>
+<td>--</td>
+</tr>
+<tr>
+<td>number of fluids (1/2)</td>
+<td><em>INTEGER</em>: Number of fluids present in the simulation</td>
+<td>1</td>
+</tr>
+<tr>
+<td>maximum density (kg/m^3)</td>
+<td><em>REAL</em>: Maximum value used in the limiter of the density</td>
+<td>Huge(1.0)</td>
+</tr>
+<tr>
+<td>minimum density (kg/m^3)</td>
+<td><em>REAL</em>: Minimum value used in the limiter of the density</td>
+<td>-Huge(1.0)</td>
+</tr>
+<tr>
+<td>artificial compressibility factor</td>
+<td><em>REAL</em>: Artificial compressibility factor <script type="math/tex">c_0^2</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>gravity acceleration (m/s^2)</td>
+<td><em>REAL</em>: Value of gravity acceleration</td>
+<td>--</td>
+</tr>
+<tr>
+<td>gravity direction</td>
+<td><em>REAL</em>: Array containing direction of gravity. Eg. <script type="math/tex"> [0.0,-1.0,0.0] </script>
+</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<p>The incompressible Navier Stokes solver has two modes: with 1 fluid and with 2 fluids. The required keywords are listed below.</p>
+<p>Table 1: Keywords for incompressible Navier-Stokes solver. Mode with 1 fluid</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>density (kg/m^3)</td>
+<td><em>REAL</em>: Density of the fluid</td>
+<td>--</td>
+</tr>
+<tr>
+<td>viscosity (pa.s)</td>
+<td><em>REAL</em>: Viscosity of the fluid</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<p>Table 2: Keywords for incompressible Navier-Stokes solver. Mode with 2 fluids</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>fluid 1 density (kg/m^3)</td>
+<td><em>REAL</em>: Density of the fluid 1</td>
+<td>--</td>
+</tr>
+<tr>
+<td>fluid 1 viscosity (pa.s)</td>
+<td><em>REAL</em>: Viscosity of the fluid 1</td>
+<td>--</td>
+</tr>
+<tr>
+<td>fluid 2 density (kg/m^3)</td>
+<td><em>REAL</em>: Density of the fluid 2</td>
+<td>--</td>
+</tr>
+<tr>
+<td>fluid 2 viscosity (pa.s)</td>
+<td><em>REAL</em>: Viscosity of the fluid 2</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<h2 id="multiphase">Multiphase</h2>
+<p>The multiphase flow solver implemented in <code>HORSES3D</code> is constructed by a combination of the diffuse interface model of Cahn–Hilliard
+with the incompressible Navier–Stokes equations with variable density and artificial compressibility. 
+This model is entropy stable and guarantees phase conservation with an accurate representation of surface tension effects. 
+The modified entropy-stable version approximates:</p>
+<p>
+<script type="math/tex; mode=display">\begin{equation}
+c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
+\label{eq:governing:cahn--hilliard}
+\end{equation}</script>
+%
+<script type="math/tex; mode=display">\begin{equation}
+\sqrt{\rho}\left(\sqrt{\rho}\vec{u}\right)_t+\vec{\nabla}\cdot\left(\frac{1}{2}\rho \vec{u}\vec{u}\right) 
++\frac{1}{2}\rho\vec{u}\cdot\vec{\nabla}\vec{u}+c\vec{\nabla}\mu
+= -\vec{\nabla}p + \vec{\nabla}\cdot\left(\eta\left(\vec{\nabla}\vec{u} + 
+\vec{\nabla}\vec{u}^{T}\right)\right)+\rho\vec{g},
+\label{eq:governing:momentum-skewsymmetric-sqrtRho}
+\end{equation}</script>
+%
+<script type="math/tex; mode=display">\begin{equation}
+  p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
+  \label{eq:governing:ACM}
+\end{equation}</script>
+%
+where <script type="math/tex">c</script> is the phase field parameter, <script type="math/tex">M_0</script> is the mobility, <script type="math/tex">\mu</script> is the chemical potential, 
+<script type="math/tex">\eta</script> is the viscosity and <script type="math/tex">c_0</script> is the artificial speed of sound. The factor <script type="math/tex">\rho_0</script> is computed as <script type="math/tex">max(\rho_1/\rho_1,\rho_2/\rho_1)</script>.
+Mobility <script type="math/tex">M_0</script> is computed from the control file parameters chemical characteristic time <script type="math/tex">t_{CH}</script>, interface width <script type="math/tex">\epsilon</script> and interface tension <script type="math/tex">\sigma</script> with the formula 
+<script type="math/tex">M_0 = L_{ref}^2 \epsilon /(t_{CH} \sigma)</script>. </p>
+<p>The term <script type="math/tex">M_0 \vec{\nabla}^2 \mu</script> can be implicity integrated to reduce the stiffnes of the problem with the keyword time integration = IMEX. This is only recomended if the value of <script type="math/tex">M_0</script> is very high so that the time step of the explicit scheme is very small. </p>
+<p>This solver is run with the binary horses3d.mu. </p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>fluid 1 density (kg/m^3)</td>
+<td><em>REAL</em>: Density of fluid 1</td>
+<td>--</td>
+</tr>
+<tr>
+<td>fluid 1 viscosity (pa.s)</td>
+<td><em>REAL</em>: Viscosity of fluid 1</td>
+<td>--</td>
+</tr>
+<tr>
+<td>fluid 2 density (kg/m^3)</td>
+<td><em>REAL</em>: Density of fluid 2</td>
+<td>--</td>
+</tr>
+<tr>
+<td>fluid 2 viscosity (pa.s)</td>
+<td><em>REAL</em>: Viscosity of fluid 2</td>
+<td>--</td>
+</tr>
+<tr>
+<td>reference velocity (m/s)</td>
+<td><em>REAL</em>: Reference value for velocity</td>
+<td>--</td>
+</tr>
+<tr>
+<td>maximum density (kg/m^3)</td>
+<td><em>REAL</em>: Maximum value used in the limiter of the density</td>
+<td>Huge(1.0)</td>
+</tr>
+<tr>
+<td>minimum density (kg/m^3)</td>
+<td><em>REAL</em>: Minimum value used in the limiter of the density</td>
+<td>-Huge(1.0)</td>
+</tr>
+<tr>
+<td>artificial compressibility factor</td>
+<td><em>REAL</em>: Artificial compressibility factor <script type="math/tex">{c_0}^2</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>gravity acceleration (m/s^2)</td>
+<td><em>REAL</em>: Value of gravity acceleration</td>
+<td>--</td>
+</tr>
+<tr>
+<td>gravity direction</td>
+<td><em>REAL</em>: Array containing direction of gravity. Eg. <script type="math/tex">[0.0, -1.0, 0.0]</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>velocity direction</td>
+<td><em>REAL</em>: Array containing direction of velocity used for the outflow BC. Eg. <script type="math/tex">[1.0, 0.0, 0.0]</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>chemical characteristic time (s)</td>
+<td><em>REAL</em>: <script type="math/tex">t_{CH}</script> controls the speed of the phase separation</td>
+<td>--</td>
+</tr>
+<tr>
+<td>interface width (m)</td>
+<td><em>REAL</em>: <script type="math/tex">\epsilon</script> controls the interface width between the phases</td>
+<td>--</td>
+</tr>
+<tr>
+<td>interface tension (N/m)</td>
+<td><em>REAL</em>: <script type="math/tex">\sigma</script> controls the interface tension between the phases</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<h2 id="particles">Particles</h2>
+<p><code>Horses3d</code> includes a two-way coupled Lagrangian solver.
+Particles are tracked along their trajectories, according to the simplified particle equation of motion, where only contributions from Stokes drag and gravity are retained,
+<script type="math/tex; mode=display">\begin{equation}
+\label{eq:part_motion}
+\frac{d y_i}{dt} = u_i, \quad \frac{d u_i}{dt} = \frac{v_i - u_i}{\tau_p} + g_i,
+\end{equation}</script>
+where <script type="math/tex">u_i</script> and <script type="math/tex">y_i</script> are the \emph{ith} components of velocity and position of the particle, respectively. Furthermore, <script type="math/tex">v_i</script> accounts for the continuous velocity of the fluid at the position of the particle.  We consider spherical Stokesian particles, so their mass and aerodynamic response time are <script type="math/tex">m_p = \rho_p \pi D_p^3/6</script> and <script type="math/tex">\tau_p = \rho_p D_p^2 / 18\mu </script>, respectively, <script type="math/tex">\rho_p</script> being the particle density and <script type="math/tex">D_p</script> the particle diameter. </p>
+<p>Each particle is considered to be subject to a radiative heat flux <script type="math/tex">I_o</script>. The carrier phase is transparent to radiation, whereas the incident radiative flux on each particle is completely absorbed. Because we focus on relatively small volume fractions, the fluid-particle medium is considered to be optically thin. Under these hypotheses, the direction of the radiation is inconsequential, and each particle receives the same radiative heat flux, and its temperature <script type="math/tex">T_p</script> is governed by
+<script type="math/tex; mode=display">\begin{equation}
+\label{eq:part_energy}
+\frac{d}{dt} (m_p c_{V,p} T_p) = \frac{\pi D_p^2}{4} I_o - \pi D_p^2 h (T_p-T),
+\end{equation}</script>
+where <script type="math/tex">c_{V,p}</script> is the specific heat of the particle, which is assumed to be constant with respect to temperature. <script type="math/tex">T_p</script> is the particle temperature and <script type="math/tex">h</script> is the convective heat transfer coefficient, which for a Stokesian particle can be calculated from the Nusselt number <script type="math/tex">Nu = hD_p/k = 2</script>.</p>
+<p>In practical simulations, integrating the trajectory of every particle is too expensive. Therefore, particles are agglomerated into parcels, each of them accounting for many particles with the same physical properties, position, velocity, and temperature. The evolution of the parcels is tracked with the same set of equations presented for the particles.</p>
+<p>The two-way coupling means that fluid flow is modified because of the presence of particles. Therefore, the Navier-Stokes equations are enriched with the following source terms:
+%
+<script type="math/tex; mode=display">\begin{equation}
+\boldsymbol{S} = \beta\left[\begin{array}{c} 0 \\
+                                                                       \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{1,n}-v_1)\delta(\mathbf{x} - \mathbf{y}_n)  \\
+                                                                       \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{2,n}-v_2)\delta(\mathbf{x} - \mathbf{y}_n) \\
+                                                                      \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{3,n}-v_3)\delta(\mathbf{x} - \mathbf{y}_n) \\
+                                                                      \sum_{n=1}^{N_p} \pi D_p^2 h (T_{p,n} - T) \delta(\mathbf{x} - \mathbf{y}_n )
+\end{array}\right],
+\label{eq:particlessource}
+\end{equation}</script>
+%
+where <script type="math/tex">\delta</script> is the Dirac delta function, <script type="math/tex">N_p</script> is the number of parcels, <script type="math/tex">\beta</script> is the number of particles per parcel and <script type="math/tex">u_{i,n}</script>, <script type="math/tex">\mathbf{y}_{i,n}</script>, <script type="math/tex">T_{p,n}</script> are the velocity, spatial coordinates, and temperature of the parcel \emph{nth}.
+The dimensionless form of the Navier Stokes equations can be seen in the appendix at the end of this document. </p>
+<p>Particles are solved in a box domain inside the flow domain. The box is defined with the keywords <code>minimum box'' and</code>maximum box''. The boundary conditions for the particles are defined with the keyword ``bc box''. Possible options are inflow/outflow, periodic and wall (with perfect rebound).</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lagrangian particles</td>
+<td><em>LOGICAL</em>: If .true. activates particles</td>
+<td>.false.</td>
+</tr>
+<tr>
+<td>stokes number</td>
+<td><em>REAL</em>: Stokes number which for Stokesian particles is <script type="math/tex">St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>Gamma</td>
+<td><em>REAL</em>: Ratio between specific heat of particles and fluid <script type="math/tex">\Gamma=c_{v,p}/c_{v}</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>phi_m</td>
+<td><em>REAL</em>: Ratio between total mass of particles and fluid <script type="math/tex">\phi_m=\frac{m_p N_p}{\rho_o L_o^3}</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>Radiation source</td>
+<td><em>REAL</em>: Non-dimensional radiation source intensity <script type="math/tex">I_o^*=\frac{I_o D_p}{4k_oT_o}</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>Froude number</td>
+<td><em>REAL</em>: Froude number <script type="math/tex">Fr=\frac{u_o}{\sqrt{g_o L_o}}</script>
+</td>
+<td>--</td>
+</tr>
+<tr>
+<td>high order particles source term</td>
+<td><em>LOGICAL</em>: Source term with high order Dirac delta or averaged in the whole element</td>
+<td>.false.</td>
+</tr>
+<tr>
+<td>number of particles</td>
+<td><em>INTEGER</em>: Total number of parcels in the simulation</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles per parcel</td>
+<td><em>REAL</em>: <script type="math/tex">\beta</script> particles per parcel</td>
+<td>--</td>
+</tr>
+<tr>
+<td>Gravity direction</td>
+<td><em>INTEGER</em>: Array with direction of gravity. Only required if Fr number is specified. [0,0,-1]</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles file</td>
+<td><em>CHARACTER(*)</em>: Path to file with initial position of the particles.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>vel and temp from file</td>
+<td><em>LOGICAL</em>: If .true. Initial velocity and temperature of particles read from file.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>injection</td>
+<td><em>LOGICAL</em>: If .true. injection of particles through a face of the box.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles injection</td>
+<td><em>INTEGER</em>: Array with a vector indicating the direction of the injection. Eg., [0,1,0]</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles per step</td>
+<td><em>INTEGER</em>: Number of particles injected per time step.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles iter period</td>
+<td><em>INTEGER</em>: Iteration period for particles injection. Set to 1 to inject particles every time step.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles injection velocity</td>
+<td><em>REAL</em>: Array with particles injection non-dimensional velocity. Eg., [0.d0,1.d0,0.d0]</td>
+<td>--</td>
+</tr>
+<tr>
+<td>particles injection temperature</td>
+<td><em>REAL</em>: Particles injection non-dimensional temperature</td>
+<td>--</td>
+</tr>
+<tr>
+<td>minimum box</td>
+<td><em>REAL</em>: Array with minimum x,y,z coordinates of box with particles. Eg., [0.d0,0.d0,0.d0]</td>
+<td>--</td>
+</tr>
+<tr>
+<td>maximum box</td>
+<td><em>REAL</em>: Array with maximum x,y,z coordinates of box with particles. Eg., [4.d-2,1.6d-1,4.d-2]</td>
+<td>--</td>
+</tr>
+<tr>
+<td>bc box</td>
+<td><em>INTEGER</em>: Array with boundary conditions for particles box in the form [yz,xz,xy].</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<div class="alert alert-warning">
+<p class="alert-title h4">Warning</p>
+<ul>
+<li>Lagrangian particles are only implemented for the compressible Navier Stokes</li>
+<li>Lagrangian particles do not support MPI</li>
+</ul>
+</div>
+<h2 id="complementary-modes">Complementary Modes</h2>
+<h3 id="wall-functions">Wall functions</h3>
+<p>The wall function overwrites the viscous flux on the specified boundaries based on an specific law using a Newman condition. It must be used as a complement of no slip boundary condition. The table below shows the parameters that can be set in the control file. The frictional velocity is calculated using the instantaneous values of the first node (either Gauss or Gauss-Lobatto) of the element neighbour of the face element (at the opposite side of the boundary face). Currently is only supported for the compressible Navier-Stokes solver.</p>
+<p>The standard wall function uses the Reichardt law, solving the algebraic non-linear equation using the newton method to obtain the frictional velocity. The ABL function uses the logarithmic atmospheric boundary layer law, using the aerodynamic roughness; the frictional velocity is without using any numerical method.</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wall Function</td>
+<td><em>CHARACTER(*)</em>: This is the main keyword for activating the wall function. Identifies the wall law to be used. Options are:</td>
+<td></td>
+</tr>
+<tr>
+<td>- Standard: uses the Reichardt law.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- ABL: uses the atmospheric boundary layer law.</td>
+<td>--</td>
+<td></td>
+</tr>
+<tr>
+<td>Wall Function Boundaries</td>
+<td><em>CHARACTER(*)</em>: Array containing the name of each boundary to be used. In the form: '[bc1,bc2,bc3]'. Mandatory for using the wall function.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>Wall Function kappa</td>
+<td><em>REAL</em>: von Karman constant</td>
+<td>0.38</td>
+</tr>
+<tr>
+<td>Wall Function C</td>
+<td><em>REAL</em>: Log law 'C' constant</td>
+<td>4.1</td>
+</tr>
+<tr>
+<td>Wall Function Seed</td>
+<td><em>REAL</em>: Initial value for the newton method</td>
+<td>1.0</td>
+</tr>
+<tr>
+<td>Wall Function Damp</td>
+<td><em>REAL</em>: Initial value damp for the newton method</td>
+<td>1.0</td>
+</tr>
+<tr>
+<td>Wall Function Tolerance</td>
+<td><em>REAL</em>: Tolerance for the newton method</td>
+<td>
+<script type="math/tex">10^{-10}</script>
+</td>
+</tr>
+<tr>
+<td>Wall Function max iter</td>
+<td><em>INTEGER</em>: Maximum number of iterations for the newton method</td>
+<td>100</td>
+</tr>
+<tr>
+<td>Wall Roughness</td>
+<td><em>REAL</em>: Aerodynamic roughness for the ABL wall function. Mandatory value for the ABL law.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>Wall Plane Displacement</td>
+<td><em>REAL</em>: Plane displacement due to roughness for the ABL wall function</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>Wall Function Use Average</td>
+<td><em>LOGICAL</em>: Use the time average of the velocity in the wall function, each time step the time average is recalculated.</td>
+<td>.FALSE.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tripping">Tripping</h3>
+<p>A numerical source term is added to the momentum equations to replicate the effect of a tripping mechanism used commonly in explerimental tests. The forcing is described via the product of two independent functions: one that depends streamwise and vertical directions (space only) and the other one describing the spanwise direction and time (space and time).
+It can be used for the compressible NS, both LES and RANS.
+The keywords for the trip options are:</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>use trip</td>
+<td><em>LOGICAL</em>: This is the main keyword for activating the trip</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>trip time scale</td>
+<td><em>REAL</em>: Time interval between the change of the time dependent part of the trip.</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td>trip number of modes</td>
+<td><em>INTEGER</em>: Number of Fourier modes in the spanwise direction of the trip.</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td>trip z points</td>
+<td><em>INTEGER</em>: Number of points to create the Fourier Transformation of the spanwise direction, it must be greater than the number of modes and should be ideally equal to the number of discretization points of the mesh in the same direction.</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td>trip attenuation</td>
+<td><em>REAL ARRAY(2)</em>: Length scale of the gaussian attenuation of the trip, the first position is the streamwise direction and the second is the wall-normal direction.</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td>trip zone</td>
+<td><em>CHARACTER(*) ARRAY(:)</em>: Boundary condition name that constrains at least one surface where the trip center is located. It can be either one or two boundary conditions, the latter used to generate a trip in two different positions (i.e. pressure and suction sides of an airfoil).</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td>trip center</td>
+<td><em>REAL</em>: Position of the origin of the trip in the streamwise direction.</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td>trip center 2</td>
+<td><em>REAL</em>: Position of the origin of the second trip, if used, in the streamwise direction.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>trip amplitude</td>
+<td><em>REAL</em>: Maximum time varying amplitude of the trip.</td>
+<td>1.0</td>
+</tr>
+<tr>
+<td>trip amplitude steady</td>
+<td><em>REAL</em>: Maximum steady amplitude of the trip.</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>random seed 1</td>
+<td><em>INTEGER</em>: Number used to initialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart.</td>
+<td>930187532</td>
+</tr>
+<tr>
+<td>random seed 2</td>
+<td><em>INTEGER</em>: Number used to initialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart.</td>
+<td>597734650</td>
+</tr>
+</tbody>
+</table>
+    </div>
+  </div>
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

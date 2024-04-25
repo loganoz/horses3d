@@ -1,0 +1,481 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../../favicon.png">
+
+    <title>Postprocessing &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../../css/pygments.css" rel="stylesheet">
+    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>Postprocessing</h1>
+    <div class="container p-2 mb-4 bg-light border rounded-3">
+      <div class="row align-items-center justify-content-between">
+        <div class="col">
+          <ul class="list-inline" style="margin-bottom:0px; display:inline">
+          </ul>
+        </div>
+        <div class="col">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../index.html'>Documentation</a></li>
+                <li class="breadcrumb-item"><a href='index.html'>User Manual</a></li>
+              <li class="breadcrumb-item active" aria-current="page">Postprocessing</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+      <div class="col-3">
+        <div class="card card-body bg-light" id="sidebar-toc">
+          <ul class="nav flex-column align-items">
+            <li class="nav-item">
+              <a class="nav-link" href="../index.html">Documentation</a>
+            </li>
+          </ul>
+          <hr>
+          <nav class="nav nav-pills flex-column">
+              <a class="nav-link" href="index.html">User Manual</a>
+                <nav class="nav nav-pills flex-column">
+                                <a class="nav-link" href="input-and-output-files.html">Input and Output Files</a>
+              <a class="nav-link" href="running-a-simulation.html">Running a Simulation</a>
+              <a class="nav-link" href="spatial-discretization.html">Spatial Discretization</a>
+              <a class="nav-link" href="physics-related-keyword.html">Physics related keywords</a>
+              <a class="nav-link" href="implicit-solvers-with-newton-linearization.html">Implicit Solvers with Newton Linearization</a>
+              <a class="nav-link" href="explicit-solvers.html">Explicit Solvers</a>
+              <a class="nav-link" href="a-nonlinear-p-multigrid-FAS.html">Nonlinear p-Multigrid solver (FAS)</a>
+              <a class="nav-link" href="a-p-adaptation-methods.html">p-adaptation-methods</a>
+              <a class="nav-link" href="b-immersed-boundary-method.html">Immersed Boundary Method</a>
+              <a class="nav-link" href="monitors.html">Monitors</a>
+              <a class="nav-link" href="s-advanced-user-setup.html">Advanced User Setup</a>
+              <a class="nav-link active disabled" href="s-postprocessing.html">Postprocessing</a>
+              <a class="nav-link" href="t-appendix.html">Appendix</a>
+
+                </nav>
+          </nav>
+        </div>
+      </div>
+
+    <div class="col-9" id='text'>
+      <div class="toc">
+<ul>
+<li><a href="#visualization-with-tecplot-format-horses2plt">Visualization with Tecplot Format: horses2plt</a></li>
+<li><a href="#solution-files-hsol">Solution Files (*.hsol)</a></li>
+<li><a href="#statistics-files-statshsol">Statistics Files (*.stats.hsol)</a></li>
+<li><a href="#extract-geometry">Extract geometry</a></li>
+<li><a href="#merge-statistics-tool">Merge statistics tool</a></li>
+<li><a href="#mapping-result-to-different-mesh">Mapping result to different mesh</a></li>
+<li><a href="#generate-openfoam-mesh">Generate OpenFOAM mesh</a></li>
+<li><a href="#generate-horses3d-solution-file-from-openfoam-result">Generate HORSES3D solution file from OpenFOAM result</a></li>
+</ul>
+</div>
+<p>For postprocessing the Simulation Results</p>
+<h2 id="visualization-with-tecplot-format-horses2plt">Visualization with Tecplot Format: <em>horses2plt</em></h2>
+<p><code>HORSES3D</code> provides a script for converting the native binary solution files (<em>.hsol) into tecplot ASCII format (</em>.tec), which can be visualized in Pareview or Tecplot. It can also export the solution to the more recent VTKHDF format; however, note that this feature does <strong>not</strong> export boundary information or mesh files. Usage:</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span>$<span class="w"> </span>horses2plt<span class="w"> </span>SolutionFile.hsol<span class="w"> </span>MeshFile.hmesh<span class="w"> </span>&lt;&lt;Options&gt;&gt;
+</code></pre></div>
+
+<p>The options comprise following flags:</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>--output-order=</td>
+<td><em>INTEGER</em>: Output order nodes. The solution is interpolated into the desired number of points.</td>
+<td>Not Present</td>
+</tr>
+<tr>
+<td>--output-basis=</td>
+<td><em>CHARACTER</em>: Either <em>Homogeneous</em> (for equispaced nodes, or <em>Gauss</em>.</td>
+<td><em>Gauss</em></td>
+</tr>
+<tr>
+<td>--output-mode=</td>
+<td><em>CHARACTER</em>: Either <em>multizone</em> or <em>FE</em>. The option <em>multizone</em> generates a Tecplot zone for each element. The option <em>FE</em> generates only one Tecplot zone for the fluid and one for each boundary (if <em>--boundary-file</em> is defined). Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.</td>
+<td><em>multizone</em></td>
+</tr>
+<tr>
+<td>--output-variables=</td>
+<td><em>CHARACTER</em>: Output variables separated by commas. A complete description can be found in Section 2.</td>
+<td>Q</td>
+</tr>
+<tr>
+<td>--dimensionless</td>
+<td>Specifies that the output quantities must be dimensionless.</td>
+<td>Not Present</td>
+</tr>
+<tr>
+<td>--partition-file=</td>
+<td><em>CHARACTER</em>: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation.</td>
+<td>Not Present</td>
+</tr>
+<tr>
+<td>--boundary-file=</td>
+<td><em>CHARACTER</em>: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file.</td>
+<td>Not Present</td>
+</tr>
+<tr>
+<td>--output-type=</td>
+<td><em>CHARACTER</em>: Specifies the type of output file: <em>tecplot</em> or <em>vtkhdf</em>.</td>
+<td><em>tecplot</em></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><em>Homogeneous</em> when <em>--output-order</em> is specified</li>
+</ul>
+<p>Additionally, depending on the type of solution file, the user can specify additional options.</p>
+<h2 id="solution-files-hsol">Solution Files (*.hsol)</h2>
+<p>For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag *<em>-{}-output-variables=</em>.
+The options are:</p>
+<div class="multicols" style="column-count: 5;">
+  <ul>
+    <li>\(Q\) (default)</li>
+    <li>\(\rho\)</li>
+    <li>\(u\)</li>
+    <li>\(v\)</li>
+    <li>\(w\)</li>
+    <li>\(p\)</li>
+    <li>\(T\)</li>
+    <li>\(Mach\)</li>
+    <li>\(s\)</li>
+    <li>\(Vabs\)</li>
+    <li>\(V\)</li>
+    <li>\(Ht\)</li>
+    <li>\(rhou\)</li>
+    <li>\(rhov\)</li>
+    <li>\(rhow\)</li>
+    <li>\(rhoe\)</li>
+    <li>\(c\)</li>
+    <li>\(Nxi\)</li>
+    <li>\(Neta\)</li>
+    <li>\(Nzeta\)</li>
+    <li>\(Nav\)</li>
+    <li>\(N\)</li>
+    <li>\(Ax\_Xi\)</li>
+    <li>\(Ax\_Eta\)</li>
+    <li>\(Ax\_Zeta\)</li>
+    <li>\(ThreeAxes\)</li>
+    <li>\(Axes\)</li>
+    <li>\(mpi\_rank\)</li>
+    <li>\(eID\)</li>
+    <li>\(gradV\)</li>
+    <li>\(u\_x\)</li>
+    <li>\(v\_x\)</li>
+    <li>\(w\_x\)</li>
+    <li>\(u\_y\)</li>
+    <li>\(v\_y\)</li>
+    <li>\(w\_y\)</li>
+    <li>\(u\_z\)</li>
+    <li>\(v\_z\)</li>
+    <li>\(w\_z\)</li>
+    <li>\(c\_x\)</li>
+    <li>\(c\_y\)</li>
+    <li>\(c\_z\)</li>
+    <li>\(\omega\)</li>
+    <li>\(\omega\_x\)</li>
+    <li>\(\omega\_y\)</li>
+    <li>\(\omega\_z\)</li>
+    <li>\(\omega\_abs\)</li>
+    <li>\(Qcrit\)</li>
+  </ul>
+</div>
+
+<h2 id="statistics-files-statshsol">Statistics Files (*.stats.hsol)</h2>
+<p>Statistics files can generate the standard variables as well as the following variables (being <script type="math/tex">S_{ij}</script> the components of the Reynolds Stress tensor):</p>
+<div class="multicols" style="column-count: 3;">
+  <ul>
+    <li>\(umean\)</li>
+    <li>\(vmean\)</li>
+    <li>\(wmean\)</li>
+    <li>\(S_{xx}\)</li>
+    <li>\(S_{yy}\)</li>
+    <li>\(S_{zz}\)</li>
+    <li>\(S_{xy}\)</li>
+    <li>\(S_{xz}\)</li>
+    <li>\(S_{yz}\)</li>
+  </ul>
+</div>
+
+<h2 id="extract-geometry">Extract geometry</h2>
+<p>Under construction.</p>
+<h2 id="merge-statistics-tool">Merge statistics tool</h2>
+<p>Tool to merge several statistics files. The usage is the following:</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span>$<span class="w"> </span>horses.mergeStats<span class="w"> </span>*.hsol<span class="w"> </span>--initial-iteration<span class="o">=</span>INTEGER<span class="w"> </span>--file-name<span class="o">=</span>CHARACTER
+</code></pre></div>
+
+<p>Some remarks:</p>
+<ul>
+<li>Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations.</li>
+<li>Only constant time-stepping is supported.</li>
+<li>If the hsol files have the gradients, the following flag must be used</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span>$<span class="w"> </span>--has-gradients
+</code></pre></div>
+
+<ul>
+<li>Dynamic p-adaptation is currently not supported.</li>
+</ul>
+<h2 id="mapping-result-to-different-mesh">Mapping result to different mesh</h2>
+<p><a name="MaptomeshKey"></a>
+<code>HORSES3D</code> addons, <em>horsesConverter</em>, has a capability to map result into different mesh file, with both have a consistent geometry. This is done by performing interpolation with the polynomial inside each element for each node point of the new mesh. The type of node quadrature will follow the quadrature defined in the .hmesh file with selected polynomial order in the control file. A control input file is required and must has name <em>horsesConverter.convert</em>. The template of control input file will be generated by default when executing <em>./horsesConverter</em> in a directory without the control file. Error message is given when at least one node point of the new mesh is not within any element of the old mesh. After completion, a new result file is generated and named <em>Result_interpolation.hsol</em>. The required keywords in the control file are described in the table below. Command to execute:</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span>$<span class="w"> </span>./horsesConverter
+</code></pre></div>
+
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Task</td>
+<td><em>meshInterpolation</em></td>
+<td></td>
+</tr>
+<tr>
+<td>Mesh Filename 1</td>
+<td>Location of the origin mesh (*.hmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Boundary Filename 1</td>
+<td>Location of the origin boundary mesh (*.bmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Result 1</td>
+<td>Location of the solution file with origin mesh (*.hsol)</td>
+<td></td>
+</tr>
+<tr>
+<td>Mesh Filename 2</td>
+<td>Location of the target mesh (*.hmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Boundary Filename 2</td>
+<td>Location of the target boundary mesh (*.bmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Polynomial Order</td>
+<td>Polynomial order of the target mesh</td>
+<td>(1, 1, 1)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="generate-openfoam-mesh">Generate OpenFOAM mesh</h2>
+<p><a name="GenerateOpenFOAMmeshKey"></a>
+Another functionality of <em>horsesConverter</em> addons is to convert the mesh files, (*.hmesh) and (*.bmesh), into OpenFOAM format, the <em>polyMesh</em> folder. Each element is discretised into <script type="math/tex">n_x \times n_y \times n_z</script> cells distributed as Gauss-Lobatto nodes. The number of division of each element, (<script type="math/tex">n_x</script>, <script type="math/tex">n_y</script>, and <script type="math/tex">n_z</script>), is required in the control file, see <a href="GenerateOpenFOAMmeshKey">previous section</a>. After completion, a folder named <code>foamFiles</code> is generated. OpenFOAM mesh files, i.e. <em>points</em>, <em>faces</em>, <em>owner</em>, <em>neighbour</em>, and <em>boundary</em>, are located within <code>foamFiles/constant/polyMesh</code>. The required keywords in the control file are described in the table below Command to execute:</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span>$<span class="w"> </span>./horsesConverter
+</code></pre></div>
+
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Task</td>
+<td><em>horsesMesh2OF</em></td>
+<td></td>
+</tr>
+<tr>
+<td>Mesh Filename 1</td>
+<td>Location of the origin mesh (*.hmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Boundary Filename 1</td>
+<td>Location of the origin boundary mesh (*.bmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Polynomial Order</td>
+<td>Number of division of each element (<script type="math/tex">n_x</script>, <script type="math/tex">n_y</script>, and <script type="math/tex">n_z</script>)</td>
+<td>(1, 1, 1)</td>
+</tr>
+</tbody>
+</table>
+<p>NOTE: Before running the mesh in the OpenFOAM environment, the type of boundaries inside the boundary file needs to be adjusted according to the actual type (<em>patch</em>, <em>wall</em>, and <em>symmetry</em>).</p>
+<h2 id="generate-horses3d-solution-file-from-openfoam-result">Generate HORSES3D solution file from OpenFOAM result</h2>
+<p><code>HORSES3D</code> provides a capability to convert OpenFOAM result into <code>HORSES3D</code> solution file (*.hsol). The mesh of the OpenFOAM result must be generated by converting HORSES3D mesh files, see the <a href="GenerateOpenFOAMmeshKey">previous section</a>. Beforehand, the OpenFOAM result must be converted into VTK format(*.vtk). This not only allows the result to be in the single file but also converts cell data into point data. In the OpenFOAM environment, the command for this conversion:  </p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">$</span><span class="w"> </span><span class="n">foamToVTK</span><span class="w"> </span><span class="o">-</span><span class="n">fields</span><span class="w"> </span><span class="s">&quot;(U p T rho)&quot;</span><span class="w"> </span><span class="o">-</span><span class="n">ascii</span><span class="w"> </span><span class="o">-</span><span class="n">latestTime</span>
+</code></pre></div>
+
+<p>The necessary file (.vtk) required for the control file input is inside VTK folder, see <a href="GenerateOpenFOAMmeshKey">previous section</a> for the control file template. The <code>HORSES3D</code> solution file is named <code>Result\_OF.hsol</code>. The required keywords in the control file are described in the table below. Command to execute:</p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span>$<span class="w"> </span>./horsesConverter
+</code></pre></div>
+
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Task</td>
+<td><em>OF2Horses</em></td>
+<td></td>
+</tr>
+<tr>
+<td>Mesh Filename 1</td>
+<td>Location of the origin mesh (*.hmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Boundary Filename 1</td>
+<td>Location of the origin boundary mesh (*.bmesh)</td>
+<td></td>
+</tr>
+<tr>
+<td>Polynomial Order</td>
+<td>Polynomial order of the solution file (.hsol)</td>
+<td>(1, 1, 1)</td>
+</tr>
+<tr>
+<td>VTK file</td>
+<td>Location of VTK file (.vtk)</td>
+<td></td>
+</tr>
+<tr>
+<td>Reynolds Number</td>
+<td>Reynolds Number/m of the solution -- <script type="math/tex">L_{ref}</script>=1.0m</td>
+<td></td>
+</tr>
+<tr>
+<td>Mach Number</td>
+<td>Mach Number of the solution</td>
+<td></td>
+</tr>
+<tr>
+<td>Reference pressure (Pa)</td>
+<td>Reference Pressure</td>
+<td>101325</td>
+</tr>
+<tr>
+<td>Reference temperature (K)</td>
+<td>Reference Temperature</td>
+<td>288.889</td>
+</tr>
+</tbody>
+</table>
+    </div>
+  </div>
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

@@ -1,0 +1,363 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../../favicon.png">
+
+    <title>Immersed Boundary Method &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../../css/pygments.css" rel="stylesheet">
+    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>Immersed Boundary Method</h1>
+    <div class="container p-2 mb-4 bg-light border rounded-3">
+      <div class="row align-items-center justify-content-between">
+        <div class="col">
+          <ul class="list-inline" style="margin-bottom:0px; display:inline">
+          </ul>
+        </div>
+        <div class="col">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../index.html'>Documentation</a></li>
+                <li class="breadcrumb-item"><a href='index.html'>User Manual</a></li>
+              <li class="breadcrumb-item active" aria-current="page">Immersed Boundary Method</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+      <div class="col-3">
+        <div class="card card-body bg-light" id="sidebar-toc">
+          <ul class="nav flex-column align-items">
+            <li class="nav-item">
+              <a class="nav-link" href="../index.html">Documentation</a>
+            </li>
+          </ul>
+          <hr>
+          <nav class="nav nav-pills flex-column">
+              <a class="nav-link" href="index.html">User Manual</a>
+                <nav class="nav nav-pills flex-column">
+                                <a class="nav-link" href="input-and-output-files.html">Input and Output Files</a>
+              <a class="nav-link" href="running-a-simulation.html">Running a Simulation</a>
+              <a class="nav-link" href="spatial-discretization.html">Spatial Discretization</a>
+              <a class="nav-link" href="physics-related-keyword.html">Physics related keywords</a>
+              <a class="nav-link" href="implicit-solvers-with-newton-linearization.html">Implicit Solvers with Newton Linearization</a>
+              <a class="nav-link" href="explicit-solvers.html">Explicit Solvers</a>
+              <a class="nav-link" href="a-nonlinear-p-multigrid-FAS.html">Nonlinear p-Multigrid solver (FAS)</a>
+              <a class="nav-link" href="a-p-adaptation-methods.html">p-adaptation-methods</a>
+              <a class="nav-link active disabled" href="b-immersed-boundary-method.html">Immersed Boundary Method</a>
+              <a class="nav-link" href="monitors.html">Monitors</a>
+              <a class="nav-link" href="s-advanced-user-setup.html">Advanced User Setup</a>
+              <a class="nav-link" href="s-postprocessing.html">Postprocessing</a>
+              <a class="nav-link" href="t-appendix.html">Appendix</a>
+
+                </nav>
+          </nav>
+        </div>
+      </div>
+
+    <div class="col-9" id='text'>
+      <p>The immersed boundary is activated during the simulation if the following lines are specified in the control file:</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define IBM</span>
+   name                           = myIBM
+   active                         = .true.
+   penalization                   = 1.0d-6
+   semi implicit                  = .false.
+   number of objects              = 5 
+   number of interpolation points = 15
+   band region                    = .true.
+   band region coefficient        = 1.3
+   compute distance               = .true.
+   clip axis                      =  1
+   aab                            = .false.
+   describe                       = .true.
+   plot obb                       = .false.
+   plot kdtree                    = .false.
+   plot mask                      = .true.
+   plot band points               = .false.
+<span class="gh">#end</span>
+</code></pre></div>
+
+<p>A folder called 'IBM' must be created.</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td><em>CHARACTER</em>: Name assigned to immersed boundary method job.</td>
+<td></td>
+</tr>
+<tr>
+<td>active</td>
+<td><em>LOGICAL</em>: When .TRUE., the immersed boundary method is active.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>penalization</td>
+<td><em>REAL</em>: Specifies the value of the penalization term, \eta.</td>
+<td>
+<script type="math/tex">\Delta t</script>
+</td>
+</tr>
+<tr>
+<td>semi implicit</td>
+<td><em>LOGICAL</em>: The source term is treated in a semi-implicit manner.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>number of objects</td>
+<td><em>INTEGER</em>: Specifies the maximum number of objects inside a leaf of the KD-tree.</td>
+<td>5</td>
+</tr>
+<tr>
+<td>number of interpolation points</td>
+<td><em>INTEGER</em>: Number of points used for the interpolation of the variables' values on the surface. It's needed for the computation of the forces.</td>
+<td>15</td>
+</tr>
+<tr>
+<td>band region</td>
+<td><em>LOGICAL</em>: If it's true, the band region is computed, otherwise it is not.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>band region coefficient</td>
+<td><em>INTEGER</em>: A region <script type="math/tex">n</script>-times the oriented bounding box is created (where <script type="math/tex">n</script> is the band region coefficient): all the points inside this region belong to the band region.</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>compute distance</td>
+<td><em>LOGICAL</em>: If it's true, the distance between the points in the band region and the STL file is computed, otherwise it is not. If the distance is not required, turn it off since it is an expansive operation.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>clip axis</td>
+<td><em>INTEGER</em>: It's the axis along which the STL is cut. It is only needed if the forces are computed so that the integration of the variables is performed only on the portion of the STL surface lying inside the mesh. 1 corresponds to x-axis, 2 with y-axis, and 3 with z-axis.</td>
+<td>0</td>
+</tr>
+<tr>
+<td>aab</td>
+<td><em>LOGICAL</em>: The Axis Aligned Box is computed instead of the Oriented Bounding box. It is recommended when 'clip axis' <script type="math/tex">\neq</script> 0.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>describe</td>
+<td><em>LOGICAL</em>: The immersed boundary parameters are printed on the screen.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>plot obb</td>
+<td><em>LOGICAL</em>: The oriented-bounding box is plotted.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>plot kdtree</td>
+<td><em>LOGICAL</em>: The kd-tree is plotted.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>plot mask</td>
+<td><em>LOGICAL</em>: The degrees of freedom belonging to the mask are plotted.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>plot band points</td>
+<td><em>LOGICAL</em>: The band region's points are plotted.</td>
+<td>.FALSE.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="stl-file">STL file</h2>
+<p>Immersed boundary requires, along with the mesh, a STL file. It must be put in the MESH folder with the mesh. The STL file name must be in lowercase character. In some programs, like AutoCAD, a STL file has always positive coordinates: the mesh should be built according to this consideration.
+In the case of 2D simulations, the STL can be automatically cut by <code>horses3D</code> through the addition of the line <em>clip axis</em> (described in the previous section) so that only the STL portions inside the mesh are considered.</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>number of stl =</td>
+<td><em>INTEGER</em>: Number of stl files.</td>
+<td>1</td>
+</tr>
+<tr>
+<td>stl file name =</td>
+<td><em>CHARACTER</em>: The name of the STL file, without extension; it has to be inside the folder "MESH".</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>stl file nameN =</td>
+<td><em>CHARACTER</em>: The name of the <script type="math/tex">\mathrm{N}^{th}</script>-STL file (where N starts from 2), without extension; for the first STL just use "stl file name". It has to be inside the folder "MESH".</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<h2 id="computing-forces">Computing forces</h2>
+<p>In order to compute the forces on a body, the monitor should be defined as usual but the "Marker=" has to be equal to the name of the stl file on which the user wants to compute the forces. Given a STL file called "stlname", the monitor should be:</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define surface monitor 1</span>
+   marker = stlname
+   .
+   .
+   .
+<span class="gh">#end</span>
+</code></pre></div>
+
+<p>The result of this operation is a <code>.tec</code> file inside the RESULTS folder. This file contains a scalar or a vector data projected on the body surface. </p>
+<h2 id="moving-bodies">Moving bodies</h2>
+<p>If one or more of the stl files move, then the following lines must be added:</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define stl motion 1</span>
+   stl name         = mySTL
+   type             = rotation 
+   angular velocity = 134.5d0
+   motion axis      = 2
+<span class="gh">#end</span>
+\end{lstlisting}
+</code></pre></div>
+
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>stl name</td>
+<td><em>CHARACTER</em>: Name of the moving stl; it has to be equal to the name of one of the stl files.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>type</td>
+<td><em>CHARACTER</em>: Type of motion, it can be ROTATION or LINEAR.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>angular velocity</td>
+<td><em>REAL</em>: Specifies the angular velocity. It must be in [Rad]/[s].</td>
+<td><strong>Mandatory keyword for rotation type</strong></td>
+</tr>
+<tr>
+<td>velocity</td>
+<td><em>REAL</em>: Specifies the translation velocity. It must be in [m]/[s].</td>
+<td><strong>Mandatory keyword for linear type</strong></td>
+</tr>
+<tr>
+<td>motion axis</td>
+<td><em>REAL</em>: Specifies the axis along which the rotation/translation occurs.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+</tbody>
+</table>
+    </div>
+  </div>
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

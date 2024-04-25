@@ -1,0 +1,1666 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../favicon.png">
+
+    <title>FTValueClass &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../css/pygments.css" rel="stylesheet">
+    <link href="../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../page/index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>FTValueClass
+      <small>Module</small>
+      
+    </h1>
+      <div class="container p-2 mb-4 bg-light border rounded-3">
+    <div class="row align-items-center justify-content-between" id="info-bar">
+      <div class="col">
+        <ul class="list-inline" style="margin-bottom:0px;display:inline">
+            <li class="list-inline-item" id="meta-license"><i class="fa fa-legal"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a></li>
+
+            <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
+              <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
+                 title=" 0.8% of total for modules and submodules.">377 statements</a>
+            </li>
+
+            <li class="list-inline-item" id="source-file">
+              <i class="fa fa-code"></i>
+              <a href="../src/FTValueClass.f90"> Source File</a>
+            </li>
+        </ul>
+      </div>
+      <div class="col">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../sourcefile/ftvalueclass.f90.html'>FTValueClass.f90</a></li>
+            <li class="breadcrumb-item active" aria-current="page">FTValueClass</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
+  <script>
+    $(function () {
+    $('[data-bs-toggle="tooltip"]').tooltip()
+    })
+  </script>
+
+  </div>
+
+  <div class="row">
+    <div class="col-md-3">
+        <div id="sidebar">
+      <h3>Contents</h3>
+  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#vars-0"
+         aria-expanded="false" aria-controls="vars-0">
+         <h4 class="card-header bg-primary text-white">Variables</h4>
+      </a>
+      <div id="vars-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/ftvalueclass.html#variable-ftvalue_not_integer">FTVALUE_NOT_INTEGER</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#variable-ftvalue_not_real">FTVALUE_NOT_REAL</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#variable-ftvalue_not_doubleprecision">FTVALUE_NOT_DOUBLEPRECISION</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#variable-ftvalue_string_length">FTVALUE_STRING_LENGTH</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#variable-ft_real_kind">FT_REAL_KIND</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#variable-ft_double_precision_kind">FT_DOUBLE_PRECISION_KIND</a>
+        </div>
+      </div>
+    </div>
+
+  
+  
+  
+  
+  
+  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#inters-0"
+         aria-expanded="false" aria-controls="inters-0">
+         <h4 class="card-header bg-primary text-white">Interfaces</h4>
+      </a>
+      <div id="inters-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/ftvalueclass.html#interface-cast~7">cast</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#interface-release~12">release</a>
+        </div>
+      </div>
+    </div>
+
+  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#types-0"
+         aria-expanded="false" aria-controls="types-0">
+         <h4 class="card-header bg-primary text-white">Derived Types</h4>
+      </a>
+      <div id="types-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/ftvalueclass.html#type-ftvalue">FTValue</a>
+        </div>
+      </div>
+    </div>
+
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#funcs-0"
+         aria-expanded="false" aria-controls="funcs-0">
+         <h4 class="card-header bg-primary text-white">Functions</h4>
+      </a>
+      <div id="funcs-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-realvalue">realValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-doubleprecisionvalue">doublePrecisionValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-quadvalue">quadValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-integervalue">integerValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-logicalvalue">logicalValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-stringvalue">stringValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-ftvaluedescription">FTValueDescription</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-valuefromobject">valueFromObject</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-valueclassname">valueClassName</a>
+        </div>
+      </div>
+    </div>
+
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#subs-0"
+         aria-expanded="false" aria-controls="subs-0">
+         <h4 class="card-header bg-primary text-white">Subroutines</h4>
+      </a>
+      <div id="subs-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-initwithreal">initWithReal</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-initwithdoubleprecision">initWithDoublePrecision</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-initwithquad">initWithQuad</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-initwithinteger">initWithInteger</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-initwithlogical">initWithLogical</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-initwithstring">initWithString</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-destructvalue">destructValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-releaseftvalue">releaseFTValue</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-printvaluedescription">printValueDescription</a>
+            <a class="list-group-item" href="../module/ftvalueclass.html#proc-casttovalue">castToValue</a>
+        </div>
+      </div>
+    </div>
+
+  
+  
+  
+  
+  
+  
+  
+
+
+  </div>
+
+    </div>
+
+    <div class="col-md-9" id='text'>
+      <p>A not completely F2003/2008 version of an immutable class
+ to store primitive values: integer, real, double precision, logical,
+ character. (To Add: complex)</p>
+<p>This version does not use CLASS(*) or deferred length strings
+ so that it can be used with gfortran 4.7/4.8</p>
+<p>Usage:</p>
+<hr>
+<ul>
+<li>
+<p>Initialization</p>
+<div class="codehilite"><pre><span></span><code>    TYPE(FTValue) :: r, i, s, l, d
+
+    CALL r % initValue(3.14)
+    CALL i % initValue(6)
+    CALL d % initValue(3.14d0)
+    CALL l % initValue(.true.)
+    CALL s % initValue(&quot;A string&quot;)
+</code></pre></div>
+
+</li>
+<li>
+<p>Destruction </p>
+<div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">CALL</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">destruct</span><span class="p">()</span><span class="w">   </span><span class="p">[</span><span class="n">non</span><span class="w"> </span><span class="n">pointers</span><span class="p">]</span>
+<span class="w">    </span><span class="n">call</span><span class="w"> </span><span class="k">release</span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">[</span><span class="n">Pointers</span><span class="p">]</span>
+</code></pre></div>
+
+</li>
+<li>
+<p>Accessors</p>
+<div class="codehilite"><pre><span></span><code>    real = r % realValue()
+    int  = i % integerValue()
+    doub = d % doublePrecisionValue()
+    logc = l % logicalValue()
+    str  = s % stringValue(nChars)
+</code></pre></div>
+
+</li>
+<li>
+<p>Description</p>
+<div class="codehilite"><pre><span></span><code>    str = v % description()
+    call v % printDescription(unit)
+</code></pre></div>
+
+</li>
+<li>
+<p>Casting</p>
+<div class="codehilite"><pre><span></span><code>    CLASS(FTVALUE) , POINTER :: v
+    CLASS(FTObject), POINTER :: obj
+    call cast(obj,v)
+</code></pre></div>
+
+</li>
+</ul>
+<p>The class will attempt to convert between the different types:</p>
+<div class="codehilite"><pre><span></span><code><span class="w">        </span><span class="n">CALL</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">initWithReal</span><span class="p">(</span><span class="mf">3.14</span><span class="p">)</span>
+<span class="w">        </span><span class="nb">print</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">stringValue</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="w">        </span><span class="n">Logical</span><span class="w"> </span><span class="n">variables</span><span class="w"> </span><span class="n">rules</span><span class="p">:</span>
+
+<span class="w">        </span><span class="n">real</span><span class="p">,</span><span class="w"> </span><span class="n">doublePrecision</span><span class="p">,</span><span class="w"> </span><span class="n">integer</span><span class="w"> </span><span class="n">values</span>
+<span class="w">           </span><span class="n">logicalValue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">.</span><span class="n">FALSE</span><span class="o">.</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">           </span><span class="n">logicalValue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">.</span><span class="n">TRUE</span><span class="o">.</span><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">input</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">0</span>
+</code></pre></div>
+
+<p>String values can be converted to numeric types. If the string is
+ not a numeric, Huge(1) will be returned, for integers and NaN for reals.</p>
+<p>FTValueClass.f90
+ Created: January 9, 2013 12:20 PM 
+ @author David Kopriva  </p>
+<p>////////////////////////////////////////////////////////////////////////</p>
+<br>          <div class="card mb-4">
+      <h3 class="card-header card-title bg-light">Uses</h3>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+              <ul class="list-inline">
+                  <li class="list-inline-item"><a href='http://fortranwiki.org/fortran/show/iso_fortran_env'>iso_fortran_env</a></li>
+                  <li class="list-inline-item"><a href='http://fortranwiki.org/fortran/show/ieee_arithmetic'>ieee_arithmetic</a></li>
+                  <li class="list-inline-item"><a href='ftobjectclass.html'>FTObjectClass</a></li>
+                  <li class="list-inline-item"><a href='ftolconstants.html'>FTOLConstants</a></li>
+              </ul>
+            </li>
+        </ul>
+      </div>
+    </div>
+
+      
+      <br>
+
+
+        <section>
+          <h2>Variables</h2>
+            <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Visibility</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+<th></th><th scope="col">Initial</th>        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-ftvalue_not_integer"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>FTVALUE_NOT_INTEGER</strong></td>
+<td> =</td>
+                <td>HUGE(1)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-ftvalue_not_real"></span>
+              real,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>FTVALUE_NOT_REAL</strong></td>
+<td> =</td>
+                <td>HUGE(1.0)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-ftvalue_not_doubleprecision"></span>
+              double precision,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>FTVALUE_NOT_DOUBLEPRECISION</strong></td>
+<td> =</td>
+                <td>HUGE(1.0D0)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-ftvalue_string_length"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>FTVALUE_STRING_LENGTH</strong></td>
+<td> =</td>
+                <td>512</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-ft_real_kind"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>FT_REAL_KIND</strong></td>
+<td> =</td>
+                <td>SELECTED_REAL_KIND(6)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-ft_double_precision_kind"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>FT_DOUBLE_PRECISION_KIND</strong></td>
+<td> =</td>
+                <td>SELECTED_REAL_KIND(15)</td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+        </section>
+        <br>
+
+
+        <section>
+          <h2>Interfaces</h2>
+              <div class="card">
+    <div class="card-header bg-light codesum">
+      <span class="anchor" id="interface-cast~7"></span>
+      <h3>public        interface <a href='../interface/cast~7.html'>cast</a> 
+      </h3>
+    </div>
+    <ul class="list-group">
+          <li class="list-group-item">
+                <h3>
+    public  subroutine <a href='../proc/casttovalue.html'>castToValue</a>(obj, cast)  
+
+    </h3>
+    
+  <p>Generic Name: cast</p>
+<p>Cast a pointer to the base class to an FTValue pointer </p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-obj~91"></span>
+              class(<a href='../type/ftobject.html'>FTObject</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>obj</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-cast~16"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>cast</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+          </li>
+    </ul>
+  </div>
+
+              <div class="card">
+    <div class="card-header bg-light codesum">
+      <span class="anchor" id="interface-release~12"></span>
+      <h3>public        interface <a href='../interface/release~12.html'>release</a> 
+      </h3>
+    </div>
+    <ul class="list-group">
+          <li class="list-group-item">
+                <h3>
+    public  subroutine <a href='../proc/releaseftvalue.html'>releaseFTValue</a>(self)  
+
+    </h3>
+    
+  <p>Public, generic name: release(self)</p>
+<p>Call release(self) on an object to release control
+of an object. If its reference count is zero, then 
+it is deallocated.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~497"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+          </li>
+    </ul>
+  </div>
+
+        </section>
+        <br>
+
+
+        <section>
+          <h2>Derived Types</h2>
+              <div class="card">
+    <div class="card-header codesum">
+      <span class="anchor" id="type-ftvalue"></span>
+      <h3>
+        type, public, extends(<a href='../type/ftobject.html'>FTObject</a>)&nbsp;::&nbsp;
+        <a href='../type/ftvalue.html'>FTValue</a>
+        
+      </h3>
+    </div>
+    <div class="card-body">
+      
+
+
+
+
+        <h4>Type-Bound Procedures</h4>
+        <table class="table table-striped varlist">
+          <tbody>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftobject.html#boundprocedure-init~4'>init</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/initftobject.html'>initFTObject</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public, non_overridable ::
+  <strong><a href='../type/ftobject.html#boundprocedure-copy~5'>copy</a></strong> => copyFTObject</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public, non_overridable ::
+  <strong><a href='../type/ftobject.html#boundprocedure-retain'>retain</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/retainftobject.html'>retainFTObject</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public, non_overridable ::
+  <strong><a href='../type/ftobject.html#boundprocedure-isunreferenced'>isUnreferenced</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public, non_overridable ::
+  <strong><a href='../type/ftobject.html#boundprocedure-refcount'>refCount</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  generic, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-initwithvalue'>initWithValue</a></strong> => initWithReal, initWithDoublePrecision, initWithString, initWithLogical, initWithInteger</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  generic, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-initwithvalue~2'>initWithValue</a></strong> => initWithQuad</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-destruct~37'>destruct</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/destructvalue.html'>destructValue</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-realvalue'>realValue</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-doubleprecisionvalue'>doublePrecisionValue</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-quadvalue'>quadValue</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-stringvalue'>stringValue</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-logicalvalue'>logicalValue</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-integervalue'>integerValue</a></strong></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-description~5'>description</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/ftvaluedescription.html'>FTValueDescription</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-printdescription~10'>printDescription</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/printvaluedescription.html'>printValueDescription</a></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/ftvalue.html#boundprocedure-classname~10'>className</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/valueclassname.html'>valueClassName</a></td>
+                <td></td>
+              </tr>
+          </tbody>
+        </table>
+    </div>
+  </div>
+
+        </section>
+        <br>
+
+        <section>
+          <h2>Functions</h2>
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-realvalue"></span> <h3>public  function <a href='../proc/realvalue.html'>realValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Get the real value stored in the object, or convert the value
+in the object to a real if it is of a different type.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~498"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>real</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-doubleprecisionvalue"></span> <h3>public  function <a href='../proc/doubleprecisionvalue.html'>doublePrecisionValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Get the double precision value stored in the object, or convert the value
+in the object to a double precision if it is of a different type.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~499"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>doubleprecision</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-quadvalue"></span> <h3>public  function <a href='../proc/quadvalue.html'>quadValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Get the double precision value stored in the object, or convert the value
+in the object to a double precision if it is of a different type.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~500"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>doubleprecision</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-integervalue"></span> <h3>public  function <a href='../proc/integervalue.html'>integerValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Get the integer value stored in the object, or convert the value
+in the object to an integer if it is of a different type.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~501"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>integer</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-logicalvalue"></span> <h3>public  function <a href='../proc/logicalvalue.html'>logicalValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Get the logical value stored in the object, or convert the value
+in the object to a logical if it is of a different type.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~502"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>logical</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-stringvalue"></span> <h3>public  function <a href='../proc/stringvalue.html'>stringValue</a>(self, requestedLength) result(s)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Get the string value of length requestedLength stored in the object, or 
+convert the value
+in the object to a string of that length if it is of a different type.</p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~503"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-requestedlength~2"></span>
+              integer
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>requestedLength</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>character(len=requestedLength)</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-ftvaluedescription"></span> <h3>public  function <a href='../proc/ftvaluedescription.html'>FTValueDescription</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Returns the description of the value. In this case, it returns the 
+stringValue() of the object. </p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~504"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>character(len=DESCRIPTION_CHARACTER_LENGTH)</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-valuefromobject"></span> <h3>public  function <a href='../proc/valuefromobject.html'>valueFromObject</a>(obj) result(cast)  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-obj~92"></span>
+              class(<a href='../type/ftobject.html'>FTObject</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>obj</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>class(<a href='../type/ftvalue.html'>FTValue</a>), POINTER</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-valueclassname"></span> <h3>public  function <a href='../proc/valueclassname.html'>valueClassName</a>(self) result(s)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Class name returns a string with the name of the type of the object</p><a href="../proc/valueclassname.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~506"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+    <h4>
+    Return Value
+    <small>character(len=CLASS_NAME_CHARACTER_LENGTH)</small>
+    </h4>
+    
+
+    </div>
+  </div>
+
+        </section>
+        <br>
+
+        <section>
+          <h2>Subroutines</h2>
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-initwithreal"></span> <h3>public  subroutine <a href='../proc/initwithreal.html'>initWithReal</a>(self, v)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: initwithValue()</p><a href="../proc/initwithreal.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~490"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~56"></span>
+              real
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-initwithdoubleprecision"></span> <h3>public  subroutine <a href='../proc/initwithdoubleprecision.html'>initWithDoublePrecision</a>(self, v)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: initwithValue()</p><a href="../proc/initwithdoubleprecision.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~491"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~57"></span>
+              doubleprecision
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-initwithquad"></span> <h3>public  subroutine <a href='../proc/initwithquad.html'>initWithQuad</a>(self, v)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: initwithValue()</p><a href="../proc/initwithquad.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~492"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~58"></span>
+              real(kind=SELECTED_REAL_KIND(QUAD_DIGITS))
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-initwithinteger"></span> <h3>public  subroutine <a href='../proc/initwithinteger.html'>initWithInteger</a>(self, v)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: initwithValue()</p><a href="../proc/initwithinteger.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~493"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~59"></span>
+              integer
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-initwithlogical"></span> <h3>public  subroutine <a href='../proc/initwithlogical.html'>initWithLogical</a>(self, v)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: initwithValue()</p><a href="../proc/initwithlogical.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~494"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~60"></span>
+              logical
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-initwithstring"></span> <h3>public  subroutine <a href='../proc/initwithstring.html'>initWithString</a>(self, v)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: initwithValue()</p><a href="../proc/initwithstring.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~495"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~61"></span>
+              character(len=*)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-destructvalue"></span> <h3>public  subroutine <a href='../proc/destructvalue.html'>destructValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: destruct()</p><a href="../proc/destructvalue.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~496"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-releaseftvalue"></span> <h3>public  subroutine <a href='../proc/releaseftvalue.html'>releaseFTValue</a>(self)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Public, generic name: release(self)</p><a href="../proc/releaseftvalue.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~497"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-printvaluedescription"></span> <h3>public  subroutine <a href='../proc/printvaluedescription.html'>printValueDescription</a>(self, iUnit)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Prints the description of the value to unit iUnit. In this case, it prints<br>
+the stringValue() of the object. </p>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-self~505"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iunit~11"></span>
+              integer
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iUnit</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-casttovalue"></span> <h3>public  subroutine <a href='../proc/casttovalue.html'>castToValue</a>(obj, cast)  
+</h3></div>
+    <div class="card-body">
+          
+  <p>Generic Name: cast</p><a href="../proc/casttovalue.html" class="pull-right"><emph>Read more&hellip;</emph></a>
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-obj~91"></span>
+              class(<a href='../type/ftobject.html'>FTObject</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>obj</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-cast~16"></span>
+              class(<a href='../type/ftvalue.html'>FTValue</a>),
+            </td>
+<td></td>
+              <td></td>            <td>
+              POINTER
+            </td>
+            <td>::</td>
+            <td><strong>cast</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+        </section>
+        <br>
+
+
+
+    </div>
+  </div>
+
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

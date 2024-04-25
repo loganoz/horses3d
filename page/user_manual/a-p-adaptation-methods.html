@@ -1,0 +1,370 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../../favicon.png">
+
+    <title>p-adaptation-methods &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../../css/pygments.css" rel="stylesheet">
+    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>p-adaptation-methods</h1>
+    <div class="container p-2 mb-4 bg-light border rounded-3">
+      <div class="row align-items-center justify-content-between">
+        <div class="col">
+          <ul class="list-inline" style="margin-bottom:0px; display:inline">
+          </ul>
+        </div>
+        <div class="col">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../index.html'>Documentation</a></li>
+                <li class="breadcrumb-item"><a href='index.html'>User Manual</a></li>
+              <li class="breadcrumb-item active" aria-current="page">p-adaptation-methods</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+      <div class="col-3">
+        <div class="card card-body bg-light" id="sidebar-toc">
+          <ul class="nav flex-column align-items">
+            <li class="nav-item">
+              <a class="nav-link" href="../index.html">Documentation</a>
+            </li>
+          </ul>
+          <hr>
+          <nav class="nav nav-pills flex-column">
+              <a class="nav-link" href="index.html">User Manual</a>
+                <nav class="nav nav-pills flex-column">
+                                <a class="nav-link" href="input-and-output-files.html">Input and Output Files</a>
+              <a class="nav-link" href="running-a-simulation.html">Running a Simulation</a>
+              <a class="nav-link" href="spatial-discretization.html">Spatial Discretization</a>
+              <a class="nav-link" href="physics-related-keyword.html">Physics related keywords</a>
+              <a class="nav-link" href="implicit-solvers-with-newton-linearization.html">Implicit Solvers with Newton Linearization</a>
+              <a class="nav-link" href="explicit-solvers.html">Explicit Solvers</a>
+              <a class="nav-link" href="a-nonlinear-p-multigrid-FAS.html">Nonlinear p-Multigrid solver (FAS)</a>
+              <a class="nav-link active disabled" href="a-p-adaptation-methods.html">p-adaptation-methods</a>
+              <a class="nav-link" href="b-immersed-boundary-method.html">Immersed Boundary Method</a>
+              <a class="nav-link" href="monitors.html">Monitors</a>
+              <a class="nav-link" href="s-advanced-user-setup.html">Advanced User Setup</a>
+              <a class="nav-link" href="s-postprocessing.html">Postprocessing</a>
+              <a class="nav-link" href="t-appendix.html">Appendix</a>
+
+                </nav>
+          </nav>
+        </div>
+      </div>
+
+    <div class="col-9" id='text'>
+      <div class="toc">
+<ul>
+<li><a href="#truncation-error-p-adaptation">Truncation Error p-Adaptation</a></li>
+<li><a href="#reinforcement-learning-p-adaptation">Reinforcement Learning p-Adaptation</a></li>
+<li><a href="#multiple-truncation-error-estimations">Multiple truncation error estimations</a></li>
+</ul>
+</div>
+<p>The p-adaptation methods are used when the p-adaptation region is specified in the control file. There are two different types of p-adaptation algorithms: A Truncation Error (TE) algorithm and a Reinforcement Learning (RL) algorithm.</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>adaptation type</td>
+<td><em>CHARACTER</em>: Can be either "TE" or "RL".</td>
+<td>TE</td>
+</tr>
+<tr>
+<td>Nmax</td>
+<td><em>INTEGER(3)</em>: Maximum polynomial order in each direction for the p-adaptation algorithm (limited to 6 for RL adaptation type).</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>Nmin</td>
+<td><em>INTEGER(3)</em>: Minimum polynomial order in each direction for the p-adaptation algorithm.</td>
+<td>[1,1,1]</td>
+</tr>
+<tr>
+<td>conforming boundaries</td>
+<td><em>CHARACTER</em>(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>order across faces</td>
+<td><em>CHARACTER</em>: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only <script type="math/tex">N*2/3</script> and <script type="math/tex">N-1</script> are supported.</td>
+<td>
+<script type="math/tex">N-1</script>
+</td>
+</tr>
+<tr>
+<td>mode</td>
+<td><em>CHARACTER</em>: p-Adaptation mode. Can be <em>static</em>, <em>time</em> or <em>iteration</em>. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations.</td>
+<td><em>static</em></td>
+</tr>
+<tr>
+<td>interval</td>
+<td><em>INTEGER/REAL</em>: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation.</td>
+<td><em>huge number</em></td>
+</tr>
+<tr>
+<td>restart files</td>
+<td><em>LOGICAL</em>: If .TRUE., the program writes restart files before and after the p-adaptation.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>adjust nz</td>
+<td><em>LOGICAL</em>: If .TRUE., the order across faces is adjusted in the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the order is only adjusted in the xi and eta directions.</td>
+<td>.FALSE.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="truncation-error-p-adaptation">Truncation Error p-Adaptation</h2>
+<p>This algorithm can perform a p-adaptation to decrease the truncation error below a threshold.</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define p-adaptation</span>
+   adaptation type       = TE
+   Truncation error type = isolated
+   truncation error      = 1.d-2
+   Nmax                  = [10,10,10]
+   Nmin                  = [2 ,2 ,2 ]
+   Conforming boundaries = [InnerCylinder,sphere]
+   order across faces    = N*2/3
+   increasing            = .FALSE.
+   write error files     = .FALSE.
+   adjust nz             = .FALSE.
+   mode                  = time
+   interval              = 1.d0
+   restart files         = .TRUE.
+   max N decrease        = 1
+   padapted mg sweeps pre      = 10
+   padapted mg sweeps post     = 12
+   padapted mg sweeps coarsest = 20
+<span class="gh">#end</span>
+</code></pre></div>
+
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>truncation error type</td>
+<td><em>CHARACTER</em>: Can be either "isolated" or "non-isolated".</td>
+<td>isolated</td>
+</tr>
+<tr>
+<td>truncation error</td>
+<td><em>REAL</em>: Target truncation error for the p-adaptation algorithm.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>coarse truncation error</td>
+<td><em>REAL</em>: Truncation error used for coarsening.</td>
+<td>same as truncation error</td>
+</tr>
+<tr>
+<td>increasing</td>
+<td><em>LOGICAL</em>: If .TRUE. the multi-stage FMG adaptation algorithm is used.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>write error files</td>
+<td><em>LOGICAL</em>: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder ./<em>TauEstimation</em>/. When the simulation has several adaptation stages, the new information is just appended.</td>
+<td>.FALSE.</td>
+</tr>
+<tr>
+<td>max N decrease</td>
+<td><em>INTEGER</em>: Maximum decrease in the polynomial order in every p-adaptation procedure.</td>
+<td>
+<script type="math/tex">N-N_{*min*}</script>
+</td>
+</tr>
+<tr>
+<td>post smoothing residual</td>
+<td><em>REAL</em>: Specifies the maximum allowable deviation of <script type="math/tex">\partial_t q</script> after the p-adaptation procedure.</td>
+<td>--</td>
+</tr>
+<tr>
+<td>post smoothing method</td>
+<td><em>CHARACTER</em>: Either RK3 or FAS.</td>
+<td>RK3, if the last keyword is activated</td>
+</tr>
+<tr>
+<td>estimation files</td>
+<td><em>CHARACTER</em>: Name of the folder that contains the error estimations obtained with the multi tau-estimation (see the section <a href="#MultiTau">below</a>).</td>
+<td>--</td>
+</tr>
+<tr>
+<td>estimation files number</td>
+<td><em>INTEGER(2)</em>: First and last estimation stages to be used for p-adaptation.</td>
+<td>Mandatory if last keyword is used.</td>
+</tr>
+<tr>
+<td>padapted <script type="math/tex">\ll keyword \gg</script>
+</td>
+<td><em>MULTIPLE</em>: Specifies control file keywords that should be replaced after the adaptation procedure. Currently, only 'mg sweeps', 'mg sweeps pre', 'mg sweeps post', and 'mg sweeps coarsest' are supported.</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reinforcement-learning-p-adaptation">Reinforcement Learning p-Adaptation</h2>
+<p>This algorithm can perform a p-adaptation based on a trained RL agent.</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define p-adaptation</span>
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 1d-2
+   Nmax                  = [6, 6, 2]
+   Nmin                  = [2, 2, 2]
+   Conforming boundaries = [cylinder]
+   restart files         = .FALSE.
+   mode                  = iteration
+   interval              = 10
+   threshold             = 2.0
+<span class="gh">#end</span>
+</code></pre></div>
+
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Default value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agent file</td>
+<td><em>CHARACTER</em>: Relative path to the binary file that provides the policy of the RL agent.</td>
+<td><strong>Mandatory keyword</strong></td>
+</tr>
+<tr>
+<td>tolerance</td>
+<td><em>REAL</em>: Tolerance for the RL agent. The smaller the tolerance, the wider the adapted region.</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>threshold</td>
+<td><em>REAL</em>: The mesh will be adapted only if the percentage of the elements that require adaptation (in relation to the total number of elements) is above the threshold.</td>
+<td>0.0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="multiple-truncation-error-estimations">Multiple truncation error estimations</h2>
+<p><a name="MultiTau"></a></p>
+<p>When using Truncation Error based adaptation, a static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#define multi tau-estimation</span>
+   truncation error type = isolated
+   interval              = 10
+   folder                = MultiTau
+<span class="gh">#end</span>
+</code></pre></div>
+    </div>
+  </div>
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-04-25 11:27              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>
