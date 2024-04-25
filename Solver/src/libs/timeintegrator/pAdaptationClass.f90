@@ -282,6 +282,7 @@ module pAdaptationClass
          character(LINE_LENGTH) :: x_span
          character(LINE_LENGTH) :: y_span
          character(LINE_LENGTH) :: z_span
+         character(LINE_LENGTH) :: mode
          integer, allocatable   :: order
          !----------------------------------
          
