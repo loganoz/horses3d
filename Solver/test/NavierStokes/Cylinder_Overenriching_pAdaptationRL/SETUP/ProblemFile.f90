@@ -551,13 +551,13 @@ end module ProblemFileFunctions
 !           -----------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            real(kind=RP), parameter :: residuals(5) = [ 1.7481916599336543E+01_RP, &
-                                                         8.2486010105468196E+01_RP, &
-                                                         4.7832743605860273E+01_RP, &
-                                                         2.0739112472378305E+00_RP, &
-                                                         1.0360249210123282E+03_RP]
+            real(kind=RP), parameter :: residuals(5) = [ 1.7013998989315766E+01_RP, &
+                                                         8.1190492978412564E+01_RP, &
+                                                         4.7924194656532144E+01_RP, &
+                                                         1.2006917273979250E+00_RP, &
+                                                         1.0429511011428192E+03_RP]
 
-            real(kind=RP), parameter           :: cd = 1.8124973777752700E+01_RP
+            real(kind=RP), parameter             :: cd = 1.8122964969706718E+01_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
