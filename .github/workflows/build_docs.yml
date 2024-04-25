@@ -1,0 +1,46 @@
+name: build docs
+on: [push]
+jobs:
+
+  Build:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        gcc_v: [10] # Version of GFortran we want to use.
+        python-version: [3.9]
+    env:
+      FC: gfortran-${{ matrix.gcc_v }}
+      GCC_V: ${{ matrix.gcc_v }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python dependencies
+      if: contains( matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt install -y gfortran-${GCC_V} python3-dev graphviz
+        python -m pip install --upgrade pip
+        pip install ford markdown
+
+
+    - name: Build documentation
+      run: ford doc/ford-project-file.md
+
+    - name: Deploy Documentation
+      uses: JamesIves/github-pages-deploy-action@v4.4.1
+      with:
+        branch: gh-pages 
+        folder: doc/doc_output
