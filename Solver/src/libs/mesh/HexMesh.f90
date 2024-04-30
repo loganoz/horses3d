@@ -2978,7 +2978,7 @@ slavecoord:             DO l = 1, 4
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
 
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO * SIZEOF_RP
             if (saveSensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             call writeArray(fid, Q, position=pos)
 
