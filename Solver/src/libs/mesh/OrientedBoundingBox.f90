@@ -389,16 +389,7 @@ contains
 ! 
 !     Reading the data
 !     ---------------
-      if( move ) then 
-         select case( stl% motionType )
-         case( ROTATION )
-            call this% rotatePoints( stl )
-         case( LINEAR )
-            call this% translatePoints( stl )
-         end select
-      else
-         call this% ReadStorePoints( stl )
-      endif 
+      call this% ReadStorePoints( stl )
 !
 !     Computing center of the points cloud
 !     ---------------------------------
@@ -447,8 +438,7 @@ contains
 
       if( isPlot ) call this% plot()
 
-
-      deallocate(Hull% Points, this% Points)
+      deallocate(Hull% Points, this% Points, this% allpoints)
 
    end subroutine OBB_construct
 !
@@ -1161,15 +1151,56 @@ contains
 !$omp end parallel
    end subroutine OBB_ChangeObjsRefFrame   
 
-   integer function OBB_GetMaxAxis( this )
+   integer function OBB_GetMaxAxis( this, objs, NumOfObjs )
 
       implicit none 
 
-      class(OBB_type), intent(inout) :: this 
+      class(OBB_type),   intent(inout) :: this 
+      type(Object_type), intent(in)    :: objs(:)
+      integer,           intent(in)    :: NumOfObjs
 
-      OBB_GetMaxAxis = maxloc((/this% MBR% Length, this% MBR% Width, &
-                               abs(this% nMax) + abs(this% nMin)/),  &
-                               dim=1                                 )
+      real(kind=RP), allocatable :: x(:), y(:), z(:)
+      real(kind=RP)              :: max_x, max_y, max_z
+      real(kind=RP)              :: min_x, min_y, min_z
+      real(kind=RP)              :: LocMax_x, LocMax_y, LocMax_z
+      real(kind=RP)              :: LocMin_x, LocMin_y, LocMin_z
+      real(kind=RP)              :: axis_x, axis_y, axis_z
+      integer                    :: i
+
+      ! allocate( x(NumOfObjs), y(NumOfObjs), z(NumOfObjs) )
+
+      ! max_x = -huge(1.0_RP); min_x = huge(1.0_RP)
+      ! max_y = -huge(1.0_RP); min_y = huge(1.0_RP)
+      ! max_z = -huge(1.0_RP); min_z = huge(1.0_RP)
+
+      ! do i = 1, NumOfVertices
+      !    x        = objs(:)% vertices(i)% coords(IX)
+      !    y        = objs(:)% vertices(i)% coords(IY)
+      !    z        = objs(:)% vertices(i)% coords(IZ)
+      !    LocMax_x = maxval(x)
+      !    LocMax_y = maxval(y)
+      !    LocMax_z = maxval(z)
+      !    LocMin_x = minval(x)
+      !    LocMin_y = minval(y)
+      !    LocMin_z = minval(z)
+      !    max_x    = max(max_x,LocMax_x)
+      !    max_y    = max(max_y,LocMax_y)
+      !    max_z    = max(max_z,LocMax_z)
+      !    min_x    = min(min_x,LocMin_x)
+      !    min_y    = min(min_y,LocMin_y)
+      !    min_z    = min(min_z,LocMin_z)
+      ! end do 
+
+      ! axis_x = abs(max_x - min_x)
+      ! axis_y = abs(max_y - min_y)
+      ! axis_z = abs(max_z - min_z)
+
+      ! OBB_GetMaxAxis = maxloc( (/axis_x, axis_y, axis_z/), dim=1 )
+ 
+      ! deallocate(x, y, z)
+      ! OBB_GetMaxAxis = maxloc((/this% MBR% Length, this% MBR% Width, &
+      !                          abs(this% nMax) + abs(this% nMin)/),  &
+      !                          dim=1                                 )
 
    end function OBB_GetMaxAxis
 

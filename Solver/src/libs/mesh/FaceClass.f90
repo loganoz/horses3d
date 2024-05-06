@@ -19,23 +19,23 @@
       use PhysicsStorage
       use NodalStorageClass
       use InterpolationMatrices           , only: Tset
-      IMPLICIT NONE 
+      IMPLICIT NONE
 
       private
       public   Face, stencil_t
 
       type stencil_t
 
-         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xiI, xiB, xi_B(NDIM)
-         real(kind=RP)              :: rhou, rhov, rhow, rho, p
+         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xiI, xiB, xi_B(NDIM), tg1(NDIM), tg2(NDIM)
+         real(kind=RP)              :: rhou, rhov, rhow, rho, p, T, L, d, dl, Et, U(NDIM)
          integer                    :: N, partition
-         logical                    :: state = .false.
+         logical                    :: state = .false., wallfunction = .false.
          real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), Q(:,:)
          integer,       allocatable :: eIDs(:)
 
          contains
             procedure :: build        => stencil_build
-            procedure :: ComputeState => stencil_ComputeState 
+            procedure :: ComputeState => stencil_ComputeState
             procedure :: destroy      => stencil_destroy
 
       end type stencil_t
@@ -52,7 +52,7 @@
 !     ************************************************************************************
 !
 !           Face derived type. The face connects two elements,
-!           =================  specified in "elementIDs". 
+!           =================  specified in "elementIDs".
 !
 !        The face handles two problems:
 !
@@ -70,9 +70,9 @@
 !           -> NfLeft/Right: The face original order rotated to match each other,
 !              ~~~~~~~~~~~~  without projection.
 !                       ** Thus, always NfLeft = NelLeft, and
-!                          NfRight = rotation(NelRight)                           
+!                          NfRight = rotation(NelRight)
 !
-!           -> Nf: The face polynomial order. This is the maximum along 
+!           -> Nf: The face polynomial order. This is the maximum along
 !              ~~  each side of both directions.
 !
 !        The process from the element storage to face storage is:
@@ -104,7 +104,7 @@
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2)
          logical                         :: HO_IBM = .false., mpiHO_IBM = .false., corrGrad = .false., fmpi =.false.
-         integer                         :: HOSIDE, HO_ID, domain, HOeID, HOdomain
+         integer                         :: HOSIDE, HO_ID, domain, HOeID, HOdomain, shared_domain
          type(stencil_t), allocatable    :: stencil(:,:)
          contains
             procedure   :: Construct                     => ConstructFace
@@ -124,8 +124,10 @@
             procedure   :: copy           => Face_Assign
             generic     :: assignment(=)  => copy
             procedure   :: HO_IBM_correction             => Face_HO_IBM_correction
+            procedure   :: HO_IBM_Statecorrection        => Face_HO_IBM_Statecorrection
             procedure   :: HO_IBM_Gradcorrection         => Face_HO_IBM_Gradcorrection
             procedure   :: StencilConstruct              => face_StencilConstruct
+            procedure   :: HO_IBM_HO_LxF                 => Face_HO_IBM_HO_LxF
       end type Face
 !
 !     ========
@@ -136,18 +138,18 @@
 !
 !        *******************************************************
 !
-!           This is not the full face construction, but a 
+!           This is not the full face construction, but a
 !         variable initialization. Just nodes are introduced and
 !         the left element.
 !
 !        *******************************************************
 !
-         IMPLICIT NONE 
+         IMPLICIT NONE
          class(Face) :: self
          integer     :: ID, nodeIDs(4), elementID, side
 !
 !        --------------------------
-!        Set nodes and left element 
+!        Set nodes and left element
 !        --------------------------
 !
          self % ID             = ID
@@ -172,23 +174,23 @@
 !////////////////////////////////////////////////////////////////////////
 !
       elemental SUBROUTINE DestructFace( self )
-         IMPLICIT NONE 
+         IMPLICIT NONE
          class(Face), intent(inout) :: self
-         
+
          self % ID = -1
          self % FaceType = HMESH_NONE
          self % rotation = 0
          self % NelLeft = -1
-         self % NelRight = -1       
-         self % NfLeft = -1       
-         self % NfRight = -1       
-         self % Nf = -1         
-         self % nodeIDs = -1             
+         self % NelRight = -1
+         self % NfLeft = -1
+         self % NfRight = -1
+         self % Nf = -1
+         self % nodeIDs = -1
          self % elementIDs = -1
          self % elementSide = -1
          self % projectionType = -1
          self % boundaryName = ""
-         
+
          call self % geom % Destruct
          call self % storage % Destruct
 
@@ -196,7 +198,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE PrintFace( self ) 
+      SUBROUTINE PrintFace( self )
       IMPLICIT NONE
       class(Face) :: self
       PRINT *, "Face type = "   , self % FaceType
@@ -234,7 +236,7 @@
 !     ---------------------------------------------------------
 !
       self % NfLeft = self % NelLeft     ! Left elements are always oriented.
-      
+
       SELECT CASE ( self % rotation )
       CASE ( 0, 2, 5, 7 ) ! Local x and y axis are parallel or antiparallel
          self % NfRight = self % NelRight
@@ -268,13 +270,13 @@
 !
       call Tset(self % NfLeft(1), self % Nf(1)) % construct(self % NfLeft(1), self % Nf(1))
       call Tset(self % Nf(1), self % NfLeft(1)) % construct(self % Nf(1), self % NfLeft(1))
-      
+
       call Tset(self % NfLeft(2), self % Nf(2)) % construct(self % NfLeft(2), self % Nf(2))
       call Tset(self % Nf(2), self % NfLeft(2)) % construct(self % Nf(2), self % NfLeft(2))
-      
+
       call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
       call Tset(self % Nf(1), self % NfRight(1)) % construct(self % Nf(1), self % NfRight(1))
-      
+
       call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
       call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
 !
@@ -353,16 +355,16 @@
             do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)
                Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Qe(:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             Qf = 0.0_RP
             do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
                Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Qe(:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             Qf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)
                do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
                   Qf(:,i,j) = Qf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
                                             * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
@@ -375,7 +377,7 @@
          associate( Qf => self % storage(2) % Q )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-            Qe_rot(:,i,j) = Qe(:,ii,jj) 
+            Qe_rot(:,i,j) = Qe(:,ii,jj)
          end do                        ; end do
 
          select case ( self % projectionType(2) )
@@ -386,16 +388,16 @@
             do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)
                Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Qe_rot(:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             Qf = 0.0_RP
             do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
                Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Qe_rot(:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             Qf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)
                do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
                   Qf(:,i,j) = Qf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
                                             * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
@@ -414,7 +416,7 @@
       use MappedGeometryClass
       implicit none
       class(Face),   intent(inout)  :: self
-      integer,       intent(in)     :: nEqn 
+      integer,       intent(in)     :: nEqn
       integer,       intent(in)     :: Nelx, Nely
       real(kind=RP), intent(in)     :: Uxe(nEqn, 0:Nelx, 0:Nely)
       real(kind=RP), intent(in)     :: Uye(nEqn, 0:Nelx, 0:Nely)
@@ -449,7 +451,7 @@
                Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Uye(:,l,j)
                Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Uze(:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             Uxf = 0.0_RP
             Uyf = 0.0_RP
@@ -459,12 +461,12 @@
                Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Uye(:,i,l)
                Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Uze(:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             Uxf = 0.0_RP
             Uyf = 0.0_RP
             Uzf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)
                do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
                   Uxf(:,i,j) = Uxf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
                                             * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
@@ -485,9 +487,9 @@
                    Uzf => self % storage(2) % U_z   )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-            Uxe_rot(:,i,j) = Uxe(:,ii,jj) 
-            Uye_rot(:,i,j) = Uye(:,ii,jj) 
-            Uze_rot(:,i,j) = Uze(:,ii,jj) 
+            Uxe_rot(:,i,j) = Uxe(:,ii,jj)
+            Uye_rot(:,i,j) = Uye(:,ii,jj)
+            Uze_rot(:,i,j) = Uze(:,ii,jj)
          end do                        ; end do
 
          select case ( self % projectionType(2) )
@@ -504,7 +506,7 @@
                Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Uye_rot(:,l,j)
                Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Uze_rot(:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             Uxf = 0.0_RP
             Uyf = 0.0_RP
@@ -514,12 +516,12 @@
                Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Uye_rot(:,i,l)
                Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Uze_rot(:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             Uxf = 0.0_RP
             Uyf = 0.0_RP
             Uzf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)
                do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
                   Uxf(:,i,j) = Uxf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
                                             * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
@@ -565,16 +567,16 @@
             do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)
                AVf(:,i,j) = AVf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * AVn_e(:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             AVf = 0.0_RP
             do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
                AVf(:,i,j) = AVf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * AVn_e(:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             AVf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)
                do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
                   AVf(:,i,j) = AVf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
                                             * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
@@ -587,7 +589,7 @@
          associate( AVf => self % storage(2) % AviscFlux )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-            AVn_e_rot(:,i,j) = AVn_e(:,ii,jj) 
+            AVn_e_rot(:,i,j) = AVn_e(:,ii,jj)
          end do                        ; end do
 
          select case ( self % projectionType(2) )
@@ -598,16 +600,16 @@
             do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)
                AVf(:,i,j) = AVf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * AVn_e_rot(:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             AVf = 0.0_RP
             do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
                AVf(:,i,j) = AVf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * AVn_e_rot(:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             AVf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)
                do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
                   AVf(:,i,j) = AVf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
                                             * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
@@ -650,16 +652,16 @@
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
                   fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * flux(:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                fStar(1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
                   fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * flux(:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                fStar(1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
                      fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
@@ -670,11 +672,11 @@
             end associate
 
          case (2)    ! Prolong to right element
-!      
+!
 !           *********
 !           1st stage: Projection
 !           *********
-!      
+!
             select case ( self % projectionType(2) )
             case (0)
                fStarAux(1:nEqn,:,:) = flux
@@ -683,16 +685,16 @@
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
                   fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * flux(:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                fStarAux(1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                   fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * flux(:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                fStarAux(1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
                      fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
@@ -700,15 +702,15 @@
                   end do                 ; end do
                end do                  ; end do
             end select
-!      
+!
 !           *********
 !           2nd stage: Rotation
 !           *********
-!      
+!
             associate(fStar => self % storage(2) % Fstar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
+               fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j)
             end do                        ; end do
 !
 !           *********
@@ -722,7 +724,7 @@
       end do
 
    end subroutine Face_ProjectFluxToElements
-#if defined(NAVIERSTOKES) 
+#if defined(NAVIERSTOKES)
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -743,11 +745,11 @@
 !     ---------------
 !
       integer                :: i, j, l, m
-      
+
 !     Always project to left element (this is only for boundaries)
 !     ------------------------------------------------------------
       associate(BCJac => self % storage(1) % BCJac)
-      
+
       select case ( self % projectionType(1) )
          case (0)
             BCJac(1:nEqn,1:nEqn,:,:) = BCJacF
@@ -757,17 +759,17 @@
                BCJac(1:nEqn,1:nEqn,i,j) = BCJac(1:nEqn,1:nEqn,i,j) &
                                                             + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * BCJacF(:,:,l,j)
             end do                  ; end do                   ; end do
-            
+
          case (2)
             BCJac(1:nEqn,1:nEqn,:,:) = 0._RP
             do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
                BCJac(1:nEqn,1:nEqn,i,j) = BCJac(1:nEqn,1:nEqn,i,j) &
                                                             + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * BCJacF(:,:,i,l)
             end do                  ; end do                   ; end do
-   
+
          case (3)
             BCJac(1:nEqn,1:nEqn,:,:) = 0._RP
-            do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+            do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)
                do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
                   BCJac(1:nEqn,1:nEqn,i,j) = BCJac(1:nEqn,1:nEqn,i,j) &
                                                            +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
@@ -776,12 +778,12 @@
                end do                 ; end do
             end do                  ; end do
       end select
-      
+
       end associate
    end subroutine Face_ProjectBCJacobianToElements
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!            
+!
    subroutine Face_ProjectFluxJacobianToElements(self, nEqn, whichElement,whichderiv)
       use MappedGeometryClass
       use PhysicsStorage
@@ -798,9 +800,9 @@
       integer                :: i, j, ii, jj, l, m, side
       real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
       real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-      
+
       fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
-      
+
       select case ( whichElement )
          case (LEFT)    ! Prolong to left element
             associate(dFStar_dq => self % storage(1) % dFStar_dqEl)
@@ -813,17 +815,17 @@
                   dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                                + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
                   dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                                + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = 0._RP
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
                      dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                               +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
@@ -835,11 +837,11 @@
             end associate
 
          case (RIGHT)    ! Prolong to right element
-!      
+!
 !           *********
 !           1st stage: Projection
 !           *********
-!      
+!
             select case ( self % projectionType(2) )
             case (0)
                fStarAux(1:nEqn,1:nEqn,:,:) = fluxDeriv
@@ -848,16 +850,16 @@
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
                   fStarAux(1:nEqn,1:nEqn,i,j) = fStarAux(1:nEqn,1:nEqn,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                fStarAux(1:nEqn,1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                   fStarAux(1:nEqn,1:nEqn,i,j) = fStarAux(1:nEqn,1:nEqn,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                fStarAux(1:nEqn,1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
                      fStarAux(1:nEqn,1:nEqn,i,j) = fStarAux(1:nEqn,1:nEqn,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
@@ -865,15 +867,15 @@
                   end do                 ; end do
                end do                  ; end do
             end select
-!      
+!
 !           *********
 !           2nd stage: Rotation
 !           *********
-!      
+!
             associate(dFStar_dq => self % storage(2) % dFStar_dqEl)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               dFStar_dq(1:nEqn,1:nEqn,ii,jj,whichderiv) = fStarAux(1:nEqn,1:nEqn,i,j) 
+               dFStar_dq(1:nEqn,1:nEqn,ii,jj,whichderiv) = fStarAux(1:nEqn,1:nEqn,i,j)
             end do                        ; end do
 !
 !           *********
@@ -883,7 +885,7 @@
             dFStar_dq = -dFStar_dq
             end associate
       end select
-      
+
 
    end subroutine Face_ProjectFluxJacobianToElements
 !
@@ -919,16 +921,16 @@
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
                   unStar(:,:,i,j) = unStar(:,:,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * Hflux(:,:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                unStar(:,:,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
                   unStar(:,:,i,j) = unStar(:,:,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * Hflux(:,:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                unStar(:,:,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
                      unStar(:,:,i,j) = unStar(:,:,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
@@ -939,11 +941,11 @@
             end associate
 
          case (2)    ! Prolong from right element
-!      
+!
 !           *********
 !           1st stage: Projection
 !           *********
-!      
+!
             select case ( self % projectionType(2) )
             case (0)
                HstarAux = Hflux
@@ -952,16 +954,16 @@
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
                   HstarAux(:,:,i,j) = HstarAux(:,:,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * Hflux(:,:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                HstarAux = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                   HstarAux(:,:,i,j) = HstarAux(:,:,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * Hflux(:,:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                HstarAux = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
                      HstarAux(:,:,i,j) = HstarAux(:,:,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
@@ -969,15 +971,15 @@
                   end do                 ; end do
                end do                  ; end do
             end select
-!      
+!
 !           *********
 !           2nd stage: Rotation
 !           *********
-!      
+!
             associate(unStar => self % storage(2) % unStar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               unStar(:,:,ii,jj) = HstarAux(:,:,i,j) 
+               unStar(:,:,ii,jj) = HstarAux(:,:,i,j)
             end do                        ; end do
 !
 !           *********
@@ -1007,15 +1009,15 @@
       integer                :: i, j, ii, jj, l, m, side
       real(kind=RP), pointer :: fluxDeriv(:,:,:,:,:)
       real(kind=RP)          :: fStarAux(NCONS,NCONS,1:NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
-      
+
       !---------------------------------------------------------
-      
+
       fluxDeriv(1:,1:,1:,0:,0:) => self % storage(whichderiv) % dFv_dGradQF
-      
+
       select case ( whichElement )
          case (LEFT)    ! Prolong to left element
             associate(dFv_dGradQEl => self % storage(1) % dFv_dGradQEl)
-            
+
             select case ( self % projectionType(1) )
             case (0)
                dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:,whichderiv) = fluxDeriv
@@ -1025,17 +1027,17 @@
                   dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) &
                                                                           + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:,whichderiv) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
                   dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) &
                                                                           + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:,whichderiv) = 0._RP
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
                      dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) &
                                                                                    +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
@@ -1044,15 +1046,15 @@
                   end do                 ; end do
                end do                  ; end do
             end select
-            
+
             end associate
 
          case (RIGHT)    ! Prolong to right element
-!      
+!
 !           *********
 !           1st stage: Projection
 !           *********
-!      
+!
             select case ( self % projectionType(2) )
             case (0)
                fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = fluxDeriv
@@ -1061,16 +1063,16 @@
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
                   fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,:,l,j)
                end do                  ; end do                   ; end do
-               
+
             case (2)
                fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                   fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,:,i,l)
                end do                  ; end do                   ; end do
-      
+
             case (3)
                fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
                      fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
@@ -1078,16 +1080,16 @@
                   end do                 ; end do
                end do                  ; end do
             end select
-!      
+!
 !           *********
 !           2nd stage: Rotation
 !           *********
-!      
+!
             associate(dFv_dGradQEl => self % storage(2) % dFv_dGradQEl)
-            
+
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,ii,jj,whichderiv) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) 
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,ii,jj,whichderiv) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j)
             end do                        ; end do
 !
 !           *********
@@ -1095,11 +1097,11 @@
 !           *********
 !
             dFv_dGradQEl = -dFv_dGradQEl
-            
+
             end associate
       end select
-      
-      
+
+
    end subroutine Face_ProjectGradJacobianToElements
 #endif
 !
@@ -1141,7 +1143,7 @@
          end do        ; end do        ; end do
 
       end select
-      
+
       end SUBROUTINE InterpolateToBoundary
 !
 !////////////////////////////////////////////////////////////////////////
@@ -1150,8 +1152,8 @@
          implicit none
          class(Face), intent(inout) :: to
          class(Face), intent(in)    :: from
-         
-         
+
+
          to % flat = from % flat
          to % ID = from % ID
          to % FaceType = from % FaceType
@@ -1175,189 +1177,387 @@
          use MPI_Process_Info
          use FluidData
          use PhysicsStorage
-         use VariableConversion, only:Pressure
-         implicit none 
+         implicit none
 
-         class(face),   intent(inout) :: self 
+         class(face),   intent(inout) :: self
          real(kind=RP), intent(inout) :: Q(nEqn,0:Nelx,0:Nely)
-         integer,       intent(in)    :: sideOut, eID, nEqn, Nelx, Nely 
+         integer,       intent(in)    :: sideOut, eID, nEqn, Nelx, Nely
 
          real(kind=RP) :: rho, T, p, u2, v2, w2
-         integer       :: i, j, side, domain 
+         integer       :: i, j, side, domain
 
-         side = self% HOSIDE 
+         side = self% HOSIDE
 
-         if( side .eq. sideOut ) then 
-            domain = self% domain 
+         if( side .eq. sideOut ) then
+            domain = self% domain
             associate( f => IBM_HO_faces(domain)% faces(self% HO_ID) )
             do i = 0, Nelx; do j = 0, Nely
 #if defined(NAVIERSTOKES)
-               rho = f% stencil(i,j)% rho
-               P   = f% stencil(i,j)% p 
-
-               Q(IRHO ,i,j) = rho
-               Q(IRHOU,i,j) = f% stencil(i,j)% rhou 
-               Q(IRHOV,i,j) = f% stencil(i,j)% rhov 
-               Q(IRHOW,i,j) = f% stencil(i,j)% rhow 
-
-               u2 = f% stencil(i,j)% rhou**2
-               v2 = f% stencil(i,j)% rhov**2
-               w2 = f% stencil(i,j)% rhow**2
-
-               Q(IRHOE,i,j) = p/(thermodynamics% gamma - 1._RP) + &
-                              0.5_RP / rho * ( u2 + v2 + w2 ) 
+               Q(IRHOU:IRHOW,i,j) = f% stencil(i,j)% U
+               Q(IRHOE,i,j)       = f% stencil(i,j)% Et
 #endif
-            end do; end do    
-            end associate      
-         end if 
-         
+            end do; end do
+            end associate
+         end if
+
          end subroutine Face_HO_IBM_correction
+
+         subroutine Face_HO_IBM_Statecorrection( self, sideIn, sideOut )
+            use FluidData
+            use PhysicsStorage
+#if defined(NAVIERSTOKES)
+            use VariableConversion, only:Pressure
+#endif 
+            implicit none
+
+            class(face), intent(inout) :: self
+            integer,     intent(in)    :: sideIn, sideOut
+
+            real(kind=RP) :: rho, p, T
+            real(kind=RP) :: u2, v2, w2
+            integer       :: i, j
+#if defined(NAVIERSTOKES)
+            do i = 0, self% Nf(1); do j = 0, self% Nf(2)
+               rho = self% storage(sideIn)% Q(IRHO,i,j)
+               p   = Pressure(self% storage(sideIn)% Q(:,i,j))
+               
+               self% storage(sideOut)% Q(IRHO ,i,j)       = rho
+               self% storage(sideOut)% Q(IRHOU:IRHOW,i,j) = 2.0_RP*rho * self% storage(sideOut)% Q(IRHOU:IRHOW,i,j) - self% storage(sideIn)% Q(IRHOU:IRHOW,i,j)
+               u2  = self% storage(sideOut)% Q(IRHOU,i,j)**2/rho
+               v2  = self% storage(sideOut)% Q(IRHOV,i,j)**2/rho
+               w2  = self% storage(sideOut)% Q(IRHOW,i,j)**2/rho 
+               self% storage(sideOut)% Q(IRHOE,i,j)       = rho * self% storage(sideOut)% Q(IRHOE,i,j) !- self% storage(sideIn)% Q(IRHOE,i,j)! p/thermodynamics% gammaMinus1 + 0.5_RP * (u2 + v2 + w2) !
+            end do; end do
+#endif
+         end subroutine Face_HO_IBM_Statecorrection
 
          subroutine Face_HO_IBM_Gradcorrection( self, sideIn, sideOut )
 
-            implicit none 
+            implicit none
 
-            class(face), intent(inout) :: self 
+            class(face), intent(inout) :: self
             integer,     intent(in)    :: sideIn, sideOut
 
-            integer :: i, j 
-            
-            do i = 0, self% Nf(1); do j = 0, self% Nf(2) 
-               self% storage(sideOut)% U_x(:,i,j) = self% storage(sideIn)% U_x(:,i,j) 
-               self% storage(sideOut)% U_y(:,i,j) = self% storage(sideIn)% U_y(:,i,j) 
-               self% storage(sideOut)% U_z(:,i,j) = self% storage(sideIn)% U_z(:,i,j) 
-            end do; end do    
+            integer :: i, j
+
+            do i = 0, self% Nf(1); do j = 0, self% Nf(2)
+               self% storage(sideOut)% U_x(:,i,j) = self% storage(sideIn)% U_x(:,i,j)
+               self% storage(sideOut)% U_y(:,i,j) = self% storage(sideIn)% U_y(:,i,j)
+               self% storage(sideOut)% U_z(:,i,j) = self% storage(sideIn)% U_z(:,i,j)
+            end do; end do
 
          end subroutine Face_HO_IBM_Gradcorrection
-! STENCIL PROCEDURES 
 
-      subroutine face_StencilConstruct( this )
+         SUBROUTINE  Face_HO_IBM_HO_LxF( this, nEqn, QIn, QEx, nSrf, nHat, t1, t2, flux )
+            use FluidData
+            use PhysicsStorage
+#if defined(NAVIERSTOKES)
+            use VariableConversion, only: Pressure
+#endif
+            implicit none
+
+            class(face),   intent(inout) :: this
+            integer,       intent(in)    :: nEqn 
+            real(kind=RP), intent(in)    :: QIn(nEqn)
+            real(kind=RP), intent(in)    :: QEx(nEqn)
+            real(kind=RP), intent(in)    :: nHat(NDIM), nSrf(NDIM)
+            real(kind=RP), intent(in)    :: t1(NDIM)
+            real(kind=RP), intent(in)    :: t2(NDIM)
+            real(kind=RP), intent(out)   :: flux(nEqn)
+
+            real(kind=RP)  :: rho, PIn, PEx, UIn(NDIM), UEx(NDIM), UIn_n, UEx_n, aIn, aEx 
+            real(kind=RP)  :: FIn(nEqn), FEx(nEqn)
+            real(kind=RP)  :: lambda, stab(nEqn)
+#if defined(NAVIERSTOKES)
+            associate(gamma => thermodynamics % gamma)
+   
+            rho = QIn(1)
+            PIn = Pressure(QIn)
+            PEx = Pressure(QEx)
+
+            FIn = normalFlux(nEqn, QIn, PIn, nHat)
+            FEx = normalFlux(nEqn, QEx, PEx, nHat)
+
+            aIn = sqrt(gamma * PIn / rho)
+            aEx = sqrt(gamma * PEx / rho)
+
+            UIn = QIn(2:4)/rho  
+            UEx = QEx(2:4)/rho
+
+            UIn_n = dot_product( UIn, nHat )
+            UEx_n = dot_product( UEx, nHat )
+
+            lambda = max(abs(UIn_n) + aIn,abs(UEx_n) + aEx)
+
+            stab = 0.5_RP * lambda * (QEx - QIn)
+            if( this% HOSIDE .eq. LEFT ) stab = -stab 
+
+            flux = 0.5_RP * (FIn + FEx)
+            flux = flux - stab 
+      
+         end associate
+#endif
+      END SUBROUTINE Face_HO_IBM_HO_LxF
+
+      function normalFlux( nEqn, Q, P, v ) result( F )
 
          implicit none 
 
-         class(face), intent(inout) :: this 
+         integer,       intent(in) :: nEqn 
+         real(kind=RP), intent(in) :: Q(nEqn)
+         real(kind=RP), intent(in) :: P, v(NDIM)
+         real(kind=RP)             :: F(nEqn)
 
-         integer :: i, j, N 
+         real(kind=RP) :: rho, Uv, U(NDIM)
+
+         rho = Q(1)
+         U   = Q(2:4)/rho 
+         Uv  = dot_product(U,v)
+
+         F(1)   = rho * Uv
+         F(2:4) = rho * Uv * U + P * v
+         F(5)   = (Q(5) + P) * Uv
+
+      end function normalFlux
+! STENCIL PROCEDURES
+
+      subroutine face_StencilConstruct( this )
+
+         implicit none
+
+         class(face), intent(inout) :: this
+
+         integer :: i, j, N
 
          allocate( this% stencil(0:this% Nf(1),0:this% Nf(2)) )
 
-         N = max(this% Nf(1),this% Nf(2))
+         N = max(this% Nf(1),this% Nf(2)) 
 
-         do i = 0, this% Nf(1); do j = 0, this% Nf(2) 
-            this% stencil(i,j)% N = N 
-            allocate( this% stencil(i,j)% Q(NCONS,0:N) ) 
-            if( .not. allocated(this% stencil(i,j)% x_s)  ) allocate(this% stencil(i,j)% x_s(NDIM,0:N)) 
-            if( .not. allocated(this% stencil(i,j)% xi_s) ) allocate(this% stencil(i,j)% xi_s(NDIM,0:N))  
-            if( .not. allocated(this% stencil(i,j)% eIDs) ) allocate(this% stencil(i,j)% eIDs(0:N)) 
-         end do; end do 
-         
+         do i = 0, this% Nf(1); do j = 0, this% Nf(2)
+            this% stencil(i,j)% N = N
+            allocate( this% stencil(i,j)% Q(NCONS,0:N) )
+            if( .not. allocated(this% stencil(i,j)% x_s)  ) allocate(this% stencil(i,j)% x_s(NDIM,0:N) )
+            if( .not. allocated(this% stencil(i,j)% xi_s) ) allocate(this% stencil(i,j)% xi_s(NDIM,0:N))
+            if( .not. allocated(this% stencil(i,j)% eIDs) ) allocate(this% stencil(i,j)% eIDs(0:N)     )
+         end do; end do
+
       end subroutine face_StencilConstruct
 
       subroutine stencil_build( this, x0, normal, L, N )
 
-         implicit none 
+         implicit none
 
-         class(stencil_t), intent(inout) :: this 
-         real(kind=RP),    intent(in)    :: x0(NDIM), normal(NDIM), L 
-         integer,          intent(in)    :: N 
+         class(stencil_t), intent(inout) :: this
+         real(kind=RP),    intent(in)    :: x0(NDIM), normal(NDIM), L
+         integer,          intent(in)    :: N
 
-         real(kind=RP) :: xi 
-         integer       :: i 
+         real(kind=RP) :: xi
+         integer       :: i
 
-         allocate( this% x_s(NDIM,0:N),  &  
-                   this% xi_s(NDIM,0:N), &  
-                   this% eIDs(0:N)       )  
+         allocate( this% x_s(NDIM,0:N+1),  & 
+                   this% xi_s(NDIM,0:N+1), & 
+                   this% eIDs(0:N+1)       ) 
 
-         do i = 0, N 
-            xi = NodalStorage(N)% x(i)
-            this% x_s(:,i) = x0 + 0.5_RP * (1.0_RP + xi) * L * normal 
-         end do 
+         do i = 0, N
+            xi               = NodalStorage(N)% x(i)
+            this% x_s(:,i+1) = x0 + 0.5_RP * (1.0_RP + xi) * L * normal
+         end do
 
       end subroutine stencil_build
 
-      subroutine stencil_ComputeState( this )
-         use VariableConversion, only:Pressure, temperature
-
+      subroutine stencil_ComputeState( this, nHat, t1, t2 )
+#if defined(NAVIERSTOKES)
+         use VariableConversion, only: Pressure, temperature
+#endif 
+         use FluidData
+         use PhysicsStorage
          use PolynomialInterpAndDerivsModule
-         implicit none 
+         use MappedGeometryClass
+         implicit none
 
-         class(stencil_t), intent(inout) :: this 
+         class(stencil_t), intent(inout) :: this
+         real(kind=RP),    intent(inout) :: nHat(NDIM)
+         real(kind=RP),    intent(inout) :: t1(NDIM), t2(NDIM)
 
-         real(kind=RP)                 :: rhou_s, rhov_s, rhow_s, u_s, v_s, w_s, rho_s, p_s, T_s
-         real(kind=RP)                 :: rhou0, rhov0, rhow0, u0, v0, w0, rho0, p0, drho0, dP_s, dT0, dP0, drhou0, drhov0, drhow0
-         real(kind=RP)                 :: rhouB, rhovB, rhowB, uB, vB, wB, drhoB, dpB, dTB, p(0:this% N)
-         real(kind=RP)                 :: lj(0:this% N), dlj(0:this% N), T(0:this% N), du, dv, dw 
-         integer                       :: i, N 
+         real(kind=RP)                 :: rhou_s, rhov_s, rhow_s, T_s
+         real(kind=RP)                 :: rhou0, rhov0, rhow0, dT0
+         real(kind=RP)                 :: rhouB, rhovB, rhowB, dTB
+         real(kind=RP)                 :: rhou_n, rhou_t, rhou_t2
+         real(kind=RP)                 :: rhou_n_s, rhou_t_s, rhou_t2_s
+         real(kind=RP)                 :: lj(0:this% N), dlj(0:this% N), T(0:this% N), xi0
+         real(kind=RP)                 :: nodes(0:this% N), U(NDIM,0:this% N)
+         real(kind=RP)                 :: Un(0:this% N), Ut(0:this% N), Ut2(0:this% N), tg(NDIM), tg2(NDIM)
+         integer                       :: i, N
          type(NodalStorage_t), pointer :: spA
-
-         real(kind=RP)                 :: nodes(0:this% N), dljj(0:this% N+1), ljj(0:this% N+1)
-         integer :: j
-#if defined(NAVIERSTOKES)     
-         N = this% N 
+#if defined(NAVIERSTOKES)
+         associate(gammaM2       => dimensionless % gammaM2,  &
+                   gammaMinus1 => thermodynamics% gammaMinus1 )
          
+         N = this% N
+
          rhouB = 0.0_RP
          rhovB = 0.0_RP
          rhowB = 0.0_RP
-         drhoB = 0.0_RP
-         dpB   = 0.0_RP
+         dTB   = 0.0_RP
+         
+         rhou0 = rhouB
+         rhov0 = rhovB
+         rhow0 = rhowB
+         dT0   = dTB
 
-         rho0   = 0.0_RP
-         rhou0  = 0.0_RP
-         rhov0  = 0.0_RP
-         rhow0  = 0.0_RP
-         p0     = 0.0_RP
-
-         do i = 0, N 
-            p(i) = Pressure(this% Q(:,i))
+         do i = 0, N
+            T(i) = Temperature(this% Q(:,i))
          end do
+
+         spA => NodalStorage(N-1) 
+
+         do i = 0, N-1
+            xi0        = this% dl + 0.5_RP*(1.0_RP + spA% x(i)) * this% L 
+            nodes(i+1) = xi0!2.0_RP * xi0/(this% dl + this% L) - 1.0_RP
+         end do
+
+         nodes(0) = this% d!2.0_RP * this% d/(this% dl + this% L) - 1.0_RP
+         xi0      = this% d!2.0_RP * this% d/(this% dl + this% L) - 1.0_RP
+
+         do i = 0, N
+            lj(i) = LagrangeInterpolatingPolynomial( i, xi0, N, nodes )
+         end do
+
+         call PolyDerivativeVector( xi0, N, nodes, dlj )
+         
+         if( this% wallfunction ) then 
+            do i = 0, N 
+               U(:,i) = this% Q(IRHOU:IRHOW,i)/this% Q(IRHO,i)
+               U(:,i) = dot_product(U(:,i),nHat) * nHat 
+            end do 
+         else  
+            do i = 0, N 
+               U(:,i) = this% Q(IRHOU:IRHOW,i)/this% Q(IRHO,i)
+            end do 
+            tg = U(:,N) - Un(N) * this% normal
+            tg = tg/norm2(tg)
+            call vcross(this% normal,tg,tg2)
+            tg2 = tg2/norm2(tg2)
+         end if
+         
+         do i = 1, N
+            rhou0 = rhou0 - U(IX,i) * lj(i)
+            rhov0 = rhov0 - U(IY,i) * lj(i)
+            rhow0 = rhow0 - U(IZ,i) * lj(i)
+            dT0   = dT0   - T(i)    * dlj(i)
+         end do
+
+         U(IX,0) = rhou0/lj(0)
+         U(IY,0) = rhov0/lj(0)
+         U(IZ,0) = rhow0/lj(0)
+         T(0)    = dT0/dlj(0)
+
+         xi0 = 0.0_RP
+         do i = 0, N
+            lj(i) = LagrangeInterpolatingPolynomial( i, xi0, N, nodes )
+         end do
+
+         rhou_s = 0.0_RP
+         rhov_s = 0.0_RP
+         rhow_s = 0.0_RP
+         T_s    = 0.0_RP 
+
+         do i = 0, N
+            rhou_s = rhou_s + U(IX,i) * lj(i)
+            rhov_s = rhov_s + U(IY,i) * lj(i)
+            rhow_s = rhow_s + U(IZ,i) * lj(i)
+            T_s    = T_s    + T(i)    * lj(i)
+         end do 
+
+         this% rhou = rhou_s
+         this% rhov = rhov_s 
+         this% rhow = rhow_s 
+         this% Et   = T_s/(gammaM2*gammaMinus1) 
+
+         ! nHat = this% normal
+         end associate
+#endif
+      end subroutine stencil_ComputeState
+
+      subroutine stencil_ComputeWallFunction( this )
+         use FluidData
+         use PhysicsStorage
+#if defined(NAVIERSTOKES)
+         use WallFunctionDefinitions
+         use WallFunctionBC
+#endif
+         implicit none
+
+         class(stencil_t), intent(inout) :: this
+
+         real(kind=RP)                 :: U_ref(NDIM), u_parallel(NDIM), x_II(NDIM), nHAt(NDIM), u_II
+         real(kind=RP)                 :: nu, mu, kappaL, dWall, u_t, u_s, v_s, w_s, u_tau, xi0
+         real(kind=RP)                 :: nodes(0:this% N), U(NDIM,0:this% N), lj(0:this% N)
+         integer                       :: i, N
+         type(NodalStorage_t), pointer :: spA
+#if defined(NAVIERSTOKES)
+         N = this% N 
+
+         nHat = this% normal 
+
+         ! use point 1 to get t_w 
+         U_ref      = this% Q(IRHOU:IRHOW,1)/this% Q(IRHO,1)
+         u_parallel = U_ref - (dot_product(U_ref, nHat) * nHat)
+         x_II       = u_parallel / norm2(u_parallel)
+         u_II       = dot_product(U_ref, x_II)
+
+         dWall = this% dl + 0.5_RP*(1.0_RP + spA% x(1)) * this% L
+         
+         call get_laminar_mu_kappa(this% Q(:,1), mu, kappaL)
+         nu = mu/this% Q(IRHO,1)
+
+         u_tau = u_tau_f(u_II, dWall, nu, u_tau0=.1_RP)
+
+         ! compute the velocity on node 0
+         call get_laminar_mu_kappa(this% Q(:,0), mu, kappaL) !prob
+         nu = mu/this% Q(IRHO,0)
+
+         dWall = this% dl + 0.5_RP*(1.0_RP + spA% x(0)) * this% L
+
+         u_t = u_plus_f(y_plus_f(dWall, u_tau, nu)) * u_tau
+
+         U(:,0) = u_t * x_II
+         do i = 1, N 
+            U_ref  = this% Q(IRHOU:IRHOW,i)/this% Q(IRHO,i)
+            U(:,i) = U_ref - (dot_product(U_ref, nHat) * nHat) 
+         end do 
 
          spA => NodalStorage(N) 
 
-         lj  = spA% lj(this% xiB)
-         dlj = spA% dlj(this% xiB)
+         do i = 0, N
+            xi0      = this% dl + 0.5_RP*(1.0_RP + spA% x(i)) * this% L 
+            nodes(i) = 2.0_RP * xi0/(this% dl + this% L) - 1.0_RP
+         end do
+         
+         do i = 0, N
+            lj(i) = LagrangeInterpolatingPolynomial( i, -1.0_RP, N, nodes )
+         end do
 
-         do i = 0, N-1
-            rho0  = rho0  - this% Q(IRHO, i) * dlj(i) 
-            rhou0 = rhou0 - this% Q(IRHOU,i) * lj(i) 
-            rhov0 = rhov0 - this% Q(IRHOV,i) * lj(i) 
-            rhow0 = rhow0 - this% Q(IRHOW,i) * lj(i) 
-            p0    = p0    - p(i) * dlj(i) 
+         u_s = 0.0_RP
+         v_s = 0.0_RP
+         w_s = 0.0_RP
+
+         do i = 0, N 
+            u_s = u_s + U(IX,i) * lj(i)
+            v_s = v_s + U(IY,i) * lj(i)
+            w_s = w_s + U(IZ,i) * lj(i)
          end do 
 
-         rho0  = rho0/dlj(N)
-         rhou0 = rhou0/lj(N)
-         rhou0 = rhou0/lj(N)
-         rhou0 = rhou0/lj(N)
-         p0    = p0/dlj(N)
-
-         lj  = spA% lj(this% xiI)
-         dlj = spA% dlj(this% xiI)
-
-         rho_s  = rho0  * lj(N)
-         rhou_s = rhou0 * lj(N)
-         rhov_s = rhov0 * lj(N)
-         rhow_s = rhow0 * lj(N)
-         p_s    = p0    * lj(N)
-
-         do i = 0, N-1 
-            rho_s  = rho_s  + this% Q(IRHO ,i) * lj(i)
-            rhou_s = rhou_s + this% Q(IRHOU,i) * lj(i)
-            rhov_s = rhov_s + this% Q(IRHOV,i) * lj(i)
-            rhow_s = rhow_s + this% Q(IRHOW,i) * lj(i)
-            p_s    = p_s    + p(i) * lj(i)
-         end do 
-
-         this% rho  = rho_s
-         this% rhou = rhou_s
-         this% rhov = rhov_s
-         this% rhow = rhow_s
-         this% p    = p_s
-#endif   
-      end subroutine stencil_ComputeState
+         ! add the correction for the tangential velocity
+         this% rhou = this% rhou + u_s
+         this% rhov = this% rhov + v_s
+         this% rhow = this% rhow + w_s
+#endif 
+      end subroutine stencil_ComputeWallFunction
 
       subroutine stencil_destroy( this )
 
-         implicit none 
+         implicit none
 
          class(stencil_t), intent(inout) :: this
 
@@ -1366,7 +1566,5 @@
                      this% eIDs  )
 
       end subroutine stencil_destroy
-
-
 
 end Module FaceClass

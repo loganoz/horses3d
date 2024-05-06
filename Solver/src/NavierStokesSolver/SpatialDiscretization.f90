@@ -19,7 +19,7 @@ module SpatialDiscretization
       use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY, &
                                     GetGradientValues_f, NSGradientVariables_ENERGY, get_laminar_mu_kappa, &
                                     set_getVelocityGradients
-      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
+      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f, UserDefinedVelocityIBMNS_f
       use BoundaryConditions
       use IBMClass
 #ifdef _HAS_MPI_
@@ -246,7 +246,7 @@ module SpatialDiscretization
 
          if( mesh % HO_IBM ) then 
             call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements )
-            call mesh% IBM% MPI_GatherStancilState( NCONS )
+            call mesh% IBM% MPI_GatherStancilState( mesh % faces, NCONS )
          end if 
 !
 !        -----------------------------------------
@@ -256,6 +256,7 @@ module SpatialDiscretization
 !$omp parallel shared(mesh, time)
          call mesh % ProlongSolutionToFaces(NCONS)
 
+         if( mesh % HO_IBM ) call mesh % SetIBM_HOState(NCONS)
 !        ----------------
 !        Update MPI Faces
 !        ----------------
@@ -357,14 +358,15 @@ module SpatialDiscretization
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
-         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+         procedure(UserDefinedSourceTermNS_f)  :: UserDefinedSourceTermNS
+         procedure(UserDefinedVelocityIBMNS_f) :: UserDefinedVelocityIBMNS
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer        :: eID , i, j, k, ierr, fID, iFace, iEl, domain, STLNum, n 
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS), Q_target(NCONS)
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), Q_target(NCONS), V(NDIM)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -476,8 +478,11 @@ module SpatialDiscretization
                call mesh % GatherMPIFacesSolution(NCONS)
             end if
 !$omp end single
-            if( mesh % HO_IBM ) call mesh % SetSharedIBM_HOGradients(NCONS)
-!
+            if( mesh % HO_IBM ) then 
+               call mesh % SetSharedIBM_HOState(NCONS)
+               call mesh % SetSharedIBM_HOGradients(NGRAD)
+            end if 
+               !
 !           Compute viscosity at MPI faces
 !           ------------------------------
             call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
@@ -497,7 +502,7 @@ module SpatialDiscretization
 !
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % faces_mpi)
-               fID = mesh % faces_mpi(iFace)
+               fID = mesh % faces_mpi(iFace) 
                call computeMPIFaceFlux(mesh % faces(fID))
             end do
 !$omp end do
@@ -612,7 +617,7 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
-         if(  mesh% IBM% HO_IBM ) then
+         if(  mesh% HO_IBM ) then
 !$omp do schedule(runtime) 
             do eID = 1, mesh % no_of_elements  
                associate ( e => mesh % elements(eID) ) 
@@ -622,15 +627,16 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-         if( mesh% IBM% active .AND. .NOT. mesh% IBM% HO_IBM ) then
+         if( mesh% IBM% active .AND. .NOT. mesh% HO_IBM ) then
             if( .not. mesh% IBM% semiImplicit ) then 
-!$omp do schedule(runtime) private(i,j,k,Source,Q_target)
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target,V)
                   do eID = 1, mesh % no_of_elements  
                      associate ( e => mesh % elements(eID) ) 
                      do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                         if( e% isInsideBody(i,j,k) ) then
                            if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                              Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
+                              call UserDefinedVelocityIBMNS( V, e% geom% x(:,i,j,k), mesh% IBM% dt, e% STL(i,j,k), refValues )
+                              Q_target = mesh% IBM% MaskVelocity( NCONS, e% storage% Q(:,i,j,k), V )
                               call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
                            else 
                               call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
@@ -1054,6 +1060,7 @@ module SpatialDiscretization
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
+         real(kind=RP) :: mu(3), ff(1:NCONS,NDIM)
 !
 !        ---------------------------
 !        Artificial viscosity fluxes
@@ -1080,7 +1087,7 @@ module SpatialDiscretization
                   mu_right(1) = f % storage(2) % mu_NS(1,i,j)
                   mu_right(2) = 0.0_RP
                   mu_right(3) = f % storage(2) % mu_NS(2,i,j)
-
+                  
                   call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                      EllipticFlux = ViscousFlux, &
                                                      f = f, &
@@ -1097,6 +1104,18 @@ module SpatialDiscretization
                                                      dWall = f % geom % dWall(i,j), &
                                                      flux  = visc_flux(:,i,j) )
 
+                  ! if( f% HO_IBM ) then 
+                  !    mu(1) = f% storage(f% HOSIDE)% mu_NS(1,i,j)
+                  !    mu(2) = 0.0_RP
+                  !    mu(3) = f% storage(f% HOSIDE)% mu_NS(2,i,j)
+                  !    call ViscousFlux( NCONS, NGRAD,                      &
+                  !                      f% storage(f% HOSIDE)% Q(:,i,j),   &
+                  !                      f% storage(f% HOSIDE)% U_x(:,i,j), &
+                  !                      f% storage(f% HOSIDE)% U_y(:,i,j), &
+                  !                      f% storage(f% HOSIDE)% U_z(:,i,j), &
+                  !                      mu(1), mu(2), mu(3), ff            )
+                  !    visc_flux(:,i,j) = ff(:,IX) * f% geom% normal(IX,i,j) + ff(:,IY) * f% geom% normal(IY,i,j) + ff(:,IZ) * f%geom% normal(IZ,i,j)
+                  ! end if 
                end do
             end do
          else
@@ -1116,6 +1135,17 @@ module SpatialDiscretization
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
+               if( f% HO_IBM ) then 
+                  Sidearray = (/2,1/)
+                  call f% HO_IBM_HO_LxF( nEqn   = NCONS,                                        &
+                                         QIn    = f % storage(Sidearray(f% HOSIDE)) % Q(:,i,j), &
+                                         QEx    = f % storage(f% HOSIDE) % Q(:,i,j),            &
+                                         nSrf   = f% stencil(i,j)% normal,                      &
+                                         nHat   = f % geom % normal(:,i,j),                     &
+                                         t1     = f % geom % t1(:,i,j),                         &
+                                         t2     = f % geom % t2(:,i,j),                         &
+                                         flux   = inv_flux(:,i,j)                               )
+               end if
 !
 !              Multiply by the Jacobian
 !              ------------------------
@@ -1209,6 +1239,17 @@ module SpatialDiscretization
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
+               if( f% HO_IBM ) then 
+                  Sidearray = (/2,1/)
+                  call f% HO_IBM_HO_LxF( nEqn   = NCONS,                                        &
+                                         QIn    = f % storage(Sidearray(f% HOSIDE)) % Q(:,i,j), &
+                                         QEx    = f % storage(f% HOSIDE) % Q(:,i,j),            &
+                                         nSrf   = f% stencil(i,j)% normal,                      &
+                                         nHat   = f % geom % normal(:,i,j),                     &
+                                         t1     = f % geom % t1(:,i,j),                         &
+                                         t2     = f % geom % t2(:,i,j),                         &
+                                         flux   = inv_flux(:,i,j)                               )
+               end if
 !
 !              Multiply by the Jacobian
 !              ------------------------

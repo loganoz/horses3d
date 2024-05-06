@@ -411,7 +411,6 @@
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
-
       use IBMClass
 
       IMPLICIT NONE
@@ -449,6 +448,8 @@
 
       logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
+
+      integer :: STLNum
 !
 !     ----------------------
 !     Read Control variables
@@ -607,6 +608,9 @@
 !        Moving Body IMMERSED BOUNDARY
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
+            do STLNum = 1, sem% mesh% IBM% NumOfSTL 
+               call MoveSTL( sem% mesh% IBM% stl(STLNum), dt, STLNum )
+            end do 
             call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
                                            sem% mesh% faces,                      &
                                            sem% mesh% NDOF, sem% mesh% child, dt, &
@@ -996,6 +1000,34 @@
       end select
 
    end function TimeIntegrator_CorrectDt
+
+   subroutine MoveSTL( STL, dt, STLNum )
+#if defined(NAVIERSTOKES)
+      use ProblemFileFunctions, only : UserDefinedPositionIBMNS_f
+#endif
+      use FluidData
+      use OrientedBoundingBox
+      implicit none 
+
+      class(STLfile), intent(inout) :: STL 
+      real(kind=RP),  intent(in)    :: dt 
+      integer,        intent(in)    :: STLNum
+      
+      integer                               :: i, j 
+#if defined(NAVIERSTOKES)
+      procedure(UserDefinedPositionIBMNS_f) :: UserDefinedPositionIBMNS
+
+      if( .not. STL% move ) return 
+
+      call OBB(STLNum)% ChangeObjsRefFrame( STL% ObjectsList, GLOBAL )
+      do i = 1, STL% NumOfObjs
+         do j = 1, NumOfVertices
+            call UserDefinedPositionIBMNS( STL% ObjectsList(i)% vertices(j)% coords, dt, STLNum, refValues )
+         end do 
+      end do
+      call STL% updateNormals()
+#endif
+   end subroutine MoveSTL
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !

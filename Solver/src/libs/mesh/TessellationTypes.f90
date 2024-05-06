@@ -101,7 +101,8 @@ module TessellationTypes
       type(Object_type), dimension(:), allocatable :: ObjectsList
       integer                                      :: NumOfObjs, partition,      &
                                                       motionAxis, body,          &
-                                                      NumOfObjs_OLD, motionType
+                                                      NumOfObjs_OLD, motionType, &
+                                                      MaxAxis
       real(kind=RP)                                :: angularVelocity, ds,       &
                                                       Velocity,                  & 
                                                       rotationMatrix(NDIM,NDIM), &
@@ -111,8 +112,6 @@ module TessellationTypes
    
        contains
          procedure :: ReadTessellation
-         procedure :: getRotationaMatrix    => STLfile_getRotationaMatrix
-         procedure :: getDisplacement       => STLfile_getDisplacement
          procedure :: Clip                  => STL_Clip
          procedure :: updateNormals         => STL_updateNormals
          procedure :: SetIntegration        => STL_SetIntegration
@@ -123,8 +122,6 @@ module TessellationTypes
          procedure :: Copy                  => STLfile_copy
          procedure :: plot                  => STLfile_plot
          procedure :: SetIntegrationPoints  => STL_SetIntegrationPoints
-         procedure :: rotate                => STLfile_Rotate
-         procedure :: translate             => STLfile_Translate
    end type
    
    type ObjsDataLinkedList_t
@@ -731,19 +728,7 @@ module TessellationTypes
          call SubSection_Header('Stl file "' // trim(fileName) // '"')
       
          write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
-         if( this% move ) then
-            if( this% motionType .eq. ROTATION ) then 
-               write(STD_OUT,'(30X,A)') "->" , "Motion: rotation" 
-               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Angular Velocity: " , this% angularVelocity, " rad/s."
-               write(STD_OUT,'(30X,A,A35,F10.3,A,F10.3,A,F10.3,A)') "->" , "Center of rotation: [" , this% rotationCenter(1), ',', & 
-                                                                                                     this% rotationCenter(2), ',', & 
-                                                                                                     this% rotationCenter(3), ']'
-            elseif( this% motionType .eq. LINEAR ) then
-               write(STD_OUT,'(30X,A)') "->" , "Motion: linear translation"
-               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity, " m/s."
-            end if
-            write(STD_OUT,'(30X,A,A35,I10)') "->" , "Axis of motion: " , this% motionAxis
-         end if
+         write(STD_OUT,'(30X,A,A35,L10)') "->" , "Moving: " , this% move
          
       end if
    
@@ -795,10 +780,15 @@ module TessellationTypes
       integer*2            :: padding
       real*4, dimension(3) :: norm, vertex
       character(len=80)    :: header
+      real(kind=RP)        :: max_x, max_y, max_z
+      real(kind=RP)        :: min_x, min_y, min_z
 
       NumOfVertices = 3 
       
       this% partition = 1
+
+      max_x = -huge(1.0_RP); max_y = -huge(1.0_RP); max_z = -huge(1.0_RP)
+      min_x =  huge(1.0_RP); min_y =  huge(1.0_RP); min_z =  huge(1.0_RP)
       
       funit = UnusedUnit()
       open(unit=funit,file='MESH/'//trim(filename)//'.stl',status='old',access='stream',form='unformatted', iostat=fileStat)
@@ -825,12 +815,20 @@ module TessellationTypes
          allocate(Objs(i)% vertices(NumOfVertices))
          do j = 1, NumOfVertices
             read(funit) vertex(1), vertex(2), vertex(3)
+            max_x = max(max_x, vertex(1))
+            max_y = max(max_y, vertex(2))
+            max_z = max(max_z, vertex(3))
+            min_x = min(min_x, vertex(1))
+            min_y = min(min_y, vertex(2))
+            min_z = min(min_z, vertex(3))
             Objs(i)% vertices(j)% coords = vertex  !/Lref -> always 1           
          end do
          read(funit) padding
          Objs(i)% index = i
          Objs(i)% NumOfVertices = NumOfVertices
          Objs(i)% partition = 1
+
+         this% MaxAxis = maxloc((/abs(max_x-min_x),abs(max_y-min_y),abs(max_z-min_z)/),dim=1)
       end do
         
       end associate   
@@ -975,209 +973,14 @@ module TessellationTypes
 
          call get_command_argument(1, paramFile)
          call readValueInRegion ( trim ( paramFile )  , "stl name"          , STL_name           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "type"              , motion_STL         , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "angular velocity"  , angularVelocity_STL, in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "velocity"          , Velocity_STL       , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "motion axis"       , motionAxis_STL     , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "rotation center x" , RC_x_STL           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "rotation center y" , RC_y_STL           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "rotation center z" , RC_z_STL           , in_label, "#end" ) 
-
+         
          if( trim(STLfilename) .ne. trim(STL_name) ) cycle
 
          this% move = .true.
 
-         select case( trim(motion_STL) )
-           case( "rotation" )
-               this% motionType = ROTATION
-            case( "linear" )
-               this% motionType = LINEAR
-            case default
-               print *, "STLfile_GetMotionInfo: motion not recognized. Available motions are ", ROTATION," or ",LINEAR,"."
-               error stop
-         end select
-         
-         if( allocated(angularVelocity_STL) ) then
-            this% angularVelocity = angularVelocity_STL
-         elseif( this% motionType .eq. ROTATION ) then
-            print *, "STLfile_GetMotionInfo: 'angular velocity' must be specified for ", ROTATION, " motion."
-            error stop            
-         end if
-         
-         if( allocated(Velocity_STL) ) then
-            this% Velocity = Velocity_STL
-         elseif( this% motionType .eq. LINEAR ) then
-            print *, "STLfile_GetMotionInfo: 'velocity' must be specified for ", LINEAR, " motion."
-            error stop            
-         end if
-         
-         if( allocated(motionAxis_STL) ) then
-            this% motionAxis = motionAxis_STL
-            if( this% motionAxis .gt. 3 .or. this% motionAxis .lt. 1 ) then
-               print *, "STLfile_GetMotionInfo: 'motion axis' =", this% motionAxis, " not valid:"
-               print *, "select 1 for x-axis, 2 for y-axis or 3 for z-axis."
-               error stop                
-            end if
-         elseif( this% move ) then
-            print *, "STLfile_GetMotionInfo: 'motion axis' must be specified."
-            error stop            
-         end if
-
-         if( this% motionType .eq. ROTATION ) then 
-            if( .not. allocated(RC_x_STL) ) then 
-               print *, "STLfile_GetMotionInfo: 'rotation center' must be specified."
-               error stop 
-            end if 
-            this% rotationCenter(1) = RC_x_STL
-            this% rotationCenter(2) = RC_y_STL
-            this% rotationCenter(3) = RC_z_STL
-         end if 
-         
-         return
-
       end do
  
    end subroutine STLfile_GetMotionInfo
-   
-   subroutine STLfile_getRotationaMatrix( this, t, angle )
-      use PhysicsStorage
-      use FluidData
-      implicit none
-      !-arguments-----------------------------
-      class(STLfile),           intent(inout):: this
-      real(kind=RP),            intent(in)   :: t
-      real(kind=RP),  optional, intent(in)   :: angle 
-      !-local-variables-----------------------
-      real(kind=RP) :: time, theta
-
-      if( present(angle) ) then 
-
-         this% rotationMatrix = 0.0_RP
-         theta = PI/180.0_RP*angle 
-
-         select case( this% motionAxis )
-            case( IX )
-               this% rotationMatrix(1,1) = 1.0_RP
-               this% rotationMatrix(2,2) = cos(theta)
-               this% rotationMatrix(2,3) = -sin(theta)
-               this% rotationMatrix(3,2) = sin(theta)
-               this% rotationMatrix(3,3) = cos(theta)
-            case( IY ) 
-               this% rotationMatrix(2,2) = 1.0_RP
-               this% rotationMatrix(1,1) = cos(theta)
-               this% rotationMatrix(1,3) = sin(theta)
-               this% rotationMatrix(3,1) = -sin(theta)
-               this% rotationMatrix(3,3) = cos(theta)
-            case( IZ )
-               this% rotationMatrix(3,3) = 1.0_RP
-               this% rotationMatrix(1,1) = cos(theta)
-               this% rotationMatrix(1,2) = -sin(theta)
-               this% rotationMatrix(2,1) = sin(theta)
-               this% rotationMatrix(2,2) = cos(theta)
-         end select
-         return
-      end if     
-#if defined(NAVIERSTOKES)
-      time = t * Lref/refValues% V
-   
-      theta = this% angularVelocity * time
-   
-      this% rotationMatrix = 0.0_RP
-   
-      select case( this% motionAxis )
-         case( IX )
-            this% rotationMatrix(1,1) = 1.0_RP
-            this% rotationMatrix(2,2) = cos(theta)
-            this% rotationMatrix(2,3) = -sin(theta)
-            this% rotationMatrix(3,2) = sin(theta)
-            this% rotationMatrix(3,3) = cos(theta)
-         case( IY ) 
-            this% rotationMatrix(2,2) = 1.0_RP
-            this% rotationMatrix(1,1) = cos(theta)
-            this% rotationMatrix(1,3) = sin(theta)
-            this% rotationMatrix(3,1) = -sin(theta)
-            this% rotationMatrix(3,3) = cos(theta)
-         case( IZ )
-            this% rotationMatrix(3,3) = 1.0_RP
-            this% rotationMatrix(1,1) = cos(theta)
-            this% rotationMatrix(1,2) = -sin(theta)
-            this% rotationMatrix(2,1) = sin(theta)
-            this% rotationMatrix(2,2) = cos(theta)
-      end select
-#endif       
-   end subroutine STLfile_getRotationaMatrix
-   
-   subroutine STLfile_getDisplacement( this, t )
-      use FluidData
-      use PhysicsStorage
-      implicit none
-      !-arguments-----------------------------
-      class(STLfile), intent(inout):: this
-      real(kind=RP),  intent(in)   :: t
-
-      real(kind=RP) :: time 
-#if defined(NAVIERSTOKES)
-      time = t * Lref/refValues% V
-   
-      this% ds = this% Velocity * time
-
-      this% ds = this% ds/Lref
-#endif
-   end subroutine STLfile_getDisplacement
-
-   subroutine STLfile_Rotate( this, surface ) 
-
-      implicit none 
-
-      class(STLfile), intent(inout) :: this 
-      logical,        intent(in)    :: surface 
-
-      integer       :: NumOfPoints, i, j, Vertices
-
-      NumOfPoints = NumOfVertices * this% NumOfObjs
-
-      if( surface ) then 
-         Vertices = NumOfVertices + 4
-      else
-         Vertices = NumOfVertices
-      end if
-!$omp parallel 
-!$omp do schedule(runtime) private(j)
-      do i = 1, this% NumOfObjs
-         do j = 1, Vertices
-            this% ObjectsList(i)% vertices(j)% coords = matmul( this% rotationMatrix, this% ObjectsList(i)% vertices(j)% coords - this% rotationCenter )   
-            this% ObjectsList(i)% vertices(j)% coords = this% ObjectsList(i)% vertices(j)% coords + this% rotationCenter
-         end do
-      end do
-!$omp end do 
-!$omp end parallel   
-   end subroutine STLfile_Rotate 
-
-   subroutine STLfile_Translate( this, surface ) 
-
-      implicit none 
-
-      class(STLfile), intent(inout) :: this 
-      logical,        intent(in)    :: surface 
-
-      integer :: NumOfPoints, i, j, Vertices
-
-      if( surface ) then 
-         Vertices = NumOfVertices + 4
-      else
-         Vertices = NumOfVertices
-      end if
-!$omp parallel
-!$omp do schedule(runtime) private(j)
-      do i = 1, this% NumOfObjs
-         do j = 1, Vertices
-            this% ObjectsList(i)% vertices(j)% coords(this% motionAxis) = this% ObjectsList(i)% vertices(j)% coords(this% motionAxis) + this% ds
-         end do
-      end do
-!$omp end do 
-!$omp end parallel
-   end subroutine STLfile_Translate
-
 
    subroutine STL_updateNormals( this )
       use MappedGeometryClass

@@ -166,6 +166,34 @@ module ProblemFileFunctions
 #endif
       end subroutine UserDefinedSourceTermNS_f
 #endif
+
+#ifdef FLOW
+      subroutine UserDefinedPositionIBMNS_f( x, dt, STLNum, refValues_ )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),          intent(inout) :: x(NDIM)
+         real(kind=RP),          intent(in)    :: dt
+         integer,                intent(in)    :: STLNum
+         type(RefValues_t),      intent(in)    :: refValues_
+      end subroutine UserDefinedPositionIBMNS_f
+#endif
+
+#ifdef FLOW
+      subroutine UserDefinedVelocityIBMNS_f( V, x, dt, STLNum, refValues_ )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         use MappedGeometryClass
+         IMPLICIT NONE
+         real(kind=RP),          intent(inout) :: V(NDIM)
+         real(kind=RP),          intent(in)    :: dt, x(NDIM)
+         integer,                intent(in)    :: STLNum
+         type(RefValues_t),      intent(in)    :: refValues_
+      end subroutine UserDefinedVelocityIBMNS_f
+#endif
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -480,6 +508,115 @@ end module ProblemFileFunctions
 !           S(:) = x(1) + x(2) + x(3) + time
    
          end subroutine UserDefinedSourceTermNS
+#endif
+
+#ifdef FLOW
+      subroutine UserDefinedPositionIBMNS( x, dt, STLNum, refValues_ )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),          intent(inout) :: x(NDIM)
+         real(kind=RP),          intent(in)    :: dt
+         integer,                intent(in)    :: STLNum
+         type(RefValues_t),      intent(in)    :: refValues_
+
+         integer       :: motionAxis
+         real(kind=RP) :: dx(NDIM), time
+         real(kind=RP) :: theta, R(NDIM,NDIM), Omega, rotationCenter(NDIM)
+
+          
+         !LINEAR 
+         !dx(MotionAxis)  = /Lref  [m/s] 
+
+         ! ROTATION 
+
+         !Omega =  [rad/s] 
+         !rotation center = [m]
+         !motion axis     =  
+         R    = 0.0_RP
+         time = dt * Lref/refValues% V
+   
+         theta          = Omega * Time
+         rotationCenter = rotationCenter/Lref 
+
+         select case( motionAxis )
+            case( IX )
+               R(1,1) =  1.0_RP
+               R(2,2) =  cos(theta)
+               R(2,3) = -sin(theta)
+               R(3,2) =  sin(theta)
+               R(3,3) =  cos(theta)
+            case( IY ) 
+               R(2,2) =  1.0_RP
+               R(1,1) =  cos(theta)
+               R(1,3) =  sin(theta)
+               R(3,1) = -sin(theta)
+               R(3,3) =  cos(theta)
+            case( IZ )
+               R(3,3) =  1.0_RP
+               R(1,1) =  cos(theta)
+               R(1,2) = -sin(theta)
+               R(2,1) =  sin(theta)
+               R(2,2) =  cos(theta)
+         end select
+
+         dx = matmul( R, x - rotationCenter )
+         dx = dx + rotationCenter
+         x  = x + dx 
+
+      end subroutine UserDefinedPositionIBMNS
+#endif
+
+#ifdef FLOW
+      subroutine UserDefinedVelocityIBMNS( V, x, dt, STLNum, refValues_ )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         use MappedGeometryClass
+         IMPLICIT NONE
+         real(kind=RP),          intent(inout) :: V(NDIM)
+         real(kind=RP),          intent(in)    :: x(NDIM), dt
+         integer,                intent(in)    :: STLNum
+         type(RefValues_t),      intent(in)    :: refValues_
+
+         integer       :: MotionAxis
+         real(kind=RP) :: time
+         real(kind=RP) :: w(NDIM), Omega, rotationCenter(NDIM), dx(NDIM), r(NDIM) 
+         !LINEAR 
+         ! V(MotionAxis) = /refValues_% V [m/s]
+
+         !ROTATION 
+         !Omega =  [rad/s]
+         !rotation center = [m] 
+         time = dt * Lref/refValues% V
+   
+         rotationCenter = rotationCenter/Lref
+         dx             = x - rotationCenter
+
+         select case( motionAxis )
+         case( IX )
+            rotationCenter(IX) = dx(IX)
+
+            w = (/ Omega, 0.0_RP, 0.0_RP /)
+         case( IY )
+            rotationCenter(IY) = dx(IY)
+
+            w = (/ 0.0_RP, Omega, 0.0_RP /)
+         case( IZ )
+            rotationCenter(IZ) = dx(IZ)
+
+            w = (/ 0.0_RP, 0.0_RP, Omega /)
+         end select
+
+         r = x - rotationCenter
+         r = r * Lref
+
+         call vcross(w,r,V)
+
+         V = V/refValues_% V
+
+      end subroutine UserDefinedVelocityIBMNS
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 

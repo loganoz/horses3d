@@ -106,7 +106,7 @@ module LocalIBMRefinementTool
          mesh% IBM% stl(STLNum)% body = STLNum             
          OBB(STLNum)% filename        = mesh% IBM% STLfilename(STLNum)
          call mesh% IBM% stl(STLNum)% ReadTessellation( mesh% IBM% STLfilename(STLNum) )
-         call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .false., .false. )
+         call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .false., mesh% IBM% AAB, .false. )
       end do
 
          call mesh% IBM% SetPolynomialOrder( mesh% elements )

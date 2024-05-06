@@ -308,9 +308,17 @@ module EllipticBR1
 
    
             uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
+
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
             uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
+
+            ! if( f% HO_IBM ) then 
+            !    uStar = f% storage(f% HOSIDE)% Q(:,i,j) * f % geom % jacobian(i,j)
+            !    uStar_n(:,IX,i,j) = uStar * f% geom % normal(IX,i,j)
+            !    uStar_n(:,IY,i,j) = uStar * f% geom % normal(IY,i,j)
+            !    uStar_n(:,IZ,i,j) = uStar * f% geom % normal(IZ,i,j)         
+            ! end if 
          end do               ; end do
          
          Sidearray = (/1,2/)

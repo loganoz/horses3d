@@ -52,16 +52,18 @@ module IBMClass
                                                  Wallfunction         = .false., &
                                                  ComputeDistance      = .false., &
                                                  AAB                  = .false., &
-                                                 HO_IBM               = .false.
+                                                 HO_IBM               = .false., &
+                                                 Implicit             = .false.
       real(kind=rp)                           :: eta, BandRegionCoeff, IP_Distance = 0.0_RP, &
                                                  y_plus_target, minCOORDS, maxCOORDS,        &
-                                                 penalCoeff
+                                                 penalCoeff, dt
       real(kind=rp),              allocatable :: penalization(:)
       integer                                 :: KDtree_Min_n_of_Objs, NumOfInterPoints,     &
                                                  n_of_INpoints,  rank, lvl = 0, NumOfSTL,    &
                                                  NumOfForcingPoints, Clipaxis = 0,           &
                                                  Nx, Ny, Nz, LocClipAxis = 0,                &
-                                                 InterpolationType, NumOfMaskObjs = 0
+                                                 InterpolationType, NumOfMaskObjs = 0,       &
+                                                 iter_interval
       integer,                    allocatable :: ImagePoint_NearestPoints(:,:)
       type(IBMPoints),            allocatable :: IBMmask(:), IBMStencilPoints(:), IBM_HOIntegrationPoints(:)
 
@@ -91,6 +93,7 @@ module IBMClass
          procedure :: semiImplicitJacobian                => IBM_semiImplicitJacobian
          procedure :: semiImplicitTurbulenceJacobian      => IBM_semiImplicitTurbulenceJacobian
          procedure :: GetSemiImplicitStep                 => IBM_GetSemiImplicitStep
+         procedure :: GetImplicitStep                     => IBM_GetImplicitStep
          procedure :: GetSemiImplicitStepTurbulence       => IBM_GetSemiImplicitStepTurbulence
          procedure :: copy                                => IBM_copy
          procedure :: MoveBody                            => IBM_MoveBody
@@ -139,9 +142,9 @@ module IBMClass
 
       do domains = 1, MPI_Process% nProcs
          do i = 1, this% IBMmask(domains)% NumOfObjs
-            write(funit,'(3E13.5)')  this% IBMmask(domains)% x(i)% coords(IX), this% IBMmask(domains)% x(i)% coords(IY), this% IBMmask(domains)% x(i)% coords(IZ)
+            write(funit,'(3E13.5)')  this% IBMmask(domains)% coords(i,IX), this% IBMmask(domains)% coords(i,IY), this% IBMmask(domains)% coords(i,IZ)
             if( add_Point ) then
-               write(funit,'(3E13.5)') this% IBMmask(domains)% x(i)% coords(IX), this% IBMmask(domains)% x(i)% coords(IY), this% IBMmask(domains)% x(i)% coords(IZ)
+               write(funit,'(3E13.5)') this% IBMmask(domains)% coords(i,IX), this% IBMmask(domains)% coords(i,IY), this% IBMmask(domains)% coords(i,IZ)
                add_Point = .false.
             end if
          end do
@@ -180,12 +183,13 @@ module IBMClass
                                     plotKDtree_in, semiImplicit_in,     &
                                     plotBandPoints_in, plotMask_in,     &
                                     BandRegion_in, Distance_in, AAB_in, &
-                                    HO_in
+                                    HO_in, Implicit_in
       real(kind=rp), allocatable :: penalization_in, y_plus_target_in,  &
                                     BandRegionCoeff_in,                 &
                                     penalization_coeff_in
       integer,       allocatable :: n_of_Objs_in, n_of_interpoints_in,  &
-                                    Nx_in, Ny_in, Nz_in, Clipaxis_in
+                                    Nx_in, Ny_in, Nz_in, Clipaxis_in,   &
+                                    interval_in 
       character(len=LINE_LENGTH) :: in_label, paramFile, name_in, tmp,  &
                                     InterpolationType_in
       real(kind=rp), allocatable :: coords(:)
@@ -202,6 +206,7 @@ module IBMClass
       call readValueInRegion( trim( paramFile ), "penalization",                   penalization_in,       in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "penalization coeff",             penalization_coeff_in, in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "semi implicit",                  semiImplicit_in,       in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "implicit",                       Implicit_in,           in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "nx",                             Nx_in,                 in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "ny",                             Ny_in,                 in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "nz",                             Nz_in,                 in_label, "#end" )
@@ -219,7 +224,8 @@ module IBMClass
       call readValueInRegion( trim( paramFile ), "plot mask",                      plotMask_in,           in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "plot band points",               plotBandPoints_in,     in_label, "#end" )
       call readValueInRegion( trim( paramFile ), "high order",                     HO_in,                 in_label, "#end" )
-
+      call readValueInRegion( trim( paramFile ), "inteval",                        interval_in,           in_label, "#end" )
+      
       this% filename = trim(name_in)
 
       if( allocated(active_in) ) then
@@ -235,6 +241,12 @@ module IBMClass
       else
          this% semiImplicit = .FALSE.
       end if
+
+      if( allocated(Implicit_in) ) then 
+         this% Implicit = Implicit_in
+      else
+         this% Implicit = .FALSE. 
+      end if 
 
       if( allocated(Nx_in) ) then
          this% Nx = Nx_in
@@ -366,6 +378,12 @@ module IBMClass
          this% HO_IBM = .false.
       end if
 
+      if( allocated(interval_in) ) then 
+         this% iter_interval = interval_in
+      else 
+         this% iter_interval = 1 
+      end if 
+
       select case(trim(InterpolationType_in))
          case("exp")
             this% InterpolationType =  EXPONENTIAL
@@ -431,14 +449,17 @@ module IBMClass
             else
                call this% stl(STLNum)% describe(this% STLfilename(STLNum))
             end if
-            call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB, .false.)
-            OBB(STLNum)% maxAxis = OBB(STLNum)% GetMaxAxis()
+            ! call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB, .false.)
+            ! OBB(STLNum)% maxAxis = OBB(STLNum)% GetMaxAxis()
+            ! OBB(STLNum)% minAxis = OBB(STLNum)% GetMinAxis( OBB(STLNum)% maxAxis, this% ClipAxis )
+            OBB(STLNum)% maxAxis = this% stl(STLNum)% MaxAxis !OBB(STLNum)% GetMaxAxis(this% stl(STLNum)% ObjectsList, this% stl(STLNum)% NumOfObjs)
             OBB(STLNum)% minAxis = OBB(STLNum)% GetMinAxis( OBB(STLNum)% maxAxis, this% ClipAxis )
          end if
 #ifdef _HAS_MPI_
-         call this% MPI_sendSTLpartitions( STLNum, OBB(STLNum)% maxAxis )
          call this% MPI_OBB( STLNum )
+         call this% MPI_sendSTLpartitions( STLNum, OBB(STLNum)% maxAxis )
 #endif
+         call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB, .false.)
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )
          call this% constructSTL_KDtree( STLNum )
       end do
@@ -586,6 +607,8 @@ module IBMClass
 #ifdef _HAS_MPI_
       integer       :: ierr
 #endif
+      integer, allocatable :: NumOfIntersections(:)
+
       domain = MPI_Process% rank + 1
 
       allocate(this% IBMmask(MPI_Process% nProcs))
@@ -602,9 +625,9 @@ module IBMClass
                e% MaskCorners(k) = .false.
                if( OBB(STLNum)% isPointInside( coords = e% SurfInfo% corners(:,k) ) ) then
                   this% IBMmask(domain)% NumOfObjs = this% IBMmask(domain)% NumOfObjs + 1
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% coords         = e% SurfInfo% corners(:,k)
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% element_index  = eID
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% local_Position = (/k,0,0/)
+                  this% IBMmask(domain)% coords(this% IBMmask(domain)% NumOfObjs,:)         = e% SurfInfo% corners(:,k)
+                  this% IBMmask(domain)% element_index(this% IBMmask(domain)% NumOfObjs)    = eID 
+                  this% IBMmask(domain)% local_position(this% IBMmask(domain)% NumOfObjs,:) = (/k,0,0/) 
                end if
             end do
          else
@@ -612,42 +635,48 @@ module IBMClass
                e% isInsideBody(i,j,k) = .false.
                if( OBB(STLNum)% isPointInside( coords = e% geom% x(:,i,j,k) ) ) then
                   this% IBMmask(domain)% NumOfObjs = this% IBMmask(domain)% NumOfObjs + 1
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% coords         = e% geom% x(:,i,j,k)
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% element_index  = eID
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% local_Position = (/i,j,k/)
+                  this% IBMmask(domain)% coords(this% IBMmask(domain)% NumOfObjs,:)         = e% geom% x(:,i,j,k)
+                  this% IBMmask(domain)% element_index(this% IBMmask(domain)% NumOfObjs)    = eID 
+                  this% IBMmask(domain)% local_position(this% IBMmask(domain)% NumOfObjs,:) = (/i,j,k/) 
                end if
             end do; end do; end do
          end if
          end associate
       end do
 #ifdef _HAS_MPI_
-      call castMaskNumOfObjs( this% IBMmask, domain )
-      call castMask( this% IBMmask )
+      if( MPI_Process% doMPIAction ) then
+         call Mask2Root( this% IBMmask, domain )         
+         call Mask2Partitions( this% IBMmask, domain )
+      end if 
 #endif
       do domains = 1, MPI_Process% nProcs
          if( this% IBMmask(domains)% NumOfObjs .eq. 0 ) cycle
          do i = 1, this% IBMmask(domains)% NumOfObjs
-            call OBB(STLNum)% ChangeRefFrame( this% IBMmask(domains)% x(i)% coords, LOCAL, Point )
-            call this% CheckPoint( Point, STLNum, this% IBMmask(domains)% x(i)% NumOfIntersections )
+            call OBB(STLNum)% ChangeRefFrame( this% IBMmask(domains)% coords(i,:), LOCAL, Point )
+            call this% CheckPoint( Point, STLNum, this% IBMmask(domains)% NumOfIntersections(i) )
          end do
       end do 
 #ifdef _HAS_MPI_
       do domains = 1, MPI_Process% nProcs
-         call mpi_allreduce( this% IBMmask(domains)% x(:)% NumOfIntersections, &
-                             this% IBMmask(domains)% x(:)% NumOfIntersections, &
-                             this% IBMmask(domains)% NumOfObjs, MPI_INT,       &
-                             MPI_SUM, MPI_COMM_WORLD, ierr                     )
+         NumOfObjs = this% IBMmask(domains)% NumOfObjs
+         allocate(NumOfIntersections(NumOfObjs))
+         NumOfIntersections = this% IBMmask(domains)% NumOfIntersections(1:NumOfObjs)
+         call mpi_allreduce( NumOfIntersections, &
+                             this% IBMmask(domains)% NumOfIntersections, &
+                             this% IBMmask(domains)% NumOfObjs, MPI_INT, &
+                             MPI_SUM, MPI_COMM_WORLD, ierr               )
+         deallocate(NumOfIntersections)
       end do
 #endif
       do i = 1, this% IBMmask(domain)% NumOfObjs
-         if( mod(this% IBMmask(domain)% x(i)% NumOfIntersections,2) .ne. 0 ) this% IBMmask(domain)% x(i)% isInsideBody = .true.
+         if( mod(this% IBMmask(domain)% NumOfIntersections(i),2) .ne. 0 ) this% IBMmask(domain)% isInsideBody(i) = .true.
       end do
-
-      if( this% HO_IBM) then
+      
+      if( this% HO_IBM ) then
          do n = 1, this% IBMmask(domain)% NumOfObjs
-            if( this% IBMmask(domain)% x(n)% isInsideBody ) then
-               eID = this% IBMmask(domain)% x(n)% element_index
-               k   = this% IBMmask(domain)% x(n)% local_Position(1)
+            if( this% IBMmask(domain)% isInsideBody(n) ) then
+               eID = this% IBMmask(domain)% element_index(n)
+               k   = this% IBMmask(domain)% local_Position(n,1)
 
                elements(eID)% MaskCorners(k) = .true.
                elements(eID)% STL(1,0,0)     = STLNum
@@ -663,11 +692,11 @@ module IBMClass
          call this% HOmask( elements, faces )
       else
          do n = 1, this% IBMmask(domain)% NumOfObjs
-            if( this% IBMmask(domain)% x(n)% isInsideBody ) then
-               eID = this% IBMmask(domain)% x(n)% element_index
-               i   = this% IBMmask(domain)% x(n)% local_Position(1)
-               j   = this% IBMmask(domain)% x(n)% local_Position(2)
-               k   = this% IBMmask(domain)% x(n)% local_Position(3)
+            if( this% IBMmask(domain)% isInsideBody(n) ) then
+               eID = this% IBMmask(domain)% element_index(n)
+               i   = this% IBMmask(domain)% local_Position(n,1)
+               j   = this% IBMmask(domain)% local_Position(n,2)
+               k   = this% IBMmask(domain)% local_Position(n,3)
 
                elements(eID)% isInsideBody(i,j,k) = .true.
                elements(eID)% STL(i,j,k)          = STLNum
@@ -690,7 +719,7 @@ module IBMClass
       if( this% plotMask ) call this% plot_Mask( iter, STLNum, NumOfObjs )
 
       do domains = 1, MPI_Process% nProcs
-         if( allocated( this% IBMmask(domains)% x) ) deallocate( this% IBMmask(domains)% x )
+         call this% IBMmask(domains)% destroy()  
       end do
 
       deallocate(this% IBMmask)
@@ -715,15 +744,15 @@ module IBMClass
       
       do eID = 1, size(elements)
          associate( e => elements(eID) )
-         if(  all(e% MaskCorners((/1,2,6,5/))) .and. .not. ALL(e% MaskCorners((/4,3,7,8/))) ) then
-            associate(f => faces(e% faceIDs(EFRONT)))
+         if(  all(e% MaskCorners((/4,3,7,8/))) .and. .not. ALL(e% MaskCorners((/1,2,6,5/))) ) then
+            associate(f => faces(e% faceIDs(EBACK)))
             if( f% faceType .eq. HMESH_BOUNDARY ) cycle
             Nxi  = f% Nf(1)
             Neta = f% Nf(2)
             if( f% HO_IBM ) then
                f% HO_IBM = .false.
                this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .false.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             else
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
@@ -735,19 +764,19 @@ module IBMClass
                end do; end do
                f% HOeID = eID
                f% HOdomain = MPI_Process% rank + 1
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .true.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             end if
             end associate
          end if
-         if( all(e% MaskCorners((/4,3,7,8/))) .and. .not. all( e% MaskCorners((/1,2,6,5/)) ) ) then
-            associate(f => faces(e% faceIDs(EBACK)))
+         if( all(e% MaskCorners((/1,2,6,5/))) .and. .not. all( e% MaskCorners((/4,3,7,8/)) ) ) then
+            associate(f => faces(e% faceIDs(EFRONT)))
             if( f% faceType .eq. HMESH_BOUNDARY ) cycle
             Nxi  = f% Nf(1)
             Neta = f% Nf(2)
             if( f% HO_IBM ) then
                f% HO_IBM = .false.
                this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .false.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             else
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
@@ -759,59 +788,11 @@ module IBMClass
                end do; end do
                f% HOeID = eID
                f% HOdomain = MPI_Process% rank + 1
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .true.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             end if
             end associate
          end if
-         if( all(e% MaskCorners((/1,2,3,4/))) .and. .not. all(e% MaskCorners((/2,3,7,6/))) ) then
-            associate(f => faces(e% faceIDs(EBOTTOM)))
-            if( f% faceType .eq. HMESH_BOUNDARY ) cycle
-            Nxi  = f% Nf(1)
-            Neta = f% Nf(2)
-            if( f% HO_IBM ) then
-               f% HO_IBM = .false.
-               this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .false.
-            else
-               f% HO_IBM = .true.
-               allocate(f% stencil(0:Nxi,0:Neta))
-               STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
-               do j = 0, Neta; do i = 0, Nxi
-                  f% stencil(i,j)% x   = f% geom% x(:,i,j)
-                  this% NumOfMaskObjs = this% NumOfMaskObjs + 1
-               end do; end do
-               f% HOeID = eID
-               f% HOdomain = MPI_Process% rank + 1
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .true.
-            end if
-            end associate
-         end if
-         if( all(e% MaskCorners((/2,3,7,6/))) .and. .not. all(e% MaskCorners((/1,2,3,4/))) ) then
-            associate(f => faces(e% faceIDs(ERIGHT)))
-            if( f% faceType .eq. HMESH_BOUNDARY ) cycle
-            Nxi  = f% Nf(1)
-            Neta = f% Nf(2)
-            if( f% HO_IBM ) then
-               f% HO_IBM = .false.
-               this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .false.
-            else
-               f% HO_IBM = .true.
-               allocate(f% stencil(0:Nxi,0:Neta))
-               STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
-               do j = 0, Neta; do i = 0, Nxi
-                  f% stencil(i,j)% x   = f% geom% x(:,i,j)
-                  this% NumOfMaskObjs = this% NumOfMaskObjs + 1
-               end do; end do
-               f% HOeID = eID
-               f% HOdomain = MPI_Process% rank + 1
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .true.
-            end if
-            end associate
-         end if
-         if( all(e% MaskCorners((/5,6,7,8/))) .and. .not. all(e% MaskCorners((/1,4,8,5/))) ) then
+         if( all(e% MaskCorners((/5,6,7,8/))) .and. .not. all(e% MaskCorners((/1,2,3,4/))) ) then
             associate(f => faces(e% faceIDs(ETOP)))
             if( f% faceType .eq. HMESH_BOUNDARY ) cycle
             Nxi  = f% Nf(1)
@@ -819,7 +800,7 @@ module IBMClass
             if( f% HO_IBM ) then
                f% HO_IBM = .false.
                this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .false.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             else
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
@@ -831,11 +812,35 @@ module IBMClass
                end do; end do
                f% HOeID = eID
                f% HOdomain = MPI_Process% rank + 1
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .true.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             end if
             end associate
          end if
-         if( all(e% MaskCorners((/1,4,8,5/))) .and. .not. all(e% MaskCorners((/5,6,7,8/))) ) then
+         if( all(e% MaskCorners((/1,2,3,4/))) .and. .not. all(e% MaskCorners((/5,6,7,8/))) ) then
+            associate(f => faces(e% faceIDs(EBOTTOM)))
+            if( f% faceType .eq. HMESH_BOUNDARY ) cycle
+            Nxi  = f% Nf(1)
+            Neta = f% Nf(2)
+            if( f% HO_IBM ) then
+               f% HO_IBM = .false.
+               this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
+            else
+               f% HO_IBM = .true.
+               allocate(f% stencil(0:Nxi,0:Neta))
+               STLNum = e% STL(1,0,0)
+               f% HOSIDE = FindHOside( f, e% eID )
+               do j = 0, Neta; do i = 0, Nxi
+                  f% stencil(i,j)% x   = f% geom% x(:,i,j)
+                  this% NumOfMaskObjs = this% NumOfMaskObjs + 1
+               end do; end do
+               f% HOeID = eID
+               f% HOdomain = MPI_Process% rank + 1
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
+            end if
+            end associate
+         end if
+         if( all(e% MaskCorners((/1,4,8,5/))) .and. .not. all(e% MaskCorners((/2,3,7,6/))) ) then
             associate(f => faces(e% faceIDs(ELEFT)))
             if( f% faceType .eq. HMESH_BOUNDARY ) cycle
             Nxi  = f% Nf(1)
@@ -843,7 +848,7 @@ module IBMClass
             if( f% HO_IBM ) then
                f% HO_IBM = .false.
                this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .false.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             else
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
@@ -855,19 +860,35 @@ module IBMClass
                end do; end do
                f% HOeID = eID
                f% HOdomain = MPI_Process% rank + 1
-               if( f% faceType .eq. HMESH_MPI ) f% fmpi = .true.
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
+            end if
+            end associate
+         end if
+         if( all(e% MaskCorners((/2,3,7,6/))) .and. .not. all(e% MaskCorners((/1,4,8,5/))) ) then
+            associate(f => faces(e% faceIDs(ERIGHT)))
+            if( f% faceType .eq. HMESH_BOUNDARY ) cycle
+            Nxi  = f% Nf(1)
+            Neta = f% Nf(2)
+            if( f% HO_IBM ) then
+               f% HO_IBM = .false.
+               this% NumOfMaskObjs = this% NumOfMaskObjs - (Nxi+1)*(Neta+1)
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
+            else
+               f% HO_IBM = .true.
+               allocate(f% stencil(0:Nxi,0:Neta))
+               STLNum = e% STL(1,0,0)
+               f% HOSIDE = FindHOside( f, e% eID )
+               do j = 0, Neta; do i = 0, Nxi
+                  f% stencil(i,j)% x   = f% geom% x(:,i,j)
+                  this% NumOfMaskObjs = this% NumOfMaskObjs + 1
+               end do; end do
+               f% HOeID = eID
+               f% HOdomain = MPI_Process% rank + 1
+               if( f% faceType .eq. HMESH_MPI ) f% HOSIDE = minloc(f% elementIDs, dim=1)
             end if
             end associate
          end if
          if(all(e% MaskCorners)) e% HO_IBM = .true.
-         end associate
-      end do
-
-      do fID = 1, size(faces)
-         associate(f => faces(fID))
-         if( f% HO_IBM ) then
-            elements( f% elementIDs(f% HOSIDE) )% HO_IBM = .true.
-         end if
          end associate
       end do
 
@@ -906,8 +927,8 @@ module IBMClass
       integer                    :: i, funit, domains
       logical                    :: add_Point = .false.
 #ifdef _HAS_MPI_
-      call castMaskPlot(this% IBMmask)
-#endif
+      call MaskLogical2Root(this% IBMmask, MPI_Process% rank + 1)
+#endif   
       if( .not. MPI_Process% isRoot ) return
 
       write(it,'(I10.10)') iter
@@ -919,10 +940,10 @@ module IBMClass
 
       do domains = 1, MPI_Process% nProcs 
          do i = 1, this% IBMmask(domains)% NumOfObjs
-            if( this% IBMmask(domains)% x(i)% isInsideBody ) then 
-               write(funit,'(3E13.5)') this% IBMmask(domains)% x(i)% coords(IX), this% IBMmask(domains)% x(i)% coords(IY), this% IBMmask(domains)% x(i)% coords(IZ)
+            if( this% IBMmask(domains)% isInsideBody(i) ) then 
+               write(funit,'(3E13.5)') this% IBMmask(domains)% coords(i,IX), this% IBMmask(domains)% coords(i,IY), this% IBMmask(domains)% coords(i,IZ)
                if( add_Point ) then
-                  write(funit,'(3E13.5)') this% IBMmask(domains)% x(i)% coords(IX), this% IBMmask(domains)% x(i)% coords(IY), this% IBMmask(domains)% x(i)% coords(IZ)
+                  write(funit,'(3E13.5)') this% IBMmask(domains)% coords(i,IX), this% IBMmask(domains)% coords(i,IY), this% IBMmask(domains)% coords(i,IZ)
                   add_Point = .false.
                end if
             end if 
@@ -1021,7 +1042,7 @@ module IBMClass
          associate( f=> faces(fID) )
          if( f% HO_IBM ) then
             do i = 0, f% Nf(1); do j = 0, f% Nf(2)
-               x = f% stencil(i,j)% x - f% stencil(i,j)% dist * f% stencil(i,j)% normal
+               x = f% stencil(i,j)% x !- f% stencil(i,j)% dist * f% stencil(i,j)% normal
                write(funit,'(3E13.5)')  x(1), x(2), x(3)
                if( add_Point ) then
                   write(funit,'(3E13.5)') x(1), x(2), x(3)
@@ -1160,7 +1181,7 @@ module IBMClass
       
       call this% GetStencil( elements, faces )
       allocate(this% IBMStencilPoints(MPI_Process% nProcs))
-      
+
       call Set_IBM_HO_faces( this% IBMStencilPoints, faces, NCONS )
 #ifdef _HAS_MPI_
       call MPIProcedures_IBM_HO_faces( this% IBMStencilPoints, NCONS )
@@ -1169,9 +1190,9 @@ module IBMClass
          call PlotSurface( this, faces, STLNum, 0 )
          call PlotStencil( this, STLNum, 0 )
       end do
-
+      
       call IBM_HO_findElements( this% IBMStencilPoints, elements )
-
+      
    end subroutine IBM_buildHOfaces
 !
 !  Immersed boundary description
@@ -1306,8 +1327,6 @@ module IBMClass
 
       domain = MPI_Process% rank + 1
 
-      allocate(this% BandRegion(STLNum)% IBMmask(domain)% x(no_of_DoFs))
-
       this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs = 0
 
       do eID = 1, size(elements)
@@ -1316,17 +1335,23 @@ module IBMClass
             if( e% isInsideBody(i,j,k) ) cycle
             if( OBB(STLNum)% isPointInside( coords = e% geom% x(:,i,j,k), coeff=this% BandRegionCoeff ) ) then
                this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs = this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs + 1
-               this% BandRegion(STLNum)% IBMmask(domain)% x(this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs)% coords         = e% geom% x(:,i,j,k)
-               this% BandRegion(STLNum)% IBMmask(domain)% x(this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs)% element_index  = eID
-               this% BandRegion(STLNum)% IBMmask(domain)% x(this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs)% local_Position = (/i,j,k/)
+               this% BandRegion(STLNum)% IBMmask(domain)% coords(this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs,:)         = e% geom% x(:,i,j,k)
+               this% BandRegion(STLNum)% IBMmask(domain)% element_index(this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs)    = eID
+               this% BandRegion(STLNum)% IBMmask(domain)% local_position(this% BandRegion(STLNum)% IBMmask(domain)% NumOfObjs,:) = (/i,j,k/)
             end if
          end do; end do; end do
          end associate
       end do
 #ifdef _HAS_MPI_
-      call castMaskNumOfObjs( this% BandRegion(STLNum)% IBMmask, domain )
-      call castMask( this% BandRegion(STLNum)% IBMmask )
+      if( MPI_Process% doMPIAction ) then 
+         call Mask2Root( this% BandRegion(STLNum)% IBMmask, domain )
+         call Mask2Partitions( this% BandRegion(STLNum)% IBMmask, domain )
+      end if 
 #endif
+      do domains = 1, MPI_Process% nProcs
+         call this% BandRegion(STLNum)% IBMmask(domains)% buildState( this% BandRegion(STLNum)% IBMmask(domains)% NumOfObjs, nEqn )
+      end do
+
       if( this% plotBandPoints .and. MPI_Process% isRoot ) call this% BandRegion(STLNum)% plot( 'BandPoints' )
 
    end subroutine IBM_constructBandRegion
@@ -1349,7 +1374,7 @@ module IBMClass
          dist = huge(1.0_RP)
          do domains = 1, MPI_Process% nProcs
             do i = 1, this% BandRegion(STLNum)% IBMmask(domains)% NumOfObjs
-               dist_ = norm2(Point - this% BandRegion(STLNum)% IBMmask(domains)% x(i)% coords)
+               dist_ = norm2(Point - this% BandRegion(STLNum)% IBMmask(domains)% coords(i,:))
                if( dist_ .eq. 0.0_RP ) cycle
                if( dist_ .lt. dist .and. dist_ .gt. lastDist ) then
                   indeces(k) = i
@@ -1395,19 +1420,21 @@ module IBMClass
       domain = MPI_Process% rank + 1
 
       do n = 1, this% IBMmask(domain)% NumOfObjs
-         i   = this% IBMmask(domain)% x(n)% local_Position(1)
-         j   = this% IBMmask(domain)% x(n)% local_Position(2)
-         k   = this% IBMmask(domain)% x(n)% local_Position(3)
-         eID = this% IBMmask(domain)% x(n)% element_index
+         i   = this% IBMmask(domain)% local_Position(n,1)
+         j   = this% IBMmask(domain)% local_Position(n,2)
+         k   = this% IBMmask(domain)% local_Position(n,3)
+         eID = this% IBMmask(domain)% element_index(n)
 
-         this% IBMmask(domain)% x(n)% Q   = elements(eID)% storage% Q(:,i,j,k)
-         this% IBMmask(domain)% x(n)% U_x = elements(eID)% storage% U_x(:,i,j,k)
-         this% IBMmask(domain)% x(n)% U_y = elements(eID)% storage% U_y(:,i,j,k)
-         this% IBMmask(domain)% x(n)% U_z = elements(eID)% storage% U_z(:,i,j,k)
+         this% IBMmask(domain)% Q(n,:)   = elements(eID)% storage% Q(:,i,j,k)
+         this% IBMmask(domain)% U_x(n,:) = elements(eID)% storage% U_x(:,i,j,k)
+         this% IBMmask(domain)% U_y(n,:) = elements(eID)% storage% U_y(:,i,j,k)
+         this% IBMmask(domain)% U_z(n,:) = elements(eID)% storage% U_z(:,i,j,k)
       end do
 #ifdef _HAS_MPI_
-      call castStateBandRegion( this% IBMmask, nEqn )
-      call castGradientsBandRegion( this% IBMmask, nEqn )
+      if( MPI_Process% doMPIAction ) then 
+         call StateMask2Root( this% IBMmask, domain, nEqn )
+         call StateMask2Partitions( this% IBMmask, domain, nEqn )
+      endif
 #endif
    end subroutine BandPointsState
 !
@@ -1443,8 +1470,8 @@ module IBMClass
       integer,         intent(in)    :: STLNum
 
       if( MPI_Process% doMPIAction ) then
-         call SendOBB( STLNum )
-         call RecvOBB( STLNum )
+         ! call SendOBB( STLNum )
+         ! call RecvOBB( STLNum )
          call SendAxis( STLNum )
          call RecvAxis( STLNum )
       end if
@@ -1470,6 +1497,17 @@ module IBMClass
       logical,         optional, intent(in)    :: autosave
       !-local-variables-----------------------------------------------------------
       integer :: STLNum
+      logical :: hasToMove
+
+      if ( (mod(iter, this% iter_interval) == 0) .or. (iter == 1) ) then
+         hasToMove = .TRUE.
+      else
+         hasToMove = .FALSE.
+      end if
+
+      if( .not. hasToMove ) return 
+
+      this% dt = dt
 
       do STLNum = 1, this% NumOfSTL
          if( this% stl(STLNum)% move ) call this% CleanMask( elements, STLNum )
@@ -1479,29 +1517,21 @@ module IBMClass
          if( this% stl(STLNum)% move ) then
             call this% root(STLNum)% Destruct( isChild )
             if( this% ComputeDistance ) call this% rootDistance(STLNum)% destruct( isChild )
-            call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
-            select case( this% stl(STLNum)% motionType )
-            case( ROTATION )
-               call this% stl(STLNum)% getRotationaMatrix( dt ) 
-               call this% stl(STLNum)% rotate( .false. )
-            case( LINEAR )
-               call this% stl(STLNum)% getDisplacement( dt )
-               call this% stl(STLNum)% translate( .false. )
-            end select
-            call this% stl(STLNum)% updateNormals()
             this% stl(STLNum)% show = .false.
             this% plotMask          = .false.
             if( present(autosave) .and. autosave ) this% plotMask = .true.
             if( present(autosave) .and. autosave ) call plotSTL( this% stl(STLNum), iter )
-            if( MPI_Process% isRoot ) then
-               call OBB(STLNum)% construct( this% stl(STLNum), .false., this% AAB, .true. )
-               OBB(STLNum)% maxAxis = OBB(STLNum)% GetMaxAxis()
-               OBB(STLNum)% minAxis = OBB(STLNum)% GetMinAxis( OBB(STLNum)% maxAxis, this% ClipAxis )
-            end if
-#ifdef _HAS_MPI_
-            call this% MPI_OBB(STLNum)
-#endif
-            call obb(stlnum)% plot(mpi_process% rank)
+            ! if( MPI_Process% isRoot ) then
+            !    call OBB(STLNum)% construct( this% stl(STLNum), .false., this% AAB, .true. )
+            !    OBB(STLNum)% maxAxis = OBB(STLNum)% GetMaxAxis()
+            !    OBB(STLNum)% minAxis = OBB(STLNum)% GetMinAxis( OBB(STLNum)% maxAxis, this% ClipAxis )
+            ! end if
+            ! OBB(STLNum)% maxAxis = OBB(STLNum)% GetMaxAxis(this% stl(STLNum)% ObjectsList)
+            ! OBB(STLNum)% minAxis = OBB(STLNum)% GetMinAxis( OBB(STLNum)% maxAxis, this% ClipAxis )
+            call OBB(STLNum)% construct( this% stl(STLNum), .false., this% AAB, .true. )
+! #ifdef _HAS_MPI_
+!             call this% MPI_OBB(STLNum)
+! #endif
             call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )
             this% plotKDtree = .false.
             call this% constructSTL_KDtree( STLNum )
@@ -1628,7 +1658,7 @@ module IBMClass
       end do
 #ifdef _HAS_MPI_
       call castMaskNumOfObjs( this% ImagePoints(STLNum)% IBMmask, domain )
-      call castMask(this% ImagePoints(STLNum)% IBMmask )
+      call castMask(this% ImagePoints(STLNum)% IBMmask, domain )
 #endif
       if(MPI_Process% isRoot) call this% ImagePoints(STLNum)% plot( 'ImagePoints' )
 
@@ -1817,7 +1847,7 @@ module IBMClass
 #endif
       domain = MPI_Process% rank + 1
       allocate(this% IBMmask(MPI_Process% nProcs))
-      allocate(this% IBMmask(domain)% x(this% NumOfMaskObjs))
+      call this% IBMmask(domain)% build(this% NumOfMaskObjs)
 
       this% IBMmask(domain)% NumOfObjs = 0
 
@@ -1827,9 +1857,9 @@ module IBMClass
             if( f% HO_IBM ) then
                do i = 0, f% Nf(1); do j = 0, f% Nf(2)
                   this% IBMmask(domain)% NumOfObjs = this% IBMmask(domain)% NumOfObjs + 1
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% coords         = f% geom% x(:,i,j)
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% element_index  = fID
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% local_Position = (/i,j,0/)
+                  this% IBMmask(domain)% coords(this% IBMmask(domain)% NumOfObjs,:)         = f% geom% x(:,i,j)
+                  this% IBMmask(domain)% element_index(this% IBMmask(domain)% NumOfObjs)    = fID
+                  this% IBMmask(domain)% local_position(this% IBMmask(domain)% NumOfObjs,:) = (/i,j,0/)
                end do; end do
             end if
             end associate
@@ -1842,26 +1872,33 @@ module IBMClass
                if( OBB(STLNum)% isPointInside( coords = e% geom% x(:,i,j,k), coeff=this% BandRegionCoeff ) ) then
                   e% STL(i,j,k) = STLNum
                   this% IBMmask(domain)% NumOfObjs = this% IBMmask(domain)% NumOfObjs + 1
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% coords         = e% geom% x(:,i,j,k)
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% element_index  = eID
-                  this% IBMmask(domain)% x(this% IBMmask(domain)% NumOfObjs)% local_Position = (/i,j,k/)
+                  this% IBMmask(domain)% coords(this% IBMmask(domain)% NumOfObjs,:)         = e% geom% x(:,i,j,k)
+                  this% IBMmask(domain)% element_index(this% IBMmask(domain)% NumOfObjs)    = eID
+                  this% IBMmask(domain)% local_position(this% IBMmask(domain)% NumOfObjs,:) = (/i,j,k/)
                end if
             end do; end do; end do
             end associate
          end do
       end if
 #ifdef _HAS_MPI_
-      call castMaskNumOfObjs( this% IBMmask, domain )
-      call castMask( this% IBMmask )
+      if( MPI_Process% doMPIAction ) then 
+         call Mask2Root( this% IBMmask, domain )
+         call Mask2Partitions( this% IBMmask, domain )
+      end if 
 #endif
+      do domains = 1, MPI_Process% nProcs 
+         allocate( this% IBMmask(domains)% dist(this% IBMmask(domains)% NumOfObjs),       &
+                   this% IBMmask(domains)% normal(this% IBMmask(domains)% NumOfObjs,NDIM) )
+      end do 
+
       do domains = 1, MPI_Process% nProcs
          do n = 1, this% IBMmask(domains)% NumOfObjs
-            this% IBMmask(domains)% x(n)% Dist = HUGE(1.0_RP)
-            call OBB(STLNum)% ChangeRefFrame(this% IBMmask(domains)% x(n)% coords,LOCAL,Point)
+            this% IBMmask(domains)% dist(n) = HUGE(1.0_RP)
+            call OBB(STLNum)% ChangeRefFrame(this% IBMmask(domains)% coords(n,:),LOCAL,Point)
             call MinimumDistance( Point, this% rootDistance(STLNum), dist, normal )
-            if( Dist .lt. this% IBMmask(domains)% x(n)% dist ) then
-               this% IBMmask(domains)% x(n)% dist   = dist
-               this% IBMmask(domains)% x(n)% normal = normal
+            if( Dist .lt. this% IBMmask(domains)% dist(n) ) then
+               this% IBMmask(domains)% dist(n)     = dist
+               this% IBMmask(domains)% normal(n,:) = normal
             end if
          end do
       end do
@@ -1870,47 +1907,46 @@ module IBMClass
 #endif
       if( this% HO_IBM ) then
          do n = 1, this% IBMmask(domain)% NumOfObjs
-            fID = this% IBMmask(domain)% x(n)% element_index
-            i   = this% IBMmask(domain)% x(n)% local_Position(1)
-            j   = this% IBMmask(domain)% x(n)% local_Position(2)
+            fID = this% IBMmask(domain)% element_index(n)
+            i   = this% IBMmask(domain)% local_Position(n,1)
+            j   = this% IBMmask(domain)% local_Position(n,2)
 
-            faces(fID)% stencil(i,j)% dist   = this% IBMmask(domain)% x(n)% dist
-            faces(fID)% stencil(i,j)% normal = this% IBMmask(domain)% x(n)% normal
+            faces(fID)% stencil(i,j)% dist   = this% IBMmask(domain)% dist(n)
+            faces(fID)% stencil(i,j)% normal = this% IBMmask(domain)% normal(n,:)
          end do
       else
          do n = 1, this% IBMmask(domain)% NumOfObjs
-            eID = this% IBMmask(domain)% x(n)% element_index
-            i   = this% IBMmask(domain)% x(n)% local_Position(1)
-            j   = this% IBMmask(domain)% x(n)% local_Position(2)
-            k   = this% IBMmask(domain)% x(n)% local_Position(3)
+            eID = this% IBMmask(domain)% element_index(n)
+            i   = this% IBMmask(domain)% local_Position(n,1)
+            j   = this% IBMmask(domain)% local_Position(n,1)
+            k   = this% IBMmask(domain)% local_Position(n,1)
 
-            elements(eID)% geom% dwall(i,j,k)    = this% IBMmask(domain)% x(n)% dist
-            elements(eID)% geom% normal(:,i,j,k) = this% IBMmask(domain)% x(n)% normal
+            elements(eID)% geom% dwall(i,j,k)    = this% IBMmask(domain)% dist(n)
+            elements(eID)% geom% normal(:,i,j,k) = this% IBMmask(domain)% normal(n,:)
          end do
       end if
       
       do domains = 1, MPI_Process% nProcs
-         if( allocated(this% IBMmask(domains)% x) ) deallocate( this% IBMmask(domains)% x )
+         call this% IBMmask(domains)% destroy()
+         if( allocated(this% IBMmask(domains)% dist  ) ) deallocate(this% IBMmask(domains)% dist  )
+         if( allocated(this% IBMmask(domains)% normal) ) deallocate(this% IBMmask(domains)% normal)
       end do
-
+      
       deallocate(this% IBMmask)
-
+      
    end subroutine IBM_ComputeIBMWallDistance
 
    subroutine IBM_GetStencil( this, elements, faces )
-      use NodalStorageClass, only: NodalStorage
+      use NodalStorageClass 
       implicit none
 
       class(IBM_type), intent(inout) :: this
       type(element),   intent(in)    :: elements(:)
       type(face),      intent(inout) :: faces(:)
 
-      real(kind=RP) :: L, dist, dl, x0(NDIM), h, normal(NDIM), xi(NDIM)
+      real(kind=RP) :: alpha, L, dist, dl, x0(NDIM), h, normal(NDIM), xi(NDIM), nHat(NDIM), t1(NDIM), t2(NDIM)
       integer       :: fID, eID, Nxi, Neta, N, i, j, k
-
-      logical :: found
-
-     ! call NodalStorage(2)% construct(1,2)
+      logical       :: BUILT = .false. 
 
       do fID = 1, size(faces)
          associate( f=> faces(fID) )
@@ -1918,6 +1954,11 @@ module IBMClass
             Nxi  = f% Nf(1)
             Neta = f% Nf(2)
             N    = max(Nxi,Neta) 
+
+            if( .not. BUILT ) then 
+               call NodalStorage(N-1)% construct( GAUSS, N-1 )
+               BUILT = .TRUE. 
+            end if 
 
             eID = f% elementIDs(1)
             if( eID .eq. 0 ) eID = f% elementIDs(2)
@@ -1928,20 +1969,27 @@ module IBMClass
             do i = 0, Nxi; do j = 0, Neta
                dist   =  f% stencil(i,j)% dist
                normal = -f% stencil(i,j)% normal
-               dl     = dist + sqrt(3.0_RP) * h
-               x0     = f% stencil(i,j)% x + dl * normal 
+
+	            alpha  = N !+ 1
+               dl     = dist + sqrt(2.0_RP) * h 
+               x0     = f% stencil(i,j)% x + dl * normal
 
                f% stencil(i,j)% N   = N 
                f% stencil(i,j)% xiI = -1.0_RP - 2.0_RP * dl/L  
                f% stencil(i,j)% xiB = f% stencil(i,j)% xiI + 2.0_RP*dist/L
 
-               call f% stencil(i,j)% build( x0, normal, L, N )
+               call f% stencil(i,j)% build( x0, normal, L, N-1 )
+               f% stencil(i,j)% x_s(:,0) = f% stencil(i,j)% x + dist * normal 
+
+               f% stencil(i,j)% d  = dist
+               f% stencil(i,j)% L  = L 
+               f% stencil(i,j)% dl = dl
 
             end do; end do
          end if
          end associate
       end do
-
+      
    end subroutine IBM_GetStencil
 
    subroutine IBM_HO_IBMstencilState( this, nEqn, elements )
@@ -1971,23 +2019,25 @@ module IBMClass
 #endif
    end subroutine IBM_HO_IBMstencilState
 
-   subroutine IBM_MPI_GatherStancilState( this, nEqn )
+   subroutine IBM_MPI_GatherStancilState( this, faces, nEqn )
       use MPI_Process_info
 
       use Meshtypes
       implicit none
 
       class(IBM_type), intent(inout) :: this
+      type(face),      intent(inout) :: faces(:)
       integer,         intent(in)    :: nEqn
 
-      integer :: domains, fID, i, j, k, domain
+      integer :: domains, fID, i, j, k, domain, ID
 
       domain = MPI_Process% rank + 1
       
       do fID = 1, IBM_HO_faces(domain)% NumOfFaces
          associate( f => IBM_HO_faces(domain)% faces(fID) )
+         ID = f% ID
          do i = 0, f% Nf(1); do j = 0, f% Nf(2)
-            call f% stencil(i,j)% ComputeState()
+            call f% stencil(i,j)% ComputeState( faces(ID)% geom% normal(:,i,j), faces(ID)% geom% t1(:,i,j), faces(ID)% geom% t2(:,i,j) )
          end do; end do
          end associate
       end do
@@ -2095,7 +2145,7 @@ module IBMClass
       end if
    end subroutine IBM_SourceTerm
 
-   function IBM_MaskVelocity( this, Q, nEqn, STLNum, x, t ) result( Q_target )
+   function IBM_MaskVelocity( this, nEqn, Q, V ) result( Q_target )
       use PhysicsStorage
       use FluidData
       use TessellationTypes
@@ -2104,54 +2154,13 @@ module IBMClass
       implicit none
 
       class(IBM_type), intent(inout) :: this
-      integer,         intent(in)    :: nEqn, STLNum
-      real(kind=RP),   intent(in)    :: Q(nEqn), x(NDIM), t
+      integer,         intent(in)    :: nEqn
+      real(kind=RP),   intent(in)    :: Q(nEqn), V(NDIM)
       real(kind=RP)                  :: Q_target(nEqn)
 
-      real(kind=RP) :: R(NDIM), Omega(NDIM), V(NDIM), rho, rotationCenter(NDIM), Point(NDIM)
-
-      Q_target = Q
-
-      V = 0.0_RP
+      real(kind=RP) :: rho
 #if defined(NAVIERSTOKES)
-      if( this% stl(STLNum)% motionType .eq. LINEAR ) then
-
-         select case( this% stl(STLNum)% motionAxis )
-         case( IX )
-            V(IX) = this% stl(STLNum)% Velocity/refValues% V
-         case( IY )
-            V(IY) = this% stl(STLNum)% Velocity/refValues% V
-         case( IZ )
-            V(IZ) = this% stl(STLNum)% Velocity/refValues% V
-         end select
-
-      elseif( this% stl(STLNum)% motionType .eq. ROTATION ) then
-
-         rotationCenter = this% stl(STLNum)% rotationCenter
-
-         Point = x - rotationCenter
-
-         select case( this% stl(STLNum)% motionAxis )
-         case( IX )
-            rotationCenter(IX) = Point(IX)
-
-            Omega = (/ this% stl(STLNum)% angularVelocity, 0.0_RP, 0.0_RP /)
-         case( IY )
-            rotationCenter(IY) = Point(IY)
-
-            Omega = (/ 0.0_RP, this% stl(STLNum)% angularVelocity, 0.0_RP /)
-         case( IZ )
-            rotationCenter(IZ) = Point(IZ)
-
-            Omega = (/ 0.0_RP, 0.0_RP, this% stl(STLNum)% angularVelocity /)
-         end select
-
-         R = x - rotationCenter
-         R = R * Lref
-
-         call vcross(Omega,R,V)
-         V = V/refValues% V
-      end if
+      Q_target = Q
 
       rho = Q_target(IRHO)
 
@@ -2291,6 +2300,33 @@ module IBMClass
       end do
 
    end subroutine SemiImplicitTurbulenceShiftJacobian
+
+   subroutine IBM_GetImplicitStep( this, element_, eID, dt )
+
+      implicit none 
+
+      class(IBM_type), intent(inout) :: this 
+      type(element),   intent(inout) :: element_
+      integer,         intent(in)    :: eID 
+      real(kind=RP),   intent(in)    :: dt 
+
+      real(kind=RP) :: invdS_dQ(NCONS,NCONS)
+      integer       :: i, j, k, n 
+
+      do i = 0, element_% Nxyz(1); do j = 0, element_% Nxyz(2); do k = 0, element_% Nxyz(3)
+         if( element_% isInsideBody(i,j,k) ) then 
+            call this% semiImplicitShiftJacobian( eID, element_% storage% Q(:,i,j,k), dt, invdS_dQ )
+         else 
+            invdS_dQ = 0.0_RP 
+            do n = 1, NCONS 
+               invdS_dQ(n,n) = 1.0_RP 
+            end do 
+         end if 
+         element_% storage% Q(:,i,j,k) = element_% storage% Q(:,i,j,k) + matmul(invdS_dQ, dt * element_% storage% Qdot(:,i,j,k) )
+      end do; end do; end do 
+
+   end subroutine IBM_GetImplicitStep
+
 !
 !  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
 !  ------------------------------------------------------------------------------------------------
@@ -2378,7 +2414,7 @@ module IBMClass
          do i = 0, e% Nxyz(1); do j = 0, e% Nxyz(2); do k = 0, e% Nxyz(3)
             if( e% isInsideBody(i,j,k) ) then
                if( this% stl(e% STL(i,j,k))% move ) then
-                  Q_target = this% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
+                  !Q_target = this% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
                   call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k), Q_target )
                else
                   call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k) )
