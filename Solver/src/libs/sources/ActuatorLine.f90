@@ -424,7 +424,7 @@ contains
     if (MPI_Process % isRoot) then
       write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_Forces.dat"
       open ( newunit = fID , file = trim(arg) , status = "unknown" ,    action = "write" ) 
-      write(fid,*) 'time, thrust_1, blade_torque_1, blade_root_bending_1,thrust_2, blade_torque_12 blade_root_bending_2,thrust_3, blade_torque_3, blade_root_bending_3'
+      write(fid,*) 'time, thrust_1, blade_torque_1, blade_root_bending_1, thrust_2, blade_torque_2, blade_root_bending_2, thrust_3, blade_torque_3, blade_root_bending_3'
       close(fid)
 !
       write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_CP_CT.dat"
