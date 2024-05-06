@@ -58,11 +58,9 @@ module MeshPartitioning
 !        Local variables
 !        ---------------
 !
-         
          integer, allocatable :: nodesDomain(:)
 
 
-         !write(*,*)'no_of_domains',no_of_domains
          allocate(nodesDomain(size(mesh % nodes)))
 !
 !        **********************************************
@@ -225,7 +223,7 @@ module MeshPartitioning
 !        Local variables
 !        ---------------
 !
-         integer  :: fID, eL, eR, dL, dR, domain, i
+         integer  :: fID, eL, eR, dL, dR, domain
          integer  :: bfaceID(no_of_domains)
 !
 !        *******************************************
@@ -237,11 +235,10 @@ module MeshPartitioning
 !
 !           Cycle non-interior faces
 !           ------------------------
-         if ( f % faceType .ne. HMESH_INTERIOR ) cycle
-         if ( f % IsMortar==1 ) cycle
+            if ( f % faceType .ne. HMESH_INTERIOR ) cycle
+!
 !           Create references to left and right elements
 !           --------------------------------------------
-
             associate( eL => mesh % elements(f % elementIDs(1)), &
                        eR => mesh % elements(f % elementIDs(2)))
 !
@@ -262,7 +259,6 @@ module MeshPartitioning
             end associate
             end associate
          end do
-
 !
 !        **************************************
 !        Allocate boundary faces-related memory
@@ -290,7 +286,6 @@ module MeshPartitioning
 !           Cycle non-interior faces
 !           ------------------------
             if ( f % faceType .ne. HMESH_INTERIOR ) cycle
-            if ( f % IsMortar==1 ) cycle
 !
 !           Create references to left and right elements
 !           --------------------------------------------
@@ -344,10 +339,6 @@ module MeshPartitioning
             end associate
             end associate
          end do
-
-         !do domain = 1, no_of_domains
-           ! write(*,*) 'domain', domain, 'nuùner mpifaces', partitions(domain) % no_of_mpifaces
-         !end do
 
       end subroutine GetPartitionBoundaryFaces
 !
