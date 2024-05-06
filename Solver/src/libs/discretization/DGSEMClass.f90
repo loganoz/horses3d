@@ -70,7 +70,7 @@ Module DGSEMClass
    END TYPE DGSem
 
    abstract interface
-      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode )
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode, HO_Elements)
          use SMConstants
          use HexMeshClass
          use ParticlesClass
@@ -83,6 +83,7 @@ Module DGSEMClass
 #endif
          REAL(KIND=RP)                   :: time
          integer,             intent(in) :: mode
+         logical, intent(in), optional   :: HO_Elements
       end subroutine ComputeTimeDerivative_f
    END INTERFACE
 
