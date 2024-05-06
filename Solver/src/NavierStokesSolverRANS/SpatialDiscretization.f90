@@ -386,9 +386,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, domain, STLNum, n 
          real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim, &
-                           Source(NCONS), TurbulentSource(NCONS)
+                           Source(NCONS), Q_target(NCONS), V(NDIM)
          logical     :: isfirst = .TRUE.
 !
 !        ***********************************************
@@ -650,34 +650,57 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
-         if( mesh% IBM% active ) then
+         if(  mesh% HO_IBM ) then
+!$omp do schedule(runtime) 
+            do eID = 1, mesh % no_of_elements  
+               associate ( e => mesh % elements(eID) ) 
+               if( e% HO_IBM ) e % storage % QDot = 0.0_RP  
+               end associate 
+            end do 
+!$omp end do
+         end if
+
+         if( mesh% IBM% active .AND. .NOT. mesh% HO_IBM ) then
             if( .not. mesh% IBM% semiImplicit ) then 
-!$omp do schedule(runtime) private(i,j,k,Source)
-               do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target,V)
+               do eID = 1, mesh % no_of_elements  
+                  associate ( e => mesh % elements(eID) ) 
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
-                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                        if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
+                           call UserDefinedVelocityIBMNS( V, e% geom% x(:,i,j,k), mesh% IBM% dt, e% STL(i,j,k), refValues )
+                           Q_target = mesh% IBM% MaskVelocity( NCONS, e% storage% Q(:,i,j,k), V )
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
+                        else 
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                        end if 
                         e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                      end if
                   end do                  ; end do                ; end do
                   end associate
                end do
-!$omp end do      
+!$omp end do       
                if( mesh% IBM% Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+                  call mesh% IBM% GetBandRegionStates( mesh% elements, NCONS )
+                  call mesh% IBM% GetImagePointsStates( NCONS )
 !$omp end single
-!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index)  )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                             e% STL(i,j,k), TurbulentSource                      )          
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+!$omp do schedule(runtime) private(i,j,k,STLNum,domain,Source,Q_target)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isForcingPoint(i,j,k) ) then
+                           STLNum   = e% STL(i,j,k)
+                           domain   = MPI_Process% rank+1
+                           Q_target = ForcingPointState( mesh% IBM% ImagePoints(STLNum)% IBMmask(domain)% x(e% IP_index)% Q, & 
+                                                         mesh% IBM% IP_Distance, e% geom% dWall(i,j,k),                      &
+                                                         e% geom% normal(:,i,j,k), NCONS                                     )
+
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .true. )
+
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
                      end associate
                   end do
 !$omp end do
@@ -754,9 +777,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, fID, iP 
+         integer       :: eID , i, j, k, fID, domain, STLNum 
+         real(kind=rp) :: Source(NCONS), Q_target(NCONS)
          procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
-         real(kind=rp) :: Source(NCONS), TurbulentSource(NCONS)
 !
 !        ****************
 !        Volume integrals
@@ -811,11 +834,12 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
+
          if( mesh% IBM% active ) then
             if( .not. mesh% IBM% semiImplicit ) then 
 !$omp do schedule(runtime) private(i,j,k,Source)
-              do eID = 1, mesh % no_of_elements
-                 associate ( e => mesh % elements(eID) )
+               do eID = 1, mesh % no_of_elements
+                  associate ( e => mesh % elements(eID) )
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
                         call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
@@ -827,24 +851,31 @@ module SpatialDiscretization
 !$omp end do      
                if( mesh% IBM% Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
-!$omp end single 
-!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index) )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                             e% STL(i,j,k), TurbulentSource                      )             
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                  call mesh% IBM% GetBandRegionStates( mesh% elements, NCONS )
+                  call mesh% IBM% GetImagePointsStates( NCONS )
+!$omp end single
+!$omp do schedule(runtime) private(i,j,k,STLNum,domain,Source,Q_target)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isForcingPoint(i,j,k) ) then
+                           STLNum   = e% STL(i,j,k)
+                           domain   = MPI_Process% rank+1
+                           Q_target = ForcingPointState( mesh% IBM% ImagePoints(STLNum)% IBMmask(domain)% x(e% IP_index)% Q, & 
+                                                         mesh% IBM% IP_Distance, e% geom% dWall(i,j,k),                      &
+                                                         e% geom% normal(:,i,j,k), NCONS                                     )
+                                                         
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .true. )
+
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
                      end associate
                   end do
 !$omp end do
                end if 
             end if
-         end if
+         endif
 
       end subroutine TimeDerivative_ComputeQDotIsolated
 !
