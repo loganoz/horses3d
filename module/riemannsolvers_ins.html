@@ -114,10 +114,10 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-riemannsolver~4">RiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-riemannsolver~2">RiemannSolver</a>
             <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-averagedstates">AveragedStates</a>
             <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-twopointflux">TwoPointFlux</a>
-            <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-whichriemannsolver~2">whichRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-whichriemannsolver">whichRiemannSolver</a>
             <a class="list-group-item" href="../module/riemannsolvers_ins.html#variable-whichaverage">whichAverage</a>
         </div>
       </div>
@@ -140,9 +140,9 @@
       </a>
       <div id="subs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../module/riemannsolvers_ins.html#proc-setriemannsolver~2">SetRiemannSolver</a>
-            <a class="list-group-item" href="../module/riemannsolvers_ins.html#proc-describeriemannsolver~2">DescribeRiemannSolver</a>
-            <a class="list-group-item" href="../module/riemannsolvers_ins.html#proc-exactriemannsolver~2">ExactRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_ins.html#proc-setriemannsolver">SetRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_ins.html#proc-describeriemannsolver">DescribeRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_ins.html#proc-exactriemannsolver">ExactRiemannSolver</a>
         </div>
       </div>
     </div>
@@ -168,11 +168,11 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='fluiddata_ins.html'>FluidData_iNS</a></li>
                   <li class="list-inline-item"><a href='variableconversion_ins.html'>VariableConversion_iNS</a></li>
                   <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
                   <li class="list-inline-item"><a href='physicsstorage_ins.html'>PhysicsStorage_iNS</a></li>
                   <li class="list-inline-item"><a href='physics_ins.html'>Physics_iNS</a></li>
+                  <li class="list-inline-item"><a href='fluiddata_ins.html'>FluidData_iNS</a></li>
               </ul>
             </li>
         </ul>
@@ -197,7 +197,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-riemannsolver~4"></span>
+              <span class="anchor" id="variable-riemannsolver~2"></span>
               procedure(RiemannSolverFCN),
             </td>
               <td>public,</td>
@@ -248,7 +248,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-whichriemannsolver~2"></span>
+              <span class="anchor" id="variable-whichriemannsolver"></span>
               integer,
             </td>
               <td>public</td>
@@ -294,7 +294,7 @@
         <section>
           <h2>Subroutines</h2>
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-setriemannsolver~2"></span> <h3>public  subroutine <a href='../proc/setriemannsolver~2.html'>SetRiemannSolver</a>(controlVariables)  
+    <div class="card-header codesum"><span class="anchor" id="proc-setriemannsolver"></span> <h3>public  subroutine <a href='../proc/setriemannsolver.html'>SetRiemannSolver</a>(controlVariables)  
 </h3></div>
     <div class="card-body">
           
@@ -313,7 +313,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-controlvariables~54"></span>
+              <span class="anchor" id="variable-controlvariables~36"></span>
               type(<a href='../type/ftvaluedictionary.html'>FTValueDictionary</a>),
             </td>
 <td>intent(in)</td>
@@ -334,7 +334,7 @@
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-describeriemannsolver~2"></span> <h3>public  subroutine <a href='../proc/describeriemannsolver~2.html'>DescribeRiemannSolver</a>()  
+    <div class="card-header codesum"><span class="anchor" id="proc-describeriemannsolver"></span> <h3>public  subroutine <a href='../proc/describeriemannsolver.html'>DescribeRiemannSolver</a>()  
 </h3></div>
     <div class="card-body">
           
@@ -347,7 +347,7 @@
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-exactriemannsolver~2"></span> <h3>public  subroutine <a href='../proc/exactriemannsolver~2.html'>ExactRiemannSolver</a>(QLeft, QRight, nHat, t1, t2, flux)  
+    <div class="card-header codesum"><span class="anchor" id="proc-exactriemannsolver"></span> <h3>public  subroutine <a href='../proc/exactriemannsolver.html'>ExactRiemannSolver</a>(QLeft, QRight, nHat, t1, t2, flux)  
 </h3></div>
     <div class="card-body">
           
@@ -366,7 +366,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-qleft~11"></span>
+              <span class="anchor" id="variable-qleft~7"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -381,7 +381,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-qright~11"></span>
+              <span class="anchor" id="variable-qright~7"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -396,7 +396,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-nhat~58"></span>
+              <span class="anchor" id="variable-nhat~48"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -411,7 +411,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t1~10"></span>
+              <span class="anchor" id="variable-t1~6"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -426,7 +426,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t2~10"></span>
+              <span class="anchor" id="variable-t2~6"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -441,7 +441,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-flux~36"></span>
+              <span class="anchor" id="variable-flux~28"></span>
               real(kind=RP),
             </td>
 <td>intent(out)</td>
@@ -484,7 +484,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-05-06 17:45              </p>
+ on 2024-05-07 08:13              </p>
           </div>
         </div>
         <br>
