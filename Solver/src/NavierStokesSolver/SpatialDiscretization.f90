@@ -242,6 +242,13 @@ module SpatialDiscretization
 !        ---------------
 !
          INTEGER :: k
+         logical :: HOElements
+
+         if (present(HO_Elements)) then
+            HOElements = HO_Elements
+         else
+            HOElements = .false.
+         end if
 
          call SetBoundaryConditionsEqn(NS_BC)
 !
@@ -283,7 +290,7 @@ module SpatialDiscretization
 !        Compute time derivative
 !        -----------------------
 !
-         if (present(HO_Elements) .and. HO_Elements) then
+         if (HOElements) then
             call TimeDerivative_ComputeQDotHO(mesh = mesh , &
                                           particles = particles, &
                                           t    = time)
