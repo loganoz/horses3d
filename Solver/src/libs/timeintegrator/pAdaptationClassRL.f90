@@ -455,6 +455,13 @@ module pAdaptationClassRL
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
 
 !
+!     ---------------------
+!     Update HO arrays
+!     ---------------------
+!
+      call sem % mesh % UpdateHOArrays()
+
+!
 !     --------------------------------------------------------------------------
 !     Perform a reduction to know how many DOFs are in each process
 !     --------------------------------------------------------------------------

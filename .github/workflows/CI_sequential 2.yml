@@ -710,3 +710,21 @@ jobs:
           ./horses3d.ns Cylinder_Overenriching_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 28) Cylinder with Euler-RK3 hybrid temporal scheme and Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build EulerRK3_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/EulerRK3_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run EulerRK3_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/EulerRK3_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns EulerRK3_pAdaptationRL.control
+        if: '!cancelled()'
+

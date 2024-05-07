@@ -74,6 +74,12 @@ MODULE HexMeshClass
          integer                                   :: dir2D_ctrl  = 0               ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
+         integer,                     allocatable  :: HO_Elements(:)           !List of elements with polynomial order greater than 1
+         integer,                     allocatable  :: LO_Elements(:)           !List of elements with polynomial order less or equal than 1
+         integer,                     allocatable  :: HO_FacesInterior(:)      !List of interior faces with polynomial order greater than 1
+         integer,                     allocatable  :: HO_FacesBoundary(:)      !List of boundary faces with polynomial order greater than 1
+         integer,                     allocatable  :: HO_ElementsMPI(:)        !List of MPI elements with polynomial order greater than 1
+         integer,                     allocatable  :: HO_ElementsSequential(:) !List of sequential elements with polynomial order greater than 1
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -95,6 +101,7 @@ MODULE HexMeshClass
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
+            procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
 #if defined(NAVIERSTOKES)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
@@ -186,6 +193,13 @@ MODULE HexMeshClass
          safedeallocate(self % faces_interior)
          safedeallocate(self % faces_mpi)
          safedeallocate(self % faces_boundary)
+
+         safedeallocate(self % HO_Elements)
+         safedeallocate(self % LO_Elements)
+         safedeallocate(self % HO_FacesInterior)
+         safedeallocate(self % HO_FacesBoundary)
+         safedeallocate(self % HO_ElementsMPI)
+         safedeallocate(self % HO_ElementsSequential)
 
 !
 !        ----------------
@@ -865,30 +879,54 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn)
+      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn, HO_Elements)
          implicit none
-         class(HexMesh),   intent(inout)  :: self
-         integer,          intent(in)     :: nEqn
+         class(HexMesh),    intent(inout) :: self
+         integer,           intent(in)    :: nEqn
+         logical, optional, intent(in)    :: HO_Elements
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer  :: fIDs(6)
-         integer  :: eID
+         integer  :: eID, i
+         logical :: HOElements
 
-!$omp do schedule(runtime)
-         do eID = 1, size(self % elements)
-            fIDs = self % elements(eID) % faceIDs
-            call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
-                                                               self % faces(fIDs(1)),&
-                                                               self % faces(fIDs(2)),&
-                                                               self % faces(fIDs(3)),&
-                                                               self % faces(fIDs(4)),&
-                                                               self % faces(fIDs(5)),&
-                                                               self % faces(fIDs(6)) )
-         end do
+         if (present(HO_Elements)) then
+            HOElements = HO_Elements
+         else
+            HOElements = .false.
+         end if
+
+         if (HOElements) then
+!$omp do schedule(runtime) private(eID, fIDs)
+            do i = 1, size(self % HO_Elements)
+               eID = self % HO_Elements(i)
+               fIDs = self % elements(eID) % faceIDs
+               call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                  self % faces(fIDs(1)),&
+                                                                  self % faces(fIDs(2)),&
+                                                                  self % faces(fIDs(3)),&
+                                                                  self % faces(fIDs(4)),&
+                                                                  self % faces(fIDs(5)),&
+                                                                  self % faces(fIDs(6)) )
+            end do
 !$omp end do
+         else
+!$omp do schedule(runtime) private(fIDs)
+            do eID = 1, size(self % elements)
+               fIDs = self % elements(eID) % faceIDs
+               call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                  self % faces(fIDs(1)),&
+                                                                  self % faces(fIDs(2)),&
+                                                                  self % faces(fIDs(3)),&
+                                                                  self % faces(fIDs(4)),&
+                                                                  self % faces(fIDs(5)),&
+                                                                  self % faces(fIDs(6)) )
+            end do
+!$omp end do
+         end if
 
       end subroutine HexMesh_ProlongSolutionToFaces
 !
@@ -4547,4 +4585,103 @@ end subroutine HexMesh_pAdapt_MPI
 
 
    end subroutine HexMesh_Assign
+
+   subroutine HexMesh_UpdateHOArrays(self)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), target  , intent(inout)   :: self
+      !-local-variables-----------------------------------
+      type(IntegerDataLinkedList_t)         :: HO_elementList
+      type(IntegerDataLinkedList_t)         :: LO_elementList
+      type(IntegerDataLinkedList_t)         :: faceInteriorList
+      type(IntegerDataLinkedList_t)         :: faceBoundaryList
+      type(IntegerDataLinkedList_t)         :: elementMPIList
+      type(IntegerDataLinkedList_t)         :: elementSequentialList
+      integer                               :: eID, fID, face, i
+      !--------------------------------------------------
+      
+      HO_elementList            = IntegerDataLinkedList_t(.FALSE.)
+      LO_elementList            = IntegerDataLinkedList_t(.FALSE.)
+      faceInteriorList          = IntegerDataLinkedList_t(.FALSE.)
+      faceBoundaryList          = IntegerDataLinkedList_t(.FALSE.)
+      elementMPIList            = IntegerDataLinkedList_t(.FALSE.)
+      elementSequentialList     = IntegerDataLinkedList_t(.FALSE.)
+
+      if( allocated(self % HO_Elements) ) then
+         deallocate(self % HO_Elements)
+      endif
+
+      if ( allocated(self % LO_Elements)) then
+         deallocate(self % LO_Elements)
+      endif
+
+      if( allocated(self % HO_FacesInterior) ) then
+         deallocate(self % HO_FacesInterior)
+      endif
+
+      if( allocated(self % HO_FacesBoundary) ) then
+         deallocate(self % HO_FacesBoundary)
+      endif
+
+      if( allocated(self % HO_ElementsSequential) ) then
+         deallocate(self % HO_ElementsSequential)
+      endif
+
+      ! All elements and faces
+      do eID=1, self % no_of_elements
+         if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+            call HO_elementList % add(eID)
+            do fID=1, 6
+               face = self % elements(eID) % faceIDs(fID)
+               if (self % faces(face) % FaceType  /= HMESH_BOUNDARY) then
+                  call faceInteriorList % add (face)
+               else
+                  call faceBoundaryList % add (face)
+               end if
+            end do
+         else
+            call LO_elementList % add(eID)
+         endif
+      end do
+
+      ! Sequential elements
+      do i=1, size(self % elements_sequential)
+         eID = self % elements_sequential(i)
+         if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+            call elementSequentialList % add(eID)
+         endif
+      end do
+
+
+      call HO_elementList        % ExportToArray(self % HO_Elements, .TRUE.)
+      call LO_elementList        % ExportToArray(self % LO_Elements, .TRUE.)
+      call faceInteriorList      % ExportToArray(self % HO_FacesInterior, .TRUE.)
+      call faceBoundaryList      % ExportToArray(self % HO_FacesBoundary, .TRUE.)
+      call elementSequentialList % ExportToArray(self % HO_ElementsSequential, .TRUE.)
+
+      call HO_elementList        % destruct
+      call LO_elementList        % destruct
+      call faceInteriorList      % destruct
+      call faceBoundaryList      % destruct
+      call elementSequentialList % destruct
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         if( allocated(self % HO_ElementsMPI) ) then
+            deallocate(self % HO_ElementsMPI)
+         endif
+
+         do i=1, size(self % elements_mpi)
+            eID = self % elements_mpi(i)
+            if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+               call elementMPIList % add(eID)
+            endif
+         end do
+
+         call elementMPIList % ExportToArray(self % HO_ElementsMPI, .TRUE.)
+      end if
+#endif
+call elementMPIList % destruct 
+
+   end subroutine HexMesh_UpdateHOArrays
 END MODULE HexMeshClass
