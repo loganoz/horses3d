@@ -890,7 +890,7 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer  :: fIDs(6)
-         integer  :: eID
+         integer  :: eID, i
          logical :: HOElements
 
          if (present(HO_Elements)) then
