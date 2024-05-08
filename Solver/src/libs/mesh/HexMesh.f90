@@ -1536,6 +1536,8 @@ slavecoord:             DO l = 1, 4
       integer           :: no_of_facesP(MPI_Process % nProcs)
       integer           :: no_of_bfacesP(MPI_Process % nProcs)
       integer           :: no_of_mpifacesP(MPI_Process % nProcs)
+	  integer           :: no_of_mpiSuggest(2)
+	  real(KIND=RP)     :: maxRatio_mpifacesShared
       character(len=64) :: partitionID
 
       if ( .not. MPI_Process % doMPIAction ) return
@@ -1585,6 +1587,22 @@ slavecoord:             DO l = 1, 4
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of mpi faces: " , no_of_mpifacesP(rank)
 
       end do
+	  
+	  maxRatio_mpifacesShared = maxval(REAL(no_of_mpifacesP)/REAL(no_of_facesP))
+	  no_of_mpiSuggest(1) = FLOOR(0.4*MPI_Process % nProcs/(maxRatio_mpifacesShared))
+	  no_of_mpiSuggest(2) = CEILING(0.6*MPI_Process % nProcs/(maxRatio_mpifacesShared))
+	  
+	  write(STD_OUT,'(/)')
+	  call SubSection_Header("MPI Suggestion: ")
+	  
+	  if (self % NDOF.gt.5000000) then
+		  write(STD_OUT,'(30X,A,A28,F4.2)') "->" , "Max mpi faces ratio: " ,maxRatio_mpifacesShared
+		  write(STD_OUT,'(30X,A,A28,A10)')  "->" , "Optimum mpi faces ratio: " ,"0.4-0.6"
+		  write(STD_OUT,'(30X,A,A28,I4,A3,I4)')"->" , "Suggested number of mpi: ",no_of_mpiSuggest(1)," - ", no_of_mpiSuggest(2)
+      else 
+	      write(STD_OUT,'(30X,A,A28,A28)') "->" , "NDOF < 5000000 : " ,"Maximize number of OpenMP"
+	  end if 
+	  
 #endif
 
       END SUBROUTINE DescribeMeshPartition
