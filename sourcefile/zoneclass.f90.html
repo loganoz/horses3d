@@ -190,8 +190,8 @@
 <a id="ln-36" name="ln-36" href="#ln-36"></a><span class="c">!     ------------------------------------------</span>
 <a id="ln-37" name="ln-37" href="#ln-37"></a><span class="w">      </span><span class="k">subroutine </span><span class="n">ConstructZones</span><span class="p">(</span><span class="w"> </span><span class="n">faces</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">zones</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-38" name="ln-38" href="#ln-38"></a><span class="w">         </span><span class="k">implicit none</span>
-<a id="ln-39" name="ln-39" href="#ln-39"></a><span class="k">         type</span><span class="p">(</span><span class="n">Face</span><span class="p">),</span><span class="w"> </span><span class="k">target</span><span class="w">                  </span><span class="kd">::</span><span class="w"> </span><span class="n">faces</span><span class="p">(:)</span>
-<a id="ln-40" name="ln-40" href="#ln-40"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">           </span><span class="kd">::</span><span class="w"> </span><span class="n">zones</span><span class="p">(:)</span>
+<a id="ln-39" name="ln-39" href="#ln-39"></a><span class="k">         class</span><span class="p">(</span><span class="n">Face</span><span class="p">),</span><span class="w"> </span><span class="k">target</span><span class="w">                  </span><span class="kd">::</span><span class="w"> </span><span class="n">faces</span><span class="p">(:)</span>
+<a id="ln-40" name="ln-40" href="#ln-40"></a><span class="w">         </span><span class="k">class</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">           </span><span class="kd">::</span><span class="w"> </span><span class="n">zones</span><span class="p">(:)</span>
 <a id="ln-41" name="ln-41" href="#ln-41"></a><span class="c">!</span>
 <a id="ln-42" name="ln-42" href="#ln-42"></a><span class="c">!        ---------------</span>
 <a id="ln-43" name="ln-43" href="#ln-43"></a><span class="c">!        Local variables</span>
@@ -236,8 +236,8 @@
 <a id="ln-82" name="ln-82" href="#ln-82"></a><span class="c">!     ------------------------------------------------------------------------------------------</span>
 <a id="ln-83" name="ln-83" href="#ln-83"></a><span class="w">      </span><span class="k">subroutine </span><span class="n">ReassignZones</span><span class="p">(</span><span class="w"> </span><span class="n">faces</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">zones</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-84" name="ln-84" href="#ln-84"></a><span class="w">         </span><span class="k">implicit none</span>
-<a id="ln-85" name="ln-85" href="#ln-85"></a><span class="k">         type</span><span class="p">(</span><span class="n">Face</span><span class="p">),</span><span class="w"> </span><span class="k">target</span><span class="w">                  </span><span class="kd">::</span><span class="w"> </span><span class="n">faces</span><span class="p">(:)</span>
-<a id="ln-86" name="ln-86" href="#ln-86"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">)</span><span class="w">                        </span><span class="kd">::</span><span class="w"> </span><span class="n">zones</span><span class="p">(:)</span>
+<a id="ln-85" name="ln-85" href="#ln-85"></a><span class="k">         class</span><span class="p">(</span><span class="n">Face</span><span class="p">),</span><span class="w"> </span><span class="k">target</span><span class="w">                  </span><span class="kd">::</span><span class="w"> </span><span class="n">faces</span><span class="p">(:)</span>
+<a id="ln-86" name="ln-86" href="#ln-86"></a><span class="w">         </span><span class="k">class</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">)</span><span class="w">                        </span><span class="kd">::</span><span class="w"> </span><span class="n">zones</span><span class="p">(:)</span>
 <a id="ln-87" name="ln-87" href="#ln-87"></a><span class="c">!</span>
 <a id="ln-88" name="ln-88" href="#ln-88"></a><span class="c">!        ---------------</span>
 <a id="ln-89" name="ln-89" href="#ln-89"></a><span class="c">!        Local variables</span>
@@ -350,7 +350,7 @@
 <a id="ln-196" name="ln-196" href="#ln-196"></a><span class="w">      </span><span class="k">function </span><span class="n">AllZoneNames</span><span class="p">(</span><span class="n">no_of_zones</span><span class="p">,</span><span class="w"> </span><span class="n">zones</span><span class="p">)</span>
 <a id="ln-197" name="ln-197" href="#ln-197"></a><span class="w">         </span><span class="k">implicit none</span>
 <a id="ln-198" name="ln-198" href="#ln-198"></a><span class="k">         </span><span class="kt">integer</span><span class="p">,</span><span class="w">       </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_zones</span>
-<a id="ln-199" name="ln-199" href="#ln-199"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">zones</span><span class="p">(</span><span class="n">no_of_zones</span><span class="p">)</span>
+<a id="ln-199" name="ln-199" href="#ln-199"></a><span class="w">         </span><span class="k">class</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">zones</span><span class="p">(</span><span class="n">no_of_zones</span><span class="p">)</span>
 <a id="ln-200" name="ln-200" href="#ln-200"></a><span class="w">         </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">LINE_LENGTH</span><span class="p">)</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">AllZoneNames</span><span class="p">(</span><span class="n">no_of_zones</span><span class="p">)</span>
 <a id="ln-201" name="ln-201" href="#ln-201"></a><span class="c">!</span>
 <a id="ln-202" name="ln-202" href="#ln-202"></a><span class="c">!        ---------------</span>
@@ -419,7 +419,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-05-09 09:34              </p>
+ on 2024-05-09 09:57              </p>
           </div>
         </div>
         <br>
