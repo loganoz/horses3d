@@ -119,7 +119,7 @@ module EllipticBR2
 #endif
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients, HO_Elements)
+      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -131,7 +131,6 @@ module EllipticBR2
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
-         logical, intent(in), optional    :: HO_Elements
 !
 !        ---------------
 !        Local variables

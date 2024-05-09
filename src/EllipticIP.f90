@@ -31,7 +31,7 @@ module EllipticIP
       procedure(PenaltyParameter_f), pointer   :: PenaltyParameter
       integer              :: IPmethod = SIPG
       contains
-         procedure      :: Construct               => IP_Construct
+         procedure      :: Construct              => IP_Construct
          procedure      :: ComputeGradient         => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: RiemannSolver           => IP_RiemannSolver
@@ -186,7 +186,7 @@ module EllipticIP
             
       end subroutine IP_Describe
 
-      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
+      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -197,7 +197,6 @@ module EllipticIP
          class(HexMesh)                       :: mesh
          real(kind=RP),        intent(in)     :: time
          procedure(GetGradientValues_f)       :: GetGradients 
-         logical, intent(in), optional        :: HO_Elements
 !
 !        ---------------
 !        Local variables

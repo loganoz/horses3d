@@ -80,6 +80,7 @@ module ProblemFileFunctions
          use SMConstants
          use PhysicsStorage
          use FluidData
+         use ElementConnectivityDefinitions
          implicit none
          real(kind=RP), intent(in)          :: x(NDIM)
          real(kind=RP), intent(in)          :: t
