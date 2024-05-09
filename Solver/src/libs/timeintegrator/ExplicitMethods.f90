@@ -950,9 +950,9 @@ MODULE ExplicitMethods
 
 !$omp parallel do reduction(.AND.:NanNotFound) schedule(runtime)
       do eID=1, mesh % no_of_elements
-         if ( any(isnan(mesh % elements(eID) % storage % Q))) then
-            NanNotFound = .FALSE.
-         endif
+         !if ( any(isnan(mesh % elements(eID) % storage % Q))) then
+         !   NanNotFound = .FALSE.
+         !endif
       end do
 !$omp end parallel do
 

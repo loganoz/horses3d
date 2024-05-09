@@ -9,7 +9,6 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 PLATFORM?=LINUX
 
-
 LIB = problemfile
 
 ifeq ($(PLATFORM),MACOSX)
@@ -38,7 +37,7 @@ all: lib$(LIB)_ns$(LIBSUFFIX) lib$(LIB)_nssa$(LIBSUFFIX) lib$(LIB)_ins$(LIBSUFFI
 ./build_ns/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ns
+	$(FC) -cpp -Mfree -Mbackslash $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ns
 
 ./build_nssa/%.o: %.f90
 	@echo
@@ -61,7 +60,7 @@ all: lib$(LIB)_ns$(LIBSUFFIX) lib$(LIB)_nssa$(LIBSUFFIX) lib$(LIB)_ins$(LIBSUFFI
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ins
 
 ./build_ns/ProblemFile.o: ./ProblemFile.f90
-	$(FC) -fPIC -shared -DNAVIERSTOKES $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include_ns -c $< -o $@
+	$(FC) -fPIC -shared -DNAVIERSTOKES -cpp -Mfree -Mbackslash $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include_ns -c $< -o $@
 
 ./build_nssa/ProblemFile.o: ./ProblemFile.f90
 	$(FC) -fPIC -shared -DNAVIERSTOKES -DSPALARTALMARAS $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nssa $(MOD_FLAG)./include_nssa -c $< -o $@

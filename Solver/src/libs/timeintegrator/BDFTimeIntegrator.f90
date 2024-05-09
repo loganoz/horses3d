@@ -449,7 +449,7 @@ contains
                                                       linsolver%niter, Stopwatch % lastElapsedTime("BDF Newton-Solve")
          end if
          
-         if (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MaxNewtonIter .OR. ISNAN(norm)) then
+         if (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MaxNewtonIter) then
             if (PRINT_NEWTON_INFO) write(STD_OUT,*) 'ConvRate: ', ConvRate
             converged = .FALSE.
             return

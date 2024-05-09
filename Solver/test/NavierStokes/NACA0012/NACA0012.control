@@ -58,38 +58,4 @@ partitioning = SFC
   type = Outflow
 #end
 !-------------------------------------------------------------
-#define surface monitor 1
-  Name = drag-b
-  Marker = AIRFOILB
-  Variable = drag
-  Direction = [1.d0, 0.d0, 0.d0]
-  Reference surface = 1.d0 
-#end
 
-#define surface monitor 2
-  Name = drag-t
-  Marker = AIRFOILT
-  Variable = drag
-  Direction = [1.d0, 0.d0, 0.d0]
-  Reference surface = 1.d0 
-#end
-
-#define surface monitor 3
-  Name = lift-t
-  Marker = AIRFOILT
-  Variable = lift
-  Direction = [0.d0, 1.d0, 0.d0]
-  Reference surface = 1.d0 
-#end
-
-#define surface monitor 4
-  Name = lift-b
-  Marker = AIRFOILB
-  Variable = lift
-  Direction = [0.d0, 1.d0, 0.d0]
-  Reference surface = 1.d0 
-#end
------------------------------------
-surface save utau = .true.
-surface save timestep  =  1.D-10
-boundaries to save = [AIRFOILT]

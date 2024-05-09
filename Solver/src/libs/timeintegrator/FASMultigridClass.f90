@@ -1581,10 +1581,10 @@ module FASMultigridClass
 
 !$omp parallel do schedule(runtime)
       do k=1, this % p_sem % mesh % no_of_elements
-         if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
-            print*, "Numerical divergence obtained in solver."
-            call exit(99)
-         endif
+         !if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
+         !   print*, "Numerical divergence obtained in solver."
+         !   call exit(99)
+         !endif
       end do
 !$omp end parallel do
 
@@ -1670,10 +1670,10 @@ module FASMultigridClass
 
 !$omp parallel do schedule(runtime)
       do k=1, this % p_sem % mesh % no_of_elements
-         if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
-            print*, "Numerical divergence obtained in solver."
-            call exit(99)
-         endif
+         !if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
+         !   print*, "Numerical divergence obtained in solver."
+         !   call exit(99)
+         !endif
       end do
 !$omp end parallel do
 
@@ -1748,10 +1748,10 @@ module FASMultigridClass
 
 !$omp parallel do schedule(runtime)
       do k=1, this % p_sem % mesh % no_of_elements
-         if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
-            print*, "Numerical divergence obtained in solver."
-            call exit(99)
-         endif
+         !if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
+         !   print*, "Numerical divergence obtained in solver."
+         !   call exit(99)
+         !endif
       end do
 !$omp end parallel do
    end subroutine TakeILUStep

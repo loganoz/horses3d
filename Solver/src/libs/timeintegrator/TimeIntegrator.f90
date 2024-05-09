@@ -145,7 +145,7 @@
          self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
-         self % RKStep         => TakeRK3Step
+         !self % RKStep         => TakeRK3Step
 
          if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
             self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
@@ -159,23 +159,23 @@
             call toLower(keyword)
             select case (keyword)
             case(EULER_NAME)
-               self % RKStep => TakeExplicitEulerStep
+               !self % RKStep => TakeExplicitEulerStep
                self % RKStep_key = EULER_KEY
 
             case(RK3_NAME)
-               self % RKStep => TakeRK3Step
+               !self % RKStep => TakeRK3Step
                self % RKStep_key = RK3_KEY
 
             case(RK5_NAME)
-               self % RKStep => TakeRK5Step
+               !self % RKStep => TakeRK5Step
                self % RKStep_key = RK5_KEY
 
             case(SSPRK33_NAME)
-               self % RKStep => TakeSSPRK33Step
+               !self % RKStep => TakeSSPRK33Step
                self % RKStep_key = SSPRK33_KEY
 
             case(SSPRK43_NAME)
-               self % RKStep => TakeSSPRK43Step
+               !self % RKStep => TakeSSPRK43Step
                self % RKStep_key = SSPRK43_KEY
 
             case default
@@ -184,7 +184,7 @@
 
             end select
          else
-            self % RKStep => TakeRK3Step
+            !self % RKStep => TakeRK3Step
             self % RKStep_key = RK3_KEY
          end if
 
@@ -635,7 +635,7 @@
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
-            CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+            CALL TakeRK3Step ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
