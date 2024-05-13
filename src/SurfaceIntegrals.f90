@@ -1,5 +1,5 @@
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || (defined(INCNS))
 module SurfaceIntegrals
    use SMConstants
    use PhysicsStorage
@@ -163,6 +163,7 @@ module SurfaceIntegrals
 !              I = \int rho \vec{v}·\vec{n}dS
 !           ***********************************
 !
+#if defined(NAVIERSTOKES)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
@@ -173,7 +174,19 @@ module SurfaceIntegrals
                        * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
             end do          ;    end do
+#endif
+#if defined(INCNS)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+!
+!              Compute the integral
+!              --------------------
+               val = val +  (Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
+                          + Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
+                          + Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                       * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
+            end do          ;    end do
+#endif
          case ( FLOW_RATE )
 !
 !           ***********************************
@@ -181,6 +194,7 @@ module SurfaceIntegrals
 !              val = \int \vec{v}·\vec{n}dS
 !           ***********************************
 !
+#if defined(NAVIERSTOKES)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
@@ -190,7 +204,18 @@ module SurfaceIntegrals
                                              + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
                                           * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
             end do          ;    end do
-
+#endif
+#if defined(INCNS)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+!
+!              Compute the integral
+!              --------------------
+               val = val + (1.0_RP / Q(INSRHO,i,j))*(Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
+                                             + Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
+                                             + Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+#endif
          case ( PRESSURE_FORCE )
 !
 !           ***********************************
@@ -371,7 +396,7 @@ module SurfaceIntegrals
 !              --------------------
                p = Pressure(Q(:,i,j))
                call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
-
+               
                val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
                            * f % geom % jacobian(i,j) * spAxi % w(i) * spAeta % w(j)
 
@@ -747,16 +772,24 @@ module SurfaceIntegrals
                Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
             end do 
 
+#if defined(NAVIERSTOKES)
             outvalue = - (1.0_RP / Qi(IRHO))*(Qi(IRHOU)*normal(1) + Qi(IRHOV)*normal(2) + Qi(IRHOW)*normal(3))       
-            
+#endif
+#if defined(INCNS)
+            outvalue = - (1.0_RP / Qi(INSRHO))*(Qi(INSRHOU)*normal(1) + Qi(INSRHOV)*normal(2) + Qi(INSRHOW)*normal(3))       
+#endif    
          case ( FLOW_RATE )
 
             do i = 1, NCONS 
                Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
             end do 
 
+#if defined(NAVIERSTOKES)
             outvalue = - (Qi(IRHOU)*normal(1) + Qi(IRHOV)*normal(2) + Qi(IRHOW)*normal(3)) 
-               
+#endif
+#if defined(INCNS)
+            outvalue = - (Qi(INSRHOU)*normal(1) + Qi(INSRHOV)*normal(2) + Qi(INSRHOW)*normal(3)) 
+#endif
          case( PRESSURE_DISTRIBUTION )
 
             do i = 1, NCONS 

@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.2% of total for modules and submodules.">75 statements</a>
+                 title=" 0.2% of total for modules and submodules.">104 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -128,6 +128,7 @@
             <a class="list-group-item" href="../module/physics_ins.html#proc-ieulerflux">iEulerFlux</a>
             <a class="list-group-item" href="../module/physics_ins.html#proc-ieulerxflux">iEulerXFlux</a>
             <a class="list-group-item" href="../module/physics_ins.html#proc-iviscousflux">iViscousFlux</a>
+            <a class="list-group-item" href="../module/physics_ins.html#proc-getstresstensor~2">getStressTensor</a>
         </div>
       </div>
     </div>
@@ -153,10 +154,10 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='physicsstorage_ins.html'>PhysicsStorage_iNS</a></li>
-                  <li class="list-inline-item"><a href='fluiddata_ins.html'>FluidData_iNS</a></li>
-                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
                   <li class="list-inline-item"><a href='variableconversion_ins.html'>VariableConversion_iNS</a></li>
+                  <li class="list-inline-item"><a href='physicsstorage_ins.html'>PhysicsStorage_iNS</a></li>
+                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
+                  <li class="list-inline-item"><a href='fluiddata_ins.html'>FluidData_iNS</a></li>
               </ul>
             </li>
         </ul>
@@ -195,7 +196,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~166"></span>
+              <span class="anchor" id="variable-q~174"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -210,7 +211,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-f~14"></span>
+              <span class="anchor" id="variable-f~19"></span>
               real(kind=RP),
             </td>
 <td>intent(out)</td>
@@ -225,7 +226,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-rho_~12"></span>
+              <span class="anchor" id="variable-rho_~13"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -265,7 +266,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~167"></span>
+              <span class="anchor" id="variable-q~175"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -280,7 +281,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-f~15"></span>
+              <span class="anchor" id="variable-f~20"></span>
               real(kind=RP),
             </td>
 <td>intent(out)</td>
@@ -335,7 +336,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-ngradeqn~26"></span>
+              <span class="anchor" id="variable-ngradeqn~28"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -350,7 +351,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~168"></span>
+              <span class="anchor" id="variable-q~176"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -365,7 +366,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-u_x~61"></span>
+              <span class="anchor" id="variable-u_x~59"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -380,7 +381,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-u_y~61"></span>
+              <span class="anchor" id="variable-u_y~59"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -395,7 +396,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-u_z~61"></span>
+              <span class="anchor" id="variable-u_z~59"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -410,7 +411,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mu~63"></span>
+              <span class="anchor" id="variable-mu~61"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -425,7 +426,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-beta~33"></span>
+              <span class="anchor" id="variable-beta~36"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -440,7 +441,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-kappa~23"></span>
+              <span class="anchor" id="variable-kappa~26"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -455,7 +456,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-f~16"></span>
+              <span class="anchor" id="variable-f~21"></span>
               real(kind=RP),
             </td>
 <td>intent(out)</td>
@@ -464,6 +465,106 @@
             </td>
             <td>::</td>
             <td><strong>F</strong>(1:nEqn,1:NDIM)</td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-getstresstensor~2"></span> <h3>public  subroutine <a href='../proc/getstresstensor~2.html'>getStressTensor</a>(Q, Q_x, Q_y, Q_z, tau)  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-q~177"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(1:NCONS)</td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-q_x~37"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q_x</strong>(1:NGRAD)</td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-q_y~36"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q_y</strong>(1:NGRAD)</td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-q_z~36"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q_z</strong>(1:NGRAD)</td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-tau~5"></span>
+              real(kind=RP),
+            </td>
+<td>intent(out)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>tau</strong>(1:NDIM,1:NDIM)</td>
             <td>
 
             </td>
@@ -498,7 +599,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-05-13 07:10              </p>
+ on 2024-05-13 14:04              </p>
           </div>
         </div>
         <br>

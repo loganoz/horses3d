@@ -141,6 +141,7 @@ module VolumeIntegrals
          real(kind=RP)           :: free_en, fchem, entr, area, rho , u , v, w, en, thetaeddy
          real(kind=RP)           :: Strain(NDIM,NDIM)
          real(kind=RP)           :: mu
+         real(kind=RP)           :: rho_min, rho_max
 
          Nel = e % Nxyz
 
@@ -511,6 +512,11 @@ module VolumeIntegrals
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                rho = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+
+               rho_min=min(dimensionless % rho(1),dimensionless % rho(2))
+               rho_max=max(dimensionless % rho(1),dimensionless % rho(2))
+               rho = max(min(rho, rho_max), rho_min)
+
                val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)*e % storage % Q(IMSQRHOU,i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k)) / sqrt(rho)
             end do            ; end do           ; end do
 

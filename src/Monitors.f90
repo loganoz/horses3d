@@ -11,7 +11,7 @@ module MonitorsClass
 #ifdef FLOW
    use ProbeClass
 #endif
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
    use StatisticsMonitor
    use SurfaceMonitorClass
 #endif
@@ -44,7 +44,8 @@ module MonitorsClass
 #ifdef FLOW
       class(Probe_t)               , allocatable :: probes(:)
 #endif
-#if defined(NAVIERSTOKES)
+! //# Maybe put them all in flow?
+#if defined(NAVIERSTOKES) || defined(INCNS)
       class(SurfaceMonitor_t)      , allocatable :: surfaceMonitors(:)
       type(StatisticsMonitor_t)                  :: stats
 #endif
@@ -138,7 +139,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          call Monitors % stats     % Construct(mesh, saveGradients)
 
@@ -200,7 +201,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Write surface monitors labels
 !        -----------------------------
@@ -274,7 +275,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Print dashes for surface monitors
 !        ---------------------------------
@@ -339,7 +340,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Print surface monitors
 !        ----------------------
@@ -423,7 +424,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Update surface monitors
 !        -----------------------
@@ -435,7 +436,9 @@ module MonitorsClass
 !        -----------------
          call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
 #endif
-
+#if defined(MULTIPHASE)
+      call locatepoint(mesh)
+#endif
 !
 !        Update dt restriction
 !        ---------------------
@@ -488,7 +491,7 @@ module MonitorsClass
             end do
 #endif
    
-#if defined(NAVIERSTOKES)   
+#if defined(NAVIERSTOKES) || defined(INCNS)  
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -529,7 +532,7 @@ module MonitorsClass
                end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
                do i = 1 , self % no_of_surfaceMonitors
                   call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
@@ -566,7 +569,7 @@ module MonitorsClass
          safedeallocate (self % probes)
 #endif
          
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          call self % surfaceMonitors % destruct
          safedeallocate (self % surfaceMonitors)
          
@@ -624,7 +627,7 @@ module MonitorsClass
          to % probes = from % probes
 #endif
          
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate ( to % surfaceMonitors )
          allocate ( to % surfaceMonitors ( size(from % surfaceMonitors) ) )
          to % surfaceMonitors = from % surfaceMonitors
@@ -722,6 +725,57 @@ readloop:do
       close(fID)                             
 
 end subroutine getNoOfMonitors
+
+   subroutine locatepoint(mesh)
+      implicit none
+      class(HexMesh), intent(in)  :: mesh
+      logical, save               :: FirstCall = .TRUE.
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+      integer  :: eID, i, j, k  
+      integer  :: Nel(3)    ! Element polynomial order
+      real     :: value, location(3), error,concentration
+      integer  :: fileID
+
+      if(Firstcall) then 
+         open( fileID , file = "output.txt", status='replace')
+         write(fileID,'(A, A, A)'), " c " , " x " , " z "
+         close(fileID)
+         FirstCall = .FALSE.
+      endif
+
+
+      value = 0.0
+      error  = huge(1.0)
+
+
+      do eID = 1, mesh % no_of_elements
+
+      Nel = mesh % elements(eID) % Nxyz
+
+         do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            if(mesh % elements(eID) % geom % x (3,i,j,k) < 1e-10 ) then  ! if you re on the left edge
+               concentration = mesh % elements(eID) % storage % Q(1,i,j,k)  !Q(IMC)
+               !write(*,'(A, F8.5, A, F8.5,A,F8.5,A,F8.5, A, I8)') " Concentration " , concentration , " at x" , mesh % elements(eID) % geom % x (1,i,j,k), " at y ", mesh % elements(eID) % geom % x (2,i,j,k) ," z ", mesh % elements(eID) % geom % x (3,i,j,k), " id ", eID
+               if(abs(concentration-0.5)<error) then 
+                  error = abs(concentration-0.5)
+                  value = concentration
+                  location =  mesh % elements(eID) % geom % x (:,i,j,k)
+               end if
+            end if                  
+         end do           ; end do         ; end do 
+      end do
+
+      open( fileID , file = "output.txt" , action = "write" , access = "append" )
+      write(fileID,'(F8.5, F8.5,F8.5)'), value , location(1) , location(3)
+      !write(*,'(A, F8.5, A, F8.5,A,F8.5)') " The concentration closest to 0.5 is " , value , " at x" , location(1) , " z ", location(3) 
+      close(fileID)
+
+   end subroutine
 
 end module MonitorsClass
 !
