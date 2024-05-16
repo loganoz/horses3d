@@ -6,37 +6,10 @@ module VariableConversion_iNS
    implicit none
 
    private
-   public   Pressure
    public   iNSGradientVariables
    public   GetiNSTwoFluidsViscosity, GetiNSOneFluidViscosity
 
    contains
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!@mark -
-!---------------------------------------------------------------------
-!! Compute the pressure from the state variables
-!---------------------------------------------------------------------
-!
-   PURE function Pressure(Q) RESULT(P)
-   !
-   !     ---------
-   !     Arguments
-   !     ---------
-   !
-         REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
-   !
-   !     ---------------
-   !     Local Variables
-   !     ---------------
-   !
-         REAL(KIND=RP) :: P
-         
-         P = Q(INSP) 
-   
-         end function Pressure
-   !
 !
 ! /////////////////////////////////////////////////////////////////////
 !

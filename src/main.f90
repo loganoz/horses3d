@@ -1,6 +1,5 @@
-      PROGRAM HORSES3DMainMU
+      PROGRAM HORSES3DMainNSSA
       
-      USE SMConstants
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
@@ -13,7 +12,9 @@
       use SpatialDiscretization
       use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
+      use ManufacturedSolutionsNSSA
       use FluidData
+      USE SMConstants
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
@@ -24,22 +25,23 @@
 #endif
       
       IMPLICIT NONE
+
+      procedure(UserDefinedStartup_f)     :: UserDefinedStartup
+      procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
+      procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
+      procedure(UserDefinedTermination_f) :: UserDefinedTermination
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients
+      LOGICAL                             :: success, saveGradients, saveSensor
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
-      procedure(UserDefinedStartup_f)     :: UserDefinedStartup
-      procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
-      procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
-      procedure(UserDefinedTermination_f) :: UserDefinedTermination
-
-      call SetSolver(MULTIPHASE_SOLVER)
+      
+      call SetSolver(NAVIERSTOKESSA_SOLVER)
 !
 !     -----------------------------------------
 !     Start measuring the total simulation time
@@ -60,17 +62,16 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes / Spallart-Almaras Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes / Spallart-Almaras Solver",__DATE__,__TIME__)
 
       end if
 
       CALL controlVariables % initWithSize(16)
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
-      
       CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   error stop "Control file reading error"
@@ -84,26 +85,41 @@
       IF(.NOT. success)   error stop "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary
+      sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
+
+      IF (sem % ManufacturedSol) THEN
+         CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
+      END IF
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage(controlVariables, Nmax)
+      call InitializeNodalStorage (controlVariables , Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-      
-      call sem % construct (  controlVariables  = controlVariables,                                         &
-                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+
+      call sem % construct (  controlVariables  = controlVariables,       &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,    &
                                  success           = success)
 
-      call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem)
                            
       IF(.NOT. success)   error stop "Mesh reading error"
       IF(.NOT. success)   error stop "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
+      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
 !
 !     -------------------------
 !     Set the initial condition
 !     -------------------------
 !
+
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
+      !
+      !     -------------------
+      !     Build the particles
+      !     -------------------
+      !
+      sem % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
+      if ( sem % particles % active ) then 
+            call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
+      endif
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -116,12 +132,6 @@
 !     -----------------
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-!
-!     ----------------------------------
-!     Export particles to VTK (temporal)
-!     ----------------------------------
-!TODO
-!      call sem % particles % ExportToVTK()
 !
 !     ------------------------------------------
 !     Finish measuring the total simulation time
@@ -140,7 +150,7 @@
 !     -----------------------------------------------------
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
-                              sem % maxResidual, thermodynamics, dimensionless, refValues, multiphase,&
+                              sem % maxResidual, thermodynamics, dimensionless, refValues, &
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
 #ifdef _HAS_MPI_
@@ -156,9 +166,14 @@
       IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
+         saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor)
+         if ( sem % particles % active ) then 
+            call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
+         end if 
       END IF
       call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
+      
 !
 !     ---------
 !     Finish up
@@ -169,17 +184,17 @@
       CALL sem % destruct()
       call DestructBoundaryConditions
       call Finalize_SpaceAndTimeMethods
-      call DestructGlobalNodalStorage()
       call Finalize_InterpolationMatrices
+      call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainMU
+      END PROGRAM HORSES3DMainNSSA
 !
-!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+!//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE CheckInputIntegrity( controlVariables, success )  
          use SMConstants
@@ -237,7 +252,7 @@
 
          obj => controlVariables % objectForKey(splitFormKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("Skew-symmetric",splitFormKey)
+            call controlVariables % addValueForKey("Ducros",splitFormKey)
          end if
 !
 !        Check for inconsistencies in the input variables
@@ -290,7 +305,7 @@
          integer                    :: NDOF, localNDOF, ierr
          real(kind=RP)              :: Naverage, localNaverage
          real(kind=RP)              :: t_elaps, t_cpu
-   
+         
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
          call Section_Header("Simulation statistics")
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
