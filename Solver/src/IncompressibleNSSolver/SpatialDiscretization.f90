@@ -5,6 +5,7 @@ module SpatialDiscretization
       use EllipticDiscretizations
       use DGIntegrals
       use MeshTypes
+      use LESModels
       use HexMeshClass
       use ElementClass
       use PhysicsStorage
@@ -153,6 +154,10 @@ module SpatialDiscretization
 !        Compute wall distances
 !        ----------------------
          call mesh % ComputeWallDistances
+!
+!        Initialize models
+!        -----------------
+         call InitializeLESModel(LESModel, controlVariables)
          
          end if
 
@@ -163,6 +168,7 @@ module SpatialDiscretization
       subroutine Finalize_SpaceAndTimeMethods
          implicit none
          IF ( ALLOCATED(HyperbolicDiscretization) ) DEALLOCATE( HyperbolicDiscretization )
+         IF ( ALLOCATED(LESModel) )                 DEALLOCATE( LESModel )
       end subroutine Finalize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
@@ -325,6 +331,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID
+         real(kind=RP)  :: mu_smag, delta
 !
 !        ****************
 !        Volume integrals
@@ -335,6 +342,34 @@ module SpatialDiscretization
             call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
          end do
 !$omp end do nowait
+
+         if ( LESModel % active) then
+            !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
+                        do eID = 1, size(mesh % elements)
+                            associate(e => mesh % elements(eID))
+                            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+                            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                               call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
+                                                                                               e % storage % U_x(:,i,j,k), &
+                                                                                               e % storage % U_y(:,i,j,k), &
+                                                                                               e % storage % U_z(:,i,j,k), &
+                                                                                               e % storage % mu_turb_NS(i,j,k) )
+                                                                                               ! mu_smag)
+                           !    ! e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
+                           !    ! e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+                               e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + e % storage % mu_turb_NS(i,j,k)
+                           !    e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + e % storage % mu_turb_NS(i,j,k) * dimensionless % mu_to_kappa
+                            end do                ; end do                ; end do
+                            end associate
+                        end do
+            !$omp end do
+                  end if
+
+!
+!        Compute viscosity at interior and boundary faces
+!        ------------------------------------------------
+         call compute_viscosity_at_faces(size(mesh % faces_interior), 2, mesh % faces_interior, mesh)
+         call compute_viscosity_at_faces(size(mesh % faces_boundary), 1, mesh % faces_boundary, mesh)
 !
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
@@ -381,6 +416,10 @@ module SpatialDiscretization
 !$omp single
             call mesh % GatherMPIFacesGradients(NCONS)
 !$omp end single
+!
+!           Compute viscosity at MPI faces
+!           ------------------------------
+            call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
 !
 !           **************************************
 !           Compute Riemann solver of shared faces
@@ -652,6 +691,51 @@ module SpatialDiscretization
          end select
 
       end subroutine TimeDerivative_VolumetricContribution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)
+         implicit none
+         integer, intent(in)           :: no_of_faces
+         integer, intent(in)           :: no_of_sides
+         integer, intent(in)           :: face_ids(no_of_faces)
+         class(HexMesh), intent(inout) :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: iFace, i, j, side
+         real(kind=RP) :: delta, mu_smag
+
+
+         if ( LESModel % Active ) then
+!$omp do schedule(runtime) private(i,j,delta,mu_smag)
+            do iFace = 1, no_of_faces
+               associate(f => mesh % faces(face_ids(iFace)))
+
+               delta = sqrt(f % geom % surface / product(f % Nf + 1))
+               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                  do side = 1, no_of_sides
+                     call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
+                                                                                    f % storage(side) % U_x(:,i,j), &
+                                                                                    f % storage(side) % U_y(:,i,j), &
+                                                                                    f % storage(side) % U_z(:,i,j), &
+                                                                                    mu_smag)
+                     f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
+                     !f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
+                  end do
+               end do              ; end do
+               end associate
+            end do
+!$omp end do
+         end if
+
+
+
+
+      end subroutine compute_viscosity_at_faces
+!
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

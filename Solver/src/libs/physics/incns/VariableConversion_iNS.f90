@@ -9,6 +9,7 @@ module VariableConversion_iNS
    public   Pressure
    public   iNSGradientVariables
    public   GetiNSTwoFluidsViscosity, GetiNSOneFluidViscosity
+   public   getVelocityGradients
 
    contains
 !
@@ -118,6 +119,33 @@ module VariableConversion_iNS
          mu = mu1 * (phi - rho2)/(rho1-rho2) + mu2 * (phi-rho1)/(rho2-rho1)
 
       end subroutine GetiNSTwoFluidsViscosity
+
+
+
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      pure subroutine getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: invRho, invRho2, uDivRho(NDIM)
+         !-------------------------------------------------------------
+
+         invRho  = 1._RP / Q(INSRHO)
+         invRho2 = invRho * invRho
+         
+         uDivRho = [Q(INSRHOU) , Q(INSRHOV) , Q(INSRHOW) ] * invRho2
+         
+         u_x = invRho * Q_x(INSRHOU:INSRHOW) - uDivRho * Q_x(INSRHO)
+         u_y = invRho * Q_y(INSRHOU:INSRHOW) - uDivRho * Q_y(INSRHO)
+         u_z = invRho * Q_z(INSRHOU:INSRHOW) - uDivRho * Q_z(INSRHO)
+
+      end subroutine getVelocityGradients
+   
 !
 ! /////////////////////////////////////////////////////////////////////
 !
