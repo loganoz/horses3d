@@ -18,7 +18,7 @@ module SpatialDiscretization
       use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY, &
                                     GetGradientValues_f, NSGradientVariables_ENERGY, get_laminar_mu_kappa, &
                                     set_getVelocityGradients, GetNSKinematicViscosity
-      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
+      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f, UserDefinedIBMKinematicsNS_f
       use BoundaryConditions
       use SpallartAlmarasTurbulence
       use ManufacturedSolutionsNSSA
@@ -381,6 +381,7 @@ module SpatialDiscretization
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
          procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+         procedure(UserDefinedIBMKinematicsNS_f) :: UserDefinedIBMKinematicsNS
 !
 !        ---------------
 !        Local variables
@@ -388,7 +389,7 @@ module SpatialDiscretization
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl, domain, STLNum, n 
          real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim, &
-                           Source(NCONS), Q_target(NCONS), V(NDIM)
+                           Source(NCONS), Q_target(NCONS), V(NDIM), x(NDIM), cL, cD
          logical     :: isfirst = .TRUE.
 !
 !        ***********************************************
@@ -662,13 +663,13 @@ module SpatialDiscretization
 
          if( mesh% IBM% active .AND. .NOT. mesh% HO_IBM ) then
             if( .not. mesh% IBM% semiImplicit ) then 
-!$omp do schedule(runtime) private(i,j,k,Source,Q_target,V)
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target,V,x,cL,cD)
                do eID = 1, mesh % no_of_elements  
                   associate ( e => mesh % elements(eID) ) 
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
                         if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                           call UserDefinedVelocityIBMNS( V, e% geom% x(:,i,j,k), mesh% IBM% dt, e% STL(i,j,k), refValues )
+                           call UserDefinedIBMKinematicsNS( x, .false., V, .true., cL, cD, t, mesh% IBM% dt, e% STL(i,j,k), refValues )
                            Q_target = mesh% IBM% MaskVelocity( NCONS, e% storage% Q(:,i,j,k), V )
                            call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
                         else 

@@ -30,12 +30,14 @@
          real(kind=RP)              :: rhou, rhov, rhow, rho, p, T, L, d, dl, Et, U(NDIM)
          integer                    :: N, partition
          logical                    :: state = .false., wallfunction = .false.
-         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), Q(:,:)
+         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), Q(:,:), Qsb(:)
          integer,       allocatable :: eIDs(:)
 
          contains
             procedure :: build        => stencil_build
             procedure :: ComputeState => stencil_ComputeState
+            procedure :: fixState     => stencil_fixState
+            procedure :: fixGrad      => stencil_fixGrad
             procedure :: destroy      => stencil_destroy
 
       end type stencil_t
@@ -123,11 +125,9 @@
 #endif
             procedure   :: copy           => Face_Assign
             generic     :: assignment(=)  => copy
-            procedure   :: HO_IBM_correction             => Face_HO_IBM_correction
-            procedure   :: HO_IBM_Statecorrection        => Face_HO_IBM_Statecorrection
-            procedure   :: HO_IBM_Gradcorrection         => Face_HO_IBM_Gradcorrection
-            procedure   :: StencilConstruct              => face_StencilConstruct
-            procedure   :: HO_IBM_HO_LxF                 => Face_HO_IBM_HO_LxF
+            procedure   :: HO_IBM_RiemannFlux            => Face_HO_IBM_RiemannFlux
+            procedure   :: HO_IBM_ViscousFlux            => Face_HO_IBM_ViscousFlux
+            procedure   :: HO_IBM_grad                   => Face_HO_IBM_grad
       end type Face
 !
 !     ========
@@ -1173,131 +1173,145 @@
          to % storage = from % storage
       end subroutine Face_Assign
 
-      subroutine Face_HO_IBM_correction( self, nEqn, Nelx, Nely, sideOut, Q, eID )
-         use MPI_Process_Info
+      subroutine Face_HO_IBM_grad( this, nEqn, nGradEqn, stencil, QIn, nHat, jacobian, uStar )
          use FluidData
          use PhysicsStorage
          implicit none
 
-         class(face),   intent(inout) :: self
-         real(kind=RP), intent(inout) :: Q(nEqn,0:Nelx,0:Nely)
-         integer,       intent(in)    :: sideOut, eID, nEqn, Nelx, Nely
+         class(face),     intent(inout) :: this
+         integer,         intent(in)    :: nEqn, nGradEqn
+         type(stencil_t), intent(inout) :: stencil 
+         real(kind=RP),   intent(in)    :: QIn(nEqn)
+         real(kind=RP),   intent(in)    :: nHat(NDIM), jacobian 
+         real(kind=RP),   intent(out)   :: uStar(nGradEqn) 
 
-         real(kind=RP) :: rho, T, p, u2, v2, w2
-         integer       :: i, j, side, domain
+         real(kind=RP) :: Usb(nGradEqn), UIn(nGradEqn), Qsb(nEqn), nSrf(NDIM), nn 
 
-         side = self% HOSIDE
+         uStar = 0.0_RP 
+         nSrf  = stencil% normal
 
-         if( side .eq. sideOut ) then
-            domain = self% domain
-            associate( f => IBM_HO_faces(domain)% faces(self% HO_ID) )
-            do i = 0, Nelx; do j = 0, Nely
+         call stencil% fixGrad(nEqn, nGradEqn, QIn, Usb )
+         
+         UIn = QIn 
+
+         nn = dot_product(nSrf,nHat)
+
+         uStar = 0.5_RP * (Usb - UIn) * jacobian
+
+         if( this% HOSIDE .EQ. LEFT ) uStar = -uStar
+
+      end subroutine Face_HO_IBM_grad 
+
+      subroutine Face_HO_IBM_RiemannFlux( this, nEqn, stencil, QIn, nHat, t1, t2, flux )
+         use FluidData
+         use PhysicsStorage
 #if defined(NAVIERSTOKES)
-               Q(IRHOU:IRHOW,i,j) = f% stencil(i,j)% U
-               Q(IRHOE,i,j)       = f% stencil(i,j)% Et
+         use VariableConversion, only: Pressure
 #endif
-            end do; end do
-            end associate
-         end if
+         implicit none
 
-         end subroutine Face_HO_IBM_correction
+         class(face),     intent(inout) :: this
+         integer,         intent(in)    :: nEqn 
+         type(stencil_t), intent(inout) :: stencil 
+         real(kind=RP),   intent(in)    :: QIn(nEqn)
+         real(kind=RP),   intent(in)    :: nHat(NDIM), t1(NDIM), t2(NDIM)
+         real(kind=RP),   intent(out)   :: flux(nEqn)
 
-         subroutine Face_HO_IBM_Statecorrection( self, sideIn, sideOut )
-            use FluidData
-            use PhysicsStorage
+         real(kind=RP)  :: rho, PIn, UIn(NDIM), UIn_n, aIn
+         real(kind=RP)  :: Psb, Usb(NDIM), Usb_n, asb
+         real(kind=RP)  :: FIn(nEqn), Fsb(nEqn), Qsb(nEqn)
+         real(kind=RP)  :: lambda, stab(nEqn), nn, invRho, nSrf(NDIM)
+
+         flux = 0.0_RP 
 #if defined(NAVIERSTOKES)
-            use VariableConversion, only:Pressure
-#endif 
-            implicit none
+         associate( gamma       => thermodynamics % gamma,      &
+                     gammaMinus1 => thermodynamics % gammaMinus1 )
 
-            class(face), intent(inout) :: self
-            integer,     intent(in)    :: sideIn, sideOut
+         nSrf = stencil% normal
+         
+         call stencil% fixState( nEqn, QIn, Qsb )
 
-            real(kind=RP) :: rho, p, T
-            real(kind=RP) :: u2, v2, w2
-            integer       :: i, j
-#if defined(NAVIERSTOKES)
-            do i = 0, self% Nf(1); do j = 0, self% Nf(2)
-               rho = self% storage(sideIn)% Q(IRHO,i,j)
-               p   = Pressure(self% storage(sideIn)% Q(:,i,j))
-               
-               self% storage(sideOut)% Q(IRHO ,i,j)       = rho
-               self% storage(sideOut)% Q(IRHOU:IRHOW,i,j) = 2.0_RP*rho * self% storage(sideOut)% Q(IRHOU:IRHOW,i,j) - self% storage(sideIn)% Q(IRHOU:IRHOW,i,j)
-               u2  = self% storage(sideOut)% Q(IRHOU,i,j)**2/rho
-               v2  = self% storage(sideOut)% Q(IRHOV,i,j)**2/rho
-               w2  = self% storage(sideOut)% Q(IRHOW,i,j)**2/rho 
-               self% storage(sideOut)% Q(IRHOE,i,j)       = rho * self% storage(sideOut)% Q(IRHOE,i,j) !- self% storage(sideIn)% Q(IRHOE,i,j)! p/thermodynamics% gammaMinus1 + 0.5_RP * (u2 + v2 + w2) !
-            end do; end do
-#endif
-         end subroutine Face_HO_IBM_Statecorrection
+         rho    = QIn(IRHO)
+         invRho = 1.0_RP/rho
+         UIn    = invRho*QIn(IRHOU:IRHOW)  
+         Usb    = invRho*Qsb(IRHOU:IRHOW)
 
-         subroutine Face_HO_IBM_Gradcorrection( self, sideIn, sideOut )
+         PIn = Pressure(QIn)
+         Psb = Pressure(Qsb)
 
-            implicit none
+         FIn = normalFlux(nEqn, QIn, PIn, nHat)
+         Fsb = normalFlux(nEqn, Qsb, Psb, nHat)
 
-            class(face), intent(inout) :: self
-            integer,     intent(in)    :: sideIn, sideOut
+         aIn = sqrt(gamma * PIn * invRho)
+         asb = sqrt(gamma * Psb * invRho)
 
-            integer :: i, j
+         UIn_n = dot_product( UIn, nHat )
+         Usb_n = dot_product( Usb, nHat )
 
-            do i = 0, self% Nf(1); do j = 0, self% Nf(2)
-               self% storage(sideOut)% U_x(:,i,j) = self% storage(sideIn)% U_x(:,i,j)
-               self% storage(sideOut)% U_y(:,i,j) = self% storage(sideIn)% U_y(:,i,j)
-               self% storage(sideOut)% U_z(:,i,j) = self% storage(sideIn)% U_z(:,i,j)
-            end do; end do
+         nn = dot_product(nSrf,nHat)
 
-         end subroutine Face_HO_IBM_Gradcorrection
+         lambda = max(abs(UIn_n) + aIn,abs(Usb_n) + asb)
 
-         SUBROUTINE  Face_HO_IBM_HO_LxF( this, nEqn, QIn, QEx, nSrf, nHat, t1, t2, flux )
-            use FluidData
-            use PhysicsStorage
-#if defined(NAVIERSTOKES)
-            use VariableConversion, only: Pressure
-#endif
-            implicit none
+         stab = 0.5_RP * lambda * (Qsb - QIn)
+         if( this% HOSIDE .eq. LEFT ) stab = -stab 
 
-            class(face),   intent(inout) :: this
-            integer,       intent(in)    :: nEqn 
-            real(kind=RP), intent(in)    :: QIn(nEqn)
-            real(kind=RP), intent(in)    :: QEx(nEqn)
-            real(kind=RP), intent(in)    :: nHat(NDIM), nSrf(NDIM)
-            real(kind=RP), intent(in)    :: t1(NDIM)
-            real(kind=RP), intent(in)    :: t2(NDIM)
-            real(kind=RP), intent(out)   :: flux(nEqn)
-
-            real(kind=RP)  :: rho, PIn, PEx, UIn(NDIM), UEx(NDIM), UIn_n, UEx_n, aIn, aEx 
-            real(kind=RP)  :: FIn(nEqn), FEx(nEqn)
-            real(kind=RP)  :: lambda, stab(nEqn)
-#if defined(NAVIERSTOKES)
-            associate(gamma => thermodynamics % gamma)
+         flux = 0.5_RP * (FIn + Fsb)
+         flux = flux - stab 
    
-            rho = QIn(1)
-            PIn = Pressure(QIn)
-            PEx = Pressure(QEx)
+      end associate
+#endif
+      end subroutine Face_HO_IBM_RiemannFlux
 
-            FIn = normalFlux(nEqn, QIn, PIn, nHat)
-            FEx = normalFlux(nEqn, QEx, PEx, nHat)
+      SUBROUTINE Face_HO_IBM_ViscousFlux( this, nEqn, nGradEqn, stencil, nHat, QIn, QIn_x, QIn_y, QIn_z, mu, beta, kappa, flux )
+         use FluidData
+         use PhysicsStorage
+         use Physics
+#if defined(NAVIERSTOKES)
+         use VariableConversion, only: get_laminar_mu_kappa
+         use VariableConversion, only: Pressure
+#endif
+         implicit none
 
-            aIn = sqrt(gamma * PIn / rho)
-            aEx = sqrt(gamma * PEx / rho)
+         class(face),     intent(inout) :: this
+         integer,         intent(in)    :: nEqn, nGradEqn
+         type(stencil_t), intent(inout) :: stencil
+         real(kind=RP),   intent(in)    :: QIn(nEqn), nHat(NDIM)
+         real(kind=RP),   intent(in)    :: QIn_x(nGradEqn), QIn_y(nGradEqn), QIn_z(nGradEqn)
+         real(kind=RP),   intent(in)    :: mu, beta, kappa
+         real(kind=RP),   intent(out)   :: flux(nEqn)
 
-            UIn = QIn(2:4)/rho  
-            UEx = QEx(2:4)/rho
+         real(kind=RP)  :: F(nEqn,NDIM), Fsb(nEqn,NDIM), FIn(nEqn,NDIM), heatFlux, viscWork, Qsb(nEqn)
+         real(kind=RP)  :: invRho, u, v, w, nn, mu_, beta_, kappa_, nSrf(NDIM), PIn
 
-            UIn_n = dot_product( UIn, nHat )
-            UEx_n = dot_product( UEx, nHat )
+         flux = 0.0_RP 
+#if defined(NAVIERSTOKES)
+         associate( gammaMinus1 => thermodynamics % gammaMinus1 )
+         nSrf = stencil% normal 
 
-            lambda = max(abs(UIn_n) + aIn,abs(UEx_n) + aEx)
+         call stencil% fixState( nEqn, QIn, Qsb )
 
-            stab = 0.5_RP * lambda * (QEx - QIn)
-            if( this% HOSIDE .eq. LEFT ) stab = -stab 
+         call get_laminar_mu_kappa( Qsb, mu_, kappa_ )
 
-            flux = 0.5_RP * (FIn + FEx)
-            flux = flux - stab 
-      
+         call ViscousFlux_STATE(nEqn, nGradEqn, Qsb, QIn_x, QIn_y, QIn_z, mu, beta, kappa, Fsb)
+         call ViscousFlux_STATE(nEqn, nGradEqn, QIn, QIn_x, QIn_y, QIn_z, mu, beta, kappa, FIn)
+
+         F = 0.5_RP * (Fsb + FIn)
+
+         flux = F(:,IX) * nHat(IX) + F(:,IY) * nHat(IY) + F(:,IZ) * nHat(IZ)
+
+         invRho   = 1.0_RP / Qsb(IRHO)
+         u        = stencil% Qsb(IRHOU)
+         v        = stencil% Qsb(IRHOV)
+         w        = stencil% Qsb(IRHOW)
+         viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
+         heatFlux = flux(IRHOE) - viscWork
+
+         flux(IRHO)  = 0.0_RP 
+         !flux(IRHOE) = heatFlux !sum((/u,v,w/)*flux(IRHOU:IRHOW)) 
+
          end associate
 #endif
-      END SUBROUTINE Face_HO_IBM_HO_LxF
+      end subroutine Face_HO_IBM_ViscousFlux
 
       function normalFlux( nEqn, Q, P, v ) result( F )
 
@@ -1319,29 +1333,6 @@
          F(5)   = (Q(5) + P) * Uv
 
       end function normalFlux
-! STENCIL PROCEDURES
-
-      subroutine face_StencilConstruct( this )
-
-         implicit none
-
-         class(face), intent(inout) :: this
-
-         integer :: i, j, N
-
-         allocate( this% stencil(0:this% Nf(1),0:this% Nf(2)) )
-
-         N = max(this% Nf(1),this% Nf(2)) 
-
-         do i = 0, this% Nf(1); do j = 0, this% Nf(2)
-            this% stencil(i,j)% N = N
-            allocate( this% stencil(i,j)% Q(NCONS,0:N) )
-            if( .not. allocated(this% stencil(i,j)% x_s)  ) allocate(this% stencil(i,j)% x_s(NDIM,0:N) )
-            if( .not. allocated(this% stencil(i,j)% xi_s) ) allocate(this% stencil(i,j)% xi_s(NDIM,0:N))
-            if( .not. allocated(this% stencil(i,j)% eIDs) ) allocate(this% stencil(i,j)% eIDs(0:N)     )
-         end do; end do
-
-      end subroutine face_StencilConstruct
 
       subroutine stencil_build( this, x0, normal, L, N )
 
@@ -1379,21 +1370,22 @@
          real(kind=RP),    intent(inout) :: nHat(NDIM)
          real(kind=RP),    intent(inout) :: t1(NDIM), t2(NDIM)
 
-         real(kind=RP)                 :: rhou_s, rhov_s, rhow_s, T_s
+         real(kind=RP)                 :: rhou_s, rhov_s, rhow_s, T_s, rho_s, Et_s
          real(kind=RP)                 :: rhou0, rhov0, rhow0, dT0
          real(kind=RP)                 :: rhouB, rhovB, rhowB, dTB
          real(kind=RP)                 :: rhou_n, rhou_t, rhou_t2
          real(kind=RP)                 :: rhou_n_s, rhou_t_s, rhou_t2_s
-         real(kind=RP)                 :: lj(0:this% N), dlj(0:this% N), T(0:this% N), xi0
-         real(kind=RP)                 :: nodes(0:this% N), U(NDIM,0:this% N)
+         real(kind=RP)                 :: lj(0:this% N), dlj(0:this% N), T(0:this% N), xb, xsb, xi
+         real(kind=RP)                 :: nodes(0:this% N), U(NDIM,0:this% N), nSrf(NDIM)
          real(kind=RP)                 :: Un(0:this% N), Ut(0:this% N), Ut2(0:this% N), tg(NDIM), tg2(NDIM)
          integer                       :: i, N
          type(NodalStorage_t), pointer :: spA
 #if defined(NAVIERSTOKES)
-         associate(gammaM2       => dimensionless % gammaM2,  &
+         associate(gammaM2     => dimensionless% gammaM2,     &
                    gammaMinus1 => thermodynamics% gammaMinus1 )
          
-         N = this% N
+         nSrf = this% normal
+         N    = this% N
 
          rhouB = 0.0_RP
          rhovB = 0.0_RP
@@ -1412,55 +1404,37 @@
          spA => NodalStorage(N-1) 
 
          do i = 0, N-1
-            xi0        = this% dl + 0.5_RP*(1.0_RP + spA% x(i)) * this% L 
-            nodes(i+1) = xi0!2.0_RP * xi0/(this% dl + this% L) - 1.0_RP
+            xi         = this% dl + 0.5_RP * (1.0_RP + spA% x(i)) * this% L 
+            nodes(i+1) = 2.0_RP * xi/(this% dl + this% L) - 1.0_RP
          end do
 
-         nodes(0) = this% d!2.0_RP * this% d/(this% dl + this% L) - 1.0_RP
-         xi0      = this% d!2.0_RP * this% d/(this% dl + this% L) - 1.0_RP
+         nodes(0) = 2.0_RP * this% d/(this% dl + this% L) - 1.0_RP
+         xb       = nodes(0)
+ 
+         do i = 0, N 
+            lj(i)  = LagrangeInterpolatingPolynomial( i, xb, N, nodes )
+            U(:,i) = this% Q(IRHOU:IRHOW,i)/this% Q(IRHO,i)
+         end do 
 
-         do i = 0, N
-            lj(i) = LagrangeInterpolatingPolynomial( i, xi0, N, nodes )
-         end do
-
-         call PolyDerivativeVector( xi0, N, nodes, dlj )
-         
-         if( this% wallfunction ) then 
-            do i = 0, N 
-               U(:,i) = this% Q(IRHOU:IRHOW,i)/this% Q(IRHO,i)
-               U(:,i) = dot_product(U(:,i),nHat) * nHat 
-            end do 
-         else  
-            do i = 0, N 
-               U(:,i) = this% Q(IRHOU:IRHOW,i)/this% Q(IRHO,i)
-            end do 
-            tg = U(:,N) - Un(N) * this% normal
-            tg = tg/norm2(tg)
-            call vcross(this% normal,tg,tg2)
-            tg2 = tg2/norm2(tg2)
-         end if
-         
+         call PolyDerivativeVector( xb, N, nodes, dlj )
+                  
          do i = 1, N
-            rhou0 = rhou0 - U(IX,i) * lj(i)
-            rhov0 = rhov0 - U(IY,i) * lj(i)
-            rhow0 = rhow0 - U(IZ,i) * lj(i)
-            dT0   = dT0   - T(i)    * dlj(i)
+            dT0 = dT0 - T(i) * dlj(i)
          end do
 
-         U(IX,0) = rhou0/lj(0)
-         U(IY,0) = rhov0/lj(0)
-         U(IZ,0) = rhow0/lj(0)
-         T(0)    = dT0/dlj(0)
+         T(0) = dT0/dlj(0)
 
-         xi0 = 0.0_RP
+         xsb = -1.0_RP
+
          do i = 0, N
-            lj(i) = LagrangeInterpolatingPolynomial( i, xi0, N, nodes )
+            lj(i) = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
          end do
 
          rhou_s = 0.0_RP
          rhov_s = 0.0_RP
          rhow_s = 0.0_RP
          T_s    = 0.0_RP 
+         U(:,0) = 0.0_RP
 
          do i = 0, N
             rhou_s = rhou_s + U(IX,i) * lj(i)
@@ -1468,16 +1442,68 @@
             rhow_s = rhow_s + U(IZ,i) * lj(i)
             T_s    = T_s    + T(i)    * lj(i)
          end do 
+           
+         this% Qsb(IRHOU) = rhou_s 
+         this% Qsb(IRHOV) = rhov_s 
+         this% Qsb(IRHOW) = rhow_s
+         this% Qsb(IRHOE) = T_s/(gammaM2*gammaMinus1)
 
-         this% rhou = rhou_s
-         this% rhov = rhov_s 
-         this% rhow = rhow_s 
-         this% Et   = T_s/(gammaM2*gammaMinus1) 
-
-         ! nHat = this% normal
          end associate
 #endif
       end subroutine stencil_ComputeState
+
+      subroutine stencil_fixState( this, nEqn, QIn, Qsb ) 
+#if defined(NAVIERSTOKES)
+         use VariableConversion, only: Pressure
+#endif 
+         implicit none 
+
+         class(stencil_t), intent(inout) :: this
+         integer,          intent(in)    :: nEqn 
+         real(kind=RP),    intent(in)    :: QIn(nEqn)
+         real(kind=RP),    intent(out)   :: Qsb(nEqn)
+
+         real(kind=RP) :: rho, invRho, p, e_int, v(NDIM)
+         
+         Qsb = this% Qsb 
+#if defined(NAVIERSTOKES)
+         rho    = QIn(IRHO)
+         invRho = 1.0_RP/rho 
+         e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
+
+         Qsb(IRHO)        = rho 
+         Qsb(IRHOU:IRHOW) = rho*this% Qsb(IRHOU:IRHOW)! - QIn(IRHOU:IRHOW) 
+ 
+         v = this% Qsb(IRHOU:IRHOW)!invRho * QIn(IRHOU:IRHOW)
+
+         Qsb(IRHOE) = rho * this% Qsb(IRHOE) ! (e_int + 0.5_RP * (sum(v*v)))
+#endif
+      end subroutine stencil_fixState
+
+      subroutine stencil_fixGrad( this, nEqn, nGradEqn, QIn, Usb ) 
+         implicit none 
+
+         class(stencil_t), intent(inout) :: this
+         integer,          intent(in)    :: nEqn, nGradEqn 
+         real(kind=RP),    intent(in)    :: QIn(nEqn)
+         real(kind=RP),    intent(out)   :: Usb(nGradEqn)
+
+         real(kind=RP) :: rho, invRho, e_int, v(NDIM)
+         
+         Usb = this% Qsb 
+#if defined(NAVIERSTOKES)
+         rho    = QIn(IRHO)
+         invRho = 1.0_RP/rho 
+         e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
+
+         Usb(IRHO)        = rho 
+         Usb(IRHOU:IRHOW) = rho*this% Qsb(IRHOU:IRHOW)  
+   
+         v = this% Qsb(IRHOU:IRHOW) 
+
+         Usb(IRHOE) = rho * this% Qsb(IRHOE)! + 0.5_RP * (sum(v*v)) ! (e_int + 0.5_RP * (sum(v*v)))
+#endif
+      end subroutine stencil_fixGrad
 
       subroutine stencil_ComputeWallFunction( this )
          use FluidData

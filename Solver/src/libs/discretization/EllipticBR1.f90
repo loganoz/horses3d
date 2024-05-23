@@ -306,19 +306,20 @@ module EllipticBR1
             end select
 #endif
 
-   
             uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
-
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% geom% jacobian(i,j),                     &
+                                    uStar                                       )
+            end if 
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
-            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
+            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j) 
 
-            ! if( f% HO_IBM ) then 
-            !    uStar = f% storage(f% HOSIDE)% Q(:,i,j) * f % geom % jacobian(i,j)
-            !    uStar_n(:,IX,i,j) = uStar * f% geom % normal(IX,i,j)
-            !    uStar_n(:,IY,i,j) = uStar * f% geom % normal(IY,i,j)
-            !    uStar_n(:,IZ,i,j) = uStar * f% geom % normal(IZ,i,j)         
-            ! end if 
          end do               ; end do
          
          Sidearray = (/1,2/)
@@ -373,6 +374,15 @@ module EllipticBR1
 
    
             uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f % geom % jacobian(i,j),                   &
+                                    uStar                                       )
+            end if  
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
             uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)

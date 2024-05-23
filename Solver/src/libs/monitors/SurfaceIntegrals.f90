@@ -466,7 +466,7 @@ module SurfaceIntegrals
       end if 
 
       if( IBM% stl(STLNum)% move ) then 
-         call IBM% stl(STLNum)% SetIntegrationPoints( .true. )
+         call IBM% stl(STLNum)% SetIntegrationPoints()
          IBM% Integral(STLNum)% ListComputed = .false.
       end if 
 
@@ -479,7 +479,7 @@ module SurfaceIntegrals
                call GetSurfaceState( IBM, obj% IntegrationVertices(j), STLNum ) 
 
                do k = 1, IBM% NumOfInterPoints
-                  Qsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% x(obj% IntegrationVertices(j)% indeces(k))% Q  
+                  Qsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% Q(obj% IntegrationVertices(j)% indeces(k),:)  
                end do
 
                do n = 1, NCONS 
@@ -547,7 +547,7 @@ module SurfaceIntegrals
       end if 
 
       if( IBM% stl(STLNum)% move ) then 
-         call IBM% stl(STLNum)% SetIntegrationPoints( .true. )
+         call IBM% stl(STLNum)% SetIntegrationPoints()
          IBM% Integral(STLNum)% ListComputed = .false.
       end if 
 
@@ -562,10 +562,10 @@ module SurfaceIntegrals
             else
                call GetSurfaceState( IBM, obj% IntegrationVertices(j), STLNum ) 
                do k = 1, IBM% NumOfInterPoints
-                  Qsurf(:,k)   = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% x(obj% IntegrationVertices(j)% indeces(k))% Q  
-                  U_xsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% x(obj% IntegrationVertices(j)% indeces(k))% U_x 
-                  U_ysurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% x(obj% IntegrationVertices(j)% indeces(k))% U_y 
-                  U_zsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% x(obj% IntegrationVertices(j)% indeces(k))% U_z 
+                  Qsurf  (:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% Q  (obj% IntegrationVertices(j)% indeces(k),:)  
+                  U_xsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% U_x(obj% IntegrationVertices(j)% indeces(k),:) 
+                  U_ysurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% U_y(obj% IntegrationVertices(j)% indeces(k),:) 
+                  U_zsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% U_z(obj% IntegrationVertices(j)% indeces(k),:) 
                end do
 
                do n = 1, NCONS 
@@ -576,7 +576,7 @@ module SurfaceIntegrals
                end do
             end if 
             
-            obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, u_x, U_y, U_z, obj% normal, IBM% IP_Distance, IBM% Wallfunction, integralType )
+            obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, U_x, U_y, U_z, obj% normal, IBM% IP_Distance, IBM% Wallfunction, integralType )
 
          end do 
          end associate
@@ -610,7 +610,7 @@ module SurfaceIntegrals
       call IBM% minDistance( IntegrationVertex% coords, STLNum, IntegrationVertex% indeces, IntegrationVertex% domains )
 
       do k = 1, IBM% NumOfInterPoints
-         x(k)% coords = IBM% bandRegion(STLNum)% IBMmask(IntegrationVertex% domains(k))% x(IntegrationVertex% indeces(k))% coords 
+         x(k)% coords = IBM% bandRegion(STLNum)% IBMmask(IntegrationVertex% domains(k))% coords(IntegrationVertex% indeces(k),:) 
       end do 
 
       call GetMatrixInterpolationSystem( IntegrationVertex% coords, &
@@ -637,10 +637,10 @@ module SurfaceIntegrals
 
       domain = MPI_Process% rank + 1
 
-      call IBM_HO_GetState   ( IBM% IBM_HOIntegrationPoints, elements, nEqn )
-      call IBM_HO_GetGradient( IBM% IBM_HOIntegrationPoints, elements, nEqn )
+      call IBM_HO_GetState   ( IBM% bandRegion(domain)% IBMmask, elements, nEqn )
+      call IBM_HO_GetGradient( IBM% bandRegion(domain)% IBMmask, elements, nEqn )
 #ifdef _HAS_MPI_
-      call GatherHOIntegrationPointsState( IBM% IBM_HOIntegrationPoints, IBM% stl(STLNum)% ObjectsList, nEqn )       
+      call GatherHOIntegrationPointsState( IBM% bandRegion(domain)% IBMmask, IBM% stl(STLNum)% ObjectsList, nEqn )       
 #else
       do n = 1, IBM% IBMStencilPoints(domain)% NumOfObjs
          i = IBM% IBMStencilPoints(domain)% x(n)% local_position(IX)

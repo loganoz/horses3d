@@ -470,6 +470,7 @@ module TessellationTypes
       end do
       
       this% NumOfPoints = 0
+      nullify(current, next)
       
    end subroutine PointLinkedList_Destruct
 !
@@ -837,12 +838,11 @@ module TessellationTypes
 
    end subroutine  ReadTessellation
 
-   subroutine STL_SetIntegrationPoints( this, isAllocated )
+   subroutine STL_SetIntegrationPoints( this )
 
       implicit none
 
       class(STLfile), intent(inout) :: this 
-      logical,        intent(in)    :: isAllocated
 
       integer       :: i, j, m,                &
                       indecesL(NumOfVertices), &
@@ -856,24 +856,22 @@ module TessellationTypes
 !          6
       do i = 1, this% NumOfObjs 
          associate(obj => this% ObjectsList(i))
-         if( .not. isAllocated) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
+         if( .not. allocated(obj% IntegrationVertices) ) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
+         obj% IntegrationVertices(NumOfIntegrationVertices)% coords = 0.0_RP 
          do j = 1, NumOfVertices
-            obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
+            obj% IntegrationVertices(j)% coords                        = obj% vertices(j)% coords
+            obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords + 
+                                                                         obj% vertices(j)% coords
          end do 
-         indecesL =(/ 1, 2, 3 /)
-         indecesR =(/ 2, 3, 1 /)
+         obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords/NumOfVertices
+         indecesL = (/ 1, 2, 3 /)
+         indecesR = (/ 2, 3, 1 /)
          m = 0
          do j = NumOfVertices+1, NumOfIntegrationVertices-1
             m = m + 1
             obj% IntegrationVertices(j)% coords = 0.5_RP*( obj% IntegrationVertices(indecesL(m))% coords + &
                                                            obj% IntegrationVertices(indecesR(m))% coords   )
          end do
-         obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IX) = &
-                                       sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IX))/NumOfVertices
-         obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IY) = &
-                                       sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IY))/NumOfVertices
-         obj% IntegrationVertices(NumOfIntegrationVertices)% coords(IZ) = &
-                                       sum(obj% IntegrationVertices(1:NumOfVertices)% coords(IZ))/NumOfVertices
          end associate 
       end do
 
@@ -927,7 +925,8 @@ module TessellationTypes
 
       integer :: NumOfObjs, i, j
 
-      NumOfObjs = STL% NumOfObjs
+      this% filename = trim(STL% filename)
+      NumOfObjs      = STL% NumOfObjs
 
       this% NumOfObjs = NumOfObjs
 
@@ -972,7 +971,7 @@ module TessellationTypes
          write(in_label , '(A,I0)') "#define stl motion ", i
 
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "stl name"          , STL_name           , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile ), "stl name", STL_name, in_label, "#end" ) 
          
          if( trim(STLfilename) .ne. trim(STL_name) ) cycle
 
@@ -1008,10 +1007,19 @@ module TessellationTypes
       !-arguments------------------------------
       class(STLfile), intent(inout) :: this
       !-local-variables------------------------
-      integer :: i
+      integer :: i, j
       
       do i = 1, this% NumOfObjs
          deallocate(this% ObjectsList(i)% vertices)
+         if( allocated(this% ObjectsList(i)% IntegrationVertices) ) then 
+            do j = 1, NumOfIntegrationVertices
+               deallocate( this% ObjectsList(i)% IntegrationVertices(j)% domains, &
+                           this% ObjectsList(i)% IntegrationVertices(j)% indeces, & 
+                           this% ObjectsList(i)% IntegrationVertices(j)% invPhi,  &
+                           this% ObjectsList(i)% IntegrationVertices(j)% b        )
+            end do 
+            deallocate(this% ObjectsList(i)% IntegrationVertices)
+         end if 
       end do
       
       deallocate(this% ObjectsList)  

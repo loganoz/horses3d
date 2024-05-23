@@ -609,8 +609,10 @@
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
             do STLNum = 1, sem% mesh% IBM% NumOfSTL 
-               call MoveSTL( sem% mesh% IBM% stl(STLNum), dt, STLNum )
+               if( .not. sem% mesh% IBM% stl(STLNum)% move ) cycle 
+               call MoveSTL( sem% mesh% IBM% stlmove(STLNum), t, dt, STLNum )
             end do 
+            sem% mesh% IBM% dt = dt
             call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
                                            sem% mesh% faces,                      &
                                            sem% mesh% NDOF, sem% mesh% child, dt, &
@@ -1001,28 +1003,29 @@
 
    end function TimeIntegrator_CorrectDt
 
-   subroutine MoveSTL( STL, dt, STLNum )
+   subroutine MoveSTL( STL, t, dt, STLNum )
 #if defined(NAVIERSTOKES)
-      use ProblemFileFunctions, only : UserDefinedPositionIBMNS_f
+      use ProblemFileFunctions, only : UserDefinedIBMKinematicsNS_f
 #endif
       use FluidData
       use OrientedBoundingBox
+      use TessellationTypes
       implicit none 
 
       class(STLfile), intent(inout) :: STL 
-      real(kind=RP),  intent(in)    :: dt 
+      real(kind=RP),  intent(in)    :: t, dt 
       integer,        intent(in)    :: STLNum
       
-      integer                               :: i, j 
+      integer       :: i, j 
+      real(kind=RP) :: V(NDIM), cL, cD                      
 #if defined(NAVIERSTOKES)
-      procedure(UserDefinedPositionIBMNS_f) :: UserDefinedPositionIBMNS
+      procedure(UserDefinedIBMKinematicsNS_f) :: UserDefinedIBMKinematicsNS
 
-      if( .not. STL% move ) return 
+      if( .not. MPI_Process% isRoot ) return 
 
-      call OBB(STLNum)% ChangeObjsRefFrame( STL% ObjectsList, GLOBAL )
       do i = 1, STL% NumOfObjs
          do j = 1, NumOfVertices
-            call UserDefinedPositionIBMNS( STL% ObjectsList(i)% vertices(j)% coords, dt, STLNum, refValues )
+            call UserDefinedIBMKinematicsNS( STL% ObjectsList(i)% vertices(j)% coords, .true., V, .false., cL, cD, t, dt, STLNum, refValues )
          end do 
       end do
       call STL% updateNormals()

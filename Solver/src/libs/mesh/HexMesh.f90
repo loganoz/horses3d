@@ -120,10 +120,6 @@ MODULE HexMeshClass
 #endif
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
-            procedure :: SetIBM_HOState                => HexMesh_SetIBM_HOState
-            procedure :: SetIBM_HOGradients            => HexMesh_SetIBM_HOGradients
-            procedure :: SetSharedIBM_HOState          => HexMesh_SetSharedIBM_HOState
-            procedure :: SetSharedIBM_HOGradients      => HexMesh_SetSharedIBM_HOGradients
       end type HexMesh
 
       integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
@@ -4326,96 +4322,6 @@ slavecoord:             DO l = 1, 4
       to % faces_boundary      = from % faces_boundary
 
 
-   end subroutine HexMesh_Assign
-
-   subroutine HexMesh_SetIBM_HOState( self, nEqn )
-
-      implicit none
-
-      class(HexMesh), intent(inout) :: self
-      integer,        intent(in)    :: nEqn
-
-      integer            :: fID, sideOut, sideIn
-      integer, parameter :: otherSide(2) = (/2,1/)
-!$omp do schedule(runtime) private(sideIn,sideOut)
-      do fID = 1, size(self% faces)
-         associate(f => self% faces(fID))
-         if( f% HO_IBM .and. .not. f% faceType .eq. HMESH_MPI ) then
-            sideOut = f% HOSIDE
-            sideIn  = otherSide(sideOut)
-            call f% HO_IBM_Statecorrection( sideIn, sideOut )
-         end if
-         end associate
-      end do
-!$omp end do
-   end subroutine HexMesh_SetIBM_HOState 
-
-   subroutine HexMesh_SetIBM_HOGradients( self, nEqn )
-
-      implicit none
-
-      class(HexMesh), intent(inout) :: self
-      integer,        intent(in)    :: nEqn
-
-      integer            :: fID, sideOut, sideIn
-      integer, parameter :: otherSide(2) = (/2,1/)
-!$omp do schedule(runtime) private(sideIn,sideOut)
-      do fID = 1, size(self% faces)
-         associate(f => self% faces(fID))
-         if( f% HO_IBM .and. .not. f% faceType .eq. HMESH_MPI ) then 
-            sideOut = f% HOSIDE
-            sideIn  = otherSide(sideOut)
-            call f% HO_IBM_Gradcorrection( sideIn, sideOut )
-         end if
-         end associate
-      end do
-!$omp end do
-   end subroutine HexMesh_SetIBM_HOGradients  
-
-   subroutine HexMesh_SetSharedIBM_HOState( self, nEqn )
-
-      implicit none
-
-      class(HexMesh), intent(inout) :: self
-      integer,        intent(in)    :: nEqn
-
-      integer            :: iFace, fID, sideOut, sideIn
-      integer, parameter :: otherSide(2) = (/2,1/)
-!$omp do schedule(runtime) private(fID,sideIn,sideOut)
-      do iFace = 1, size(self% faces_mpi)
-         fID = self% faces_mpi(iFace) 
-         associate(f => self% faces(fID))
-         if( f% HO_IBM .or. f% corrGrad ) then
-            sideOut = f% HOSIDE
-            sideIn  = otherSide(sideOut)
-            call f% HO_IBM_Statecorrection( sideIn, sideOut )
-         end if
-         end associate
-      end do
-!$omp end do
-   end subroutine HexMesh_SetSharedIBM_HOState
-
-   subroutine HexMesh_SetSharedIBM_HOGradients( self, nEqn )
-
-      implicit none
-
-      class(HexMesh), intent(inout) :: self
-      integer,        intent(in)    :: nEqn
-
-      integer            :: iFace, fID, sideOut, sideIn
-      integer, parameter :: otherSide(2) = (/2,1/)
-!$omp do schedule(runtime) private(fID,sideIn,sideOut)
-      do iFace = 1, size(self% faces_mpi)
-         fID = self% faces_mpi(iFace)
-         associate(f => self% faces(fID))
-         if( f% HO_IBM .or. f% corrGrad ) then
-            sideOut = f% HOSIDE
-            sideIn  = otherSide(sideOut)
-            call f% HO_IBM_Gradcorrection( sideIn, sideOut )
-         end if
-         end associate
-      end do
-!$omp end do
-   end subroutine HexMesh_SetSharedIBM_HOGradients  
+   end subroutine HexMesh_Assign 
 
 END MODULE HexMeshClass

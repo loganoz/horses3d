@@ -575,7 +575,7 @@ module KDClass
       integer :: i, stat       
          
       if( allocated(this% ObjectsList) ) then
-         if( this% which_KDtree .ne.  POINTS_KDTREE ) then 
+         if( this% which_KDtree .ne. POINTS_KDTREE ) then 
             do i = 1, this% NumOfObjs
                deallocate(this% ObjectsList(i)% vertices)
             end do
@@ -589,8 +589,14 @@ module KDClass
       if( this% built_L .and. .not. this% isLast ) call this% child_L% destruct( isChild )     
       if( this% built_R .and. .not. this% isLast ) call this% child_R% destruct( isChild ) 
 
-      if( this% built_L ) deallocate(this% child_L) 
-      if( this% built_R ) deallocate(this% child_R) 
+      if( this% built_L ) then 
+         deallocate(this% child_L) 
+         this% built_L = .false.
+      end if
+      if( this% built_R ) then 
+         deallocate(this% child_R) 
+         this% built_R = .false.
+      end if
       nullify( this% parent )
 
    end subroutine KD_treeDestruct
@@ -768,7 +774,9 @@ module KDClass
          end do
       end if
      
-      if( allocated(Events) ) deallocate( Events )
+      if( allocated(Events)   ) deallocate( Events   )
+      if( allocated(Events_L) ) deallocate( Events_L )
+      if( allocated(Events_R) ) deallocate( Events_R )
 
    end subroutine KDtree_buildTRIANGLES_BreadthFirst
    
@@ -859,7 +867,9 @@ module KDClass
 
       end if
 
-      if( allocated(Events) ) deallocate(Events)
+      if( allocated(Events)   ) deallocate(Events  )
+      if( allocated(Events_L) ) deallocate(Events_L)
+      if( allocated(Events_R) ) deallocate(Events_R)
 
    end subroutine KDtree_buildTRIANGLES_DepthFirst
    

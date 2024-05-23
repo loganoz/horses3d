@@ -791,7 +791,7 @@ contains
       type(OBB_type),  intent(inout) :: OBB
       !-local-variables--------------------------------------------
       type(point_type) ,pointer :: p, p1
-      integer                   :: i, LowestIndex, start
+      integer                   :: i, LowestIndex, start, index0, index1
       type(PointLinkedList)     :: convPoints
 !     
 !     Compute Left most point & set Hull's head
@@ -806,50 +806,76 @@ contains
 !
 !     Sorting points according to their angle  
 !     ---------------------------------------
-      call OBB% SortingNodes(1, OBB% NumOfPoints )  
-
-      convPoints = PointLinkedList()
-      call convPoints% add( OBB% Points(1) )
+      call OBB% SortingNodes(1, OBB% NumOfPoints ) 
       
-      !Check duplicate
-      if( almostEqual(OBB% Points(1)% coords(1), OBB% Points(2)% coords(1)) .and. &
-          almostEqual(OBB% Points(1)% coords(2), OBB% Points(2)% coords(2)) ) OBB% Points(2)% delete = .true.
-
-      do i = 2, OBB% NumOfPoints     
-         if( .not. OBB% Points(i)% delete ) then
-            call convPoints% add( OBB% Points(i) )
-            start = i+1
-            exit
-         end if
-      end do   
-        
-      Hull% NumOfPoints = 2
-
-      p  => convPoints% head
-      p1 => convPoints% head% next
-
-      do i = start, OBB% NumOfPoints
-         if( OBB% Points(i)% delete ) cycle
-         do while( RotationType(p, p1, OBB% Points(i) ) .eq. 1  )
-            p => p% prev; p1 => p1% prev
-            call convPoints% RemoveLast()
+      Hull% NumOfPoints = 2 
+      
+      index0 = 1
+      index1 = 2
+      do i = 3, OBB% NumOfPoints
+         do while( RotationType(OBB% Points(index0), OBB% Points(index1), OBB% Points(i) ) .eq. 1  ) 
+            OBB% Points(index1)% delete = .true.
+            index0 = index0-1; index1 = index1-1
             Hull% NumOfPoints = Hull% NumOfPoints - 1
+            if( index0 .le. 0 ) index0 = OBB% NumOfPoints
+            if( index1 .le. 0 ) index1 = OBB% NumOfPoints
          end do
-         call convPoints% add( OBB% Points(i) )
-         p1 => convPoints% head% prev; p => p1% prev
-         Hull% NumOfPoints = Hull% NumOfPoints + 1 
-      end do      
-
+         index0 = index1; index1 = i
+         Hull% NumOfPoints = Hull% NumOfPoints + 1
+      end do
+      
       allocate(Hull% Points(Hull% NumOfPoints))
       
-      p => convPoints% head
-
-      do i = 1, Hull% NumOfPoints
-         Hull% Points(i) = p
-         p => p% next
+      index0 = 0
+      do i = 1, OBB% NumOfPoints
+         if( OBB% Points(i)% delete ) cycle 
+         index0 = index0 + 1
+         Hull% Points(index0) =  OBB% Points(i)
       end do
+      
+      ! convPoints = PointLinkedList()
+      ! call convPoints% add( OBB% Points(1) )
+      
+      ! !Check duplicate
+      ! if( almostEqual(OBB% Points(1)% coords(1), OBB% Points(2)% coords(1)) .and. &
+      !     almostEqual(OBB% Points(1)% coords(2), OBB% Points(2)% coords(2)) ) OBB% Points(2)% delete = .true.
+
+
+      ! do i = 2, OBB% NumOfPoints     
+      !    if( .not. OBB% Points(i)% delete ) then
+      !       call convPoints% add( OBB% Points(i) )
+      !       start = i+1
+      !       exit
+      !    end if
+      ! end do   
+        
+      ! Hull% NumOfPoints = 2
+
+      ! p  => convPoints% head
+      ! p1 => convPoints% head% next
+
+      ! do i = start, OBB% NumOfPoints
+      !    if( OBB% Points(i)% delete ) cycle
+      !    do while( RotationType(p, p1, OBB% Points(i) ) .eq. 1  )
+      !       p => p% prev; p1 => p1% prev
+      !       call convPoints% RemoveLast()
+      !       Hull% NumOfPoints = Hull% NumOfPoints - 1
+      !    end do
+      !    call convPoints% add( OBB% Points(i) )
+      !    p1 => convPoints% head% prev; p => p1% prev
+      !    Hull% NumOfPoints = Hull% NumOfPoints + 1 
+      ! end do      
+
+      ! allocate(Hull% Points(Hull% NumOfPoints))
+      
+      ! p => convPoints% head
+
+      ! do i = 1, Hull% NumOfPoints
+      !    Hull% Points(i) = p
+      !    p => p% next
+      ! end do
          
-      call convPoints% destruct()
+      ! call convPoints% destruct()
 
    end subroutine ConvexHull
 !
@@ -1151,56 +1177,15 @@ contains
 !$omp end parallel
    end subroutine OBB_ChangeObjsRefFrame   
 
-   integer function OBB_GetMaxAxis( this, objs, NumOfObjs )
+   integer function OBB_GetMaxAxis( this )
 
       implicit none 
 
       class(OBB_type),   intent(inout) :: this 
-      type(Object_type), intent(in)    :: objs(:)
-      integer,           intent(in)    :: NumOfObjs
 
-      real(kind=RP), allocatable :: x(:), y(:), z(:)
-      real(kind=RP)              :: max_x, max_y, max_z
-      real(kind=RP)              :: min_x, min_y, min_z
-      real(kind=RP)              :: LocMax_x, LocMax_y, LocMax_z
-      real(kind=RP)              :: LocMin_x, LocMin_y, LocMin_z
-      real(kind=RP)              :: axis_x, axis_y, axis_z
-      integer                    :: i
-
-      ! allocate( x(NumOfObjs), y(NumOfObjs), z(NumOfObjs) )
-
-      ! max_x = -huge(1.0_RP); min_x = huge(1.0_RP)
-      ! max_y = -huge(1.0_RP); min_y = huge(1.0_RP)
-      ! max_z = -huge(1.0_RP); min_z = huge(1.0_RP)
-
-      ! do i = 1, NumOfVertices
-      !    x        = objs(:)% vertices(i)% coords(IX)
-      !    y        = objs(:)% vertices(i)% coords(IY)
-      !    z        = objs(:)% vertices(i)% coords(IZ)
-      !    LocMax_x = maxval(x)
-      !    LocMax_y = maxval(y)
-      !    LocMax_z = maxval(z)
-      !    LocMin_x = minval(x)
-      !    LocMin_y = minval(y)
-      !    LocMin_z = minval(z)
-      !    max_x    = max(max_x,LocMax_x)
-      !    max_y    = max(max_y,LocMax_y)
-      !    max_z    = max(max_z,LocMax_z)
-      !    min_x    = min(min_x,LocMin_x)
-      !    min_y    = min(min_y,LocMin_y)
-      !    min_z    = min(min_z,LocMin_z)
-      ! end do 
-
-      ! axis_x = abs(max_x - min_x)
-      ! axis_y = abs(max_y - min_y)
-      ! axis_z = abs(max_z - min_z)
-
-      ! OBB_GetMaxAxis = maxloc( (/axis_x, axis_y, axis_z/), dim=1 )
- 
-      ! deallocate(x, y, z)
-      ! OBB_GetMaxAxis = maxloc((/this% MBR% Length, this% MBR% Width, &
-      !                          abs(this% nMax) + abs(this% nMin)/),  &
-      !                          dim=1                                 )
+      OBB_GetMaxAxis = maxloc((/this% MBR% Length, this% MBR% Width, &
+                               abs(this% nMax) + abs(this% nMin)/),  &
+                               dim=1                                 )
 
    end function OBB_GetMaxAxis
 

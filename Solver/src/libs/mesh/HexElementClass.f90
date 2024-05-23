@@ -285,13 +285,6 @@
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
 
-         if( fL   % HO_IBM ) call fL   % HO_IBM_correction(nEqn, N(2), N(3), self % faceSide(ELEFT  ), QL  , self % eID)
-         if( fR   % HO_IBM ) call fR   % HO_IBM_correction(nEqn, N(2), N(3), self % faceSide(ERIGHT ), QR  , self % eID)
-         if( fFR  % HO_IBM ) call fFR  % HO_IBM_correction(nEqn, N(1), N(3), self % faceSide(EFRONT ), QFR , self % eID)
-         if( fBK  % HO_IBM ) call fBK  % HO_IBM_correction(nEqn, N(1), N(3), self % faceSide(EBACK  ), QBK , self % eID)
-         if( fBOT % HO_IBM ) call fBOT % HO_IBM_correction(nEqn, N(1), N(2), self % faceSide(EBOTTOM), QBOT, self % eID)
-         if( fT   % HO_IBM ) call fT   % HO_IBM_correction(nEqn, N(1), N(2), self % faceSide(ETOP   ), QT  , self % eID)
-
          call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
          call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
          call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ), QdotFR, computeQdot)
