@@ -785,7 +785,10 @@
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t, k, last=.true.)
+         if(ActuatorLineFlag) then
+             call farm % UpdateFarm(t, sem % mesh)
+             call farm % WriteFarmForces(t, k, last=.true.)
+         end if
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
 #if defined(INCNS)
