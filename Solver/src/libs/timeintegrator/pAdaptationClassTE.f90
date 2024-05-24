@@ -587,7 +587,7 @@ module pAdaptationClassTE
 !     Overenrich specified regions
 !     ----------------------------
 !
-      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax)
+      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax, NMIN)
 !
 !     ---------------------------------------------------
 !     Restrict polynomial order decrease in every element
@@ -685,6 +685,13 @@ module pAdaptationClassTE
 !     ----------------
 !
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+
+!
+!     ---------------------
+!     Update HO arrays
+!     ---------------------
+!
+      call sem % mesh % UpdateHOArrays()
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 

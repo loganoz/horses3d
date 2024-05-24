@@ -788,6 +788,57 @@ jobs:
           mpiexec -n 8 ./horses3d.ns Cylinder_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 26) IBM Cylinder with Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build IBM_Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run IBM_Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns IBM_Cylinder_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 27) Cylinder with Overenriching and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Cylinder_Overenriching_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run Cylinder_Overenriching_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns Cylinder_Overenriching_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 28) Cylinder with Euler-RK3 hybrid temporal scheme and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build EulerRK3_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/EulerRK3_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run EulerRK3_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/EulerRK3_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns EulerRK3_pAdaptationRL.control
+        if: '!cancelled()'
+
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################

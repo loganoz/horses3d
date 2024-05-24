@@ -103,10 +103,15 @@ module LoadBalancingMonitorClass
 
          select case ( trim ( self % variable ) )
          case ("max dof per partition")
+         case ("max dof")
          case ("min dof per partition")
+         case ("min dof")
          case ("avg dof per partition")
+         case ("avg dof")
          case ("absolute dof unbalancing")
+         case ("abs unbalancing")
          case ("relative dof unbalancing")
+         case ("rel unbalancing")
 
          case default
 
@@ -115,11 +120,11 @@ module LoadBalancingMonitorClass
             else
                print*, 'Variable "',trim(self % variable),'" load balancing monitor ', self % ID, ' not implemented yet.'
                print*, "Options available are:"
-               print*, "   * Max DOF per partition"
-               print*, "   * Min DOF per partition"
-               print*, "   * Avg DOF per partition"
-               print*, "   * Absolute DOF unbalancing"
-               print*, "   * Relative DOF unbalancing"
+               print*, "   * Max DOF per partition or Max DOF"
+               print*, "   * Min DOF per partition or Min DOF"
+               print*, "   * Avg DOF per partition or Avg DOF"
+               print*, "   * Absolute DOF unbalancing or Abs unbalancing"
+               print*, "   * Relative DOF unbalancing or Rel unbalancing"
                error stop "error stopped."
             end if
          end select
@@ -174,16 +179,33 @@ module LoadBalancingMonitorClass
 #ifdef _HAS_MPI_
          case ("max dof per partition")
             self % values(1,bufferPosition) = maxval(CumputePartitionDOF(mesh))
+         case ("max dof")
+            self % values(1,bufferPosition) = maxval(CumputePartitionDOF(mesh))
          case ("min dof per partition")
             self % values(1,bufferPosition) = minval(CumputePartitionDOF(mesh))
+         case ("min dof")
+            self % values(1,bufferPosition) = minval(CumputePartitionDOF(mesh))
          case ("avg dof per partition")
+            self % values(1,bufferPosition) = sum(CumputePartitionDOF(mesh)) / MPI_Process % nProcs
+         case ("avg dof")
             self % values(1,bufferPosition) = sum(CumputePartitionDOF(mesh)) / MPI_Process % nProcs
          case ("absolute dof unbalancing")
             partitionDOF = CumputePartitionDOF(mesh)
             maxDOF = maxval(partitionDOF)
             minDOF = minval(partitionDOF)
             self % values(1,bufferPosition) = maxDOF - minDOF
+         case ("abs unbalancing")
+            partitionDOF = CumputePartitionDOF(mesh)
+            maxDOF = maxval(partitionDOF)
+            minDOF = minval(partitionDOF)
+            self % values(1,bufferPosition) = maxDOF - minDOF
          case ("relative dof unbalancing")
+            partitionDOF = CumputePartitionDOF(mesh)
+            maxDOF = maxval(partitionDOF)
+            minDOF = minval(partitionDOF)
+            avgDOF = sum(partitionDOF) / MPI_Process % nProcs
+            self % values(1,bufferPosition) = 100.0_RP * (maxDOF - minDOF) / avgDOF
+         case ("rel unbalancing")
             partitionDOF = CumputePartitionDOF(mesh)
             maxDOF = maxval(partitionDOF)
             minDOF = minval(partitionDOF)
