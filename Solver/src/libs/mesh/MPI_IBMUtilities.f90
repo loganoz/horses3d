@@ -1447,14 +1447,12 @@ contains
       type(face),           intent(inout) :: faces(:) 
       integer,              intent(in)    :: domain 
       type(MPI_FacesSet_t), intent(in)    :: MPIfaces
-      integer,              intent(inout) :: NumOfMaskObjs
+      integer,              intent(inout) :: additional_NumOfMaskObjs
 
       logical :: HO_IBM(MPIfaces% faces(domain)% no_of_faces)
-      integer :: mpifID, fID, i, j, additional_NumOfMaskObjs
+      integer :: mpifID, fID, i, j
 #ifdef _HAS_MPI_
       integer :: recv_req, ierr
-
-      additional_NumOfMaskObjs = 0 
 
       if( MPIfaces% faces(domain)% no_of_faces .eq. 0 ) return
 
@@ -1463,9 +1461,9 @@ contains
       call mpi_wait(recv_req, MPI_STATUS_IGNORE, ierr)
 
       do mpifID = 1, MPIfaces% faces(domain)% no_of_faces
-         fID                = MPIfaces% faces(domain) % faceIDs(mpifID)
-         faces(fID)% HO_IBM = HO_IBM(mpifID)
-         if( faces(fID)% HO_IBM ) then
+         fID = MPIfaces% faces(domain) % faceIDs(mpifID)
+         if( HO_IBM(mpifID) ) then
+            faces(fID)% HO_IBM = HO_IBM(mpifID)
             faces(fID)% HOSIDE = maxloc(faces(fID)% elementIDs, dim=1) 
             allocate(faces(fID)% stencil(0:faces(fID)% Nf(1),0:faces(fID)% Nf(2)))
             do j = 0, faces(fID)% Nf(2); do i = 0, faces(fID)% Nf(1)
@@ -1486,21 +1484,19 @@ contains
       type(MPI_FacesSet_t), intent(inout) :: MPIfaces
       integer,              intent(inout) :: NumOfMaskObjs
 #ifdef _HAS_MPI_
-      integer :: domains, additional_NumOfMaskObjs, sum_NumOfMaskObjs, ierr 
+      integer :: domains, additional_NumOfMaskObjs, ierr 
       
       if( .not. MPI_Process% doMPIAction ) return 
       
       do domains = 1, MPI_Process% nProcs 
          call sendHO_IBMfacesMPI( faces, domains, MPIfaces )
       end do
-      
+      additional_NumOfMaskObjs = 0 
       do domains = 1, MPI_Process% nProcs 
          call recvHO_IBMfacesMPI( faces, domains, MPIfaces, additional_NumOfMaskObjs )
       end do
 
-      call MPI_Allreduce(additional_NumOfMaskObjs, sum_NumOfMaskObjs, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
-      
-      NumOfMaskObjs = NumOfMaskObjs + sum_NumOfMaskObjs
+      NumOfMaskObjs = NumOfMaskObjs + additional_NumOfMaskObjs
 #endif
    end subroutine FixingmpiFaces
 

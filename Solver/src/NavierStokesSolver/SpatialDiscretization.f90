@@ -622,13 +622,13 @@ module SpatialDiscretization
 
          if( mesh% IBM% active .AND. .NOT. mesh% HO_IBM ) then
             if( .not. mesh% IBM% semiImplicit ) then 
-!$omp do schedule(runtime) private(i,j,k,Source,Q_target,V,x,cL,cD)
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target,V,cL,cD)
                   do eID = 1, mesh % no_of_elements  
                      associate ( e => mesh % elements(eID) ) 
                      do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                         if( e% isInsideBody(i,j,k) ) then
                            if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                              call UserDefinedIBMKinematicsNS( x, .false., V, .true., cL, cD, t, mesh% IBM% dt, e% STL(i,j,k), refValues )
+                              call UserDefinedIBMKinematicsNS( e% geom% x(:,i,j,k), .false., V, .true., cL, cD, t, mesh% IBM% dt, e% STL(i,j,k), refValues )
                               Q_target = mesh% IBM% MaskVelocity( NCONS, e% storage% Q(:,i,j,k), V )
                               call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
                            else 
@@ -1098,16 +1098,16 @@ module SpatialDiscretization
                                                      flux  = visc_flux(:,i,j) )
                   if( f% HO_IBM ) then 
                      Sidearray = (/2,1/)
-                     mu    = f % storage(Sidearray(f% HOSIDE)) % mu_NS(1,i,j)
+                     mu    = f % storage(Sidearray(f % HOSIDE)) % mu_NS(1,i,j)
                      beta  = 0.0_RP
-                     kappa = f % storage(Sidearray(f% HOSIDE)) % mu_NS(2,i,j)
+                     kappa = f % storage(Sidearray(f % HOSIDE)) % mu_NS(2,i,j)
                      call f% HO_IBM_ViscousFlux( nEqn    = NCONS, nGradEqn = NGRAD,                           &
-                                                 stencil = f% stencil(i,j),                                   &
-                                                 nHat    = f% geom% normal(:,i,j),                            &
-                                                 QIn     = f% storage(Sidearray(f% HOSIDE))% Q(:,i,j),        &
-                                                 QIn_x   = f% storage(Sidearray(f% HOSIDE))% U_x(:,i,j),      &
-                                                 QIn_y   = f% storage(Sidearray(f% HOSIDE))% U_y(:,i,j),      &
-                                                 QIn_z   = f% storage(Sidearray(f% HOSIDE))% U_z(:,i,j),      &
+                                                 stencil = f % stencil(i,j),                                  &
+                                                 nHat    = f % geom% normal(:,i,j),                           &
+                                                 QIn     = f % storage(Sidearray(f % HOSIDE)) % Q(:,i,j),     &
+                                                 QIn_x   = f % storage(Sidearray(f % HOSIDE)) % U_x(:,i,j),   &
+                                                 QIn_y   = f % storage(Sidearray(f % HOSIDE)) % U_y(:,i,j),   &
+                                                 QIn_z   = f % storage(Sidearray(f % HOSIDE)) % U_z(:,i,j),   &
                                                  mu = mu, beta = beta, kappa = kappa, flux = visc_flux(:,i,j) )  
                   end if
                end do
@@ -1215,17 +1215,17 @@ module SpatialDiscretization
                                                      flux  = visc_flux(:,i,j) )
                   if( f% HO_IBM ) then 
                      Sidearray = (/2,1/)
-                     mu    = f % storage(Sidearray(f% HOSIDE)) % mu_NS(1,i,j)
+                     mu    = f % storage(Sidearray(f % HOSIDE)) % mu_NS(1,i,j)
                      beta  = 0.0_RP
-                     kappa = f % storage(Sidearray(f% HOSIDE)) % mu_NS(2,i,j)
-                     call f% HO_IBM_ViscousFlux( nEqn    = NCONS, nGradEqn = NGRAD,                             &
-                                                   stencil = f% stencil(i,j),                                   &
-                                                   nHat    = f% geom% normal(:,i,j),                            &
-                                                   QIn     = f% storage(Sidearray(f% HOSIDE))% Q(:,i,j),        &
-                                                   QIn_x   = f% storage(Sidearray(f% HOSIDE))% U_x(:,i,j),      &
-                                                   QIn_y   = f% storage(Sidearray(f% HOSIDE))% U_y(:,i,j),      &
-                                                   QIn_z   = f% storage(Sidearray(f% HOSIDE))% U_z(:,i,j),      &
-                                                   mu = mu, beta = beta, kappa = kappa, flux = visc_flux(:,i,j) )  
+                     kappa = f % storage(Sidearray(f % HOSIDE)) % mu_NS(2,i,j)
+                     call f% HO_IBM_ViscousFlux( nEqn    = NCONS, nGradEqn = NGRAD,                           &
+                                                 stencil = f % stencil(i,j),                                  &
+                                                 nHat    = f % geom% normal(:,i,j),                           &
+                                                 QIn     = f % storage(Sidearray(f % HOSIDE)) % Q(:,i,j),     &
+                                                 QIn_x   = f % storage(Sidearray(f % HOSIDE)) % U_x(:,i,j),   &
+                                                 QIn_y   = f % storage(Sidearray(f % HOSIDE)) % U_y(:,i,j),   &
+                                                 QIn_z   = f % storage(Sidearray(f % HOSIDE)) % U_z(:,i,j),   &
+                                                 mu = mu, beta = beta, kappa = kappa, flux = visc_flux(:,i,j) )  
                   end if
                end do
             end do

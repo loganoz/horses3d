@@ -760,7 +760,7 @@ module IBMClass
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
                STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
+               f% HOSIDE = FindHOside( f, eID )
                do j = 0, Neta; do i = 0, Nxi
                   f% stencil(i,j)% x   = f% geom% x(:,i,j)
                   this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -784,7 +784,7 @@ module IBMClass
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
                STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
+               f% HOSIDE = FindHOside( f, eID )
                do j = 0, Neta; do i = 0, Nxi
                   f% stencil(i,j)% x    = f% geom% x(:,i,j)
                   this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -808,7 +808,7 @@ module IBMClass
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
                STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
+               f% HOSIDE = FindHOside( f, eID )
                do j = 0, Neta; do i = 0, Nxi
                   f% stencil(i,j)% x   = f% geom% x(:,i,j)
                   this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -832,7 +832,7 @@ module IBMClass
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
                STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
+               f% HOSIDE = FindHOside( f, eID )
                do j = 0, Neta; do i = 0, Nxi
                   f% stencil(i,j)% x   = f% geom% x(:,i,j)
                   this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -856,7 +856,7 @@ module IBMClass
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
                STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
+               f% HOSIDE = FindHOside( f, eID )
                do j = 0, Neta; do i = 0, Nxi
                   f% stencil(i,j)% x   = f% geom% x(:,i,j)
                   this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -880,7 +880,7 @@ module IBMClass
                f% HO_IBM = .true.
                allocate(f% stencil(0:Nxi,0:Neta))
                STLNum = e% STL(1,0,0)
-               f% HOSIDE = FindHOside( f, e% eID )
+               f% HOSIDE = FindHOside( f, eID )
                do j = 0, Neta; do i = 0, Nxi
                   f% stencil(i,j)% x   = f% geom% x(:,i,j)
                   this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -1338,7 +1338,7 @@ module IBMClass
                call OBB(STLNum)% ChangeRefFrame(this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, GLOBAL, Point)
                tocopy% NumOfObjs                           = tocopy% NumOfObjs + 1
                tocopy% coords(tocopy% NumOfObjs,:)         = Point
-               tocopy% element_index(tocopy% NumOfObjs)    = i
+               tocopy% element_index(tocopy% NumOfObjs)    = 0
                tocopy% local_position(tocopy% NumOfObjs,:) = (/i,j,0/)
             end do 
          end do 
@@ -1373,9 +1373,7 @@ module IBMClass
       
       if( this% plotBandPoints .and. MPI_Process% isRoot ) call this% BandRegion(STLNum)% plot( 'BandPoints' )
 
-      if( this% HO_IBM ) then 
-         call IBM_HO_findElements( this% BandRegion(STLNum)% IBMmask, elements )
-      end if 
+      if( this% HO_IBM ) call IBM_HO_findElements( this% BandRegion(STLNum)% IBMmask, elements )
 
    end subroutine IBM_constructBandRegion
 
@@ -1386,8 +1384,8 @@ module IBMClass
       class(IBM_type), intent(inout) :: this
       real(kind=RP),   intent(in)    :: Point(NDIM)
       integer,         intent(in)    :: STLNum
-      integer,         intent(inout) :: indeces(:), &
-                                        domain(:)
+      integer,         intent(inout) :: indeces(this% NumOfInterPoints), &
+                                        domain(this% NumOfInterPoints)
       !-local-variables-----------------------------------------
       real(kind=RP) :: dist, dist_, lastDist
       integer       :: k, domains, i
@@ -1422,14 +1420,14 @@ module IBMClass
       integer :: STLNum
 
       do STLNum = 1, this% NumOfSTL
-         call BandPointsState( this% BandRegion(STLNum), elements, nEqn )
+         call BandPointsState( this% BandRegion(STLNum), elements, nEqn, this% HO_IBM, this% STL(STLNum) )
       end do
 
    end subroutine IBM_GetBandRegionStates
 !
 !  Band region points' state is stored
 !  -----------------------------------
-   subroutine BandPointsState( this, elements, nEqn )
+   subroutine BandPointsState( this, elements, nEqn, HO_IBM, stl )
       use PhysicsStorage
       use MPI_Process_Info
       implicit none
@@ -1437,28 +1435,49 @@ module IBMClass
       type(bandRegion_t), intent(inout) :: this
       type(element),      intent(in)    :: elements(:)
       integer,            intent(in)    :: nEqn
+      logical,            intent(in)    :: HO_IBM
+      type(STLfile),      intent(inout) :: stl 
       !-local-variables------------------------------------------
       integer                    :: n, i, j, k, eID, domain
 
       domain = MPI_Process% rank + 1
 
-      do n = 1, this% IBMmask(domain)% NumOfObjs
-         i   = this% IBMmask(domain)% local_Position(n,1)
-         j   = this% IBMmask(domain)% local_Position(n,2)
-         k   = this% IBMmask(domain)% local_Position(n,3)
-         eID = this% IBMmask(domain)% element_index(n)
-
-         this% IBMmask(domain)% Q(n,:)   = elements(eID)% storage% Q(:,i,j,k)
-         this% IBMmask(domain)% U_x(n,:) = elements(eID)% storage% U_x(:,i,j,k)
-         this% IBMmask(domain)% U_y(n,:) = elements(eID)% storage% U_y(:,i,j,k)
-         this% IBMmask(domain)% U_z(n,:) = elements(eID)% storage% U_z(:,i,j,k)
-      end do
+      if( HO_IBM ) then 
+         call IBM_HO_GetState   ( this% IBMmask, elements, nEqn )
+         call IBM_HO_GetGradient( this% IBMmask, elements, nEqn )
 #ifdef _HAS_MPI_
-      if( MPI_Process% doMPIAction ) then 
-         call castStateBandRegion( this% IBMmask, nEqn )
-         call castGradientsBandRegion( this% IBMmask, nEqn )
-      endif
+         call GatherHOIntegrationPointsState( this% IBMmask, stl% ObjectsList, nEqn )       
+#else
+         do n = 1, this% IBMmask(domain)% NumOfObjs
+            i = this% IBMmask(domain)% local_position(n,IX)
+            j = this% IBMmask(domain)% local_position(n,IY)
+   
+            stl% ObjectsList(i)% IntegrationVertices(j)% Q   = this% IBMmask(domain)% Q(n,:)
+            stl% ObjectsList(i)% IntegrationVertices(j)% U_x = this% IBMmask(domain)% U_x(n,:)
+            stl% ObjectsList(i)% IntegrationVertices(j)% U_y = this% IBMmask(domain)% U_y(n,:)
+            stl% ObjectsList(i)% IntegrationVertices(j)% U_z = this% IBMmask(domain)% U_z(n,:)
+         end do 
 #endif
+      else
+         do n = 1, this% IBMmask(domain)% NumOfObjs
+            i   = this% IBMmask(domain)% local_Position(n,1)
+            j   = this% IBMmask(domain)% local_Position(n,2)
+            k   = this% IBMmask(domain)% local_Position(n,3)
+            eID = this% IBMmask(domain)% element_index(n)
+
+            this% IBMmask(domain)% Q(n,:)   = elements(eID)% storage% Q(:,i,j,k)
+            this% IBMmask(domain)% U_x(n,:) = elements(eID)% storage% U_x(:,i,j,k)
+            this% IBMmask(domain)% U_y(n,:) = elements(eID)% storage% U_y(:,i,j,k)
+            this% IBMmask(domain)% U_z(n,:) = elements(eID)% storage% U_z(:,i,j,k)
+         end do
+#ifdef _HAS_MPI_
+         if( MPI_Process% doMPIAction ) then 
+            call castStateBandRegion( this% IBMmask, nEqn )
+            call castGradientsBandRegion( this% IBMmask, nEqn )
+         endif
+#endif
+      end if 
+
    end subroutine BandPointsState
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////

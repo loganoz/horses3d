@@ -119,11 +119,7 @@ module SurfaceMonitorClass
                   end if
                   self% marker = STLNum    
                   call mesh% IBM% stl(STLNum)% SetIntegrationPoints( )
-                  if( mesh% IBM% HO_IBM ) then 
-                     !call mesh% IBM% buildHOIntegrationPoints( mesh% elements, STLnum )
-                  else
-                     call mesh% IBM% stl(STLNum)% SetIntegration( mesh% IBM% NumOfInterPoints )  
-                  end if                 
+                  if( .not. mesh% IBM % HO_IBM ) call mesh% IBM% stl(STLNum)% SetIntegration( mesh% IBM% NumOfInterPoints )                  
                   self% IBM                                 = .true.
                   mesh% IBM% Integral(STLNum)% compute      = .true.
                   mesh% IBM% Integral(STLNum)% ListComputed = .false.         

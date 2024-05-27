@@ -450,12 +450,13 @@ module EllipticIP
                                     f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
                                     f% geom% normal(:,i,j),                     &
                                     f % geom % jacobian(i,j),                   &
-                                    Uhat                                        )
+                                    Uhat                                       )
                Uhat = -Uhat
             end if  
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)

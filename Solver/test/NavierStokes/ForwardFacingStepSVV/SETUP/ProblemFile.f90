@@ -164,6 +164,22 @@ module ProblemFileFunctions
       end subroutine UserDefinedSourceTermNS_f
 #endif
 !
+!//////////////////////////////////////////////////////////////////////// 
+! 
+#ifdef FLOW
+      subroutine UserDefinedIBMKinematicsNS_f( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),          intent(in)    :: t, cL, cD, dt
+         logical,                intent(in)    :: computeX, computeV
+         integer,                intent(in)    :: STLNum
+         type(RefValues_t),      intent(in)    :: refValues_
+      end subroutine UserDefinedIBMKinematicsNS_f
+#endif
+!
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE UserDefinedFinalize_f(mesh, time, iter, maxResidual &
@@ -473,6 +489,28 @@ end module ProblemFileFunctions
 !           S(:) = x(1) + x(2) + x(3) + time
 
          end subroutine UserDefinedSourceTermNS
+#endif
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+#ifdef FLOW
+      subroutine UserDefinedIBMKinematicsNS( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),          intent(in)    :: t, cL, cD, dt
+         logical,                intent(in)    :: computeX, computeV
+         integer,                intent(in)    :: STLNum
+         type(RefValues_t),      intent(in)    :: refValues_
+
+         if( computeX ) then
+         end if 
+         if( computeV ) then 
+         end if 
+
+      end subroutine UserDefinedIBMKinematicsNS
 #endif
 !
 !////////////////////////////////////////////////////////////////////////

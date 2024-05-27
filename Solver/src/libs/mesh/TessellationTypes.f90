@@ -860,7 +860,7 @@ module TessellationTypes
          obj% IntegrationVertices(NumOfIntegrationVertices)% coords = 0.0_RP 
          do j = 1, NumOfVertices
             obj% IntegrationVertices(j)% coords                        = obj% vertices(j)% coords
-            obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords + 
+            obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords + &
                                                                          obj% vertices(j)% coords
          end do 
          obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords/NumOfVertices

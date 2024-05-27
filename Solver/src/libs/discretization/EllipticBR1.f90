@@ -306,7 +306,8 @@ module EllipticBR1
             end select
 #endif
 
-            uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
+            uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j) 
+
             if( f% HO_IBM ) then 
                Sidearray = (/2,1/)
                call f% HO_IBM_grad( NCONS, NGRAD,                               & 
@@ -318,7 +319,7 @@ module EllipticBR1
             end if 
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
-            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j) 
+            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
 
          end do               ; end do
          
@@ -382,10 +383,11 @@ module EllipticBR1
                                     f% geom% normal(:,i,j),                     &
                                     f % geom % jacobian(i,j),                   &
                                     uStar                                       )
-            end if  
+            end if
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
-            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
+            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)  
+
          end do               ; end do
 
          Sidearray = (/maxloc(f % elementIDs, dim = 1), HMESH_NONE/)

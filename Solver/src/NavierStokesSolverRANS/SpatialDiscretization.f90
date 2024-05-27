@@ -669,7 +669,7 @@ module SpatialDiscretization
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
                         if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                           call UserDefinedIBMKinematicsNS( x, .false., V, .true., cL, cD, t, mesh% IBM% dt, e% STL(i,j,k), refValues )
+                           call UserDefinedIBMKinematicsNS( e% geom% x(:,i,j,k), .false., V, .true., cL, cD, t, mesh% IBM% dt, e% STL(i,j,k), refValues )
                            Q_target = mesh% IBM% MaskVelocity( NCONS, e% storage% Q(:,i,j,k), V )
                            call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
                         else 

@@ -1183,20 +1183,17 @@
          type(stencil_t), intent(inout) :: stencil 
          real(kind=RP),   intent(in)    :: QIn(nEqn)
          real(kind=RP),   intent(in)    :: nHat(NDIM), jacobian 
-         real(kind=RP),   intent(out)   :: uStar(nGradEqn) 
+         real(kind=RP),   intent(inout) :: uStar_n(nGradEqn) 
 
-         real(kind=RP) :: Usb(nGradEqn), UIn(nGradEqn), Qsb(nEqn), nSrf(NDIM), nn 
+         real(kind=RP) :: Usb(nGradEqn), UIn(nGradEqn), Qsb(nEqn) 
 
          uStar = 0.0_RP 
-         nSrf  = stencil% normal
 
          call stencil% fixGrad(nEqn, nGradEqn, QIn, Usb )
          
          UIn = QIn 
 
-         nn = dot_product(nSrf,nHat)
-
-         uStar = 0.5_RP * (Usb - UIn) * jacobian
+         uStar = (Usb * nn - UIn) * jacobian
 
          if( this% HOSIDE .EQ. LEFT ) uStar = -uStar
 
@@ -1220,14 +1217,12 @@
          real(kind=RP)  :: rho, PIn, UIn(NDIM), UIn_n, aIn
          real(kind=RP)  :: Psb, Usb(NDIM), Usb_n, asb
          real(kind=RP)  :: FIn(nEqn), Fsb(nEqn), Qsb(nEqn)
-         real(kind=RP)  :: lambda, stab(nEqn), nn, invRho, nSrf(NDIM)
+         real(kind=RP)  :: lambda, stab(nEqn), invRho
 
          flux = 0.0_RP 
 #if defined(NAVIERSTOKES)
          associate( gamma       => thermodynamics % gamma,      &
-                     gammaMinus1 => thermodynamics % gammaMinus1 )
-
-         nSrf = stencil% normal
+                    gammaMinus1 => thermodynamics % gammaMinus1 )
          
          call stencil% fixState( nEqn, QIn, Qsb )
 
@@ -1239,16 +1234,14 @@
          PIn = Pressure(QIn)
          Psb = Pressure(Qsb)
 
-         FIn = normalFlux(nEqn, QIn, PIn, nHat)
-         Fsb = normalFlux(nEqn, Qsb, Psb, nHat)
+         FIn   = normalFlux(nEqn, QIn, PIn, nHat)
+         Fsb   = normalFlux(nEqn, Qsb, Psb, nHat)
 
          aIn = sqrt(gamma * PIn * invRho)
          asb = sqrt(gamma * Psb * invRho)
 
          UIn_n = dot_product( UIn, nHat )
          Usb_n = dot_product( Usb, nHat )
-
-         nn = dot_product(nSrf,nHat)
 
          lambda = max(abs(UIn_n) + aIn,abs(Usb_n) + asb)
 
@@ -1281,35 +1274,26 @@
          real(kind=RP),   intent(out)   :: flux(nEqn)
 
          real(kind=RP)  :: F(nEqn,NDIM), Fsb(nEqn,NDIM), FIn(nEqn,NDIM), heatFlux, viscWork, Qsb(nEqn)
-         real(kind=RP)  :: invRho, u, v, w, nn, mu_, beta_, kappa_, nSrf(NDIM), PIn
+         real(kind=RP)  :: invRho, u, v, w, Vsb(NDIM)
 
          flux = 0.0_RP 
 #if defined(NAVIERSTOKES)
-         associate( gammaMinus1 => thermodynamics % gammaMinus1 )
-         nSrf = stencil% normal 
-
-         call stencil% fixState( nEqn, QIn, Qsb )
-
-         call get_laminar_mu_kappa( Qsb, mu_, kappa_ )
-
-         call ViscousFlux_STATE(nEqn, nGradEqn, Qsb, QIn_x, QIn_y, QIn_z, mu, beta, kappa, Fsb)
          call ViscousFlux_STATE(nEqn, nGradEqn, QIn, QIn_x, QIn_y, QIn_z, mu, beta, kappa, FIn)
 
-         F = 0.5_RP * (Fsb + FIn)
+         F = FIn 
 
          flux = F(:,IX) * nHat(IX) + F(:,IY) * nHat(IY) + F(:,IZ) * nHat(IZ)
 
-         invRho   = 1.0_RP / Qsb(IRHO)
-         u        = stencil% Qsb(IRHOU)
-         v        = stencil% Qsb(IRHOV)
-         w        = stencil% Qsb(IRHOW)
+         invRho   = 1.0_RP/QIn(IRHO)
+         u        = QIn(IRHOU)
+         v        = QIn(IRHOV)
+         w        = QIn(IRHOW)
          viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
          heatFlux = flux(IRHOE) - viscWork
+         Vbs      = stencil% Qsb(IRHOU:IRHOW)
 
          flux(IRHO)  = 0.0_RP 
-         !flux(IRHOE) = heatFlux !sum((/u,v,w/)*flux(IRHOU:IRHOW)) 
-
-         end associate
+         flux(IRHOE) = sum(Vbs*flux(IRHOU:IRHOW)) + heatFlux 
 #endif
       end subroutine Face_HO_IBM_ViscousFlux
 
@@ -1384,8 +1368,9 @@
          associate(gammaM2     => dimensionless% gammaM2,     &
                    gammaMinus1 => thermodynamics% gammaMinus1 )
          
-         nSrf = this% normal
-         N    = this% N
+         this% Qsb = 0.0_RP
+         nSrf      = this% normal
+         N         = this% N
 
          rhouB = 0.0_RP
          rhovB = 0.0_RP
@@ -1443,8 +1428,8 @@
             T_s    = T_s    + T(i)    * lj(i)
          end do 
            
-         this% Qsb(IRHOU) = rhou_s 
-         this% Qsb(IRHOV) = rhov_s 
+         this% Qsb(IRHOU) = rhou_s
+         this% Qsb(IRHOV) = rhov_s
          this% Qsb(IRHOW) = rhow_s
          this% Qsb(IRHOE) = T_s/(gammaM2*gammaMinus1)
 
@@ -1463,20 +1448,18 @@
          real(kind=RP),    intent(in)    :: QIn(nEqn)
          real(kind=RP),    intent(out)   :: Qsb(nEqn)
 
-         real(kind=RP) :: rho, invRho, p, e_int, v(NDIM)
+         real(kind=RP) :: rho, invRho, e_int, Vsb(NDIM)
          
          Qsb = this% Qsb 
 #if defined(NAVIERSTOKES)
          rho    = QIn(IRHO)
          invRho = 1.0_RP/rho 
          e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
+         Vsb    = this% Qsb(IRHOU:IRHOW)
 
          Qsb(IRHO)        = rho 
-         Qsb(IRHOU:IRHOW) = rho*this% Qsb(IRHOU:IRHOW)! - QIn(IRHOU:IRHOW) 
- 
-         v = this% Qsb(IRHOU:IRHOW)!invRho * QIn(IRHOU:IRHOW)
-
-         Qsb(IRHOE) = rho * this% Qsb(IRHOE) ! (e_int + 0.5_RP * (sum(v*v)))
+         Qsb(IRHOU:IRHOW) = 2.0_RP * rho * Vsb - QIn(IRHOU:IRHOW) 
+         Qsb(IRHOE)       = rho * this% Qsb(IRHOE) 
 #endif
       end subroutine stencil_fixState
 
@@ -1488,20 +1471,18 @@
          real(kind=RP),    intent(in)    :: QIn(nEqn)
          real(kind=RP),    intent(out)   :: Usb(nGradEqn)
 
-         real(kind=RP) :: rho, invRho, e_int, v(NDIM)
+         real(kind=RP) :: rho, invRho, e_int, Vsb(NDIM)
          
          Usb = this% Qsb 
 #if defined(NAVIERSTOKES)
          rho    = QIn(IRHO)
          invRho = 1.0_RP/rho 
          e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
+         Vsb      = this% Qsb(IRHOU:IRHOW)
 
          Usb(IRHO)        = rho 
-         Usb(IRHOU:IRHOW) = rho*this% Qsb(IRHOU:IRHOW)  
-   
-         v = this% Qsb(IRHOU:IRHOW) 
-
-         Usb(IRHOE) = rho * this% Qsb(IRHOE)! + 0.5_RP * (sum(v*v)) ! (e_int + 0.5_RP * (sum(v*v)))
+         Usb(IRHOU:IRHOW) = rho * Vsb 
+         Usb(IRHOE)       = rho * (this% Qsb(IRHOE) + 0.5_RP * (sum(Vsb*Vsb)))
 #endif
       end subroutine stencil_fixGrad
 

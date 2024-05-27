@@ -459,11 +459,7 @@ module SurfaceIntegrals
        
       if( .not. IBM% Integral(STLNum)% compute ) return
 
-      if( IBM% HO_IBM ) then 
-         call GetSurfaceState_HO( IBM, elements, STLNum, NCONS )
-      else
-         call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS )
-      end if 
+      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% stl(STLNum) )
 
       if( IBM% stl(STLNum)% move ) then 
          call IBM% stl(STLNum)% SetIntegrationPoints()
@@ -540,11 +536,7 @@ module SurfaceIntegrals
 
       if( .not. IBM% Integral(STLNum)% compute ) return 
 
-      if( IBM% HO_IBM ) then 
-         call GetSurfaceState_HO( IBM, elements, STLNum, NCONS )
-      else
-         call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS )
-      end if 
+      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% STL(STLNum) ) 
 
       if( IBM% stl(STLNum)% move ) then 
          call IBM% stl(STLNum)% SetIntegrationPoints()
@@ -620,39 +612,6 @@ module SurfaceIntegrals
                                          IBM% InterpolationType     )
 
    end subroutine GetSurfaceState 
-
-   subroutine GetSurfaceState_HO( IBM, elements, STLNum, nEqn )
-      use TessellationTypes
-      use IBMClass
-      use MPI_Process_Info
-      use omp_lib
-      use MPI_IBMUtilities
-      implicit none
-
-      class(IBM_type), intent(inout) :: IBM 
-      type(element),   intent(inout) :: elements(:)
-      integer,         intent(in)    :: STLNum, nEqn
-
-      integer :: i, j, n, domain 
-
-      domain = MPI_Process% rank + 1
-
-      call IBM_HO_GetState   ( IBM% bandRegion(domain)% IBMmask, elements, nEqn )
-      call IBM_HO_GetGradient( IBM% bandRegion(domain)% IBMmask, elements, nEqn )
-#ifdef _HAS_MPI_
-      call GatherHOIntegrationPointsState( IBM% bandRegion(domain)% IBMmask, IBM% stl(STLNum)% ObjectsList, nEqn )       
-#else
-      do n = 1, IBM% IBMStencilPoints(domain)% NumOfObjs
-         i = IBM% IBMStencilPoints(domain)% x(n)% local_position(IX)
-         j = IBM% IBMStencilPoints(domain)% x(n)% local_position(IY)
-
-         IBM% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% Q   = IBM% IBM_HOIntegrationPoints(domain)% x(n)% Q
-         IBM% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% U_x = IBM% IBM_HOIntegrationPoints(domain)% x(n)% U_x
-         IBM% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% U_y = IBM% IBM_HOIntegrationPoints(domain)% x(n)% U_y
-         IBM% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% U_z = IBM% IBM_HOIntegrationPoints(domain)% x(n)% U_z
-      end do 
-#endif
-   end subroutine GetSurfaceState_HO
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
