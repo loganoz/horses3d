@@ -1183,7 +1183,7 @@
          type(stencil_t), intent(inout) :: stencil 
          real(kind=RP),   intent(in)    :: QIn(nEqn)
          real(kind=RP),   intent(in)    :: nHat(NDIM), jacobian 
-         real(kind=RP),   intent(inout) :: uStar_n(nGradEqn) 
+         real(kind=RP),   intent(inout) :: uStar(nGradEqn) 
 
          real(kind=RP) :: Usb(nGradEqn), UIn(nGradEqn), Qsb(nEqn) 
 
@@ -1193,7 +1193,7 @@
          
          UIn = QIn 
 
-         uStar = (Usb * nn - UIn) * jacobian
+         uStar = 0.5_RP * (Usb - UIn) * jacobian
 
          if( this% HOSIDE .EQ. LEFT ) uStar = -uStar
 
@@ -1290,10 +1290,10 @@
          w        = QIn(IRHOW)
          viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
          heatFlux = flux(IRHOE) - viscWork
-         Vbs      = stencil% Qsb(IRHOU:IRHOW)
+         Vsb      = stencil% Qsb(IRHOU:IRHOW)
 
          flux(IRHO)  = 0.0_RP 
-         flux(IRHOE) = sum(Vbs*flux(IRHOU:IRHOW)) + heatFlux 
+         flux(IRHOE) = sum(Vsb*flux(IRHOU:IRHOW)) + heatFlux 
 #endif
       end subroutine Face_HO_IBM_ViscousFlux
 

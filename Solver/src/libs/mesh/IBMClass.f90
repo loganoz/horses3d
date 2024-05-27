@@ -1414,7 +1414,7 @@ module IBMClass
       implicit none
       !-arguments-----------------------------------------------
       class(IBM_type), intent(inout) :: this
-      type(element),   intent(in)    :: elements(:)
+      type(element),   intent(inout) :: elements(:)
       integer,         intent(in)    :: nEqn
       !-local-variables-----------------------------------------
       integer :: STLNum
@@ -1433,7 +1433,7 @@ module IBMClass
       implicit none
       !-arguments------------------------------------------------
       type(bandRegion_t), intent(inout) :: this
-      type(element),      intent(in)    :: elements(:)
+      type(element),      intent(inout) :: elements(:)
       integer,            intent(in)    :: nEqn
       logical,            intent(in)    :: HO_IBM
       type(STLfile),      intent(inout) :: stl 
