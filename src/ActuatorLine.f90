@@ -417,7 +417,9 @@ contains
         initial_azimutal = 0.0_RP
         ! call self % readOperationFile
     else
-        initial_azimutal = 0.0_RP
+        do k = 1, self%num_turbines
+            initial_azimutal(k) = self%turbine_t(k)%rot_speed*t0 * Lref / refValues%V
+        end do
     end if
     ! azimuthal angle for the 3 blades
     ! azimuth_angle angle of blades is the angle to respect to +y axis, the angular velocity vector will point to +x
@@ -430,16 +432,9 @@ contains
     ! average_conditions are thrust and rotor force
     if (MPI_Process % isRoot) then
       if (self % save_average) then
-          ! if (self % calculate_with_projection) then
-              ! do k = 1, self%num_turbines
-                  ! allocate ( self%turbine_t(k)%average_conditions(self%turbine_t(k)%num_blade_sections,2) )
-              ! end do
-          ! else
-              ! additional average_conditions are velocity, AoA and Re, writen before forces
-              do k = 1, self%num_turbines
-                  allocate ( self%turbine_t(k)%average_conditions(self%turbine_t(k)%num_blade_sections,5) )
-              end do
-          ! end if
+          do k = 1, self%num_turbines
+              allocate ( self%turbine_t(k)%average_conditions(self%turbine_t(k)%num_blade_sections,5) )
+          end do
           do k = 1, self%num_turbines
               self % turbine_t(k) % average_conditions(:,:) = 0.0_RP
           end do
