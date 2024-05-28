@@ -1193,7 +1193,7 @@
          
          UIn = QIn 
 
-         uStar = 0.5_RP * (Usb - UIn) * jacobian
+         uStar = (Usb - UIn) * jacobian
 
          if( this% HOSIDE .EQ. LEFT ) uStar = -uStar
 
@@ -1448,7 +1448,7 @@
          real(kind=RP),    intent(in)    :: QIn(nEqn)
          real(kind=RP),    intent(out)   :: Qsb(nEqn)
 
-         real(kind=RP) :: rho, invRho, e_int, Vsb(NDIM)
+         real(kind=RP) :: rho, invRho, e_int, Vsb(NDIM), V(NDIM)
          
          Qsb = this% Qsb 
 #if defined(NAVIERSTOKES)
@@ -1458,8 +1458,9 @@
          Vsb    = this% Qsb(IRHOU:IRHOW)
 
          Qsb(IRHO)        = rho 
-         Qsb(IRHOU:IRHOW) = 2.0_RP * rho * Vsb - QIn(IRHOU:IRHOW) 
-         Qsb(IRHOE)       = rho * this% Qsb(IRHOE) 
+         Qsb(IRHOU:IRHOW) = 2.0_RP * rho * Vsb - QIn(IRHOU:IRHOW)
+         V                = invRho * Qsb(IRHOU:IRHOW) 
+         Qsb(IRHOE)       = rho * (this% Qsb(IRHOE) + 0.5_RP * sum(V*V))
 #endif
       end subroutine stencil_fixState
 
@@ -1478,11 +1479,11 @@
          rho    = QIn(IRHO)
          invRho = 1.0_RP/rho 
          e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
-         Vsb      = this% Qsb(IRHOU:IRHOW)
+         Vsb    = this% Qsb(IRHOU:IRHOW)
 
          Usb(IRHO)        = rho 
          Usb(IRHOU:IRHOW) = rho * Vsb 
-         Usb(IRHOE)       = rho * (this% Qsb(IRHOE) + 0.5_RP * (sum(Vsb*Vsb)))
+         Usb(IRHOE)       = rho * (this% Qsb(IRHOE) + 0.5_RP * sum(Vsb*Vsb))
 #endif
       end subroutine stencil_fixGrad
 
