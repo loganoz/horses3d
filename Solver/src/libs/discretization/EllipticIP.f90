@@ -389,8 +389,7 @@ module EllipticIP
                                     f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
                                     f% geom% normal(:,i,j),                     &
                                     f % geom % jacobian(i,j),                   &
-                                    Uhat                                        )
-               Uhat = -Uhat
+                                    Uhat, IP, GetGradients                      )
             end if  
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
@@ -450,8 +449,7 @@ module EllipticIP
                                     f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
                                     f% geom% normal(:,i,j),                     &
                                     f % geom % jacobian(i,j),                   &
-                                    Uhat                                       )
-               Uhat = -Uhat
+                                    Uhat, IP, GetGradients                      )
             end if  
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)

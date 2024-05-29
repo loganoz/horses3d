@@ -22,7 +22,7 @@
       IMPLICIT NONE
 
       private
-      public   Face, stencil_t
+      public   Face, stencil_t, BR1, BR2, IP
 
       type stencil_t
 
@@ -42,14 +42,7 @@
 
       end type stencil_t
 
-      type IBM_HO_faces_t
-
-         type(face), allocatable :: faces(:)
-         integer                 :: NumOfFaces, NumOfObjs, NumOfDoFs
-
-      end type IBM_HO_faces_t
-
-      type(IBM_HO_faces_t), allocatable, public :: IBM_HO_faces(:), IBM_HO_mpifaces(:)
+      integer, parameter :: BR1 = 1, BR2 = 2, IP = 3 
 !
 !     ************************************************************************************
 !
@@ -1173,9 +1166,10 @@
          to % storage = from % storage
       end subroutine Face_Assign
 
-      subroutine Face_HO_IBM_grad( this, nEqn, nGradEqn, stencil, QIn, nHat, jacobian, uStar )
+      subroutine Face_HO_IBM_grad( this, nEqn, nGradEqn, stencil, QIn, nHat, jacobian, uStar, ViscDisc, GetGradients )
          use FluidData
          use PhysicsStorage
+         use VariableConversion
          implicit none
 
          class(face),     intent(inout) :: this
@@ -1184,18 +1178,33 @@
          real(kind=RP),   intent(in)    :: QIn(nEqn)
          real(kind=RP),   intent(in)    :: nHat(NDIM), jacobian 
          real(kind=RP),   intent(inout) :: uStar(nGradEqn) 
+         integer,         intent(in)    :: ViscDisc
+         procedure(GetGradientValues_f) :: GetGradients
 
          real(kind=RP) :: Usb(nGradEqn), UIn(nGradEqn), Qsb(nEqn) 
 
          uStar = 0.0_RP 
 
-         call stencil% fixGrad(nEqn, nGradEqn, QIn, Usb )
-         
-         UIn = QIn 
+         select case( ViscDisc )
+         case( BR1 )
+            call GetGradients( nEqn, nGradEqn, QIn, Usb )
+            call GetGradients( nEqn, nGradEqn, QIn, UIn )
 
-         uStar = (Usb - UIn) * jacobian
+            call stencil% fixGrad(nEqn, nGradEqn, QIn, Usb, GetGradients )
 
-         if( this% HOSIDE .EQ. LEFT ) uStar = -uStar
+            uStar = (Usb - UIn) * jacobian
+
+            if( this% HOSIDE .EQ. LEFT ) uStar = -uStar
+         case( IP ) 
+            call stencil% fixState( nEqn, QIn, Qsb )
+            
+            call GetGradients( nEqn, nGradEqn, Qsb, Usb )
+            call GetGradients( nEqn, nGradEqn, QIn, UIn )
+
+            uStar = 0.5_RP * (Usb - UIn) * jacobian 
+
+            if( this% HOSIDE .EQ. RIGHT ) uStar = -uStar
+         end select 
 
       end subroutine Face_HO_IBM_grad 
 
@@ -1448,13 +1457,12 @@
          real(kind=RP),    intent(in)    :: QIn(nEqn)
          real(kind=RP),    intent(out)   :: Qsb(nEqn)
 
-         real(kind=RP) :: rho, invRho, e_int, Vsb(NDIM), V(NDIM)
+         real(kind=RP) :: rho, invRho, Vsb(NDIM), V(NDIM)
          
          Qsb = this% Qsb 
 #if defined(NAVIERSTOKES)
          rho    = QIn(IRHO)
          invRho = 1.0_RP/rho 
-         e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
          Vsb    = this% Qsb(IRHOU:IRHOW)
 
          Qsb(IRHO)        = rho 
@@ -1464,26 +1472,33 @@
 #endif
       end subroutine stencil_fixState
 
-      subroutine stencil_fixGrad( this, nEqn, nGradEqn, QIn, Usb ) 
+      subroutine stencil_fixGrad( this, nEqn, nGradEqn, QIn, Usb, GetGradients ) 
+         use VariableConversion
          implicit none 
 
          class(stencil_t), intent(inout) :: this
          integer,          intent(in)    :: nEqn, nGradEqn 
          real(kind=RP),    intent(in)    :: QIn(nEqn)
-         real(kind=RP),    intent(out)   :: Usb(nGradEqn)
+         real(kind=RP),    intent(inout) :: Usb(nGradEqn)
+         procedure(GetGradientValues_f)  :: GetGradients
 
-         real(kind=RP) :: rho, invRho, e_int, Vsb(NDIM)
+         real(kind=RP) :: rho, invRho, Vsb(NDIM), Q_aux(nEqn), U1
          
-         Usb = this% Qsb 
+         Q_aux  = this% Qsb 
 #if defined(NAVIERSTOKES)
          rho    = QIn(IRHO)
          invRho = 1.0_RP/rho 
-         e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(QIn(IRHOU)**2 + QIn(IRHOV)**2 + QIn(IRHOW)**2))
          Vsb    = this% Qsb(IRHOU:IRHOW)
 
-         Usb(IRHO)        = rho 
-         Usb(IRHOU:IRHOW) = rho * Vsb 
-         Usb(IRHOE)       = rho * (this% Qsb(IRHOE) + 0.5_RP * sum(Vsb*Vsb))
+         Q_aux(IRHO)        = rho 
+         Q_aux(IRHOU:IRHOW) = rho * Vsb 
+         Q_aux(IRHOE)       = rho * (this% Qsb(IRHOE) + 0.5_RP * sum(Vsb*Vsb))
+
+         U1 = Usb(IRHO)
+
+         call GetGradients(nEqn, nGradEqn, Q_aux, Usb)
+
+         Usb(IRHO) = U1
 #endif
       end subroutine stencil_fixGrad
 

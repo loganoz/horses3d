@@ -315,7 +315,7 @@ module EllipticBR1
                                     f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
                                     f% geom% normal(:,i,j),                     &
                                     f% geom% jacobian(i,j),                     &
-                                    uStar                                       )
+                                    uStar, BR1, GetGradients                    )
             end if 
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
@@ -382,7 +382,7 @@ module EllipticBR1
                                     f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
                                     f% geom% normal(:,i,j),                     &
                                     f % geom % jacobian(i,j),                   &
-                                    uStar                                       )
+                                    uStar, BR1, GetGradients                    )
             end if
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
