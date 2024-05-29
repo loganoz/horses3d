@@ -40,7 +40,7 @@ module InterpolationMatrices
  contains
 !========
 
-   subroutine InterpolationMatrix_Construct(this, Norigin, Ndest, offset, inout)
+   subroutine InterpolationMatrix_Construct(this, Norigin, Ndest, offset, scale, inout)
 !
 !     ****************************************************************
 !        This subroutine computes the interpolation matrix
@@ -52,6 +52,7 @@ module InterpolationMatrices
       integer                     , intent(in)    :: Norigin !<  Origin polynomial order
       integer                     , intent(in)    :: Ndest   !<  Destination polynomial order
       real(kind=RP)      ,optional, intent(in)    :: offset 
+      real(kind=RP)      ,optional, intent(in)    :: scale
       integer            ,optional, intent(in)    :: inout
 !
 !     ---------------
@@ -110,7 +111,7 @@ module InterpolationMatrices
    !
    !        Prolongation matrix
    !        -------------------         
-               call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, offset + 0.5_RP *spAd % x, this % T)
+               call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, offset + scale *spAd % x, this % T)
 
          else
    !
@@ -118,7 +119,7 @@ module InterpolationMatrices
    !        ------------------------------
             allocate( Ttemp(0:Norigin, 0:Ndest) )
                !call PolynomialInterpolationMatrix(Ndest, Norigin, offset + 0.5_RP * spAd % x, spAd % wb, spAo % x, Ttemp)
-               call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, offset + 0.5_RP * spAo % x, Ttemp)
+               call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, offset + scale * spAo % x, Ttemp)
             this % T = transpose(Ttemp)
 
             do j = 0, Norigin ; do i = 0, Ndest
@@ -280,7 +281,7 @@ module InterpolationMatrices
       integer, intent(in) :: Nmax
 
       allocate ( Tset(0:Nmax,0:Nmax) )
-      allocate ( TsetM(0:Nmax,0:Nmax, 2, 2) )
+      allocate ( TsetM(0:Nmax,0:Nmax, 4, 2) )
    end subroutine Initialize_InterpolationMatrices
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

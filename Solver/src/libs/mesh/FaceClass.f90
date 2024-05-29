@@ -62,7 +62,7 @@
    !
 
          type Face
-         integer, allocatable            :: Mortar(:)                !fID of the slave mortar slve
+         integer, allocatable            :: Mortar(:)                !fID of the slave mortar 
          integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
          integer                         :: Mortarpos                !Mortar index (only for slave faces, from 1 to 4; 0 if not slave mortar face)
          logical                         :: flat
@@ -84,7 +84,7 @@
          type(FaceStorage_t)             :: storage(2)
          integer                         :: n_mpi_mortar
          real(kind=RP)                   :: offset(2)                   
-         real(kind=RP)                   :: s(2)
+         real(kind=RP)                   :: scale(2)
 
             contains
                procedure   :: Construct                     => ConstructFace
