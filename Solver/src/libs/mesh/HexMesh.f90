@@ -64,6 +64,7 @@ MODULE HexMeshClass
          type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
+         type(Face)   , dimension(:), allocatable  :: mortar_faces         !Mortars for sliding meshes, 4:1 mortars are embeded in faces
          type(Element), dimension(:), allocatable  :: elements
          type(MPI_FacesSet_t)                      :: MPIfaces
          type(IBM_type)                            :: IBM
@@ -131,6 +132,10 @@ MODULE HexMeshClass
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
+            procedure :: MarkSlidingElement            => HexMesh_MarkSlidingElement
+            procedure :: RotateNodes                   => HexMesh_RotateNodes
+            procedure :: ConstructSlidingMesh          => HexMesh_ConstructSlidingMesh
+            procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -2604,6 +2609,24 @@ slavecoord:             DO l = 1, 4
 
            end associate
         end do
+      
+        !!!!only for sliding mortars 
+        if (self%sliding==.TRUE.) then 
+         do ii = 1, size(self%mortar_faces)
+            associate (  f => self % mortar_faces(ii)   )
+               associate(eL => self % elements(f % elementIDs(1)), &
+                  eR => self % elements(f % elementIDs(2))   )
+   !
+   !                 Get polynomial orders of elements
+   !                 ---------------------------------
+               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+               NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+               call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%scale)
+               end associate 
+            end associate 
+         end do 
+        end if 
+
 !
 !        -----------------------------------------------
 !        Gather faces polynomial and link MPI faces
@@ -5351,4 +5374,462 @@ end subroutine HexMesh_pAdapt_MPI
 call elementMPIList % destruct 
 
    end subroutine HexMesh_UpdateHOArrays
+   subroutine HexMesh_MarkSlidingElements (self, new_nNodes)
+      IMPLICIT NONE 
+      type(HexMesh), intent(inout)  :: self
+      integer, intent(inout) :: new_nNodes
+  
+      integer :: eID, eID2, eID3
+      integer :: fID1, fID2, i
+      integer, allocatable :: arr1(:), arr2(:)
+      integer :: new_nNodes
+  
+      new_nNodes=SIZE(self % nodes)
+  
+      allocate(arr1(SIZE(self%elements)/4))
+      allocate(arr2(SIZE(self%elements)/4))
+   
+      do eID=1, SIZE(self % elements)
+          fID=self % elements(eID) %faceIDs(1)
+          if (self % faces(fID) % FaceType==HMESH_BOUNDARY) then 
+              !self % faces(fID) % sliding==.TRUE.
+              self % elements(eID) % sliding= .TRUE.
+              new_nNodes=new_nNodes+4
+              fID2= self % elements(eID) %faceIDs(2)
+              if (self % faces(fID2) %elementIDs(2)==eID) eID2=self % faces(fID2) %elementIDs(1)
+              if (self % faces(fID2) %elementIDs(1)==eID) eID2=self % faces(fID2) %elementIDs(2)
+              self % elements(eID2) % sliding= .TRUE.
+              self % elements(eID2) % sliding_newnodes= .TRUE.
+          end if 
+      
+      end do 
+      i=1
+      do while (i .LE. SIZE(arr1))
+          arr1(i)=eID2 
+          fID=self % elements(eID2) %faceIDs(2)
+          if (self % faces(fID) %elementIDs(2)==eID2) eID3=self % faces(fID2) %elementIDs(1)
+          if (self % faces(fID) %elementIDs(1)==eID2) eID3=self % faces(fID2) %elementIDs(2)
+          arr2(i)=eID3 
+          i=i+1
+          fID=self % elements(eID2) %faceIDs(4)
+          if (self % faces(fID) %elementIDs(2)==eID2) eID2=self % faces(fID2) %elementIDs(1)
+          if (self % faces(fID) %elementIDs(1)==eID2) eID2=self % faces(fID2) %elementIDs(2)
+      end do 
+  end subroutine HexMesh_MarkSlidingElements
+
+  subroutine HexMesh_RotateNodes(self, theta,n, m , new_nNodes, ElementNodeIds, NewNodes, NewNodeIds)
+   type(HexMesh), intent(inout)  :: self
+   real(KIND=RP), intent(in)     :: theta
+   integer,                      :: n 
+   integer,                      :: m
+   integer, intent(inout)        :: new_nNodes 
+   integer, intent(inout)        :: ElementNodeIds(self % no_of_elements, 8)
+   real(KIND=RP), intent(inout)  :: NewNodes(8*self % no_of_elements, 3)
+   integer, intent(inout)        :: NewNodeIds(8*self % no_of_elements)
+   type(FacePatch), intent(inout)   :: fp(6*self % no_of_elements)
+
+   real(KIND=RP) :: ROT(3,3)
+   real(KIND=RP) :: XYZ(8,3)
+   real(KIND=RP) :: XR(3)
+   integer :: i, l, eID1, eID2, eID3, eID4, nm
+   integer, allocatable :: new_GlobId
+   type(Node), dimension(:), allocatable  :: new_nodes
+   real(kind=RP) :: s(2), o(2),ss(2), oo(2), x, lb, ls, lss
+   logical :: offset 
+
+   s=0.0_RP
+   o=0.0_RP
+   XR(1)=1.0_RP 
+   XR(2)= 0.0_RP
+   XR(3)=0.0_RP 
+   XYZ=0.0_RP 
+   !allocate (new_GlobID(new_nNodes))
+   allocate (new_nodes(SIZE(new_nNodes)))
+   offset=.false. 
+   ElementNodeIds=0
+   NewNodes=0.0_RP 
+   NewNodeIds=0 
+   nm=MOD(m,n)
+   if (nm==0) !the mesh is conforming no need to do.....
+   x=1.0_RP-nm*(2.0_RP/n)
+
+   do i=1, SIZE(self % nodes)
+       new_nodes(i) % X =self % nodes(i) % X 
+       new_nodes(i) % globID =self % nodes(i) % globID 
+   end do 
+
+   l=SIZE(self % nodes)+1
+   ROT=0.0_RP
+   ROT(1,1)=1.0_RP 
+   ROT(2,2)=COS(theta)
+   ROT(2,3)=-SIN(theta)
+   ROT(3,2)=SIN(theta)
+   ROT(3,3)=COS(theta)
+
+   XYZ(1,:)= MATMUL(ROT, XR)
+   o(1)=(1.0_RP+x)/2.0_RP
+   oo(1)=-o(A)
+   o(2)=(x-1.0_RP)/2.0_RP
+   oo(2)=-o(2)
+   s(1)=1.0_RP-o(1)
+   ss(1)=s(1)
+   s(2)=x-o(2)
+   ss(2)=s(2)
+   !rotate_face_patchs 
+   z=1
+   do i=1, self % no_of_elements 
+       do j=1, 6
+           fID=self % elements(i)%faceIDs(j)
+           if (self % faces(fID)%flat==.true.) then 
+               allocate(fp(z)%points(3,2,2))
+               fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
+               if (self % elements(i) % sliding) then
+                   !rotate face patch 
+
+
+
+               end if 
+               z=z+1
+           else 
+               allocate(fp(z)%points(3,numBFacePoints,numBFacePoints))
+               fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
+               if (self % elements(i) % sliding) then
+                    !rotate face patch 
+
+
+
+               end if 
+               z=z+1
+           end if 
+       end do
+   end do 
+
+ l=SIZE(self % nodes)+1
+!!!!!!!!!reotate!!!!!!!!!!!!!!
+   do i=1, SIZE(self % elements)
+       if (self % elements(i) % sliding) then 
+           if (self % elements(i) % sliding_newnodes) then !!!new node id
+                           !rotate!
+               do j=1, 8
+                    XR= self % nodes (self % elements(i) % nodeIDs(j)) % X 
+                    XYZ(j,:)= MATMUL(ROT, XR)
+               end do 
+
+               eID= self % elements(i) % eID 
+               new_nodes(l) % globID=l
+               new_nodes(l+1) % globID=l+1
+               new_nodes(l+2) % globID=l+2
+               new_nodes(l+3) % globID=l+3
+
+               element % nodeIDs(4)=l
+               element % nodeIDs(3)=l+1
+               element % nodeIDs(7)=l+2
+               element % nodeIDs(8)=l+3
+               !l=l+4
+
+               new_nodes(l) % X = XYZ(4,:)
+               new_nodes(l+1) % X = XYZ(3,:)
+               new_nodes(l+2) % X = XYZ(7,:)
+               new_nodes(l+3) % X = XYZ(8,:)
+
+
+               new_nodes(element % nodeIDs(1)) % X=XYZ(1,:)
+               new_nodes(element % nodeIDs(2)) % X=XYZ(2,:)
+               new_nodes(element % nodeIDs(5)) % X=XYZ(5,:)
+               new_nodes(element % nodeIDs(6)) % X=XYZ(6,:)
+
+               fID=self % elements(eID) %faceIDs(1)
+               if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+               if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+
+               do j=1, 8
+                   XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+                   XYZ(j,:)= MATMUL(ROT, XR)
+              end do 
+
+              new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
+              new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
+              new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
+              new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
+              new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
+              new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
+              new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
+              new_nodes(element % nodeIDs(8)) % X = XYZ(8,:)
+
+              new_nodes(element % nodeIDs(1)) % globID = element % nodeIDs(1)
+              new_nodes(element % nodeIDs(2)) % globID = element % nodeIDs(2)
+              new_nodes(element % nodeIDs(3)) % globID = element % nodeIDs(3)
+              new_nodes(element % nodeIDs(4)) % globID = element % nodeIDs(4)
+              new_nodes(element % nodeIDs(5)) % globID = element % nodeIDs(5)
+              new_nodes(element % nodeIDs(6)) % globID = element % nodeIDs(6)
+              new_nodes(element % nodeIDs(7)) % globID = element % nodeIDs(7)
+              new_nodes(element % nodeIDs(8)) % globID = element % nodeIDs(8)
+           end if 
+           exit 
+       end if
+        
+   end do 
+
+   l=l+4
+   do while (i .LE. s)
+       if (i==s) then 
+           !rotate last element
+           exit
+       end if 
+       !first elemnt
+       fID=self % elements(eID) %faceIDs(4)
+       if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+       if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+       do j=1, 8
+           XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+           XYZ(j,:)= MATMUL(ROT, XR)
+       end do
+      new_nodes(l) % globID=l
+      new_nodes(l+1) % globID=l+1
+
+      self % elements(eID2) % nodeIDs(3)=l
+      self % elements(eID2) % nodeIDs(7)=l+1
+
+      self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(4)
+      self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(8)
+      
+      l=l+1
+
+      new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
+      new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
+      new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
+      new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
+      new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
+      new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
+      new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
+      new_nodes(element % nodeIDs(8)) % X = XYZ(8,:)
+      !second elemnt
+      eID=eID2
+      fID=self % elements(eID) %faceIDs(1)
+      if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+      if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+       do j=1, 8
+            XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+            XYZ(j,:)= MATMUL(ROT, XR)
+       end do
+       !keep the same ID but change the nodes
+       new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
+       new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
+       new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
+       new_nodes(element % nodeIDs(8)) % X = XYZ(8,:) 
+       new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
+       new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
+       new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
+       new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
+
+   end do 
+
+   ElementNodeIds=0
+   NewNodes=0.0_RP 
+   NewNodeIds=0 
+   do i=1, self % SIZE(self % elements)
+       do j=1, 8
+           ElementNodeIds(i,j)= element % nodeIDs(j)
+           NewNodes(6*i-5 + j-1, :)=new_nodes(element % nodeIDs(j)) % X
+           NewNodeIds(6*i-5 + j-1)=new_nodes(element % nodeIDs(j)) % globID
+       end do 
+   end do 
+
+end subroutine HexMesh_RotateNodes
+
+subroutine HexMesh_ContructSlidigMesh (nelements, ElementNodeIds, NewNodes, NewNodeIds, fp,n, ar1, ar2)
+   integer, intent(in)             :: nelements 
+   integer, intent(inout)          :: ElementNodeIds(nelements, 8)
+   real(KIND=RP), intent(inout)    :: NewNodes(8*nelements, 3)
+   integer, intent(inout)          :: NewNodeIds(8*nelements)
+   type(FacePatch), intent(inout)     :: fp(6*nelements)
+   integer, intent(in)             :: n
+   integer, intent(in)             :: ar1(n)
+   integer, intent(in)             :: ar2(n)
+
+   type(HexMesh)                   :: self 
+   integer                         :: l, i, j, k 
+   REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+   REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+   REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+   real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
+   real(kind=RP), dimension(:,:,:), allocatable :: values
+
+   self % no_of_elements    = numberOfElements
+   self % no_of_allElements = numberOfElements
+
+   ALLOCATE( self % elements(numberOfelements) )
+   allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+   
+   self % Nx = Nx
+   self % Ny = Ny
+   self % Nz = Nz
+
+   do i = 1, numBFacePoints
+       uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+       vNodes(i) = uNodes(i)
+   end do
+   allocate (values(3,numBFacePoints,numBFacePoints))
+   do l=1, nelements 
+       do k=1, face_per_element
+           if  (flat) then 
+               valuesFlat=fp(z) % points
+               z=z+1
+               call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+           else 
+               values=fp(z) % points
+               z=z+1
+               call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+           end if 
+       end do 
+   
+       call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
+   end do 
+
+   do i=1, n
+       self % elements(ar1(i)) % MortarFaces(2)=3
+       self % elements(ar2(i)) % MortarFaces(1)=4
+   end do 
+
+   call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes, self % HOPRnodeIDs)
+
+   CALL ConstructFaces( self, success )
+!
+!
+!     -------------------------
+!     Build the different zones
+!     -------------------------
+!
+   call self % ConstructZones()
+   !
+   !     ---------------------------
+   !     Construct periodic faces
+   !     ---------------------------
+   !
+         if (ConformingMesh) then 
+            CALL ConstructPeriodicFaces( self, periodRelative )
+   !
+   !     ---------------------------
+   !     Delete periodic- faces
+   !     ---------------------------
+   !
+            CALL DeletePeriodicMinusFaces( self )
+         end if 
+   !
+   !     ---------------------------
+   !     Assign faces ID to elements
+   !     ---------------------------
+   !
+         CALL getElementsFaceIDs(self)   
+   !        --------------------- 
+   !        Define boundary faces 
+   !        --------------------- 
+   ! 
+         call self % DefineAsBoundaryFaces() 
+   !
+   !     -----------------------------------
+   !     Check if this is a 2D extruded mesh
+   !     -----------------------------------
+   !
+         if ( .not. MPI_Process % doMPIRootAction ) then
+            call self % CheckIfMeshIs2D()
+         end if
+   !
+   !     -------------------------------
+   !     Set the mesh as 2D if requested
+   !     -------------------------------
+   !
+         if ( dir2D .ne. 0 ) then
+            call SetMappingsToCrossProduct
+            call self % CorrectOrderFor2DMesh(dir2D)
+         end if
+   ! 
+   !
+   !     ------------------------------
+   !     Set the element connectivities
+   !     ------------------------------
+         call self % SetConnectivitiesAndLinkFaces(nodes)   
+   !
+   !     ---------------------------------------
+   !     Construct elements' and faces' geometry
+   !     ---------------------------------------
+   !
+         if ( .not. MPI_Process % doMPIRootAction ) then
+            call self % ConstructGeometry()
+         end if
+
+end subroutine HexMesh_ContructSlidigMesh
+
+subroutine HexMesh_ConstructSlidingMortars(self, n, array1, array2, o, s)
+   type(HeMesh), intent(inout) :: self
+   integer, intent(in)         :: n
+   integer, intent(in)         :: array1(n), array2(n)
+   real(kind=RP) :: s(2), o(2)
+
+   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2
+    
+   ALLOCATE (self % mortar_faces(2*n))
+   l=1
+   i=1
+   do while (i .LE. n)
+       eID1=self % elements(array2(i)) 
+       DO j = 1, 4
+           faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+       END DO
+
+       fID=self %elements(eID1) % faceIDs(1)
+       allocate(self % faces(fID) % Mortar(2)) 
+
+       do m=1, 2
+           CALL self % mortar_faces(l) % Construct(ID  = l, &
+           nodeIDs = faceNodeIDs, &
+           elementID = eID1,       &
+           side = faceNumber)
+
+           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+
+           self % fmortar_faces(l) % boundaryName = &
+                   self % elements(eID) % boundaryName(faceNumber)
+
+
+           if (m==1)  self % faces(fID) % Mortar(1)=l
+           if (m==2)  self % faces(fID) % Mortar(2)=l
+           if (m==1) eID2= self % elements(array1(i))   
+           if (m==2) eID2= self % elements(array1(i+1))      
+           self % mortar_faces(l) % elementIDs(2)  = eID2
+           self % mortar_faces(l) % elementSide(2) = faceNumber
+           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+           self % mortar_faces(l) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
+                                                                       slaveNodeIDs  = faceNodeIDs)
+           
+           fID=self %elements(eID2) % faceIDs(2)
+           if (.not.allocated(self % faces % Mortar)) allocate(self % faces(fID) % Mortar(2)) 
+           if (m==1) then 
+               self % mortar_faces(l)%offset= o(1)
+               self % mortar_faces(l)%scale= s(1)
+               self % faces(fID) % Mortar(2)=l
+           else if (m==2) 
+               self % mortar_faces(l)%offset= o(2)
+               self % mortar_faces(l)%scale= s(2)
+               self % faces(fID) % Mortar(1)=l
+           end if  
+           l=l+1
+       end do     
+       self % elements(array2(i))% MortarFaces(1)=3 
+       self % elements(array1(i))% MortarFaces(2)=3                                                        
+        i=i+1
+   end do
+
+   do i=1, size(self%mortar_faces)
+       associate(f => self % mortar_faces(i))
+           associate(eL => self % elements(f % elementIDs(1)))
+
+            call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+                                      NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
+                                      eL % geom, eL % hexMap, f % elementSide(1), &
+                                      f % projectionType(1), 1, 0 )
+            end associate
+       end associate
+   end do 
+end subroutine HexMesh_ConstructSlidingMortars 
 END MODULE HexMeshClass
