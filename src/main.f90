@@ -1,20 +1,21 @@
-      PROGRAM HORSES3DMainMU
+#include "Includes.h"
+      PROGRAM HORSES3DMainCH
       
       USE SMConstants
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
       USE DGSEMClass
+      use FluidData
       USE TimeIntegratorClass
       USE mainKeywordsModule
       USE Headers
+      USE pAdaptationClass          , only: GetMeshPolynomialOrders
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
-      use FluidData
-      use FileReaders               , only: ReadControlFile 
+      use FileReaders               , only: ReadControlFile
       use FileReadingUtilities      , only: getFileName
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
@@ -32,14 +33,14 @@
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
       character(len=LINE_LENGTH)          :: solutionFileName
-      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
-      integer                             :: Nmax
       procedure(UserDefinedStartup_f)     :: UserDefinedStartup
       procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
       procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
+      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
+      integer                             :: Nmax
 
-      call SetSolver(MULTIPHASE_SOLVER)
+      call SetSolver(CAHNHILLIARD_SOLVER)
 !
 !     -----------------------------------------
 !     Start measuring the total simulation time
@@ -60,10 +61,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Cahn-Hilliard Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Cahn-Hilliard Solver",__DATE__,__TIME__)
 
       end if
 
@@ -83,27 +84,33 @@
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   error stop "Physics parameters input error"
       
-      ! Initialize manufactured solutions if necessary
-      
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage(controlVariables, Nmax)
+      call InitializeNodalStorage (controlVariables,Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-      
+!
+!     --------------------------
+!     Set up boundary conditions
+!     --------------------------
+!
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
-
-      call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
                            
       IF(.NOT. success)   error stop "Mesh reading error"
       IF(.NOT. success)   error stop "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
+      CALL UserDefinedFinalSetup(sem % mesh, multiphase)
 !
 !     -------------------------
 !     Set the initial condition
 !     -------------------------
 !
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
+!
+!     -----------------------------
+!     Set up spatial discretization
+!     -----------------------------
+!
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem)
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -116,12 +123,6 @@
 !     -----------------
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-!
-!     ----------------------------------
-!     Export particles to VTK (temporal)
-!     ----------------------------------
-!TODO
-!      call sem % particles % ExportToVTK()
 !
 !     ------------------------------------------
 !     Finish measuring the total simulation time
@@ -140,7 +141,7 @@
 !     -----------------------------------------------------
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
-                              sem % maxResidual, thermodynamics, dimensionless, refValues, multiphase,&
+                              sem % maxResidual, multiphase, &
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
 #ifdef _HAS_MPI_
@@ -167,17 +168,16 @@
       call Stopwatch % destruct
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
-      call DestructBoundaryConditions
-      call Finalize_SpaceAndTimeMethods
-      call DestructGlobalNodalStorage()
       call Finalize_InterpolationMatrices
+      call DestructBoundaryConditions
+      call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainMU
+      END PROGRAM HORSES3DMainCH
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
@@ -188,7 +188,7 @@
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
-         use SpatialDiscretization, only: viscousDiscretizationKey
+         use SpatialDiscretization, only: CHDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -230,14 +230,14 @@
             call controlVariables % addValueForKey("Standard",inviscidDiscretizationKey)
          end if
 
-         obj => controlVariables % objectForKey(viscousDiscretizationKey)
+         obj => controlVariables % objectForKey(CHDiscretizationKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
+            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
          end if
 
          obj => controlVariables % objectForKey(splitFormKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("Skew-symmetric",splitFormKey)
+            call controlVariables % addValueForKey("Ducros",splitFormKey)
          end if
 !
 !        Check for inconsistencies in the input variables

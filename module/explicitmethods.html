@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 1.1% of total for modules and submodules.">505 statements</a>
+                 title=" 1.2% of total for modules and submodules.">586 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -124,12 +124,14 @@
             <a class="list-group-item" href="../module/explicitmethods.html#variable-optrk_name">OPTRK_NAME</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-ssprk33_name">SSPRK33_NAME</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-ssprk43_name">SSPRK43_NAME</a>
+            <a class="list-group-item" href="../module/explicitmethods.html#variable-euler_rk3_name">EULER_RK3_NAME</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-euler_key">EULER_KEY</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-rk3_key">RK3_KEY</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-rk5_key">RK5_KEY</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-optrk_key">OPTRK_KEY</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-ssprk33_key">SSPRK33_KEY</a>
             <a class="list-group-item" href="../module/explicitmethods.html#variable-ssprk43_key">SSPRK43_KEY</a>
+            <a class="list-group-item" href="../module/explicitmethods.html#variable-euler_rk3_key">EULER_RK3_KEY</a>
         </div>
       </div>
     </div>
@@ -151,6 +153,7 @@
       </a>
       <div id="subs-0" class="collapse">
         <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/explicitmethods.html#proc-takeeulerrk3step">TakeEulerRK3Step</a>
             <a class="list-group-item" href="../module/explicitmethods.html#proc-takerk3step">TakeRK3Step</a>
             <a class="list-group-item" href="../module/explicitmethods.html#proc-takerk5step">TakeRK5Step</a>
             <a class="list-group-item" href="../module/explicitmethods.html#proc-takessprk33step">TakeSSPRK33Step</a>
@@ -184,12 +187,12 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='particlesclass.html'>ParticlesClass</a></li>
-                  <li class="list-inline-item">DGSEMClass</li>
+                  <li class="list-inline-item"><a href='timeintegratordefinitions.html'>TimeIntegratorDefinitions</a></li>
                   <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
                   <li class="list-inline-item">HexMeshClass</li>
                   <li class="list-inline-item"><a href='physicsstorage.html'>PhysicsStorage</a></li>
-                  <li class="list-inline-item"><a href='timeintegratordefinitions.html'>TimeIntegratorDefinitions</a></li>
+                  <li class="list-inline-item">DGSEMClass</li>
+                  <li class="list-inline-item"><a href='particlesclass.html'>ParticlesClass</a></li>
               </ul>
             </li>
         </ul>
@@ -384,6 +387,23 @@ parameter
         </tr>
         <tr>
             <td>
+              <span class="anchor" id="variable-euler_rk3_name"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>EULER_RK3_NAME</strong></td>
+<td> =</td>
+                <td>&#34;euler rk3&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
               <span class="anchor" id="variable-euler_key"></span>
               integer,
             </td>
@@ -484,6 +504,23 @@ parameter
                 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-euler_rk3_key"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>EULER_RK3_KEY</strong></td>
+<td> =</td>
+                <td>7</td>
+            <td>
+                
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -498,7 +535,7 @@ parameter
         <section>
           <h2>Subroutines</h2>
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-takerk3step"></span> <h3>public  subroutine <a href='../proc/takerk3step.html'>TakeRK3Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt)  
+    <div class="card-header codesum"><span class="anchor" id="proc-takeeulerrk3step"></span> <h3>public  subroutine <a href='../proc/takeeulerrk3step.html'>TakeEulerRK3Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)  
 </h3></div>
     <div class="card-body">
           
@@ -517,7 +554,7 @@ parameter
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~59"></span>
+              <span class="anchor" id="variable-mesh~115"></span>
               type(HexMesh)
             </td>
 <td></td>
@@ -532,7 +569,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-particles~3"></span>
+              <span class="anchor" id="variable-particles~9"></span>
               type(<a href='../type/particles_t.html'>Particles_t</a>)
             </td>
 <td></td>
@@ -547,152 +584,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~60"></span>
-              real(kind=RP)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>t</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-deltat"></span>
-              real(kind=RP)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>deltaT</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-computetimederivative~5"></span>
-              procedure(ComputeTimeDerivative_f)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>ComputeTimeDerivative</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dt_vec"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in),</td>
-              <td>optional,</td>            <td>
-              allocatable, dimension(:)
-            </td>
-            <td>::</td>
-            <td><strong>dt_vec</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dts"></span>
-              logical,
-            </td>
-<td>intent(in),</td>
-              <td>optional</td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>dts</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-global_dt"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in),</td>
-              <td>optional</td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>global_dt</strong></td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-takerk5step"></span> <h3>public  subroutine <a href='../proc/takerk5step.html'>TakeRK5Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-mesh~60"></span>
-              type(HexMesh)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>mesh</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-particles~5"></span>
-              type(<a href='../type/particles_t.html'>Particles_t</a>)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>particles</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-t~61"></span>
+              <span class="anchor" id="variable-t~100"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -722,7 +614,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-computetimederivative~6"></span>
+              <span class="anchor" id="variable-computetimederivative~5"></span>
               procedure(ComputeTimeDerivative_f)
             </td>
 <td></td>
@@ -767,151 +659,6 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-global_dt~2"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in),</td>
-              <td>optional</td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>global_dt</strong></td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-takessprk33step"></span> <h3>public  subroutine <a href='../proc/takessprk33step.html'>TakeSSPRK33Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-mesh~61"></span>
-              type(HexMesh)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>mesh</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-particles~7"></span>
-              type(<a href='../type/particles_t.html'>Particles_t</a>)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>particles</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-t~62"></span>
-              real(kind=RP)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>t</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-deltat~3"></span>
-              real(kind=RP)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>deltaT</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-computetimederivative~7"></span>
-              procedure(ComputeTimeDerivative_f)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>ComputeTimeDerivative</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dt_vec~3"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in),</td>
-              <td>optional,</td>            <td>
-              allocatable
-            </td>
-            <td>::</td>
-            <td><strong>dt_vec</strong>(:)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dts~3"></span>
-              logical,
-            </td>
-<td>intent(in),</td>
-              <td>optional</td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>dts</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
               <span class="anchor" id="variable-global_dt~3"></span>
               real(kind=RP),
             </td>
@@ -925,6 +672,21 @@ parameter
 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~28"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
+            <td>
+
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -933,7 +695,7 @@ parameter
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-takessprk43step"></span> <h3>public  subroutine <a href='../proc/takessprk43step.html'>TakeSSPRK43Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt)  
+    <div class="card-header codesum"><span class="anchor" id="proc-takerk3step"></span> <h3>public  subroutine <a href='../proc/takerk3step.html'>TakeRK3Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)  
 </h3></div>
     <div class="card-body">
           
@@ -952,152 +714,7 @@ parameter
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~62"></span>
-              type(HexMesh)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>mesh</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-particles~9"></span>
-              type(<a href='../type/particles_t.html'>Particles_t</a>)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>particles</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-t~63"></span>
-              real(kind=RP)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>t</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-deltat~4"></span>
-              real(kind=RP)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>deltaT</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-computetimederivative~8"></span>
-              procedure(ComputeTimeDerivative_f)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>ComputeTimeDerivative</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dt_vec~4"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in),</td>
-              <td>optional,</td>            <td>
-              allocatable
-            </td>
-            <td>::</td>
-            <td><strong>dt_vec</strong>(:)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dts~4"></span>
-              logical,
-            </td>
-<td>intent(in),</td>
-              <td>optional</td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>dts</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-global_dt~4"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in),</td>
-              <td>optional</td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>global_dt</strong></td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-takeexpliciteulerstep"></span> <h3>public  subroutine <a href='../proc/takeexpliciteulerstep.html'>TakeExplicitEulerStep</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-mesh~63"></span>
+              <span class="anchor" id="variable-mesh~116"></span>
               type(HexMesh)
             </td>
 <td></td>
@@ -1127,7 +744,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~64"></span>
+              <span class="anchor" id="variable-t~101"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -1142,7 +759,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-deltat~5"></span>
+              <span class="anchor" id="variable-deltat~3"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -1157,7 +774,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-computetimederivative~9"></span>
+              <span class="anchor" id="variable-computetimederivative~6"></span>
               procedure(ComputeTimeDerivative_f)
             </td>
 <td></td>
@@ -1172,7 +789,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dt_vec~5"></span>
+              <span class="anchor" id="variable-dt_vec~3"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -1187,7 +804,167 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dts~5"></span>
+              <span class="anchor" id="variable-dts~3"></span>
+              logical,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>dts</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-global_dt~4"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>global_dt</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~29"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-takerk5step"></span> <h3>public  subroutine <a href='../proc/takerk5step.html'>TakeRK5Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-mesh~117"></span>
+              type(HexMesh)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>mesh</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-particles~13"></span>
+              type(<a href='../type/particles_t.html'>Particles_t</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>particles</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-t~102"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-deltat~4"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>deltaT</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-computetimederivative~7"></span>
+              procedure(ComputeTimeDerivative_f)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>ComputeTimeDerivative</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dt_vec~4"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional,</td>            <td>
+              allocatable, dimension(:)
+            </td>
+            <td>::</td>
+            <td><strong>dt_vec</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dts~4"></span>
               logical,
             </td>
 <td>intent(in),</td>
@@ -1215,6 +992,21 @@ parameter
 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~30"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
+            <td>
+
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -1223,20 +1015,7 @@ parameter
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-enable_ctd_after_steps"></span> <h3>public  subroutine <a href='../proc/enable_ctd_after_steps.html'>Enable_CTD_AFTER_STEPS</a>()  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-    <em>None</em>
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-takerkoptstep"></span> <h3>public  subroutine <a href='../proc/takerkoptstep.html'>TakeRKOptStep</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, N_STAGES, dt_vec, dts, global_dt)  
+    <div class="card-header codesum"><span class="anchor" id="proc-takessprk33step"></span> <h3>public  subroutine <a href='../proc/takessprk33step.html'>TakeSSPRK33Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)  
 </h3></div>
     <div class="card-body">
           
@@ -1255,7 +1034,7 @@ parameter
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~65"></span>
+              <span class="anchor" id="variable-mesh~118"></span>
               type(HexMesh)
             </td>
 <td></td>
@@ -1285,7 +1064,327 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~66"></span>
+              <span class="anchor" id="variable-t~103"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-deltat~5"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>deltaT</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-computetimederivative~8"></span>
+              procedure(ComputeTimeDerivative_f)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>ComputeTimeDerivative</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dt_vec~5"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional,</td>            <td>
+              allocatable
+            </td>
+            <td>::</td>
+            <td><strong>dt_vec</strong>(:)</td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dts~5"></span>
+              logical,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>dts</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-global_dt~6"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>global_dt</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~31"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-takessprk43step"></span> <h3>public  subroutine <a href='../proc/takessprk43step.html'>TakeSSPRK43Step</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-mesh~119"></span>
+              type(HexMesh)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>mesh</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-particles~17"></span>
+              type(<a href='../type/particles_t.html'>Particles_t</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>particles</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-t~104"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-deltat~6"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>deltaT</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-computetimederivative~9"></span>
+              procedure(ComputeTimeDerivative_f)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>ComputeTimeDerivative</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dt_vec~6"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional,</td>            <td>
+              allocatable
+            </td>
+            <td>::</td>
+            <td><strong>dt_vec</strong>(:)</td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dts~6"></span>
+              logical,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>dts</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-global_dt~7"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>global_dt</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~32"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-takeexpliciteulerstep"></span> <h3>public  subroutine <a href='../proc/takeexpliciteulerstep.html'>TakeExplicitEulerStep</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-mesh~120"></span>
+              type(HexMesh)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>mesh</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-particles~19"></span>
+              type(<a href='../type/particles_t.html'>Particles_t</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>particles</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-t~105"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -1315,7 +1414,180 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-computetimederivative~11"></span>
+              <span class="anchor" id="variable-computetimederivative~10"></span>
+              procedure(ComputeTimeDerivative_f)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>ComputeTimeDerivative</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dt_vec~7"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional,</td>            <td>
+              allocatable, dimension(:)
+            </td>
+            <td>::</td>
+            <td><strong>dt_vec</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dts~7"></span>
+              logical,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>dts</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-global_dt~8"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>global_dt</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~33"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-enable_ctd_after_steps"></span> <h3>public  subroutine <a href='../proc/enable_ctd_after_steps.html'>Enable_CTD_AFTER_STEPS</a>()  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+    <em>None</em>
+
+    </div>
+  </div>
+
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="proc-takerkoptstep"></span> <h3>public  subroutine <a href='../proc/takerkoptstep.html'>TakeRKOptStep</a>(mesh, particles, t, deltaT, ComputeTimeDerivative, N_STAGES, dt_vec, dts, global_dt, iter)  
+</h3></div>
+    <div class="card-body">
+          
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-mesh~122"></span>
+              type(HexMesh)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>mesh</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-particles~23"></span>
+              type(<a href='../type/particles_t.html'>Particles_t</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>particles</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-t~107"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-deltat~9"></span>
+              real(kind=RP)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>deltaT</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-computetimederivative~12"></span>
               procedure(ComputeTimeDerivative_f)
             </td>
 <td></td>
@@ -1345,7 +1617,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dt_vec~6"></span>
+              <span class="anchor" id="variable-dt_vec~8"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -1360,7 +1632,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dts~6"></span>
+              <span class="anchor" id="variable-dts~8"></span>
               logical,
             </td>
 <td>intent(in),</td>
@@ -1375,7 +1647,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-global_dt~6"></span>
+              <span class="anchor" id="variable-global_dt~9"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -1384,6 +1656,21 @@ parameter
             </td>
             <td>::</td>
             <td><strong>global_dt</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-iter~34"></span>
+              integer,
+            </td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>iter</strong></td>
             <td>
 
             </td>
@@ -1430,7 +1717,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-minimum~3"></span>
+              <span class="anchor" id="variable-minimum~5"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -1473,7 +1760,7 @@ parameter
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-05-29 15:21              </p>
+ on 2024-05-31 12:42              </p>
           </div>
         </div>
         <br>
