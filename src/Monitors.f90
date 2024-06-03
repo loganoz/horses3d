@@ -435,9 +435,7 @@ module MonitorsClass
 !        -----------------
          call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
 #endif
-#if defined(MULTIPHASE)
-      call locatepoint(mesh, t)
-#endif
+
 !
 !        Update dt restriction
 !        ---------------------
@@ -724,64 +722,6 @@ readloop:do
       close(fID)                             
 
 end subroutine getNoOfMonitors
-
-   subroutine locatepoint(mesh, time)
-      implicit none
-      class(HexMesh), intent(in)  :: mesh
-      logical, save               :: FirstCall = .TRUE.
-      real(kind=RP), intent(in)                        :: time
-
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-      integer  :: eID, i, j, k  
-      integer  :: Nel(3)    ! Element polynomial order
-      real     :: value, location(3), error,concentration
-      integer  :: fileID
-      character(len=LINE_LENGTH) :: case_name
-
-      call get_command_argument(1, case_name)
-      
-      case_name = "RESULTS/" // trim(case_name) // "_point.txt"
-
-
-      if(Firstcall) then 
-         open( fileID , file = case_name, status='replace')
-         write(fileID,'(A, A, A, A)'), "time", " c " , " x " , " z "
-         close(fileID)
-         FirstCall = .FALSE.
-      endif
-
-
-      value = 0.0
-      error  = huge(1.0)
-
-
-      do eID = 1, mesh % no_of_elements
-
-      Nel = mesh % elements(eID) % Nxyz
-
-         do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-            if(mesh % elements(eID) % geom % x (3,i,j,k) < 1e-10 ) then  ! if you re on the left edge
-               concentration = mesh % elements(eID) % storage % Q(1,i,j,k)  !Q(IMC)
-               !write(*,'(A, F8.5, A, F8.5,A,F8.5,A,F8.5, A, I8)') " Concentration " , concentration , " at x" , mesh % elements(eID) % geom % x (1,i,j,k), " at y ", mesh % elements(eID) % geom % x (2,i,j,k) ," z ", mesh % elements(eID) % geom % x (3,i,j,k), " id ", eID
-               if(abs(concentration-0.5)<error) then 
-                  error = abs(concentration-0.5)
-                  value = concentration
-                  location =  mesh % elements(eID) % geom % x (:,i,j,k)
-               end if
-            end if                  
-         end do           ; end do         ; end do 
-      end do
-
-      open( fileID , file = case_name , action = "write" , access = "append" )
-      write(fileID,'(F8.5, F8.5, F8.5,F8.5)'), time, value , location(1) , location(3)
-      !write(*,'(A, F8.5, A, F8.5,A,F8.5)') " The concentration closest to 0.5 is " , value , " at x" , location(1) , " z ", location(3) 
-      close(fileID)
-
-   end subroutine
 
 end module MonitorsClass
 !
