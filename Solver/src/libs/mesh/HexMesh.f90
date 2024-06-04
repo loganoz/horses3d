@@ -134,7 +134,6 @@ MODULE HexMeshClass
 #endif
             procedure :: MarkSlidingElement            => HexMesh_MarkSlidingElement
             procedure :: RotateNodes                   => HexMesh_RotateNodes
-            procedure :: ConstructSlidingMesh          => HexMesh_ConstructSlidingMesh
             procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
@@ -5377,51 +5376,58 @@ call elementMPIList % destruct
    subroutine HexMesh_MarkSlidingElements (self, new_nNodes)
       IMPLICIT NONE 
       type(HexMesh), intent(inout)  :: self
-      integer, intent(inout) :: new_nNodes
-  
-      integer :: eID, eID2, eID3
-      integer :: fID1, fID2, i
-      integer, allocatable :: arr1(:), arr2(:)
-      integer :: new_nNodes
-  
-      new_nNodes=SIZE(self % nodes)
-  
-      allocate(arr1(SIZE(self%elements)/4))
-      allocate(arr2(SIZE(self%elements)/4))
-   
-      do eID=1, SIZE(self % elements)
-          fID=self % elements(eID) %faceIDs(1)
-          if (self % faces(fID) % FaceType==HMESH_BOUNDARY) then 
-              !self % faces(fID) % sliding==.TRUE.
-              self % elements(eID) % sliding= .TRUE.
-              new_nNodes=new_nNodes+4
-              fID2= self % elements(eID) %faceIDs(2)
-              if (self % faces(fID2) %elementIDs(2)==eID) eID2=self % faces(fID2) %elementIDs(1)
-              if (self % faces(fID2) %elementIDs(1)==eID) eID2=self % faces(fID2) %elementIDs(2)
-              self % elements(eID2) % sliding= .TRUE.
-              self % elements(eID2) % sliding_newnodes= .TRUE.
-          end if 
-      
-      end do 
-      i=1
-      do while (i .LE. SIZE(arr1))
-          arr1(i)=eID2 
-          fID=self % elements(eID2) %faceIDs(2)
-          if (self % faces(fID) %elementIDs(2)==eID2) eID3=self % faces(fID2) %elementIDs(1)
-          if (self % faces(fID) %elementIDs(1)==eID2) eID3=self % faces(fID2) %elementIDs(2)
-          arr2(i)=eID3 
-          i=i+1
-          fID=self % elements(eID2) %faceIDs(4)
-          if (self % faces(fID) %elementIDs(2)==eID2) eID2=self % faces(fID2) %elementIDs(1)
-          if (self % faces(fID) %elementIDs(1)==eID2) eID2=self % faces(fID2) %elementIDs(2)
-      end do 
+    integer, intent(inout) :: new_nNodes
+    integer, intent(inout) :: ner 
+
+    integer :: eID, eID2, eID3
+    integer :: fID1, fID2, i,  
+    integer, allocatable :: arr1(:)
+    integer, allocatable ::  arr2(:)
+    integer :: new_nNodes
+
+    new_nNodes=SIZE(self % nodes)
+    ner=0
+    allocate(arr1(SIZE(self%elements)/4))
+    allocate(arr2(SIZE(self%elements)/4))
+
+    !mark the elements for the rotation
+    do eID=1, SIZE(self % elements)
+        fID=self % elements(eID) %faceIDs(1)
+        if (self % faces(fID) % FaceType==HMESH_BOUNDARY) then 
+            self % elements(eID) % sliding= .TRUE.
+            
+            fID2= self % elements(eID) %faceIDs(2)
+            if (self % faces(fID2) %elementIDs(2)==eID) eID2=self % faces(fID2) %elementIDs(1)
+            if (self % faces(fID2) %elementIDs(1)==eID) eID2=self % faces(fID2) %elementIDs(2)
+            self % elements(eID2) % sliding= .TRUE.
+            self % elements(eID2) % sliding_newnodes= .TRUE.
+            new_nNodes=new_nNodes+2
+            ner=ner+1
+        end if 
+    
+    end do 
+    i=1
+    !storing informations for the new connectivity 
+    do while (i .LE. SIZE(arr1))
+        arr1(i)=eID2 
+        fID=self % elements(eID2) %faceIDs(2)
+        if (self % faces(fID) %elementIDs(2)==eID2) eID3=self % faces(fID2) %elementIDs(1)
+        if (self % faces(fID) %elementIDs(1)==eID2) eID3=self % faces(fID2) %elementIDs(2)
+        arr2(i)=eID3 
+        i=i+1
+        fID=self % elements(eID2) %faceIDs(4)
+        if (self % faces(fID) %elementIDs(2)==eID2) eID2=self % faces(fID2) %elementIDs(1)
+        if (self % faces(fID) %elementIDs(1)==eID2) eID2=self % faces(fID2) %elementIDs(2)
+    end do 
   end subroutine HexMesh_MarkSlidingElements
 
-  subroutine HexMesh_RotateNodes(self, theta,n, m , new_nNodes, ElementNodeIds, NewNodes, NewNodeIds)
+  subroutine HexMesh_RotateNodes(self, theta,n, m , ner, new_nNodes, ElementNodeIds, NewNodes, NewNodeIds)
+   IMPLICIT NONE
    type(HexMesh), intent(inout)  :: self
    real(KIND=RP), intent(in)     :: theta
-   integer,                      :: n 
-   integer,                      :: m
+   integer,     intent(in)       :: n 
+   integer,     intent(in)       :: m
+   integer,     intent(in)       :: ner
    integer, intent(inout)        :: new_nNodes 
    integer, intent(inout)        :: ElementNodeIds(self % no_of_elements, 8)
    real(KIND=RP), intent(inout)  :: NewNodes(8*self % no_of_elements, 3)
@@ -5431,7 +5437,9 @@ call elementMPIList % destruct
    real(KIND=RP) :: ROT(3,3)
    real(KIND=RP) :: XYZ(8,3)
    real(KIND=RP) :: XR(3)
-   integer :: i, l, eID1, eID2, eID3, eID4, nm
+   real(KIND=RP) :: Xflat(3,2,2)
+   real(KIND=RP), allocatable :: Xpatch(:,:,:)
+   integer :: i, l, eID1, eID2, eID3, eID4, eIDX, nm, j, k, kk, ner 
    integer, allocatable :: new_GlobId
    type(Node), dimension(:), allocatable  :: new_nodes
    real(kind=RP) :: s(2), o(2),ss(2), oo(2), x, lb, ls, lss
@@ -5439,11 +5447,11 @@ call elementMPIList % destruct
 
    s=0.0_RP
    o=0.0_RP
-   XR(1)=1.0_RP 
-   XR(2)= 0.0_RP
-   XR(3)=0.0_RP 
+   oo=0.0_RP
+   ss=0.0_RP 
    XYZ=0.0_RP 
-   !allocate (new_GlobID(new_nNodes))
+   XR=0.0_RP
+
    allocate (new_nodes(SIZE(new_nNodes)))
    offset=.false. 
    ElementNodeIds=0
@@ -5466,7 +5474,6 @@ call elementMPIList % destruct
    ROT(3,2)=SIN(theta)
    ROT(3,3)=COS(theta)
 
-   XYZ(1,:)= MATMUL(ROT, XR)
    o(1)=(1.0_RP+x)/2.0_RP
    oo(1)=-o(A)
    o(2)=(x-1.0_RP)/2.0_RP
@@ -5475,37 +5482,45 @@ call elementMPIList % destruct
    ss(1)=s(1)
    s(2)=x-o(2)
    ss(2)=s(2)
+
    !rotate_face_patchs 
+   allocate (Xpatch(3,numBFacePoints,numBFacePoints))
    z=1
    do i=1, self % no_of_elements 
        do j=1, 6
            fID=self % elements(i)%faceIDs(j)
-           if (self % faces(fID)%flat==.true.) then 
+
+           if ( size(self % elements(l) % SurfInfo % facePatches(j) % uKnots)==2) then
+
                allocate(fp(z)%points(3,2,2))
                fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
                if (self % elements(i) % sliding) then
-                   !rotate face patch 
-
-
-
+                   !rotate face patch flat
+                   Xflat(:,1,1)=MATMUL(ROT, fp(z) % points(:,1,1))
+                   Xflat(:,2,1)=MATMUL(ROT, fp(z) % points(:,2,1))
+                   Xflat(:,2,2)=MATMUL(ROT, fp(z) % points(:,2,2))
+                   Xflat(:,1,2)=MATMUL(ROT, fp(z) % points(:,1,2))
+                   fp(z) % points=Xflat
                end if 
-               z=z+1
            else 
                allocate(fp(z)%points(3,numBFacePoints,numBFacePoints))
                fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
                if (self % elements(i) % sliding) then
-                    !rotate face patch 
-
-
-
+                    !rotate face patch curved
+                   do k=1, numBFacePoints
+                       do kk=1, numBFacePoints
+                           Xpatch(:,kk,k)= MATMUL(ROT, fp(z) % points(:,kk,k) )
+                       end do 
+                   end do 
+                   fp(z) % points=Xpatch
                end if 
-               z=z+1
            end if 
+           z=z+1
        end do
    end do 
 
  l=SIZE(self % nodes)+1
-!!!!!!!!!reotate!!!!!!!!!!!!!!
+!reotate elements's nodes !!!!!!!!!!!!!!
    do i=1, SIZE(self % elements)
        if (self % elements(i) % sliding) then 
            if (self % elements(i) % sliding_newnodes) then !!!new node id
@@ -5521,22 +5536,20 @@ call elementMPIList % destruct
                new_nodes(l+2) % globID=l+2
                new_nodes(l+3) % globID=l+3
 
-               element % nodeIDs(4)=l
-               element % nodeIDs(3)=l+1
-               element % nodeIDs(7)=l+2
-               element % nodeIDs(8)=l+3
+               self %elements(i) % nodeIDs(4)=l
+               self %elements(i) % nodeIDs(3)=l+1
+               self %elements(i) % nodeIDs(7)=l+2
+               self %elements(i) % nodeIDs(8)=l+3
                !l=l+4
 
                new_nodes(l) % X = XYZ(4,:)
                new_nodes(l+1) % X = XYZ(3,:)
                new_nodes(l+2) % X = XYZ(7,:)
                new_nodes(l+3) % X = XYZ(8,:)
-
-
-               new_nodes(element % nodeIDs(1)) % X=XYZ(1,:)
-               new_nodes(element % nodeIDs(2)) % X=XYZ(2,:)
-               new_nodes(element % nodeIDs(5)) % X=XYZ(5,:)
-               new_nodes(element % nodeIDs(6)) % X=XYZ(6,:)
+               new_nodes(self % elements (i)% nodeIDs(1)) % X=XYZ(1,:)
+               new_nodes(self % elements (i)% nodeIDs(2)) % X=XYZ(2,:)
+               new_nodes(self % elements (i)% nodeIDs(5)) % X=XYZ(5,:)
+               new_nodes(self % elements (i)% nodeIDs(6)) % X=XYZ(6,:)
 
                fID=self % elements(eID) %faceIDs(1)
                if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
@@ -5547,23 +5560,15 @@ call elementMPIList % destruct
                    XYZ(j,:)= MATMUL(ROT, XR)
               end do 
 
-              new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
-              new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
-              new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
-              new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
-              new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
-              new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
-              new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
-              new_nodes(element % nodeIDs(8)) % X = XYZ(8,:)
-
-              new_nodes(element % nodeIDs(1)) % globID = element % nodeIDs(1)
-              new_nodes(element % nodeIDs(2)) % globID = element % nodeIDs(2)
-              new_nodes(element % nodeIDs(3)) % globID = element % nodeIDs(3)
-              new_nodes(element % nodeIDs(4)) % globID = element % nodeIDs(4)
-              new_nodes(element % nodeIDs(5)) % globID = element % nodeIDs(5)
-              new_nodes(element % nodeIDs(6)) % globID = element % nodeIDs(6)
-              new_nodes(element % nodeIDs(7)) % globID = element % nodeIDs(7)
-              new_nodes(element % nodeIDs(8)) % globID = element % nodeIDs(8)
+              new_nodes(self % elements(i) % nodeIDs(1)) % X = XYZ(1,:)
+              new_nodes(self % elements(i) % nodeIDs(2)) % X = XYZ(2,:)
+              new_nodes(self % elements(i) % nodeIDs(3)) % X = XYZ(3,:)
+              new_nodes(self % elements(i) % nodeIDs(4)) % X = XYZ(4,:)
+              new_nodes(self % elements(i) % nodeIDs(5)) % X = XYZ(5,:)
+              new_nodes(self % elements(i) % nodeIDs(6)) % X = XYZ(6,:)
+              new_nodes(self % elements(i) % nodeIDs(7)) % X = XYZ(7,:)
+              new_nodes(self % elements(i) % nodeIDs(8)) % X = XYZ(8,:)
+              eIDX=eID
            end if 
            exit 
        end if
@@ -5571,9 +5576,47 @@ call elementMPIList % destruct
    end do 
 
    l=l+4
-   do while (i .LE. s)
-       if (i==s) then 
-           !rotate last element
+   i=2
+   do while (i .LE. ner)
+       !last element
+       if (i==ner) then 
+           do j=1, 8
+               fID=self % elements(eID) %faceIDs(4)
+               if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+               if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+
+               XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+               XYZ(j,:)= MATMUL(ROT, XR)
+           end do
+           self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(3)
+           self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(7)
+           self % elements(eID2) % nodeIDs(3)=self % elements(eIDX )% nodeIDs(4)
+           self % elements(eID2) % nodeIDs(7)=self % elements(eIDX )% nodeIDs(8)
+
+           new_nodes(self %elements(eID2) % nodeIDs(1)) % X = XYZ(1,:)
+           new_nodes(self %elements(eID2) % nodeIDs(2)) % X = XYZ(2,:)
+           new_nodes(self %elements(eID2) % nodeIDs(3)) % X = XYZ(3,:)
+           new_nodes(self %elements(eID2) % nodeIDs(4)) % X = XYZ(4,:)
+           new_nodes(self %elements(eID2) % nodeIDs(5)) % X = XYZ(5,:)
+           new_nodes(self %elements(eID2) % nodeIDs(6)) % X = XYZ(6,:)
+           new_nodes(self %elements(eID2) % nodeIDs(7)) % X = XYZ(7,:)
+           new_nodes(self %elements(eID2) % nodeIDs(8)) % X = XYZ(8,:)
+
+           fID=self % elements(eID) %faceIDs(1)
+           if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+           if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+           do j=1, 8
+               XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+               XYZ(j,:)= MATMUL(ROT, XR)
+           end do
+           new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
+           new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
+           new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
+           new_nodes(element % nodeIDs(8)) % X = XYZ(8,:) 
+           new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
+           new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
+           new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
+           new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
            exit
        end if 
        !first elemnt
@@ -5590,19 +5633,19 @@ call elementMPIList % destruct
       self % elements(eID2) % nodeIDs(3)=l
       self % elements(eID2) % nodeIDs(7)=l+1
 
-      self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(4)
-      self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(8)
+      self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(3)
+      self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(7)
       
-      l=l+1
+      l=l+2
 
-      new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
-      new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
-      new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
-      new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
-      new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
-      new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
-      new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
-      new_nodes(element % nodeIDs(8)) % X = XYZ(8,:)
+      new_nodes(self %elements(eID2) % nodeIDs(1)) % X = XYZ(1,:)
+      new_nodes(self %elements(eID2) % nodeIDs(2)) % X = XYZ(2,:)
+      new_nodes(self %elements(eID2) % nodeIDs(3)) % X = XYZ(3,:)
+      new_nodes(self %elements(eID2) % nodeIDs(4)) % X = XYZ(4,:)
+      new_nodes(self %elements(eID2) % nodeIDs(5)) % X = XYZ(5,:)
+      new_nodes(self %elements(eID2) % nodeIDs(6)) % X = XYZ(6,:)
+      new_nodes(self %elements(eID2) % nodeIDs(7)) % X = XYZ(7,:)
+      new_nodes(self %elements(eID2) % nodeIDs(8)) % X = XYZ(8,:)
       !second elemnt
       eID=eID2
       fID=self % elements(eID) %faceIDs(1)
@@ -5636,129 +5679,6 @@ call elementMPIList % destruct
    end do 
 
 end subroutine HexMesh_RotateNodes
-
-subroutine HexMesh_ContructSlidigMesh (nelements, ElementNodeIds, NewNodes, NewNodeIds, fp,n, ar1, ar2)
-   integer, intent(in)             :: nelements 
-   integer, intent(inout)          :: ElementNodeIds(nelements, 8)
-   real(KIND=RP), intent(inout)    :: NewNodes(8*nelements, 3)
-   integer, intent(inout)          :: NewNodeIds(8*nelements)
-   type(FacePatch), intent(inout)     :: fp(6*nelements)
-   integer, intent(in)             :: n
-   integer, intent(in)             :: ar1(n)
-   integer, intent(in)             :: ar2(n)
-
-   type(HexMesh)                   :: self 
-   integer                         :: l, i, j, k 
-   REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-   REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-   REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
-   real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
-   real(kind=RP), dimension(:,:,:), allocatable :: values
-
-   self % no_of_elements    = numberOfElements
-   self % no_of_allElements = numberOfElements
-
-   ALLOCATE( self % elements(numberOfelements) )
-   allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
-   
-   self % Nx = Nx
-   self % Ny = Ny
-   self % Nz = Nz
-
-   do i = 1, numBFacePoints
-       uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
-       vNodes(i) = uNodes(i)
-   end do
-   allocate (values(3,numBFacePoints,numBFacePoints))
-   do l=1, nelements 
-       do k=1, face_per_element
-           if  (flat) then 
-               valuesFlat=fp(z) % points
-               z=z+1
-               call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-           else 
-               values=fp(z) % points
-               z=z+1
-               call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
-           end if 
-       end do 
-   
-       call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
-   end do 
-
-   do i=1, n
-       self % elements(ar1(i)) % MortarFaces(2)=3
-       self % elements(ar2(i)) % MortarFaces(1)=4
-   end do 
-
-   call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes, self % HOPRnodeIDs)
-
-   CALL ConstructFaces( self, success )
-!
-!
-!     -------------------------
-!     Build the different zones
-!     -------------------------
-!
-   call self % ConstructZones()
-   !
-   !     ---------------------------
-   !     Construct periodic faces
-   !     ---------------------------
-   !
-         if (ConformingMesh) then 
-            CALL ConstructPeriodicFaces( self, periodRelative )
-   !
-   !     ---------------------------
-   !     Delete periodic- faces
-   !     ---------------------------
-   !
-            CALL DeletePeriodicMinusFaces( self )
-         end if 
-   !
-   !     ---------------------------
-   !     Assign faces ID to elements
-   !     ---------------------------
-   !
-         CALL getElementsFaceIDs(self)   
-   !        --------------------- 
-   !        Define boundary faces 
-   !        --------------------- 
-   ! 
-         call self % DefineAsBoundaryFaces() 
-   !
-   !     -----------------------------------
-   !     Check if this is a 2D extruded mesh
-   !     -----------------------------------
-   !
-         if ( .not. MPI_Process % doMPIRootAction ) then
-            call self % CheckIfMeshIs2D()
-         end if
-   !
-   !     -------------------------------
-   !     Set the mesh as 2D if requested
-   !     -------------------------------
-   !
-         if ( dir2D .ne. 0 ) then
-            call SetMappingsToCrossProduct
-            call self % CorrectOrderFor2DMesh(dir2D)
-         end if
-   ! 
-   !
-   !     ------------------------------
-   !     Set the element connectivities
-   !     ------------------------------
-         call self % SetConnectivitiesAndLinkFaces(nodes)   
-   !
-   !     ---------------------------------------
-   !     Construct elements' and faces' geometry
-   !     ---------------------------------------
-   !
-         if ( .not. MPI_Process % doMPIRootAction ) then
-            call self % ConstructGeometry()
-         end if
-
-end subroutine HexMesh_ContructSlidigMesh
 
 subroutine HexMesh_ConstructSlidingMortars(self, n, array1, array2, o, s)
    type(HeMesh), intent(inout) :: self

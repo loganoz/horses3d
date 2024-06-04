@@ -79,6 +79,8 @@
             logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
             integer, dimension(:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. (IB)
             integer                                :: IP_index 
+            logical                                :: sliding
+            logical                                :: sliding_newnodes
             contains
                procedure   :: Construct               => HexElement_Construct
                procedure   :: Destruct                => HexElement_Destruct
@@ -121,6 +123,8 @@
             self % hasSharedFaces      = .false.
             self % NumberOfConnections = 0
             self % MortarFaces         = 0 
+            self % sliding             = .false.
+            sself % liding_newnodes    = .false.
    !
    !        ----------------------------------------
    !        Solution Storage is allocated separately
