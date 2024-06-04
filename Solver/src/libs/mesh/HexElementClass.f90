@@ -81,6 +81,8 @@
             integer                                :: IP_index 
             logical                                :: sliding
             logical                                :: sliding_newnodes
+            logical                                :: sliding
+            logical                                :: sliding_newnodes
             contains
                procedure   :: Construct               => HexElement_Construct
                procedure   :: Destruct                => HexElement_Destruct
