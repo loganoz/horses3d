@@ -4,11 +4,11 @@
 
 #include "Includes.h"
 Module SpongeClass  !
-#if defined(NAVIERSTOKES) || defined (INCNS)
+#if defined(NAVIERSTOKES)
     use SMConstants
     use HexMeshClass
     use SolutionFile
-    use PhysicsStorage, only: NCONS
+    use PhysicsStorage_NS, only: NCONS
     Implicit None
 
     private
@@ -190,7 +190,7 @@ Module SpongeClass  !
         end if
 
         ! create mapping array
-        allocate( self % intensity(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3),self%nElements), self  %  elementIndexMap(self % nElements) )
+        allocate( self % intensity(Nxyz(1),Nxyz(2),Nxyz(3),self%nElements), self  %  elementIndexMap(self % nElements) )
         counter = 0
         do eID = 1, mesh % no_of_elements
             if (hasSponge(eID)) then
@@ -442,7 +442,6 @@ Module SpongeClass  !
 !
 !       Gather reference quantities
 !       ---------------------------
-#if defined(NAVIERSTOKES)
         refs(GAMMA_REF) = thermodynamics % gamma
         refs(RGAS_REF)  = thermodynamics % R
         refs(RHO_REF)   = refValues      % rho
@@ -450,12 +449,7 @@ Module SpongeClass  !
         refs(T_REF)     = refValues      % T
         refs(MACH_REF)  = dimensionless  % Mach
         refs(RE_REF)    = dimensionless  % Re
-#endif
-#if defined(INCNS)
-        refs(RHO_REF)   = refValues      % rho
-        refs(V_REF)     = refValues      % V
-        refs(RE_REF)    = dimensionless  % Re
-#endif
+
 !       Create new file
 !       ---------------
         call CreateNewSolutionFile(trim(name),SOLUTION_FILE, mesh % nodeType, mesh % no_of_allElements, iter, time, refs)

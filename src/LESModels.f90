@@ -1,20 +1,14 @@
 #include "Includes.h"
 module LESModels
    use SMConstants
+   use PhysicsStorage_NS
    use FTValueDictionaryClass
    use Physics_NSKeywordsModule
    use MPI_Process_Info
    use Headers
    use Utilities                 , only: toLower
-   use PhysicsStorage
-   use FluidData
-!   use VariableConversion        , only: getVelocityGradients
-#if defined (NAVIERSTOKES) 
-   use VariableConversion_NS     , only: getVelocityGradients
-#endif
-#if defined (INCNS) 
-   use VariableConversion_iNS     , only: getVelocityGradients 
-#endif
+   use FluidData_NS
+   use VariableConversion_NS     , only: getVelocityGradients, getTemperatureGradient
    implicit none
 
    private
@@ -293,13 +287,8 @@ module LESModels
 !        ------------------------------------------
          LS = this % CS * delta
          LS = this % ComputeWallEffect(LS,dWall)
-#if defined (NAVIERSTOKES) 
          mu = Q(IRHO) * POW2(LS) * normS
-#endif
-#if defined (INCNS) 
-         mu = Q(INSRHO) * POW2(LS) * normS
-#endif
-
+         
       end subroutine Smagorinsky_ComputeViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -404,13 +393,8 @@ module LESModels
 
          normSd =  sum(Sd*Sd)
          LS = this % Cw * delta
-
-#if defined (NAVIERSTOKES) 
+         
          mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
-#endif
-#if defined (INCNS) 
-         mu = Q(INSRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
-#endif
 
          if (normS<1.0e-8_RP .and. normSd<1.0e-8_RP) mu=0.0_RP
          
@@ -512,20 +496,11 @@ module LESModels
             &  - G__ij(2,3) * G__ij(2,3) &
             &  - G__ij(1,3) * G__ij(1,3)
 
-#if defined (NAVIERSTOKES) 
-            if(alpha>1.0e-10_RP) then
-               mu = Q(IRHO) * this % C * sqrt (abs(Bbeta)/alpha)
-            else 
-               mu = 0.0_RP
-            end if
-#endif
-#if defined (INCNS) 
-            if(alpha>1.0e-10_RP) then
-               mu = Q(INSRHO) * this % C * sqrt (abs(Bbeta)/alpha)
-            else 
-               mu = 0.0_RP
-            end if
-#endif
+         if(alpha>1.0e-10_RP) then
+            mu = Q(IRHO) * this % C * sqrt (abs(Bbeta)/alpha)
+         else 
+            mu = 0.0_RP
+         end if
          
       end subroutine Vreman_ComputeViscosity
 

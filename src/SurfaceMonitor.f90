@@ -10,7 +10,7 @@ module SurfaceMonitorClass
    implicit none
 
 
-#if defined(NAVIERSTOKES) || defined(INCNS)  
+#if defined(NAVIERSTOKES)   
    private
    public   SurfaceMonitor_t
 
@@ -397,7 +397,6 @@ module SurfaceMonitorClass
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
-#if defined (NAVIERSTOKES)
          case ("drag")
             if (flowIsNavierStokes) then
                if( self% IBM ) then 
@@ -418,30 +417,7 @@ module SurfaceMonitorClass
             end if
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
-#endif
-!TODO if true
-#if defined (INCNS)
-         case ("drag")
-            if (.true.) then 
-               if( self% IBM ) then 
-                  STLNum = self% marker
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave, dt )
-                  F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
-               else
-                  F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
-               end if
-            else
-               if( self% IBM ) then 
-                  STLNum = self% marker
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements,STLNum, TOTAL_FORCE, iter, autosave, dt )
-                  F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
-               else
-                  F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
-               end if 
-            end if
-            F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
-            self % values(bufferPosition) = dot_product(F, self % direction)
-#endif
+
          case ("pressure-average")
             self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE, iter)
   

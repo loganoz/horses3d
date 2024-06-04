@@ -9,7 +9,6 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial compressibility factor"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                   = "les model"
 !
 !        *****************
 !        Mode with 1 fluid

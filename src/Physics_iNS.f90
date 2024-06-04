@@ -11,7 +11,7 @@
 
       private
       public  iEulerFlux, iViscousFlux, iEulerXFlux
-      public  getStressTensor
+
 !
 !     ========
       CONTAINS 
@@ -130,62 +130,6 @@
          F(INSP,IZ) = 0.0_RP
 
       end subroutine iViscousFlux
-
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-      pure subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
-         implicit none
-         real(kind=RP), intent(in)      :: Q   (1:NCONS         )
-         real(kind=RP), intent(in)      :: Q_x (1:NGRAD    )
-         real(kind=RP), intent(in)      :: Q_y (1:NGRAD    )
-         real(kind=RP), intent(in)      :: Q_z (1:NGRAD    )
-         real(kind=RP), intent(out)     :: tau (1:NDIM, 1:NDIM   )
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP) :: divV
-         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho,invRho2,uDivRho(NDIM)
-
-         associate ( mu0 => dimensionless % mu )
-
-            invRho  = 1._RP / Q(INSRHO)
-            invRho2 = invRho * invRho
-            
-            uDivRho = [Q(INSRHOU) , Q(INSRHOV) , Q(INSRHOW) ] * invRho2
-
-            U_x = invRho * Q_x(INSRHOU:INSRHOW) - uDivRho * Q_x(INSRHO)
-            U_y = invRho * Q_y(INSRHOU:INSRHOW) - uDivRho * Q_y(INSRHO)
-            U_z = invRho * Q_z(INSRHOU:INSRHOW) - uDivRho * Q_z(INSRHO)
-            
-            divV = U_x(IX) + U_y(IY) + U_z(IZ)
-            
-            ! tau(IX,IX) = mu0(IX) * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV)
-            ! tau(IY,IX) = mu0(IY) * ( U_x(IY) + U_y(IX) ) 
-            ! tau(IZ,IX) = mu0(IZ) * ( U_x(IZ) + U_z(IX) ) 
-            ! tau(IX,IY) = tau(IY,IX)
-            ! tau(IY,IY) = mu0(IY) * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV)
-            ! tau(IZ,IY) = mu0(IZ) * ( U_y(IZ) + U_z(IY) ) 
-            ! tau(IX,IZ) = tau(IZ,IX)
-            ! tau(IY,IZ) = tau(IZ,IY)
-            ! tau(IZ,IZ) = mu0(IZ) * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV)
-
-            tau(IX,IX) = mu0(IX) * (2.0_RP * U_x(IX))
-            tau(IY,IX) = mu0(IX) * ( U_x(IY) + U_y(IX) ) 
-            tau(IZ,IX) = mu0(IX) * ( U_x(IZ) + U_z(IX) ) 
-            tau(IX,IY) = tau(IY,IX)
-            tau(IY,IY) = mu0(IX) * (2.0_RP * U_y(IY))
-            tau(IZ,IY) = mu0(IX) * ( U_y(IZ) + U_z(IY) ) 
-            tau(IX,IZ) = tau(IZ,IX)
-            tau(IY,IZ) = tau(IZ,IY)
-            tau(IZ,IZ) = mu0(IX) * (2.0_RP * U_z(IZ))
-            
-         end associate
-
-      end subroutine getStressTensor
-
    END Module Physics_iNS
 !@mark -
 !

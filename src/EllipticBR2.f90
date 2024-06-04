@@ -119,7 +119,7 @@ module EllipticBR2
 #endif
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients, HO_Elements)
+      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -131,122 +131,91 @@ module EllipticBR2
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
-         logical, intent(in), optional    :: HO_Elements
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer :: Nx, Ny, Nz
-         integer :: i, j, k
+         integer :: i, j, k, m
          integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
-         logical :: HOElements
-
-         if (present(HO_Elements)) then
-            HOElements = HO_Elements
-         else
-            HOElements = .false.
-         end if
 !
 !        ***********************
 !        Compute local gradients
 !        ***********************
 !
-         if (HOElements) then
 !$omp do schedule(runtime)
-            do eID = 1, size(mesh % HO_Elements)
-               associate( e => mesh % elements(mesh % HO_Elements(eID)))
-               call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
-   !
-   !           Prolong to faces
-   !           ----------------
-               fIDs = e % faceIDs
-               call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
-                                                mesh % faces(fIDs(2)),&
-                                                mesh % faces(fIDs(3)),&
-                                                mesh % faces(fIDs(4)),&
-                                                mesh % faces(fIDs(5)),&
-                                                mesh % faces(fIDs(6)) )
+         do eID = 1, size(mesh % elements)
+            associate( e => mesh % elements(eID) )
+            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
+!
+!           Prolong to faces
+!           ----------------
+            fIDs = e % faceIDs
+            if (.not.mesh%nonconforming) then 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)))
+            else 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+            end if 
 
-               end associate
-            end do
-!$omp end do    
-         else
-!$omp do schedule(runtime)
-            do eID = 1, size(mesh % elements)
-               associate( e => mesh % elements(eID) )
-               call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
-   !
-   !           Prolong to faces
-   !           ----------------
-               fIDs = e % faceIDs
-               call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
-                                                mesh % faces(fIDs(2)),&
-                                                mesh % faces(fIDs(3)),&
-                                                mesh % faces(fIDs(4)),&
-                                                mesh % faces(fIDs(5)),&
-                                                mesh % faces(fIDs(6)) )
-
-               end associate
-            end do
-!$omp end do  
-         end if
+            end associate
+         end do
+!$omp end do         
 !
 !        **********************************************
 !        Compute interface solution of non-shared faces
 !        **********************************************
 !
-         if (HOElements) then
 !$omp do schedule(runtime) private(fID)
-            do iFace = 1, size(mesh % HO_FacesInterior)
-               fID = mesh % HO_FacesInterior(iFace)
-               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
-            end do
+         do iFace = 1, size(mesh % faces_interior)
+            fID = mesh % faces_interior(iFace)
+            if (mesh % faces(fID) % IsMortar==1) then 
+               associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                  unStar=0.0_RP
+               end associate
+               associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                  unStar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call BR2_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do 
+            elseif (mesh % faces(fID) % IsMortar==0) then 
+                     call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
+         end do
 !$omp end do nowait
-         else
-!$omp do schedule(runtime) private(fID)
-            do iFace = 1, size(mesh % faces_interior)
-               fID = mesh % faces_interior(iFace)
-               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
-            end do
-!$omp end do nowait
-         end if
 
-         if (HOElements) then
 !$omp do schedule(runtime) private(fID)
-            do iFace = 1, size(mesh % HO_FacesBoundary)
-               fID = mesh % HO_FacesBoundary(iFace)
-               call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
-            end do
+         do iFace = 1, size(mesh % faces_boundary)
+            fID = mesh % faces_boundary(iFace)
+            call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         end do
 !$omp end do 
-         else
-!$omp do schedule(runtime) private(fID)
-            do iFace = 1, size(mesh % faces_boundary)
-               fID = mesh % faces_boundary(iFace)
-               call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
-            end do
-!$omp end do 
-         end if
 !
 !        **********************
 !        Compute face integrals
 !        **********************
 !
-         if (HOElements) then
 !$omp do schedule(runtime) private(eID) 
-            do iEl = 1, size(mesh % HO_ElementsSequential)
-               eID = mesh % HO_ElementsSequential(iEl)
-               call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
-            end do
+         do iEl = 1, size(mesh % elements_sequential)
+            eID = mesh % elements_sequential(iEl)
+            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
+         end do
 !$omp end do
-         else
-!$omp do schedule(runtime) private(eID) 
-            do iEl = 1, size(mesh % elements_sequential)
-               eID = mesh % elements_sequential(iEl)
-               call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
-            end do
-!$omp end do
-         end if
 !
 !        ******************
 !        Wait for MPI faces
@@ -266,29 +235,44 @@ module EllipticBR2
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
+            if (mesh% faces(fID)%IsMortar==1) then 
+               associate(unstar=>mesh% faces(fID)%storage(1)%unStar)
+                  unstar=0.0_RP
+               end associate
+               do m=1, 4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                  call BR2_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                  f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do
+            end if 
             call BR2_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do 
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(nGradEqn)
+         end if
+   !$omp end single
+   
+   
+   !$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(nGradEqn)
+         end if
+   !$omp end single 
 !
 !        **************************************************
 !        Compute face integrals for elements with MPI faces
 !        **************************************************
 !
-         if (HOElements) then
 !$omp do schedule(runtime) private(eID)
-            do iEl = 1, size(mesh % HO_ElementsMPI)
-               eID = mesh % HO_ElementsMPI(iEl)
-               call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
-            end do
+         do iEl = 1, size(mesh % elements_mpi)
+            eID = mesh % elements_mpi(iEl)
+            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
+         end do
 !$omp end do
-         else
-!$omp do schedule(runtime) private(eID)
-            do iEl = 1, size(mesh % elements_mpi)
-               eID = mesh % elements_mpi(iEl)
-               call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
-            end do
-!$omp end do
-         end if
 #endif
 
       end subroutine BR2_ComputeGradient
@@ -452,7 +436,7 @@ module EllipticBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
+      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients, fma)
 !
 !        ************************************************
 !           The BR2 is written in strong form, since it
@@ -479,6 +463,7 @@ module EllipticBR2
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
          procedure(GetGradientValues_f)   :: GetGradients
+         type(Face), optional             :: fma
 !
 !        ---------------
 !        Local variables
@@ -487,21 +472,27 @@ module EllipticBR2
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-
          integer       :: i,j
-         
-         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
-   
-            Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
-            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
-            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
-            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
-         end do               ; end do
 
-         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
-         
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+               call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+               call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+      
+               Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
+               Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
+               Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
+               Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+            end do               ; end do
+
+            if (f % IsMortar==0) then 
+
+               call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
+            end if 
+            if (f % IsMortar==2 .and. present(fma)) then 
+                 call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, HFlux=HFlux,whichElements=(/1,0/),factor=1) 
+
+                 call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/0,2/),1)
+            end if 
       end subroutine BR2_GradientInterfaceSolution   
 
       subroutine BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
@@ -540,6 +531,12 @@ module EllipticBR2
          thisSide = maxloc(f % elementIDs, dim = 1)
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
          
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2biggrad(nGradEqn, HFlux)
+            
+         end if 
+       
       end subroutine BR2_GradientInterfaceSolutionMPI   
 
       subroutine BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
