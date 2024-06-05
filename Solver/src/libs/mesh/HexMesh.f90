@@ -2556,37 +2556,6 @@ slavecoord:             DO l = 1, 4
 
                  call f % LinkWithElements(NelL, NelR, nodes)   !???
 
-                 !do l=1,4 
-                   ! associate(fm => self % faces(fID) % Mortar(l) )
-                       !slaves
-                       !associate(eL => self % elements(fm % elementIDs(1)), &
-                          !eR => self % elements(fm % elementIDs(2))   )
-                           !write(*,*) eR%Nxyz 
-                           !write(*,*) axisMap(:, f %elementSide(2))
-                           !write(*,*) f %elementSide(2)
-                           
-
-                          !NelL = eL % Nxyz(axisMap(:, fm % elementSide(1)))
-                          !NelR = eR % Nxyz(axisMap(:, fm % elementSide(2)))
-                        !write(*,*) NelL, NelR
-                          !SideL = fm % elementSide(1)
-                          !SideR = fm % elementSide(2)
-
-
-                         ! eL % NumberOfConnections(SideL) = 1!!!
-                         ! call eL % Connection(SideL) % Construct(eR % GlobID, eR % Nxyz)!!!!
-
-                         ! eR % NumberOfConnections(SideR) = 1
-                          !call eR % Connection(SideR) % Construct(eL % GlobID, eL % Nxyz)
-                         
-                         ! offset=0.5_RP!!!!!!!if
-                         ! call fm % LinkWithElements(NelL, NelR, nodes, offset)!!!!!!!
-                          !write(*,*) NelL, NelR 
-                          !write(*,*) 'after construction :', fm % NelLeft, fm % NelLeft
-                       
-                       !end associate
-                    !end associate
-                ! end do 
 
               end select  
 
