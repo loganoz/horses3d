@@ -5224,307 +5224,301 @@ end subroutine HexMesh_pAdapt_MPI
    subroutine HexMesh_MarkSlidingElements (self, new_nNodes, ner)
       IMPLICIT NONE 
       type(HexMesh), intent(inout)  :: self
-    integer, intent(inout) :: new_nNodes
-    integer, intent(inout) :: ner 
-
-    integer :: eID, eID2, eID3
-    integer :: fID1, fID2, i,  
-    integer, allocatable :: arr1(:)
-    integer, allocatable ::  arr2(:)
-    integer :: new_nNodes
-
-    new_nNodes=SIZE(self % nodes)
-    ner=0
-    allocate(arr1(SIZE(self%elements)/4))
-    allocate(arr2(SIZE(self%elements)/4))
-
-    !mark the elements for the rotation
-    do eID=1, SIZE(self % elements)
-        fID=self % elements(eID) %faceIDs(1)
-        if (self % faces(fID) % FaceType==HMESH_BOUNDARY) then 
-            self % elements(eID) % sliding= .TRUE.
-            
-            fID2= self % elements(eID) %faceIDs(2)
-            if (self % faces(fID2) %elementIDs(2)==eID) eID2=self % faces(fID2) %elementIDs(1)
-            if (self % faces(fID2) %elementIDs(1)==eID) eID2=self % faces(fID2) %elementIDs(2)
-            self % elements(eID2) % sliding= .TRUE.
-            self % elements(eID2) % sliding_newnodes= .TRUE.
-            new_nNodes=new_nNodes+2
-            ner=ner+1
-        end if 
-    
-    end do 
-    i=1
-    !storing informations for the new connectivity 
-    do while (i .LE. SIZE(arr1))
-        arr1(i)=eID2 
-        fID=self % elements(eID2) %faceIDs(2)
-        if (self % faces(fID) %elementIDs(2)==eID2) eID3=self % faces(fID2) %elementIDs(1)
-        if (self % faces(fID) %elementIDs(1)==eID2) eID3=self % faces(fID2) %elementIDs(2)
-        arr2(i)=eID3 
-        i=i+1
-        fID=self % elements(eID2) %faceIDs(4)
-        if (self % faces(fID) %elementIDs(2)==eID2) eID2=self % faces(fID2) %elementIDs(1)
-        if (self % faces(fID) %elementIDs(1)==eID2) eID2=self % faces(fID2) %elementIDs(2)
-    end do 
+      integer, intent(inout) :: new_nNodes
+      integer, intent(inout) :: new_nFaces 
+      integer, intent(inout) :: ner 
+      integer, intent(inout) :: arr1(size(self % elements)/4)
+      integer, intent(inout) :: arr2(size(self % elements)/4)
+  
+      integer :: eID, eID2, eID3
+      integer :: fID1, fID2, i
+  
+  
+      new_nNodes=SIZE(self % nodes)
+      new_nFaces=SIZE(self % faces)
+      ner=0
+      !mark the elements for the rotation
+      do eID=1, SIZE(self % elements)
+          fID=self % elements(eID) %faceIDs(1)
+          if (self % faces(fID) % FaceType==HMESH_BOUNDARY) then 
+              self % elements(eID) % sliding= .TRUE.
+              fID2= self % elements(eID) %faceIDs(2)
+              if (self % faces(fID2) %elementIDs(2)==eID) eID2=self % faces(fID2) %elementIDs(1)
+              if (self % faces(fID2) %elementIDs(1)==eID) eID2=self % faces(fID2) %elementIDs(2)
+              self % elements(eID2) % sliding= .TRUE.
+              self % elements(eID2) % sliding_newnodes= .TRUE.
+              new_nNodes=new_nNodes + 2
+              new_nFaces=new_nFaces + 1
+              ner=ner+1
+          end if 
+      end do 
+      i=1
+  
+      !storing informations for the new connectivity 
+      do while (i .LE. SIZE(arr1))
+          arr1(i)=eID2 
+          fID=self % elements(eID2) %faceIDs(1)
+          if (self % faces(fID) %elementIDs(2)==eID2) eID3=self % faces(fID2) %elementIDs(1)
+          if (self % faces(fID) %elementIDs(1)==eID2) eID3=self % faces(fID2) %elementIDs(2)
+          arr2(i)=eID3 
+          i=i+1
+          fID=self % elements(eID2) %faceIDs(4)
+          if (self % faces(fID) %elementIDs(2)==eID2) eID2=self % faces(fID2) %elementIDs(1)
+          if (self % faces(fID) %elementIDs(1)==eID2) eID2=self % faces(fID2) %elementIDs(2)
+      end do 
   end subroutine HexMesh_MarkSlidingElements
 
   subroutine HexMesh_RotateNodes(self, theta,n, m , ner, new_nNodes, ElementNodeIds, NewNodes, NewNodeIds)
    IMPLICIT NONE
    type(HexMesh), intent(inout)  :: self
-   real(KIND=RP), intent(in)     :: theta
-   integer,     intent(in)       :: n 
-   integer,     intent(in)       :: m
-   integer,     intent(in)       :: ner
-   integer, intent(inout)        :: new_nNodes 
-   integer, intent(inout)        :: ElementNodeIds(self % no_of_elements, 8)
-   real(KIND=RP), intent(inout)  :: NewNodes(8*self % no_of_elements, 3)
-   integer, intent(inout)        :: NewNodeIds(8*self % no_of_elements)
-   type(FacePatch), intent(inout)   :: fp(6*self % no_of_elements)
+    real(KIND=RP), intent(in)     :: theta
+    integer,     intent(in)       :: n 
+    integer,     intent(in)       :: m
+    integer,     intent(in)       :: ner
+    integer, intent(inout)        :: new_nNodes 
+    type(Node), intent(inout)     :: new_nodes(new_nNodes)
+    type(FacePatch), intent(inout)   :: fp(6*self % no_of_elements)
 
-   real(KIND=RP) :: ROT(3,3)
-   real(KIND=RP) :: XYZ(8,3)
-   real(KIND=RP) :: XR(3)
-   real(KIND=RP) :: Xflat(3,2,2)
-   real(KIND=RP), allocatable :: Xpatch(:,:,:)
-   integer :: i, l, eID1, eID2, eID3, eID4, eIDX, nm, j, k, kk, ner 
-   integer, allocatable :: new_GlobId
-   type(Node), dimension(:), allocatable  :: new_nodes
-   real(kind=RP) :: s(2), o(2),ss(2), oo(2), x, lb, ls, lss
-   logical :: offset 
+    real(KIND=RP) :: ROT(3,3)
+    real(KIND=RP) :: XYZ(8,3)
+    real(KIND=RP) :: XR(3)
+    real(KIND=RP) :: Xflat(3,2,2)
+    real(KIND=RP), allocatable :: Xpatch(:,:,:)
+    integer :: i, l, eID1, eID2, eID3, eID4, eIDX, nm, j, k, kk, ner 
+    real(kind=RP) :: s(2), o(2),ss(2), oo(2), x, lb, ls, lss
+    logical :: offset 
 
-   s=0.0_RP
-   o=0.0_RP
-   oo=0.0_RP
-   ss=0.0_RP 
-   XYZ=0.0_RP 
-   XR=0.0_RP
+    s=0.0_RP
+    o=0.0_RP
+    oo=0.0_RP
+    ss=0.0_RP 
+    XYZ=0.0_RP 
+    XR=0.0_RP
 
-   allocate (new_nodes(SIZE(new_nNodes)))
-   offset=.false. 
-   ElementNodeIds=0
-   NewNodes=0.0_RP 
-   NewNodeIds=0 
-   nm=MOD(m,n)
-   if (nm==0) !the mesh is conforming no need to do.....
-   x=1.0_RP-nm*(2.0_RP/n)
+    offset=.false. 
+    ElementNodeIds=0
+    NewNodes=0.0_RP 
+    NewNodeIds=0 
+    nm=MOD(m,n)
+    !if (nm==0) !the mesh is conforming no need to do.....
+    x=1.0_RP-nm*(2.0_RP/n)
 
-   do i=1, SIZE(self % nodes)
-       new_nodes(i) % X =self % nodes(i) % X 
-       new_nodes(i) % globID =self % nodes(i) % globID 
-   end do 
+    do i=1, SIZE(self % nodes)
+        new_nodes(i) % X =self % nodes(i) % X 
+        new_nodes(i) % globID =self % nodes(i) % globID 
+    end do 
 
-   l=SIZE(self % nodes)+1
-   ROT=0.0_RP
-   ROT(1,1)=1.0_RP 
-   ROT(2,2)=COS(theta)
-   ROT(2,3)=-SIN(theta)
-   ROT(3,2)=SIN(theta)
-   ROT(3,3)=COS(theta)
+    l=SIZE(self % nodes)+1
+    ROT=0.0_RP
+    ROT(1,1)=1.0_RP 
+    ROT(2,2)=COS(theta)
+    ROT(2,3)=-SIN(theta)
+    ROT(3,2)=SIN(theta)
+    ROT(3,3)=COS(theta)
 
-   o(1)=(1.0_RP+x)/2.0_RP
-   oo(1)=-o(A)
-   o(2)=(x-1.0_RP)/2.0_RP
-   oo(2)=-o(2)
-   s(1)=1.0_RP-o(1)
-   ss(1)=s(1)
-   s(2)=x-o(2)
-   ss(2)=s(2)
+    o(1)=(1.0_RP+x)/2.0_RP
+    oo(1)=-o(1)
+    o(2)=(x-1.0_RP)/2.0_RP
+    oo(2)=-o(2)
+    s(1)=1.0_RP-o(1)
+    ss(1)=s(1)
+    s(2)=x-o(2)
+    ss(2)=s(2)
 
-   !rotate_face_patchs 
-   allocate (Xpatch(3,numBFacePoints,numBFacePoints))
-   z=1
-   do i=1, self % no_of_elements 
-       do j=1, 6
-           fID=self % elements(i)%faceIDs(j)
+    !rotate_face_patchs 
+    allocate (Xpatch(3,numBFacePoints,numBFacePoints))
+    z=1
+    do i=1, self % no_of_elements 
+        do j=1, 6
+            fID=self % elements(i)%faceIDs(j)
 
-           if ( size(self % elements(l) % SurfInfo % facePatches(j) % uKnots)==2) then
+            if ( size(self % elements(l) % SurfInfo % facePatches(j) % uKnots)==2) then
 
-               allocate(fp(z)%points(3,2,2))
-               fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
-               if (self % elements(i) % sliding) then
-                   !rotate face patch flat
-                   Xflat(:,1,1)=MATMUL(ROT, fp(z) % points(:,1,1))
-                   Xflat(:,2,1)=MATMUL(ROT, fp(z) % points(:,2,1))
-                   Xflat(:,2,2)=MATMUL(ROT, fp(z) % points(:,2,2))
-                   Xflat(:,1,2)=MATMUL(ROT, fp(z) % points(:,1,2))
-                   fp(z) % points=Xflat
-               end if 
-           else 
-               allocate(fp(z)%points(3,numBFacePoints,numBFacePoints))
-               fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
-               if (self % elements(i) % sliding) then
-                    !rotate face patch curved
-                   do k=1, numBFacePoints
-                       do kk=1, numBFacePoints
-                           Xpatch(:,kk,k)= MATMUL(ROT, fp(z) % points(:,kk,k) )
-                       end do 
-                   end do 
-                   fp(z) % points=Xpatch
-               end if 
-           end if 
-           z=z+1
-       end do
-   end do 
+                allocate(fp(z)%points(3,2,2))
+                fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
+                if (self % elements(i) % sliding) then
+                    !rotate face patch flat
+                    Xflat(:,1,1)=MATMUL(ROT, fp(z) % points(:,1,1))
+                    Xflat(:,2,1)=MATMUL(ROT, fp(z) % points(:,2,1))
+                    Xflat(:,2,2)=MATMUL(ROT, fp(z) % points(:,2,2))
+                    Xflat(:,1,2)=MATMUL(ROT, fp(z) % points(:,1,2))
+                    fp(z) % points=Xflat
+                end if 
+            else 
+                allocate(fp(z)%points(3,numBFacePoints,numBFacePoints))
+                fp(z) % points= self % elements(i) % SurfInfo % facePatches(j) % points
+                if (self % elements(i) % sliding) then
+                     !rotate face patch curved
+                    do k=1, numBFacePoints
+                        do kk=1, numBFacePoints
+                            Xpatch(:,kk,k)= MATMUL(ROT, fp(z) % points(:,kk,k) )
+                        end do 
+                    end do 
+                    fp(z) % points=Xpatch
+                end if 
+            end if 
+            z=z+1
+        end do
+    end do 
 
- l=SIZE(self % nodes)+1
+  l=SIZE(self % nodes)+1
 !reotate elements's nodes !!!!!!!!!!!!!!
-   do i=1, SIZE(self % elements)
-       if (self % elements(i) % sliding) then 
-           if (self % elements(i) % sliding_newnodes) then !!!new node id
-                           !rotate!
-               do j=1, 8
-                    XR= self % nodes (self % elements(i) % nodeIDs(j)) % X 
+    do i=1, SIZE(self % elements)
+        if (self % elements(i) % sliding) then 
+            if (self % elements(i) % sliding_newnodes) then !!!new node id
+                            !rotate!
+                do j=1, 8
+                     XR= self % nodes (self % elements(i) % nodeIDs(j)) % X 
+                     XYZ(j,:)= MATMUL(ROT, XR)
+                end do 
+
+                eID= self % elements(i) % eID 
+                new_nodes(l) % globID=l
+                new_nodes(l+1) % globID=l+1
+                new_nodes(l+2) % globID=l+2
+                new_nodes(l+3) % globID=l+3
+
+                self %elements(i) % nodeIDs(4)=l
+                self %elements(i) % nodeIDs(3)=l+1
+                self %elements(i) % nodeIDs(7)=l+2
+                self %elements(i) % nodeIDs(8)=l+3
+                !l=l+4
+
+                new_nodes(l) % X = XYZ(4,:)
+                new_nodes(l+1) % X = XYZ(3,:)
+                new_nodes(l+2) % X = XYZ(7,:)
+                new_nodes(l+3) % X = XYZ(8,:)
+                new_nodes(self % elements (i)% nodeIDs(1)) % X=XYZ(1,:)
+                new_nodes(self % elements (i)% nodeIDs(2)) % X=XYZ(2,:)
+                new_nodes(self % elements (i)% nodeIDs(5)) % X=XYZ(5,:)
+                new_nodes(self % elements (i)% nodeIDs(6)) % X=XYZ(6,:)
+
+                fID=self % elements(eID) %faceIDs(1)
+                if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+                if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+
+                do j=1, 8
+                    XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
                     XYZ(j,:)= MATMUL(ROT, XR)
                end do 
 
-               eID= self % elements(i) % eID 
-               new_nodes(l) % globID=l
-               new_nodes(l+1) % globID=l+1
-               new_nodes(l+2) % globID=l+2
-               new_nodes(l+3) % globID=l+3
+               new_nodes(self % elements(i) % nodeIDs(1)) % X = XYZ(1,:)
+               new_nodes(self % elements(i) % nodeIDs(2)) % X = XYZ(2,:)
+               new_nodes(self % elements(i) % nodeIDs(3)) % X = XYZ(3,:)
+               new_nodes(self % elements(i) % nodeIDs(4)) % X = XYZ(4,:)
+               new_nodes(self % elements(i) % nodeIDs(5)) % X = XYZ(5,:)
+               new_nodes(self % elements(i) % nodeIDs(6)) % X = XYZ(6,:)
+               new_nodes(self % elements(i) % nodeIDs(7)) % X = XYZ(7,:)
+               new_nodes(self % elements(i) % nodeIDs(8)) % X = XYZ(8,:)
+               eIDX=eID
+            end if 
+            exit 
+        end if
+         
+    end do 
 
-               self %elements(i) % nodeIDs(4)=l
-               self %elements(i) % nodeIDs(3)=l+1
-               self %elements(i) % nodeIDs(7)=l+2
-               self %elements(i) % nodeIDs(8)=l+3
-               !l=l+4
+    l=l+4
+    i=2
+    do while (i .LE. ner)
+        !last element
+        if (i==ner) then 
+            do j=1, 8
+                fID=self % elements(eID) %faceIDs(4)
+                if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+                if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
 
-               new_nodes(l) % X = XYZ(4,:)
-               new_nodes(l+1) % X = XYZ(3,:)
-               new_nodes(l+2) % X = XYZ(7,:)
-               new_nodes(l+3) % X = XYZ(8,:)
-               new_nodes(self % elements (i)% nodeIDs(1)) % X=XYZ(1,:)
-               new_nodes(self % elements (i)% nodeIDs(2)) % X=XYZ(2,:)
-               new_nodes(self % elements (i)% nodeIDs(5)) % X=XYZ(5,:)
-               new_nodes(self % elements (i)% nodeIDs(6)) % X=XYZ(6,:)
+                XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+                XYZ(j,:)= MATMUL(ROT, XR)
+            end do
+            self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(3)
+            self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(7)
+            self % elements(eID2) % nodeIDs(3)=self % elements(eIDX )% nodeIDs(4)
+            self % elements(eID2) % nodeIDs(7)=self % elements(eIDX )% nodeIDs(8)
 
-               fID=self % elements(eID) %faceIDs(1)
-               if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
-               if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+            new_nodes(self %elements(eID2) % nodeIDs(1)) % X = XYZ(1,:)
+            new_nodes(self %elements(eID2) % nodeIDs(2)) % X = XYZ(2,:)
+            new_nodes(self %elements(eID2) % nodeIDs(3)) % X = XYZ(3,:)
+            new_nodes(self %elements(eID2) % nodeIDs(4)) % X = XYZ(4,:)
+            new_nodes(self %elements(eID2) % nodeIDs(5)) % X = XYZ(5,:)
+            new_nodes(self %elements(eID2) % nodeIDs(6)) % X = XYZ(6,:)
+            new_nodes(self %elements(eID2) % nodeIDs(7)) % X = XYZ(7,:)
+            new_nodes(self %elements(eID2) % nodeIDs(8)) % X = XYZ(8,:)
 
-               do j=1, 8
-                   XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
-                   XYZ(j,:)= MATMUL(ROT, XR)
-              end do 
-
-              new_nodes(self % elements(i) % nodeIDs(1)) % X = XYZ(1,:)
-              new_nodes(self % elements(i) % nodeIDs(2)) % X = XYZ(2,:)
-              new_nodes(self % elements(i) % nodeIDs(3)) % X = XYZ(3,:)
-              new_nodes(self % elements(i) % nodeIDs(4)) % X = XYZ(4,:)
-              new_nodes(self % elements(i) % nodeIDs(5)) % X = XYZ(5,:)
-              new_nodes(self % elements(i) % nodeIDs(6)) % X = XYZ(6,:)
-              new_nodes(self % elements(i) % nodeIDs(7)) % X = XYZ(7,:)
-              new_nodes(self % elements(i) % nodeIDs(8)) % X = XYZ(8,:)
-              eIDX=eID
-           end if 
-           exit 
-       end if
-        
-   end do 
-
-   l=l+4
-   i=2
-   do while (i .LE. ner)
-       !last element
-       if (i==ner) then 
-           do j=1, 8
-               fID=self % elements(eID) %faceIDs(4)
-               if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
-               if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
-
-               XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
-               XYZ(j,:)= MATMUL(ROT, XR)
-           end do
-           self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(3)
-           self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(7)
-           self % elements(eID2) % nodeIDs(3)=self % elements(eIDX )% nodeIDs(4)
-           self % elements(eID2) % nodeIDs(7)=self % elements(eIDX )% nodeIDs(8)
-
-           new_nodes(self %elements(eID2) % nodeIDs(1)) % X = XYZ(1,:)
-           new_nodes(self %elements(eID2) % nodeIDs(2)) % X = XYZ(2,:)
-           new_nodes(self %elements(eID2) % nodeIDs(3)) % X = XYZ(3,:)
-           new_nodes(self %elements(eID2) % nodeIDs(4)) % X = XYZ(4,:)
-           new_nodes(self %elements(eID2) % nodeIDs(5)) % X = XYZ(5,:)
-           new_nodes(self %elements(eID2) % nodeIDs(6)) % X = XYZ(6,:)
-           new_nodes(self %elements(eID2) % nodeIDs(7)) % X = XYZ(7,:)
-           new_nodes(self %elements(eID2) % nodeIDs(8)) % X = XYZ(8,:)
-
-           fID=self % elements(eID) %faceIDs(1)
-           if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
-           if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
-           do j=1, 8
-               XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
-               XYZ(j,:)= MATMUL(ROT, XR)
-           end do
-           new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
-           new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
-           new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
-           new_nodes(element % nodeIDs(8)) % X = XYZ(8,:) 
-           new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
-           new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
-           new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
-           new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
-           exit
-       end if 
-       !first elemnt
-       fID=self % elements(eID) %faceIDs(4)
-       if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
-       if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
-       do j=1, 8
-           XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
-           XYZ(j,:)= MATMUL(ROT, XR)
-       end do
-      new_nodes(l) % globID=l
-      new_nodes(l+1) % globID=l+1
-
-      self % elements(eID2) % nodeIDs(3)=l
-      self % elements(eID2) % nodeIDs(7)=l+1
-
-      self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(3)
-      self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(7)
-      
-      l=l+2
-
-      new_nodes(self %elements(eID2) % nodeIDs(1)) % X = XYZ(1,:)
-      new_nodes(self %elements(eID2) % nodeIDs(2)) % X = XYZ(2,:)
-      new_nodes(self %elements(eID2) % nodeIDs(3)) % X = XYZ(3,:)
-      new_nodes(self %elements(eID2) % nodeIDs(4)) % X = XYZ(4,:)
-      new_nodes(self %elements(eID2) % nodeIDs(5)) % X = XYZ(5,:)
-      new_nodes(self %elements(eID2) % nodeIDs(6)) % X = XYZ(6,:)
-      new_nodes(self %elements(eID2) % nodeIDs(7)) % X = XYZ(7,:)
-      new_nodes(self %elements(eID2) % nodeIDs(8)) % X = XYZ(8,:)
-      !second elemnt
-      eID=eID2
-      fID=self % elements(eID) %faceIDs(1)
-      if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
-      if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
-       do j=1, 8
+            fID=self % elements(eID) %faceIDs(1)
+            if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+            if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+            do j=1, 8
+                XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+                XYZ(j,:)= MATMUL(ROT, XR)
+            end do
+            new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
+            new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
+            new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
+            new_nodes(element % nodeIDs(8)) % X = XYZ(8,:) 
+            new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
+            new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
+            new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
+            new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
+            exit
+        end if 
+        !first elemnt
+        fID=self % elements(eID) %faceIDs(4)
+        if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+        if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+        do j=1, 8
             XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
             XYZ(j,:)= MATMUL(ROT, XR)
-       end do
-       !keep the same ID but change the nodes
-       new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
-       new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
-       new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
-       new_nodes(element % nodeIDs(8)) % X = XYZ(8,:) 
-       new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
-       new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
-       new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
-       new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
+        end do
+       new_nodes(l) % globID=l
+       new_nodes(l+1) % globID=l+1
 
-   end do 
+       self % elements(eID2) % nodeIDs(3)=l
+       self % elements(eID2) % nodeIDs(7)=l+1
 
-   ElementNodeIds=0
-   NewNodes=0.0_RP 
-   NewNodeIds=0 
-   do i=1, self % SIZE(self % elements)
-       do j=1, 8
-           ElementNodeIds(i,j)= element % nodeIDs(j)
-           NewNodes(6*i-5 + j-1, :)=new_nodes(element % nodeIDs(j)) % X
-           NewNodeIds(6*i-5 + j-1)=new_nodes(element % nodeIDs(j)) % globID
-       end do 
-   end do 
+       self % elements(eID2) % nodeIDs(4)=self % elements(eID )% nodeIDs(3)
+       self % elements(eID2) % nodeIDs(8)=self % elements(eID )% nodeIDs(7)
+       
+       l=l+2
+
+       new_nodes(self %elements(eID2) % nodeIDs(1)) % X = XYZ(1,:)
+       new_nodes(self %elements(eID2) % nodeIDs(2)) % X = XYZ(2,:)
+       new_nodes(self %elements(eID2) % nodeIDs(3)) % X = XYZ(3,:)
+       new_nodes(self %elements(eID2) % nodeIDs(4)) % X = XYZ(4,:)
+       new_nodes(self %elements(eID2) % nodeIDs(5)) % X = XYZ(5,:)
+       new_nodes(self %elements(eID2) % nodeIDs(6)) % X = XYZ(6,:)
+       new_nodes(self %elements(eID2) % nodeIDs(7)) % X = XYZ(7,:)
+       new_nodes(self %elements(eID2) % nodeIDs(8)) % X = XYZ(8,:)
+       !second elemnt
+       eID=eID2
+       fID=self % elements(eID) %faceIDs(1)
+       if (self % faces(fID) %elementIDs(2)==eID) eID2=self % faces(fID) %elementIDs(1)
+       if (self % faces(fID) %elementIDs(1)==eID) eID2=self % faces(fID) %elementIDs(2)
+        do j=1, 8
+             XR= self % nodes (self % elements(eID2) % nodeIDs(j)) % X 
+             XYZ(j,:)= MATMUL(ROT, XR)
+        end do
+        !keep the same ID but change the nodes
+        new_nodes(element % nodeIDs(4)) % X = XYZ(4,:)
+        new_nodes(element % nodeIDs(3)) % X = XYZ(3,:)
+        new_nodes(element % nodeIDs(7)) % X = XYZ(7,:)
+        new_nodes(element % nodeIDs(8)) % X = XYZ(8,:) 
+        new_nodes(element % nodeIDs(1)) % X = XYZ(1,:)
+        new_nodes(element % nodeIDs(2)) % X = XYZ(2,:)
+        new_nodes(element % nodeIDs(5)) % X = XYZ(5,:)
+        new_nodes(element % nodeIDs(6)) % X = XYZ(6,:)
+
+    end do 
+
+   ! ElementNodeIds=0
+   ! NewNodes=0.0_RP 
+   ! NewNodeIds=0 
+   ! do i=1, self % SIZE(self % elements)
+       ! do j=1, 8
+           ! ElementNodeIds(i,j)= element % nodeIDs(j)
+          !  NewNodes(6*i-5 + j-1, :)=new_nodes(element % nodeIDs(j)) % X
+           ! NewNodeIds(6*i-5 + j-1)=new_nodes(element % nodeIDs(j)) % globID
+        !end do 
+    !end do 
 
 end subroutine HexMesh_RotateNodes
 
