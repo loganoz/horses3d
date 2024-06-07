@@ -320,6 +320,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , particles, t )
+         use SpongeClass, only: sponge
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -500,7 +501,8 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-
+            ! for the sponge, loops are in the internal subroutine as values are precalculated
+            call sponge % addSource(mesh)
 !
 !           ********************
 !           Add Particles source
