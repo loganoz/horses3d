@@ -514,6 +514,8 @@ contains
       if ( .not. MPI_Process % doMPIRootAction ) then
          call self % ConstructGeometry()
       end if
+
+      call modify_mesh(self, nodes)
 !
 !     Finish up
 !     ---------
@@ -1098,135 +1100,71 @@ contains
       
    end subroutine ConstructMeshPartition_FromHDF5File_
 
+   subroutine modify_mesh(self, nodes)
+      IMPLICIT NONE 
+      type(HexMesh), intent(inout)    :: self 
+      integer         , intent(in)    :: nodes
+  
+      type(Node), allocatable         :: new_nodes(self % num_of_elements)
+      type(FacePatch)          :: fp(6*nelements)
+      integer :: l , i, j , ner, new_nNodes, new_nFaces, n, m
+      integer :: arr1(self % num_of_elements/4)
+      integer :: arr2(self % num_of_elements/4)
+      real(kind=RP) :: theta 
+      real(kind=RP) :: PI
+  
+      ner=0
+      arr1=0
+      arr2=0
+      new_nNodes=0
+      new_nFaces=0
+      PI=4.0_RP*DATAN(1.0_RP)
+      theta=PI/60.0_RP
+      n=3
+      m=1
+      call mark_slidingelements (self, new_nNodes, new_nFaces, ner, arr1, arr2)
+      call rotate_nodes(self, theta,n, m , ner, new_nNodes, new_nodes, fp)
+      !modify element's node 
+      deallocate(self % nodes)
+      allocate (self % nodes(size(new_nodes)))
+      do l=1, size(new_nodes)
+          self % nodes (l) % X = new_nodes(l) % X
+          self % nodes (l) % GlobID = new_nodes(l) %GlobId 
+      end do 
+      i=1
+      !modify HO nodes 
+      do l=1, self % no_of_elements
+          call self % Elements(l) % geom % destruct
+          do j=1, 6 
+              call self % elements(l) % SurfInfo % facePatches(j) % setFacePoints(fp(i)% points)
+              i=i+1
+          end do 
+      end do 
+      !destruct the faces 
+      do l=1, self% numberOfFaces
+          call self % faces(l) % DestructFace
+      end do 
+  
+      deallocate(self % faces )
+      self% numberOfFaces=numberOfFaces
+      allocate (self % faces (self% numberOfFaces))
+  
+      !CALL SetElementBoundaryNames( self % elements(l), names )
+      !faces connectivity
+      CALL ConstructFaces( self, success )
+      CALL ReassignZones(self % faces, self % zones)
+      CALL getElementsFaceIDs(self)
+  
+      call self % DefineAsBoundaryFaces()
+      !nodes: gauss or lobatto 
+      call self % SetConnectivitiesAndLinkFaces(nodes) 
+      call self % ConstructGeometry()
+      !construct the mortars 
+      !call construct_sliding_mortars()
+  
+  end subroutine modify_mesh
 
-
-   subroutine contruct_slidig_mesh
-    IMPLICIT NONE
-    integer, intent(in)             :: nelements 
-    integer, intent(inout)          :: ElementNodeIds(nelements, 8)
-    real(KIND=RP), intent(inout)    :: NewNodes(8*nelements, 3)
-    integer, intent(inout)          :: NewNodeIds(8*nelements)
-    type(Node), intent(in)          :: new_nodes( )
-    type(FacePatch), intent(inout)     :: fp(6*nelements)
-    integer, intent(in)             :: n
-    integer, intent(in)             :: ar1(n)
-    integer, intent(in)             :: ar2(n)
-
-    type(HexMesh)                   :: self 
-    integer                         :: l, i, j, k 
-    REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-    REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-    REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
-    real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
-    real(kind=RP), dimension(:,:,:), allocatable :: values
-    integer                         :: nodeIDs(NODES_PER_ELEMENT)
-
-    self % no_of_elements    = numberOfElements
-    self % no_of_allElements = numberOfElements
-
-    ALLOCATE( self % elements(numberOfelements) )
-    allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
-    
-    self % Nx = Nx
-    self % Ny = Ny
-    self % Nz = Nz
-
-    do i = 1, numBFacePoints
-        uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
-        vNodes(i) = uNodes(i)
-    end do
-    allocate (values(3,numBFacePoints,numBFacePoints))
-    do l=1, nelements 
-        do k=1, face_per_element
-            if  (flat) then 
-                valuesFlat=fp(z) % points
-                z=z+1
-                call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-            else 
-                values=fp(z) % points
-                z=z+1
-                call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
-            end if 
-        end do 
-        nodeIDs=ElementNodeIds(l,:)
-        call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
-    end do 
-
-    do i=1, n
-        self % elements(ar1(i)) % MortarFaces(2)=3
-        self % elements(ar2(i)) % MortarFaces(1)=4
-    end do 
-
-    DO j = 1, size(new_nodes) 
-        CALL ConstructNode( self % nodes(j), new_nodes % X (j), new_nodes % globID) ! TODO: Change for MPI
-     END DO
-
-    CALL ConstructFaces( self, success )
-!
-!
-!     -------------------------
-!     Build the different zones
-!     -------------------------
-!
-    call self % ConstructZones()
-    !
-    !     ---------------------------
-    !     Construct periodic faces
-    !     ---------------------------
-    !
-          if (ConformingMesh) then 
-             CALL ConstructPeriodicFaces( self, periodRelative )
-    !
-    !     ---------------------------
-    !     Delete periodic- faces
-    !     ---------------------------
-    !
-             CALL DeletePeriodicMinusFaces( self )
-          end if 
-    !
-    !     ---------------------------
-    !     Assign faces ID to elements
-    !     ---------------------------
-    !
-          CALL getElementsFaceIDs(self)   
-    !        --------------------- 
-    !        Define boundary faces 
-    !        --------------------- 
-    ! 
-          call self % DefineAsBoundaryFaces() 
-    !
-    !     -----------------------------------
-    !     Check if this is a 2D extruded mesh
-    !     -----------------------------------
-    !
-          if ( .not. MPI_Process % doMPIRootAction ) then
-             call self % CheckIfMeshIs2D()
-          end if
-    !
-    !     -------------------------------
-    !     Set the mesh as 2D if requested
-    !     -------------------------------
-    !
-          if ( dir2D .ne. 0 ) then
-             call SetMappingsToCrossProduct
-             call self % CorrectOrderFor2DMesh(dir2D)
-          end if
-    ! 
-    !
-    !     ------------------------------
-    !     Set the element connectivities
-    !     ------------------------------
-          call self % SetConnectivitiesAndLinkFaces(nodes)   
-    !
-    !     ---------------------------------------
-    !     Construct elements' and faces' geometry
-    !     ---------------------------------------
-    !
-          if ( .not. MPI_Process % doMPIRootAction ) then
-             call self % ConstructGeometry()
-          end if
-
-   end subroutine contruct_slidig_mesh
+   
 
 #ifdef HAS_HDF5
 !
