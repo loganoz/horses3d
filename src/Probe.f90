@@ -118,19 +118,8 @@ module ProbeClass
             end select
 #endif
 #ifdef INCNS
-            case ("pressure")
-            case ("velocity")
-            case ("u")
-            case ("v")
-            case ("w")
             case default
-               print*, 'Probe variable "',trim(self % variable),'" not implemented.'
-               print*, "Options available are:"
-               print*, "   * pressure"
-               print*, "   * velocity"
-               print*, "   * u"
-               print*, "   * v"
-               print*, "   * w"
+               print*, "Probes are not implemented for the incompressible NSE"
             end select
 #endif
 #ifdef MULTIPHASE
@@ -286,32 +275,6 @@ module ProbeClass
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   var(i,j,k) = 0.5_RP * (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
                end do         ; end do         ; end do
-#endif
-#ifdef INCNS
-            case("pressure")
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-                  var(i,j,k) = Q(INSP,i,j,k)
-               end do            ; end do             ; end do
-   
-            case("velocity")
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  var(i,j,k) = sqrt(POW2(Q(INSRHOU,i,j,k)) + POW2(Q(INSRHOV,i,j,k)) + POW2(Q(INSRHOW,i,j,k)))/Q(INSRHO,i,j,k)
-               end do         ; end do         ; end do
-   
-            case("u")
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-                  var(i,j,k) = Q(INSRHOU,i,j,k) / Q(INSRHO,i,j,k)
-               end do            ; end do             ; end do
-   
-            case("v")
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-                  var(i,j,k) = Q(INSRHOV,i,j,k) / Q(INSRHO,i,j,k)
-               end do            ; end do             ; end do
-   
-            case("w")
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-                  var(i,j,k) = Q(INSRHOW,i,j,k) / Q(INSRHO,i,j,k)
-               end do            ; end do             ; end do
 #endif
 #ifdef MULTIPHASE
             case("static-pressure")
