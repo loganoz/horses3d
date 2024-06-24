@@ -88,12 +88,18 @@ endif
 ifeq ($(COMPILER),ifort)
   FC:=ifort
   MOD_FLAG:=-module 
+  ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
+  INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 else ifeq ($(COMPILER),intel)
   FC:=ifort
   MOD_FLAG:=-module 
+  ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
+  INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 else ifeq ($(COMPILER),INTEL)
   FC:=ifort
   MOD_FLAG:=-module 
+  ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
+  INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 endif
 
 ##########################################
@@ -226,6 +232,7 @@ ADDONSFLAGS += $(MACROS)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
 	   INCLUDE='$(INCLUDE)' \
+	   INCLUDEO='$(INCLUDEO)' \
            INSTALL_DIR='$(INSTALL_DIR)' \
 	   AR='$(AR)' \
 	   ARFLAGS='$(ARFLAGS)' \
@@ -238,6 +245,7 @@ LIBFLAGS=  FC='$(FC)' \
 HORSES_NS_FLAGS= FC='$(FC)' \
  	         FFLAGS='$(FFLAGS)'\
                  INCLUDE='$(INCLUDE)' \
+				 INCLUDEO='$(INCLUDEO)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
 	         HORSES_LIBS_EXEC='$(HORSES_LIBS_NS) $(PROBLEM_LIB_NS)' \
@@ -248,6 +256,7 @@ HORSES_NS_FLAGS= FC='$(FC)' \
 HORSES_NSSA_FLAGS= FC='$(FC)' \
  	         FFLAGS='$(FFLAGS)'\
                  INCLUDE='$(INCLUDE)' \
+				 INCLUDEO='$(INCLUDEO)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
 	         HORSES_LIBS_EXEC='$(HORSES_LIBS_NSSA) $(PROBLEM_LIB_NSSA)' \
@@ -259,6 +268,7 @@ HORSES_NSSA_FLAGS= FC='$(FC)' \
 HORSES_iNS_FLAGS= FC='$(FC)' \
  	         FFLAGS='$(FFLAGS)'\
                  INCLUDE='$(INCLUDE)' \
+				 INCLUDEO='$(INCLUDEO)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
 	         HORSES_LIBS_EXEC='$(HORSES_LIBS_iNS) $(PROBLEM_LIB_iNS)' \
@@ -269,6 +279,7 @@ HORSES_iNS_FLAGS= FC='$(FC)' \
 HORSES_CH_FLAGS= FC='$(FC)' \
  	         FFLAGS='$(FFLAGS)'\
                  INCLUDE='$(INCLUDE)' \
+				 INCLUDEO='$(INCLUDEO)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
 	         HORSES_LIBS_EXEC='$(HORSES_LIBS_CH) $(PROBLEM_LIB_CH)' \
@@ -279,6 +290,7 @@ HORSES_CH_FLAGS= FC='$(FC)' \
 HORSES_MU_FLAGS= FC='$(FC)' \
  	         FFLAGS='$(FFLAGS)'\
                  INCLUDE='$(INCLUDE)' \
+				 INCLUDEO='$(INCLUDEO)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
 	         HORSES_LIBS_EXEC='$(HORSES_LIBS_MU) $(PROBLEM_LIB_MU)' \
@@ -289,6 +301,7 @@ HORSES_MU_FLAGS= FC='$(FC)' \
 ADDONSFLAGS= FC='$(FC)' \
  	     FFLAGS='$(FFLAGS)'\
              INCLUDE='$(INCLUDE)' \
+			 INCLUDEO='$(INCLUDEO)' \
              INSTALL_DIR='$(INSTALL_DIR)' \
 	     MOD_FLAG='$(MOD_FLAG)'\
 	     HORSES_LIBS_EXEC='$(HORSES_LIBS_NS) $(PROBLEM_LIB_NS)' \

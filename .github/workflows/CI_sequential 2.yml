@@ -42,6 +42,8 @@ jobs:
           mkl: 'NO'       
         - compiler: ifort
           hdf5: 'YES'              
+    env:
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
