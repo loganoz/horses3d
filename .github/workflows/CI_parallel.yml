@@ -33,6 +33,7 @@ jobs:
 
     env:
       METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
