@@ -479,7 +479,7 @@ Module MappedGeometryClass
 !  -----------------------------------------
 !  Computation of the metric terms on a face
 !  -----------------------------------------
-   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot, sliding)
+   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot)
       use PhysicsStorage
       use InterpolationMatrices
       implicit none
@@ -496,7 +496,6 @@ Module MappedGeometryClass
       integer,                   intent(in)     :: projType
       integer,                   intent(in)     :: eSide
       integer,                   intent(in)     :: rot
-      logical,                   intent(in)     :: sliding 
 !
 !     ---------------
 !     Local variables
@@ -513,7 +512,6 @@ Module MappedGeometryClass
       real(kind=RP)  :: GradEtaRot (NDIM,0:Nelf(1),0:Nelf(2))
       real(kind=RP)  :: GradZetaRot(NDIM,0:Nelf(1),0:Nelf(2))
       real(kind=RP)  :: x(3)
-      real(kind=RP), allocatable  :: xx(:,:,:)
 
       allocate( self % jacobian(0:Nf(1), 0:Nf(2)))
       allocate( self % x       (NDIM, 0:Nf(1), 0:Nf(2)))
@@ -724,29 +722,6 @@ Module MappedGeometryClass
             end do                 ; end do
          end do                  ; end do
       end select
-
-!
-!     Perform h/p-Adaption if it's a sliding mesh
-!     ------------------------------------------
-
-      if (sliding==.TRUE.) then 
-         allocate(xx(NDIM, 0:Nf(1), 0:Nf(2)))
-         xx= self % x 
-         self % x = 0.0_RP 
-         self % normal = 0.0_RP
-         self % GradXi   = 0.0_RP
-         self % GradEta  = 0.0_RP
-         self % GradZeta = 0.0_RP
-         do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
-            self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(i,l) * xx(:,i,j)
-            self % normal(:,i,j) = self % normal(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(i,l) * dSRot(:,l,j)
-            self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(i,l) * GradXiRot  (:,l,j)
-            self % GradEta (:,i,j) = self % GradEta (:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(i,l) * GradEtaRot (:,l,j)
-            self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(i,l) * GradZetaRot(:,l,j)
-         end do                  ; end do                   ; end do
-         deallocate(xx)
-      end if 
-
 !
 !     Compute
 !     -------
