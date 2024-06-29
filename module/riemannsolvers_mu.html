@@ -114,8 +114,8 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../module/riemannsolvers_mu.html#variable-riemannsolver~5">RiemannSolver</a>
-            <a class="list-group-item" href="../module/riemannsolvers_mu.html#variable-whichriemannsolver~2">whichRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_mu.html#variable-riemannsolver~2">RiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_mu.html#variable-whichriemannsolver">whichRiemannSolver</a>
         </div>
       </div>
     </div>
@@ -137,9 +137,9 @@
       </a>
       <div id="subs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../module/riemannsolvers_mu.html#proc-setriemannsolver~2">SetRiemannSolver</a>
-            <a class="list-group-item" href="../module/riemannsolvers_mu.html#proc-describeriemannsolver~2">DescribeRiemannSolver</a>
-            <a class="list-group-item" href="../module/riemannsolvers_mu.html#proc-exactriemannsolver~2">ExactRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_mu.html#proc-setriemannsolver">SetRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_mu.html#proc-describeriemannsolver">DescribeRiemannSolver</a>
+            <a class="list-group-item" href="../module/riemannsolvers_mu.html#proc-exactriemannsolver">ExactRiemannSolver</a>
         </div>
       </div>
     </div>
@@ -166,10 +166,10 @@
             <li class="list-group-item">
               <ul class="list-inline">
                   <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
+                  <li class="list-inline-item"><a href='variableconversion_mu.html'>VariableConversion_MU</a></li>
+                  <li class="list-inline-item"><a href='physicsstorage_mu.html'>PhysicsStorage_MU</a></li>
                   <li class="list-inline-item"><a href='physics_mu.html'>Physics_MU</a></li>
                   <li class="list-inline-item"><a href='fluiddata_mu.html'>FluidData_MU</a></li>
-                  <li class="list-inline-item"><a href='physicsstorage_mu.html'>PhysicsStorage_MU</a></li>
-                  <li class="list-inline-item"><a href='variableconversion_mu.html'>VariableConversion_MU</a></li>
               </ul>
             </li>
         </ul>
@@ -194,7 +194,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-riemannsolver~5"></span>
+              <span class="anchor" id="variable-riemannsolver~2"></span>
               procedure(RiemannSolverFCN),
             </td>
               <td>public,</td>
@@ -211,7 +211,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-whichriemannsolver~2"></span>
+              <span class="anchor" id="variable-whichriemannsolver"></span>
               integer,
             </td>
               <td>public</td>
@@ -240,7 +240,7 @@
         <section>
           <h2>Subroutines</h2>
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-setriemannsolver~2"></span> <h3>public  subroutine <a href='../proc/setriemannsolver~2.html'>SetRiemannSolver</a>(controlVariables)  
+    <div class="card-header codesum"><span class="anchor" id="proc-setriemannsolver"></span> <h3>public  subroutine <a href='../proc/setriemannsolver.html'>SetRiemannSolver</a>(controlVariables)  
 </h3></div>
     <div class="card-body">
           
@@ -259,7 +259,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-controlvariables~55"></span>
+              <span class="anchor" id="variable-controlvariables~45"></span>
               type(<a href='../type/ftvaluedictionary.html'>FTValueDictionary</a>),
             </td>
 <td>intent(in)</td>
@@ -280,7 +280,7 @@
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-describeriemannsolver~2"></span> <h3>public  subroutine <a href='../proc/describeriemannsolver~2.html'>DescribeRiemannSolver</a>()  
+    <div class="card-header codesum"><span class="anchor" id="proc-describeriemannsolver"></span> <h3>public  subroutine <a href='../proc/describeriemannsolver.html'>DescribeRiemannSolver</a>()  
 </h3></div>
     <div class="card-body">
           
@@ -293,7 +293,7 @@
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-exactriemannsolver~2"></span> <h3>public  subroutine <a href='../proc/exactriemannsolver~2.html'>ExactRiemannSolver</a>(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)  
+    <div class="card-header codesum"><span class="anchor" id="proc-exactriemannsolver"></span> <h3>public  subroutine <a href='../proc/exactriemannsolver.html'>ExactRiemannSolver</a>(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)  
 </h3></div>
     <div class="card-body">
           
@@ -312,7 +312,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-qleft~15"></span>
+              <span class="anchor" id="variable-qleft~4"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -327,7 +327,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-qright~15"></span>
+              <span class="anchor" id="variable-qright~4"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -342,7 +342,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-rhol~8"></span>
+              <span class="anchor" id="variable-rhol~3"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -357,7 +357,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-rhor~8"></span>
+              <span class="anchor" id="variable-rhor~3"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -372,7 +372,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mul~3"></span>
+              <span class="anchor" id="variable-mul~6"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -387,7 +387,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mur~3"></span>
+              <span class="anchor" id="variable-mur~6"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -402,7 +402,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-nhat~69"></span>
+              <span class="anchor" id="variable-nhat~53"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -417,7 +417,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t1~11"></span>
+              <span class="anchor" id="variable-t1~5"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -432,7 +432,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t2~11"></span>
+              <span class="anchor" id="variable-t2~5"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -447,7 +447,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-fl~6"></span>
+              <span class="anchor" id="variable-fl~3"></span>
               real(kind=RP),
             </td>
 <td>intent(out)</td>
@@ -462,7 +462,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-fr~6"></span>
+              <span class="anchor" id="variable-fr~3"></span>
               real(kind=RP),
             </td>
 <td>intent(out)</td>
@@ -505,7 +505,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-06-29 17:39              </p>
+ on 2024-06-29 18:18              </p>
           </div>
         </div>
         <br>
