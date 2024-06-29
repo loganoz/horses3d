@@ -1,6 +1,5 @@
-      PROGRAM HORSES3DMainNS
-
-      USE SMConstants
+      PROGRAM HORSES3DMainNSSA
+      
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
@@ -13,9 +12,10 @@
       use SpatialDiscretization
       use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
-      use ManufacturedSolutionsNS
+      use ManufacturedSolutionsNSSA
       use FluidData
-      use FileReaders               , only: ReadControlFile
+      USE SMConstants
+      use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
@@ -23,7 +23,7 @@
 #ifdef _HAS_MPI_
       use mpi
 #endif
-
+      
       IMPLICIT NONE
 
       procedure(UserDefinedStartup_f)     :: UserDefinedStartup
@@ -33,15 +33,15 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients, saveSensor, saveLES
+      LOGICAL                             :: success, saveGradients, saveSensor
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
-
-      call SetSolver(NAVIERSTOKES_SOLVER)
+      
+      call SetSolver(NAVIERSTOKESSA_SOLVER)
 !
 !     -----------------------------------------
 !     Start measuring the total simulation time
@@ -62,46 +62,45 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes / Spallart-Almaras Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes / Spallart-Almaras Solver",__DATE__,__TIME__)
 
       end if
 
       CALL controlVariables % initWithSize(16)
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
-
       CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   error stop "Control file reading error"
-
+      
 !
 !     ----------------
 !     Set up the DGSEM
 !     ----------------
-!
+!      
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   error stop "Physics parameters input error"
-
+      
       ! Initialize manufactured solutions if necessary
       sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
 
       IF (sem % ManufacturedSol) THEN
          CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
       END IF
-
+      
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage (controlVariables ,Nmax)
+      call InitializeNodalStorage (controlVariables , Nmax)
       call Initialize_InterpolationMatrices(Nmax)
 
-      call sem % construct (  controlVariables  = controlVariables,                                         &
-                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+      call sem % construct (  controlVariables  = controlVariables,       &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,    &
                                  success           = success)
 
       call Initialize_SpaceAndTimeMethods(controlVariables, sem)
-
+                           
       IF(.NOT. success)   error stop "Mesh reading error"
       IF(.NOT. success)   error stop "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
@@ -110,6 +109,7 @@
 !     Set the initial condition
 !     -------------------------
 !
+
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
       !
       !     -------------------
@@ -117,7 +117,7 @@
       !     -------------------
       !
       sem % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
-      if ( sem % particles % active ) then
+      if ( sem % particles % active ) then 
             call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
       endif
 !
@@ -163,18 +163,17 @@
 !     Save the results to the solution file
 !     -------------------------------------
 !
-      IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN
+      IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
-         saveLES = controlVariables % logicalValueForKey(saveLESToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveLES)
-         if ( sem % particles % active ) then
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor)
+         if ( sem % particles % active ) then 
             call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
-         end if
+         end if 
       END IF
       call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
-
+      
 !
 !     ---------
 !     Finish up
@@ -188,16 +187,16 @@
       call Finalize_InterpolationMatrices
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
-
+      
       CALL UserDefinedTermination
 
       call MPI_Process % Close
-
-      END PROGRAM HORSES3DMainNS
+      
+      END PROGRAM HORSES3DMainNSSA
 !
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE CheckInputIntegrity( controlVariables, success )
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE CheckInputIntegrity( controlVariables, success )  
          use SMConstants
          use Utilities, only: toLower
          USE FTValueDictionaryClass
@@ -221,7 +220,7 @@
          CLASS(FTObject), POINTER :: obj
          INTEGER                  :: i
          character(len=LINE_LENGTH)    :: inviscidDiscretization, discretizationNodes
-
+         
          success = .TRUE.
 !
 !        Control variables with default value
@@ -274,15 +273,15 @@
          end if
 !
 !        Check the controlVariables created
-!        ----------------------------------
+!        ----------------------------------        
          DO i = 1, SIZE(mainKeywords)
             obj => controlVariables % objectForKey(mainKeywords(i))
             IF ( .NOT. ASSOCIATED(obj) )     THEN
                PRINT *, "Input file is missing entry for keyword: ",mainKeywords(i)
-               success = .FALSE.
-            END IF
-         END DO
-
+               success = .FALSE. 
+            END IF  
+         END DO  
+         
       END SUBROUTINE checkInputIntegrity
 
       subroutine DisplaySimulationStatistics(iter,mesh)
@@ -306,7 +305,7 @@
          integer                    :: NDOF, localNDOF, ierr
          real(kind=RP)              :: Naverage, localNaverage
          real(kind=RP)              :: t_elaps, t_cpu
-
+         
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
          call Section_Header("Simulation statistics")
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
@@ -315,10 +314,10 @@
 !        ---------------------------
          NDOF = 0
          Naverage = 0
-
+   
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
-            NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1)
+            NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1)      
             Naverage = Naverage + e % Nxyz(1) + e % Nxyz(2) + e % Nxyz(3)
             end associate
          end do
@@ -395,5 +394,5 @@
                error stop
             end if
          end do
-
+            
       end subroutine CheckIfTheVersionIsRequested
