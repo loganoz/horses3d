@@ -297,14 +297,14 @@
             call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 0.5_RP, 1)
             call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 0.5_RP, 2)
          end if 
-         if (present(offset) .and. present(scale)) then
+         if (present(offset) .and. present(s)) then
             if (MOD(self% ID, 2)==1) then 
                call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)
                call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)
 
                call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)
                call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(2), 2)
-            else if (MOD(self% ID, 2)==0)  
+            else if (MOD(self% ID, 2)==0)  then
                call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)
                call TsetM(self % Nf(1), self % NfLeft(1), 3, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)
 
