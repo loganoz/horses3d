@@ -208,7 +208,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~29"></span>
+              <span class="anchor" id="variable-mesh~43"></span>
               class(HexMesh)
             </td>
 <td></td>
@@ -223,7 +223,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-thermodynamics_~3"></span>
+              <span class="anchor" id="variable-thermodynamics_~4"></span>
               type(Thermodynamics_t),
             </td>
 <td>intent(in)</td>
@@ -238,7 +238,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dimensionless_~3"></span>
+              <span class="anchor" id="variable-dimensionless_~4"></span>
               type(Dimensionless_t),
             </td>
 <td>intent(in)</td>
@@ -253,7 +253,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-refvalues_~3"></span>
+              <span class="anchor" id="variable-refvalues_~4"></span>
               type(RefValues_t),
             </td>
 <td>intent(in)</td>
@@ -314,7 +314,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~30"></span>
+              <span class="anchor" id="variable-mesh~44"></span>
               class(hexmesh)
             </td>
 <td></td>
@@ -329,7 +329,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-thermodynamics_~4"></span>
+              <span class="anchor" id="variable-thermodynamics_~5"></span>
               type(Thermodynamics_t),
             </td>
 <td>intent(in)</td>
@@ -344,7 +344,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dimensionless_~4"></span>
+              <span class="anchor" id="variable-dimensionless_~5"></span>
               type(Dimensionless_t),
             </td>
 <td>intent(in)</td>
@@ -359,7 +359,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-refvalues_~4"></span>
+              <span class="anchor" id="variable-refvalues_~5"></span>
               type(RefValues_t),
             </td>
 <td>intent(in)</td>
@@ -420,7 +420,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-x~72"></span>
+              <span class="anchor" id="variable-x~118"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -435,7 +435,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~39"></span>
+              <span class="anchor" id="variable-t~46"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -450,7 +450,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-nhat~25"></span>
+              <span class="anchor" id="variable-nhat~42"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -465,7 +465,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~48"></span>
+              <span class="anchor" id="variable-q~55"></span>
               real(kind=RP),
             </td>
 <td>intent(inout)</td>
@@ -474,172 +474,6 @@
             </td>
             <td>::</td>
             <td><strong>Q</strong>(NCONS)</td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-thermodynamics_~5"></span>
-              type(Thermodynamics_t),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>thermodynamics_</strong></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dimensionless_~5"></span>
-              type(Dimensionless_t),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>dimensionless_</strong></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-refvalues_~5"></span>
-              type(RefValues_t),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>refValues_</strong></td>
-            <td>
-                
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-      </li>
-    </ul>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="interface-userdefinedgradvars_f"></span><h3>abstract interface
-        
-    </h3></div>
-    <ul class="list-group">
-      <li class="list-group-item">
-            <h3>
-    public  subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)  
-
-    </h3>
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-x~73"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>x</strong>(NDIM)</td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-t~40"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>t</strong></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-nhat~26"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>nHat</strong>(NDIM)</td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-q~49"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Q</strong>(NCONS)</td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-u~11"></span>
-              real(kind=RP),
-            </td>
-<td>intent(inout)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>U</strong>(NGRAD)</td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-getgradients~8"></span>
-              procedure(GetGradientValues_f)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>GetGradients</strong></td>
             <td>
                 
             </td>
@@ -698,6 +532,172 @@
   </div>
 
               <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="interface-userdefinedgradvars_f"></span><h3>abstract interface
+        
+    </h3></div>
+    <ul class="list-group">
+      <li class="list-group-item">
+            <h3>
+    public  subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)  
+
+    </h3>
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-x~119"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>x</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-t~47"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-nhat~43"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-q~56"></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-u~8"></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-getgradients~14"></span>
+              procedure(GetGradientValues_f)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>GetGradients</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-thermodynamics_~7"></span>
+              type(Thermodynamics_t),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>thermodynamics_</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-dimensionless_~7"></span>
+              type(Dimensionless_t),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>dimensionless_</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-refvalues_~7"></span>
+              type(RefValues_t),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>refValues_</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+      </li>
+    </ul>
+  </div>
+
+              <div class="card">
     <div class="card-header codesum"><span class="anchor" id="interface-userdefinedneumann_f"></span><h3>abstract interface
         
     </h3></div>
@@ -722,7 +722,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-x~74"></span>
+              <span class="anchor" id="variable-x~120"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -737,7 +737,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~41"></span>
+              <span class="anchor" id="variable-t~48"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -752,7 +752,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-nhat~27"></span>
+              <span class="anchor" id="variable-nhat~44"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -767,7 +767,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~50"></span>
+              <span class="anchor" id="variable-q~57"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -827,7 +827,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-flux~14"></span>
+              <span class="anchor" id="variable-flux~21"></span>
               real(kind=RP),
             </td>
 <td>intent(inout)</td>
@@ -842,7 +842,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-thermodynamics_~7"></span>
+              <span class="anchor" id="variable-thermodynamics_~8"></span>
               type(Thermodynamics_t),
             </td>
 <td>intent(in)</td>
@@ -857,7 +857,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dimensionless_~7"></span>
+              <span class="anchor" id="variable-dimensionless_~8"></span>
               type(Dimensionless_t),
             </td>
 <td>intent(in)</td>
@@ -872,7 +872,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-refvalues_~7"></span>
+              <span class="anchor" id="variable-refvalues_~8"></span>
               type(RefValues_t),
             </td>
 <td>intent(in)</td>
@@ -918,7 +918,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~31"></span>
+              <span class="anchor" id="variable-mesh~45"></span>
               class(HexMesh)
             </td>
 <td></td>
@@ -933,7 +933,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-time~11"></span>
+              <span class="anchor" id="variable-time~13"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -948,7 +948,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dt~4"></span>
+              <span class="anchor" id="variable-dt~3"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -1009,7 +1009,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-x~75"></span>
+              <span class="anchor" id="variable-x~121"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -1024,7 +1024,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~51"></span>
+              <span class="anchor" id="variable-q~58"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -1039,7 +1039,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-time~12"></span>
+              <span class="anchor" id="variable-time~14"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -1054,7 +1054,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-s~2"></span>
+              <span class="anchor" id="variable-s~5"></span>
               real(kind=RP),
             </td>
 <td>intent(inout)</td>
@@ -1069,7 +1069,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-thermodynamics_~8"></span>
+              <span class="anchor" id="variable-thermodynamics_~9"></span>
               type(Thermodynamics_t),
             </td>
 <td>intent(in)</td>
@@ -1084,7 +1084,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dimensionless_~8"></span>
+              <span class="anchor" id="variable-dimensionless_~9"></span>
               type(Dimensionless_t),
             </td>
 <td>intent(in)</td>
@@ -1099,7 +1099,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-refvalues_~8"></span>
+              <span class="anchor" id="variable-refvalues_~9"></span>
               type(RefValues_t),
             </td>
 <td>intent(in)</td>
@@ -1160,7 +1160,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~32"></span>
+              <span class="anchor" id="variable-mesh~46"></span>
               class(HexMesh)
             </td>
 <td></td>
@@ -1175,7 +1175,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-time~13"></span>
+              <span class="anchor" id="variable-time~15"></span>
               real(kind=RP)
             </td>
 <td></td>
@@ -1190,7 +1190,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-iter~9"></span>
+              <span class="anchor" id="variable-iter~17"></span>
               integer
             </td>
 <td></td>
@@ -1220,7 +1220,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-thermodynamics_~9"></span>
+              <span class="anchor" id="variable-thermodynamics_~10"></span>
               type(Thermodynamics_t),
             </td>
 <td>intent(in)</td>
@@ -1235,7 +1235,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dimensionless_~9"></span>
+              <span class="anchor" id="variable-dimensionless_~10"></span>
               type(Dimensionless_t),
             </td>
 <td>intent(in)</td>
@@ -1250,7 +1250,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-refvalues_~9"></span>
+              <span class="anchor" id="variable-refvalues_~10"></span>
               type(RefValues_t),
             </td>
 <td>intent(in)</td>
@@ -1376,7 +1376,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-06-29 18:25              </p>
+ on 2024-06-29 18:33              </p>
           </div>
         </div>
         <br>
