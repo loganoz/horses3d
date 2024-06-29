@@ -1105,15 +1105,17 @@ contains
       type(HexMesh), intent(inout)    :: self 
       integer         , intent(in)    :: nodes
   
-      type(Node), allocatable         :: new_nodes(self % num_of_elements)
-      type(FacePatch)          :: fp(6*nelements)
-      integer :: l , i, j , ner, new_nNodes, new_nFaces, n, m
-      integer :: arr1(self % num_of_elements/4)
-      integer :: arr2(self % num_of_elements/4)
+      type(Node)      :: new_nodes(SIZE(self % nodes))
+      !type(Node), allocatable  :: tmpNodes(:)
+      integer :: l , i, j , new_nNodes, new_nFaces, n, m
+      integer :: arr1(self % no_of_elements/4)
+      integer :: arr2(self % no_of_elements/4)
+      integer :: Connect(size(self % elements), 9,2)
       real(kind=RP) :: theta 
       real(kind=RP) :: PI
-  
-      ner=0
+      logical :: success
+      integer :: dealloc_status, sn
+
       arr1=0
       arr2=0
       new_nNodes=0
@@ -1122,37 +1124,132 @@ contains
       theta=PI/60.0_RP
       n=3
       m=1
-      call mark_slidingelements (self, new_nNodes, new_nFaces, ner, arr1, arr2)
-      call rotate_nodes(self, theta,n, m , ner, new_nNodes, new_nodes, fp)
-      !modify element's node 
-      deallocate(self % nodes)
-      allocate (self % nodes(size(new_nodes)))
-      do l=1, size(new_nodes)
-          self % nodes (l) % X = new_nodes(l) % X
-          self % nodes (l) % GlobID = new_nodes(l) %GlobId 
+      sn=SIZE(self % nodes)
+      new_nNodes=SIZE(self % nodes) 
+
+      !allocate(tmpNodes(sn))
+      do i=1, SIZE(self % nodes)
+         write(*,*) self % nodes(i) % X 
+         write(*,*)self % nodes(i) % globID 
       end do 
+
+     !write(*,*) 'new_nodes difference after copy'
+     !do i=1, SIZE(self % nodes)
+      !write(*,*) tmpNodes(i) % X - self % nodes(i) % X 
+      !write(*,*) tmpNodes(i) % globID - self % nodes(i) % globID  
+      !write(*,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+    ! end do 
+
+     !DO j = 1, size(self % nodes) 
+      !CALL  self % nodes(j) %destruct ! TODO: Change for MPI
+      !END DO
+
+      !write(*,*) 'deallocate the nodes'
+      !if (allocated(self % nodes)) then
+         !write(*,*) 'self nodes are allocated'
+        ! write(*,*) 'size self nodes are allocated', SIZE(self % nodes)
+         !deallocate(self % nodes, stat=dealloc_status)
+         !if (dealloc_status /= 0) then
+         !   write(*,*) "Deallocation error: ", dealloc_status
+       ! else
+        ! write(*,*) "Deallocation successful"
+        !end if
+      !else 
+     !  !  write(*,*) 'bizzaaaaare, nodes are not allocated wtf??'
+      !end if 
+ 
+     ! write(*,*) 'deallocattion of nodes done '
+      !allocate (self % nodes(new_nNodes))
+      !write(*,*) 'size of new nodes :', SIZE(self % nodes)
+      !write(*,*) ' allocate array for the nodes done '
+ 
+      !do i=1, sn   
+      ! self %nodes(i) % X= tmpNodes(i) % X
+       !self %nodes(i) %globID=tmpNodes(i) % globID
+       !write(*,*) 'printing self%node%X', self %nodes(i) % X
+       !write(*,*) 'printing self%node%GlobID', self %nodes(i) % globID
+
+      !end do 
+
+      !DO j = 1, size(tmpNodes) 
+         !CALL  tmpNodes(j) %destruct ! TODO: Change for MPI
+      !END DO
+
+      !deallocate(tmpNodes)
+      write(*,*) 'marking ekelebts'
+      call self % MarkSlidingElements( new_nFaces, arr1, arr2, Connect)
+      new_nNodes=SIZE(self % nodes) 
+      write(*,*) 'rotating ekelebts'
+     ! do i=1, SIZE(self % nodes)
+        ! new_nodes(i) % X =self % nodes(i) % X 
+         !new_nodes(i) % globID =self % nodes(i) % globID 
+     !end do 
+ 
+
+     
+
+      call self % RotateNodes(theta,n, m , new_nNodes, new_nodes, arr1, arr2, Connect)
+      !modify element's node 
+      write(*,*) 'changing the nodes'
+     ! !all ChangeNodes(self,new_nNodes, new_nodes )
+      do i=1, size(self % Nodes)
+       self % nodes(i) % X =new_nodes(i) % X
+        self % nodes(i) % GlobID=new_nodes(i) % GlobID
+      end do 
+     !DO j = 1, size(self % nodes) 
+        ! CALL  self % nodes(j) %destruct ! TODO: Change for MPI
+      !END DO
+
+
+
+      !write(*,*) 'deallocattion of nodes done '
+      !allocate (self % nodes(new_nNodes))
+      !write(*,*) ' allocate array for the nodes done '
+      !DO j = 1, size(new_nodes) 
+         !CALL ConstructNode( self % nodes(j), new_nodes(j) % X, new_nodes(j)% globID ) ! TODO: Change for MPI
+      !END DO
+      write(*,*) 'newnodes constructed'
+    
       i=1
       !modify HO nodes 
-      do l=1, self % no_of_elements
-          call self % Elements(l) % geom % destruct
-          do j=1, 6 
-              call self % elements(l) % SurfInfo % facePatches(j) % setFacePoints(fp(i)% points)
-              i=i+1
-          end do 
-      end do 
-      !destruct the faces 
-      !do l=1, self% numberOfFaces
-       !   call self % faces(l) % DestructFace
+            write(*,*) 'changing th eHO  nodes'
+
+      !do l=1, self % no_of_elements
+          !call self % Elements(l) % geom % destruct
+        !  do j=1, 6 
+           ! if (.not.allocated(self % elements(l) % SurfInfo % facePatches(j)%points)) then
+             !  write(*,*) 'facepatch%point not allocated'
+            !   if  (.not.allocated(self % elements(l) % SurfInfo % facePatches(j)%uKnots)) then
+              !    write(*,*) 'facepatch%uKnots not allocated'
+             !  end if 
+            !else
+             ! call self % elements(l) % SurfInfo % facePatches(j) % setFacePoints(fp(i)% points)
+             ! i=i+1
+           ! end if 
+          !end do 
       !end do 
-  
-      deallocate(self % faces )
-      self% numberOfFaces=new_nFaces
-      allocate (self % faces (self% numberOfFaces))
-  
+      !destruct the faces 
+      do l=1, self% numberOfFaces
+          call self % faces(l) % Destruct
+      end do 
+        write(*,*) 'changing the faces'
+      !if (allocated(self % faces )) then
+         !write(*,*) 'deallocatinf faces' 
+         !safedeallocate(self % faces )
+      !end if 
+      !new_nFaces=self% numberOfFaces+SIZE(arr1)
+      !self% numberOfFaces=new_nFaces
+     ! allocate (self % faces (self% numberOfFaces))
+      !write(*,*) 'allocating the new faces done'
+
       !CALL SetElementBoundaryNames( self % elements(l), names )
       !faces connectivity
       CALL ConstructFaces( self, success )
-      CALL ReassignZones(self % faces, self % zones)
+      if (allocated(self % zones) ) then 
+         deallocate(self % zones)
+      end if 
+      call self % ConstructZones()
+      !CALL ReassignZones(self % faces, self % zones)
       CALL getElementsFaceIDs(self)
   
       call self % DefineAsBoundaryFaces()
@@ -1161,7 +1258,8 @@ contains
       call self % ConstructGeometry()
       !construct the mortars 
       !call construct_sliding_mortars()
-  
+      write(*,*) ' end modifymesh'
+
   end subroutine modify_mesh
 
    
