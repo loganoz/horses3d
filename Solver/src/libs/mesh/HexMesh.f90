@@ -134,8 +134,7 @@ MODULE HexMeshClass
 #endif
             procedure :: MarkSlidingElement            => HexMesh_MarkSlidingElement
             procedure :: RotateNodes                   => HexMesh_RotateNodes
-            procedure :: ConstructSlidingMesh          => HexMesh_ConstructSlidingMesh
-            procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
+            !procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -1134,6 +1133,7 @@ slavecoord:             DO l = 1, 4
                                                                   fT=self % faces(fIDs(5)),&
                                                                   fL=self % faces(fIDs(6)),&
                                                                   faces=self % faces )
+               end if 
             end do
 !$omp end do
          end if
@@ -2476,7 +2476,7 @@ slavecoord:             DO l = 1, 4
         integer  :: MPI_MNDOFS(MPI_Process % nProcs)
         integer  :: num_of_Faces, ii
         integer, parameter :: other(2) = [2, 1]
-        real(kind=RP) :: offset 
+        real(kind=RP) :: offset(2)
         !--------------------------------------------------------------
 
         if ( present(facesList) ) then
@@ -2533,7 +2533,8 @@ slavecoord:             DO l = 1, 4
                  end associate
 
                  if (f % Ismortar==2) then 
-                 offset=0.5_RP!!!!!!!if
+                 offset(1)=0.5_RP!!!!!!!if
+                 offset(2)=0.5_RP
                   call f % LinkWithElements(NelL, NelR, nodes, offset)!!!!!!!
                    !write(*,*) NelL, NelR 
                   !write(*,*) 'after construction :', f % NelLeft, f % NelLeft

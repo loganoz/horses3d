@@ -350,7 +350,16 @@ module EllipticBR1
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+            else 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+            end if 
 
             end associate
          end do
@@ -366,9 +375,35 @@ module EllipticBR1
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
+            if (mesh% faces(fID)%IsMortar==1) then 
+               associate(unstar=>mesh% faces(fID)%storage(1)%unStar)
+                  unstar=0.0_RP
+               end associate
+               do m=1, 4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do
+            end if 
+            if (mesh% faces(fID)%IsMortar .ne. 1) then 
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
          end do
 !$omp end do 
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(nGradEqn)
+         end if
+   !$omp end single
+   
+   
+   !$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(nGradEqn)
+         end if
+   !$omp end single
 !
 !$omp do schedule(runtime) private(eID) 
          do iEl = 1, size(mesh % HO_ElementsMPI)
@@ -382,12 +417,22 @@ module EllipticBR1
 !           Prolong gradients
 !           -----------------
             fIDs = e % faceIDs
+            if ( .not.mesh % nonconforming ) then
             call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+            else
+               call e % ProlongGradientsToFaces(nGradEqn,fFR=mesh % faces(fIDs(1)),&
+               fBK=mesh % faces(fIDs(2)),&
+               fBOT=mesh % faces(fIDs(3)),&
+               fR=mesh % faces(fIDs(4)),&
+               fT=mesh % faces(fIDs(5)),&
+               fL=mesh % faces(fIDs(6)), faces=mesh%faces)
+            end if 
+ 
             end associate
          end do
 !$omp end do
