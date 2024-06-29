@@ -496,7 +496,7 @@ Module MappedGeometryClass
       integer,                   intent(in)     :: projType
       integer,                   intent(in)     :: eSide
       integer,                   intent(in)     :: rot
-      logical,                   intent(in)     :: sliding 
+      logical,   optional,       intent(in)     :: sliding 
 !
 !     ---------------
 !     Local variables
