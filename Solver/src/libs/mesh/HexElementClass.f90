@@ -124,7 +124,7 @@
             self % NumberOfConnections = 0
             self % MortarFaces         = 0 
             self % sliding             = .false.
-            sself % liding_newnodes    = .false.
+            self % sliding_newnodes    = .false.
    !
    !        ----------------------------------------
    !        Solution Storage is allocated separately
