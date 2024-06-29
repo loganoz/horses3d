@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 0.8% of total for derived types.</p>Including implementation: 279 statements,  1.7% of total for derived types.">14 statements</a>
+                 title="<p> 0.8% of total for derived types.</p>Including implementation: 302 statements,  1.8% of total for derived types.">14 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,17 +115,17 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-x~245">x</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-x~61">x</a>
             <a class="list-group-item" href="../type/mappedgeometryface.html#variable-jacobian~2">jacobian</a>
             <a class="list-group-item" href="../type/mappedgeometryface.html#variable-gradxi">GradXi</a>
             <a class="list-group-item" href="../type/mappedgeometryface.html#variable-gradeta">GradEta</a>
             <a class="list-group-item" href="../type/mappedgeometryface.html#variable-gradzeta">GradZeta</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-normal~18">normal</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-t1~11">t1</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-t2~11">t2</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-dwall~15">dWall</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-surface~4">surface</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-h~15">h</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-normal~3">normal</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-t1~8">t1</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-t2~8">t2</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-dwall~9">dWall</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-surface">surface</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#variable-h~9">h</a>
         </div>
       </div>
     </div>
@@ -152,8 +152,8 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/mappedgeometryface.html#boundprocedure-construct~28">construct</a>
-            <a class="list-group-item" href="../type/mappedgeometryface.html#boundprocedure-destruct~43">destruct</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#boundprocedure-construct~4">construct</a>
+            <a class="list-group-item" href="../type/mappedgeometryface.html#boundprocedure-destruct~8">destruct</a>
         </div>
       </div>
     </div>
@@ -186,7 +186,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-x~245"></span>
+              <span class="anchor" id="variable-x~61"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -271,7 +271,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-normal~18"></span>
+              <span class="anchor" id="variable-normal~3"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -288,7 +288,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t1~11"></span>
+              <span class="anchor" id="variable-t1~8"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -305,7 +305,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t2~11"></span>
+              <span class="anchor" id="variable-t2~8"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -322,7 +322,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dwall~15"></span>
+              <span class="anchor" id="variable-dwall~9"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -339,7 +339,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-surface~4"></span>
+              <span class="anchor" id="variable-surface"></span>
               real(kind=RP),
             </td>
               <td>public</td>
@@ -356,7 +356,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-h~15"></span>
+              <span class="anchor" id="variable-h~9"></span>
               real(kind=RP),
             </td>
               <td>public</td>
@@ -384,7 +384,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-construct~28"></span>
+      <span class="anchor" id="boundprocedure-construct~4"></span>
       <h3>
           procedure, public ::
   <strong>construct</strong> => ConstructMappedGeometryFace
@@ -394,7 +394,7 @@
     <ul class="list-group">
         <li class="list-group-item">
                   <h3>
-    private  subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot)  
+    private  subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot, sliding)  
 </h3>
 
   
@@ -605,6 +605,21 @@
                 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              logical,
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>sliding</strong></td>
+            <td>
+                
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -617,7 +632,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~43"></span>
+      <span class="anchor" id="boundprocedure-destruct~8"></span>
       <h3>
           procedure, public ::
   <strong>destruct</strong> => DestructMappedGeometryFace
@@ -688,7 +703,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-06-24 17:31              </p>
+ on 2024-06-29 15:00              </p>
           </div>
         </div>
         <br>
