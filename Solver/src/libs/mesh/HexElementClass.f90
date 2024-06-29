@@ -56,7 +56,7 @@
    !     Main hex-element type
    !     ---------------------
          TYPE Element
-            integer                         :: MortarFaces(6)     !0=Conforming; 1=Master; 2= Slave, 3=Master_sliding; 2= Slave_sliding
+            integer                         :: MortarFaces(6)     !0=Conforming; 1=Master; 2= Slave, 3=Master_sliding; 4= Slave_sliding
             real(kind=RP)                   :: Psvv
             logical                         :: hasSharedFaces
             integer                         :: dir2D
