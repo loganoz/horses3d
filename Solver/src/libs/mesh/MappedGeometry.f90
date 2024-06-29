@@ -729,7 +729,7 @@ Module MappedGeometryClass
 !     Perform h/p-Adaption if it's a sliding mesh
 !     ------------------------------------------
 
-      if (sliding==.TRUE.) then 
+      if (sliding) then 
          allocate(xx(NDIM, 0:Nf(1), 0:Nf(2)))
          xx= self % x 
          self % x = 0.0_RP 

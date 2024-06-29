@@ -1141,12 +1141,12 @@ contains
           end do 
       end do 
       !destruct the faces 
-      do l=1, self% numberOfFaces
-          call self % faces(l) % DestructFace
-      end do 
+      !do l=1, self% numberOfFaces
+       !   call self % faces(l) % DestructFace
+      !end do 
   
       deallocate(self % faces )
-      self% numberOfFaces=numberOfFaces
+      self% numberOfFaces=new_nFaces
       allocate (self % faces (self% numberOfFaces))
   
       !CALL SetElementBoundaryNames( self % elements(l), names )
