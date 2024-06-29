@@ -132,7 +132,7 @@ MODULE HexMeshClass
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
-            procedure :: MarkSlidingElement            => HexMesh_MarkSlidingElement
+            procedure :: MarkSlidingElements            => HexMesh_MarkSlidingElements
             procedure :: RotateNodes                   => HexMesh_RotateNodes
             !procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
             procedure :: copy                          => HexMesh_Assign
@@ -2612,7 +2612,7 @@ slavecoord:             DO l = 1, 4
         end do
       
         !!!!only for sliding mortars 
-        if (self%sliding==.TRUE.) then 
+        if (self%sliding) then 
          do ii = 1, size(self%mortar_faces)
             associate (  f => self % mortar_faces(ii)   )
                associate(eL => self % elements(f % elementIDs(1)), &
@@ -2622,7 +2622,7 @@ slavecoord:             DO l = 1, 4
    !                 ---------------------------------
                NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
                NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
-               call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%scale)
+               call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%s)
                end associate 
             end associate 
          end do 
