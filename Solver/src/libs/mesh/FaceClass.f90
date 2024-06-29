@@ -207,7 +207,7 @@
          integer,                 intent(in)    :: NelLeft(2)  ! Left element face polynomial order
          integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
          integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
-         real(kind=RP), optional, intent(in)    :: offset
+         real(kind=RP), optional, intent(in)    :: offset(2)
          real(kind=RP), optional, intent(in)    :: scale
 
          !real(kind=RP) :: test1(0:3)
