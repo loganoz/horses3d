@@ -515,7 +515,7 @@ contains
          call self % ConstructGeometry()
       end if
 
-      call modify_mesh(self, nodes)
+      !call modify_mesh(self, nodes)
 !
 !     Finish up
 !     ---------
