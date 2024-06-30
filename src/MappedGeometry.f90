@@ -729,7 +729,8 @@ Module MappedGeometryClass
 !     Perform h/p-Adaption if it's a sliding mesh
 !     ------------------------------------------
 
-      if (sliding) then 
+      if (present(sliding)) then 
+         if (sliding)
          allocate(xx(NDIM, 0:Nf(1), 0:Nf(2)))
          xx= self % x 
          self % x = 0.0_RP 
@@ -745,6 +746,7 @@ Module MappedGeometryClass
             self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(i,l) * GradZetaRot(:,l,j)
          end do                  ; end do                   ; end do
          deallocate(xx)
+      end if 
       end if 
 
 !
