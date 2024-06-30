@@ -730,7 +730,7 @@ Module MappedGeometryClass
 !     ------------------------------------------
 
       if (present(sliding)) then 
-         if (sliding)
+         if (sliding) then 
          allocate(xx(NDIM, 0:Nf(1), 0:Nf(2)))
          xx= self % x 
          self % x = 0.0_RP 
