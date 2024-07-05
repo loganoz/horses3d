@@ -120,7 +120,7 @@ contains
       REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
       
       ! Variables as called in HOPR: For a description, see HOPR documentation
-      integer                          :: nUniqueNodes
+      integer                          :: nUniqueNodes, nUniqueSides
       integer                          :: nSides, nNodes
       integer         , allocatable    :: GlobalNodeIDs(:)
       double precision, allocatable    :: TempArray(:,:) !(kind=RP)
@@ -133,16 +133,23 @@ contains
       integer                          :: nBCs
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
-      
+
+      integer                          :: iSide 
       ! Auxiliary variables
-      integer :: i,j,k,l  ! Counters
+      integer                    :: i,j,k,l,ll           ! Counters
       integer                    :: HOPRNodeID           ! Node ID in HOPR
       integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR
       integer                    :: HSideMap(6)          ! Map from the side index of an element in HORSES3D to the side index used in HOPR
+      integer                    :: HSideMap2(6)         ! Map from the side index of an element in HOPR to the side index used in HORSES3D
       integer, allocatable       :: HNodeSideMap(:,:,:)  ! Map from the face-node-index of an element to the global node index of HOPR (for surface curvature)
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
+
+      integer, allocatable       :: HorsesMortars(:,:)
+      integer :: n, inter 
+      logical                    :: ConformingMesh
+      integer :: nbface, nintface, nmaster, nslave , nslc 
       !---------------------------------------------------------------
       
 !
@@ -179,7 +186,8 @@ contains
       CALL GetHDF5Attribute(File_ID,'nSides',1,IntegerScalar=nSides)
       CALL GetHDF5Attribute(File_ID,'nNodes',1,IntegerScalar=nNodes)
       CALL GetHDF5Attribute(File_ID,'nUniqueNodes',1,IntegerScalar=nUniqueNodes)
-      
+      CALL GetHDF5Attribute(File_ID,'nUniqueSides',1,IntegerScalar=nUniqueSides)
+
       allocate(ElemInfo(6,1:numberOfElements))
       call ReadArrayFromHDF5(File_ID,'ElemInfo',2,(/6,numberOfElements/),0,IntegerArray=ElemInfo)
       
@@ -234,6 +242,7 @@ contains
       corners               = 0.0_RP
       
       HSideMap = HOPR2HORSESSideMap()
+      HSideMap2 = HOPR2HORSESSideMap2()
       HCornerMap = HOPR2HORSESCornerMap(bFaceOrder)
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
@@ -243,8 +252,26 @@ contains
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
-     
+      
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
+
+      ConformingMesh=.TRUE. 
+      do l=1,nSides
+         if (SideInfo(3,l)==-1 .OR. SideInfo(3,l)==-2 .OR. SideInfo(3,l)==-3) then 
+            ConformingMesh=.FALSE. 
+            exit 
+         end if 
+      end do 
+
+      if (.NOT.ConformingMesh) then  
+         nbface=0
+          nintface=0
+           nmaster=0
+           nslave=0
+           nslc=0
+         allocate(HorsesMortars(6,6*numberOfElements))
+         HorsesMortars=0
+      end if 
       
 !      
 !     Now we construct the elements
@@ -260,15 +287,20 @@ contains
             
             call AddToNodeMap (TempNodes , HOPRNodeMap, corners(:,k), GlobalNodeIDs(HOPRNodeID), nodeIDs(k))
          END DO
-         
-         do k = 1, FACES_PER_ELEMENT
-            j = SideInfo(5,ElemInfo(3,l) + HSideMap(k))
-            if (j == 0) then
-               names(k) = emptyBCName
-            else
-               names(k) = trim(BCNames(j))
-            end if
-         end do
+
+         k=1
+         inter=0
+         do while (k .LE. FACES_PER_ELEMENT)
+            j=SideInfo(5, ElemInfo(3,l) + k + inter)
+            if (j==0) then 
+               names(HsideMap2(k)) = emptyBCName 
+            else 
+               names(HsideMap2(k)) = trim(BCNames(j))
+            end if 
+            if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1)  inter=inter+4
+            if (SideInfo(3,ElemInfo(3,l) + k + inter)==-2 .OR. SideInfo(3,ElemInfo(3,l) + k + inter)==-3)  inter=inter+2
+            k=k+1
+         end do 
          
          if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
             if (MeshInnerCurves) then
@@ -333,7 +365,7 @@ contains
 !        -------------------------
 !
          call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
-         
+
          CALL SetElementBoundaryNames( self % elements(l), names )
             
          DO k = 1, 6
@@ -348,18 +380,77 @@ contains
          END DO  
          
       end do      ! l = 1, numberOfElements
-      
+
+      if (.not.ConformingMesh) then 
+         do l=1, numberOfElements
+            k=1
+            inter=0
+            do while (k .LE. FACES_PER_ELEMENT)
+               HorsesMortars(1,(l*6)-5 + HsideMap2(k) -1 )=l
+               HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=0
+               !interioir
+               if ((SideInfo(2,ElemInfo(3,l)+k+inter) .GT.0) .AND. (SideInfo(3,ElemInfo(3,l)+k+inter) .GT.0)) then 
+                  nintface=nintface+1
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,l)+k+inter)
+               end if 
+
+               if ((SideInfo(2,ElemInfo(3,l)+k+inter) .LT.0) .AND. (SideInfo(3,ElemInfo(3,l)+k+inter) .GT.0)&
+                .AND. (SideInfo(1,ElemInfo(3,l) + k + inter) .GT. 0)) then 
+                  nintface=nintface+1
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=-SideInfo(3,ElemInfo(3,l)+k+inter)
+               end if 
+               !boundary
+               if (SideInfo(5,ElemInfo(3,l)+k+inter) .NE. 0) then 
+                  nbface=nbface+1
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=-1
+               end if 
+               !master and slaves 
+               if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1) then 
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k)-1)=1
+                  nmaster=nmaster+1
+                  do ll=1,4
+                     HorsesMortars(2+ll, (l*6)-5 + HsideMap2(k)-1)=SideInfo(3,ElemInfo(3,l) + k + inter + ll)
+                     nslave=nslave+1
+                  end do 
+                  inter=inter+4
+                  self % elements(l) % MortarFaces(HsideMap2(k))=1    ! Big Mortar 
+               end if 
+               
+               if (SideInfo(1,ElemInfo(3,l) + k + inter) .LT. 0) then 
+                  nslc=nslc+1
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=2
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,l) + k + inter)
+                  self % elements(l) % MortarFaces(HsideMap2(k))=2    !slave Mortar 
+               end if 
+               k=k+1
+            end do 
+         end do 
+      end if 
       call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes, self % HOPRnodeIDs)
       
       
 !     Construct the element faces
 !     ---------------------------
 !
-      numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
-      self % numberOfFaces = numberOfFaces
-      
-      ALLOCATE( self % faces(self % numberOfFaces) )
-      CALL ConstructFaces( self, success )
+      if (ConformingMesh) then 
+         numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
+         self % numberOfFaces = numberOfFaces
+         
+         ALLOCATE( self % faces(self % numberOfFaces) )
+         CALL ConstructFaces( self, success )
+       else 
+         !write (*,*) 'nbfaces=', nbface
+         !write (*,*) 'ninterior (*2)=', nintface
+         !write (*,*) 'nmaster=', nmaster 
+        ! write (*,*) 'nslave=', nslave
+         !write (*,*) 'nslc=', nslc
+         numberOfFaces        = nUniqueSides
+         self % numberOfFaces = numberOfFaces
+         !write (*,*) 'numberOfFaces=', numberOfFaces
+         ALLOCATE( self % faces(self % numberOfFaces) )
+         self % nonconforming= .TRUE.
+         CALL ConstructFaces( self, success,numberOfElements, HorsesMortars)    
+       end if 
 !
 !
 !     -------------------------
@@ -372,19 +463,21 @@ contains
 !     Construct periodic faces
 !     ---------------------------
 !
-      CALL ConstructPeriodicFaces( self, periodRelative )
+      if (ConformingMesh) then 
+         CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !     ---------------------------
 !     Delete periodic- faces
 !     ---------------------------
 !
-      CALL DeletePeriodicMinusFaces( self )
+         CALL DeletePeriodicMinusFaces( self )
+      end if 
 !
 !     ---------------------------
 !     Assign faces ID to elements
 !     ---------------------------
 !
-      CALL getElementsFaceIDs(self)
+      CALL getElementsFaceIDs(self)   
 !        --------------------- 
 !        Define boundary faces 
 !        --------------------- 
@@ -412,7 +505,7 @@ contains
 !     ------------------------------
 !     Set the element connectivities
 !     ------------------------------
-      call self % SetConnectivitiesAndLinkFaces(nodes)
+      call self % SetConnectivitiesAndLinkFaces(nodes)   
 !
 !     ---------------------------------------
 !     Construct elements' and faces' geometry
@@ -421,6 +514,8 @@ contains
       if ( .not. MPI_Process % doMPIRootAction ) then
          call self % ConstructGeometry()
       end if
+
+      !call modify_mesh(self, nodes)
 !
 !     Finish up
 !     ---------
@@ -431,6 +526,10 @@ contains
       deallocate (HNodeSideMap)
       deallocate (NodeCoords)
       deallocate (GlobalNodeIDs)
+
+      if (.not.ConformingMesh) then 
+         deallocate (HorsesMortars)
+      end if 
       
       if ( .not. MPI_Process % doMPIAction ) then
          deallocate (uNodes, vNodes, values)
@@ -451,6 +550,30 @@ contains
 #else
       error stop ':: HDF5 is not linked correctly'
 #endif
+
+!do j=1, self % no_of_elements
+ !  write(*,*)'element id=', self % elements(j) % eID
+  ! do i=1,6
+   !   write(*,*) '   face ID', self % elements(j) % faceIDs(i), 'Ismortar=', self % faces(self % elements(j) % faceIDs(i))% IsMortar,&
+    !  'face type :', self % faces(self % elements(j) % faceIDs(i))%FaceType  
+
+     ! write(*,*) 'normal :',self % faces(self % elements(j) % faceIDs(i))%geom%normal 
+      !write(*,*) 'GradXi :',self % faces(self % elements(j) % faceIDs(i))%geom%GradXi
+      !write(*,*) 'GradEta :',self % faces(self % elements(j) % faceIDs(i))%geom%GradEta 
+      !write(*,*) 'GradZeta :',self % faces(self % elements(j) % faceIDs(i))%geom%GradZeta 
+
+    !  if (self % faces(self % elements(j) % faceIDs(i))% IsMortar==2) then 
+      !   write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementSide(1)
+       !  write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementSide(2)
+        ! write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementIDs(1)
+        ! write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementIDs(2)
+      !end if 
+
+ !  end do 
+!end do 
+
+
+
    end subroutine ConstructMesh_FromHDF5File_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -488,7 +611,7 @@ contains
       real(KIND=RP)  , dimension(3,2,2) :: valuesFlat
       
       ! Variables as called in HOPR: For a description, see HOPR documentation
-      integer                          :: nSides, nNodes 
+      integer                          :: nSides, nNodes, nUniqueSides
       integer         , allocatable    :: GlobalNodeIDs(:)
       double precision, allocatable    :: TempArray(:,:) !(kind=RP)
       real(kind=RP)   , allocatable    :: NodeCoords(:,:)
@@ -508,8 +631,14 @@ contains
       integer                    :: HOPRNodeID           ! Node ID in HOPR
       integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR
       integer                    :: HSideMap(6)          ! Map from the side index of an element in HORSES3D to the side index used in HOPR
+      integer                    :: HSideMap2(6)         ! Map from the side index of an element in HOPR to the side index used in HORSES3D
       integer, allocatable       :: HNodeSideMap(:,:,:)  ! Map from the face-node-index of an element to the global node index of HOPR (for surface curvature)
       logical                    :: CurveCondition
+
+      integer, allocatable       :: HorsesMortars(:,:)
+      integer :: n, inter 
+      logical                    :: ConformingMesh
+      integer :: nbface, nintface, nmaster,nufaces, nslave , nslc , ll, z, v, vv 
       !---------------------------------------------------------------
       
 !
@@ -535,6 +664,7 @@ contains
       CALL GetHDF5Attribute(File_ID,'Ngeo',1,IntegerScalar=bFaceOrder)
       CALL GetHDF5Attribute(File_ID,'nSides',1,IntegerScalar=nSides)
       CALL GetHDF5Attribute(File_ID,'nNodes',1,IntegerScalar=nNodes)
+      CALL GetHDF5Attribute(File_ID,'nUniqueSides',1,IntegerScalar=nUniqueSides)
       
       allocate(ElemInfo(6,1:numberOfAllElements))
       call ReadArrayFromHDF5(File_ID,'ElemInfo',2,(/6,numberOfAllElements/),0,IntegerArray=ElemInfo)
@@ -584,6 +714,7 @@ contains
 !     ---------------------------------------
       
       HSideMap = HOPR2HORSESSideMap()
+      HSideMap2 = HOPR2HORSESSideMap2()
       HCornerMap = HOPR2HORSESCornerMap(bFaceOrder)
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
@@ -604,6 +735,23 @@ contains
       
       allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
       
+      ConformingMesh=.TRUE. 
+      do l=1,nSides
+         if (SideInfo(3,l)==-1 .OR. SideInfo(3,l)==-2 .OR. SideInfo(3,l)==-3) then 
+            ConformingMesh=.FALSE. 
+            exit 
+         end if 
+      end do 
+
+      if (.NOT.ConformingMesh) then  
+         nbface=0
+          nintface=0
+           nmaster=0
+           nslave=0
+           nslc=0
+         allocate(HorsesMortars(6,6* mpi_partition % no_of_elements))
+         HorsesMortars=0
+      end if 
 !
 !     --------------------
 !     Create HOPR node map
@@ -623,14 +771,16 @@ contains
 !     ------------------------------------------------------------------------
 !
       do l = 1, NumberOfAllElements
-         
+         inter=0
          do k = 1, FACES_PER_ELEMENT
-            j = SideInfo(5,ElemInfo(3,l) + HSideMap(k))
+            j = SideInfo(5,ElemInfo(3,l) + k + inter)
             if (j == 0) then
-               names(k) = emptyBCName
+               names(HsideMap2(k)) = emptyBCName
             else
-               names(k) = trim(BCNames(j))
+               names(HsideMap2(k)) = trim(BCNames(j))
             end if
+            if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1)  inter=inter+4
+            if (SideInfo(3,ElemInfo(3,l) + k + inter)==-2 .OR. SideInfo(3,ElemInfo(3,l) + k + inter)==-3)  inter=inter+2
          end do
          
          do k = 1, 6
@@ -663,14 +813,16 @@ contains
                CALL ConstructNode( self % nodes(nodeIDs(k)), x, mpi_partition % nodeIDs(nodeIDs(k)) )
             end if
          END DO
-         
+         inter=0
          do k = 1, FACES_PER_ELEMENT
-            j = SideInfo(5,ElemInfo(3,GlobeID) + HSideMap(k))
+            j = SideInfo(5,ElemInfo(3,GlobeID) +  k + inter)
             if (j == 0) then
-               names(k) = emptyBCName
+               names(HsideMap2(k)) = emptyBCName
             else
-               names(k) = trim(BCNames(j))
+               names(HsideMap2(k)) = trim(BCNames(j))
             end if
+            if (SideInfo(3,ElemInfo(3,GlobeID) + k + inter)==-1)  inter=inter+4
+            if (SideInfo(3,ElemInfo(3,GlobeID) + k + inter)==-2 .OR. SideInfo(3,ElemInfo(3,GlobeID) + k + inter)==-3)  inter=inter+2
          end do
          
          if (MeshInnerCurves) then
@@ -752,20 +904,97 @@ contains
 !        -------------------------
          globalToLocalElementID(GlobeID) = eID
       end do      ! eID = 1, self % no_of_elements
+      nufaces=0
+      if (.not.ConformingMesh) then 
+         do l=1, self % no_of_elements
+            k=1
+            inter=0
+            GlobeID = mpi_partition % elementIDs(l)
+            do while (k .LE. FACES_PER_ELEMENT)
+               HorsesMortars(1,(l*6)-5 + HsideMap2(k) -1 )=l
+               HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=0
+               !interioir
+               if ((SideInfo(2,ElemInfo(3,GlobeID)+k+inter) .GT.0) .AND. (SideInfo(3,ElemInfo(3,GlobeID)+k+inter) .GT.0)) then 
+                  nintface=nintface+1
+                  nufaces=nufaces+1
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,GlobeID)+k+inter)
+               end if 
+
+               if ((SideInfo(2,ElemInfo(3,GlobeID)+k+inter) .LT.0) .AND. (SideInfo(3,ElemInfo(3,GlobeID)+k+inter) .GT.0)&
+                .AND. (SideInfo(1,ElemInfo(3,GlobeID) + k + inter) .GT. 0)) then 
+                  nintface=nintface+1
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=-SideInfo(3,ElemInfo(3,GlobeID)+k+inter)
+                  IF(globalToLocalElementID(SideInfo(3,ElemInfo(3,GlobeID)+k+inter))==-1) nufaces=nufaces+1
+               end if 
+               !boundary
+               if (SideInfo(5,ElemInfo(3,GlobeID)+k+inter) .NE. 0) then 
+                  nbface=nbface+1
+                  nufaces=nufaces+1
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=-1
+               end if 
+               !master and slaves 
+               if (SideInfo(3,ElemInfo(3,GlobeID) + k + inter)==-1) then 
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k)-1)=1
+                  nmaster=nmaster+1
+                  nufaces=nufaces+1
+                  do ll=1,4
+                     HorsesMortars(2+ll, (l*6)-5 + HsideMap2(k)-1)=SideInfo(3,ElemInfo(3,GlobeID) + k + inter + ll)
+                     nslave=nslave+1
+                  end do 
+                  inter=inter+4
+                  self % elements(l) % MortarFaces(HsideMap2(k))=1    ! Big Mortar 
+               end if 
+               
+               if (SideInfo(1,ElemInfo(3,GlobeID) + k + inter) .LT. 0) then 
+                  !write(*,*) 'slave m', SideInfo(2,ElemInfo(3,GlobeID) + k + inter)
+                  nslc=nslc+1
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=2
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,GlobeID) + k + inter)
+                  z=SideInfo(3,ElemInfo(3,GlobeID) + k + inter) !master elemiD
+                  !write(*,*) 'z', z
+                  first=ElemInfo(3,z) + 1
+                  last=ElemInfo(4,z) 
+                  do v=first, last 
+                     if (SideInfo(3,v)==-1) then 
+                        do vv=1, 4
+                           !write(*,*) SideInfo(3,v + vv)
+                           if (SideInfo(2,v + vv)==-SideInfo(2,ElemInfo(3,GlobeID) + k + inter) ) then 
+                           self % elements(l) % MortarFaces(HsideMap2(k))=vv
+                           write(*,*) vv 
+                           end if 
+                        end do 
+                     end if 
+                  end do 
+                  self % elements(l) % MortarFaces(HsideMap2(k))=20 + self % elements(l) % MortarFaces(HsideMap2(k))    !slave Mortar 
+                  nufaces=nufaces+1
+               end if 
+               k=k+1
+            end do 
+         end do 
+      end if 
       
 !     Construct the element faces
 !     ---------------------------
 !
+      if (ConformingMesh) then 
       numberOfFaces        = GetOriginalNumberOfFaces(self)
       self % numberOfFaces = numberOfFaces
       
       ALLOCATE( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
+   else 
+      numberOfFaces        = nUniqueSides
+      self % numberOfFaces = nufaces
+      !write (*,*) 'numberOfFaces=', numberOfFaces
+      ALLOCATE( self % faces(nufaces) )
+      self % nonconforming= .TRUE.
+      CALL ConstructFaces( self, success,numberOfAllElements, HorsesMortars, globalToLocalElementID)    
+    end if 
 !
 !     --------------------------------
 !     Get actual mesh element face IDs
 !     --------------------------------
-!
+!  
       CALL getElementsFaceIDs(self)
 !
 !     --------------
@@ -788,6 +1017,7 @@ contains
 !     Construct periodic faces
 !     ---------------------------
 !
+      if (ConformingMesh) then 
       CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !     ---------------------------
@@ -795,6 +1025,7 @@ contains
 !     ---------------------------
 !
       CALL DeletePeriodicMinusFaces( self )
+   end if
 !
 !     ---------------------------
 !     Assign faces ID to elements
@@ -862,8 +1093,177 @@ contains
 #else
       error stop ':: HDF5 is not linked correctly'
 #endif
+      !!do i=1, self%no_of_elements
+      !   GlobeID = mpi_partition % elementIDs(i)
+       !  write(*,*) GlobeID, 'mpiID',  mpi_partition%ID
+    !  end do
       
    end subroutine ConstructMeshPartition_FromHDF5File_
+
+   subroutine modify_mesh(self, nodes)
+      IMPLICIT NONE 
+      type(HexMesh), intent(inout)    :: self 
+      integer         , intent(in)    :: nodes
+  
+      type(Node)      :: new_nodes(SIZE(self % nodes))
+      !type(Node), allocatable  :: tmpNodes(:)
+      integer :: l , i, j , new_nNodes, new_nFaces, n, m
+      integer :: arr1(self % no_of_elements/4)
+      integer :: arr2(self % no_of_elements/4)
+      integer :: Connect(size(self % elements), 9,2)
+      real(kind=RP) :: theta 
+      real(kind=RP) :: PI
+      logical :: success
+      integer :: dealloc_status, sn
+
+      arr1=0
+      arr2=0
+      new_nNodes=0
+      new_nFaces=0
+      PI=4.0_RP*DATAN(1.0_RP)
+      theta=PI/60.0_RP
+      n=3
+      m=1
+      sn=SIZE(self % nodes)
+      new_nNodes=SIZE(self % nodes) 
+
+      !allocate(tmpNodes(sn))
+      do i=1, SIZE(self % nodes)
+         write(*,*) self % nodes(i) % X 
+         write(*,*)self % nodes(i) % globID 
+      end do 
+
+     !write(*,*) 'new_nodes difference after copy'
+     !do i=1, SIZE(self % nodes)
+      !write(*,*) tmpNodes(i) % X - self % nodes(i) % X 
+      !write(*,*) tmpNodes(i) % globID - self % nodes(i) % globID  
+      !write(*,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+    ! end do 
+
+     !DO j = 1, size(self % nodes) 
+      !CALL  self % nodes(j) %destruct ! TODO: Change for MPI
+      !END DO
+
+      !write(*,*) 'deallocate the nodes'
+      !if (allocated(self % nodes)) then
+         !write(*,*) 'self nodes are allocated'
+        ! write(*,*) 'size self nodes are allocated', SIZE(self % nodes)
+         !deallocate(self % nodes, stat=dealloc_status)
+         !if (dealloc_status /= 0) then
+         !   write(*,*) "Deallocation error: ", dealloc_status
+       ! else
+        ! write(*,*) "Deallocation successful"
+        !end if
+      !else 
+     !  !  write(*,*) 'bizzaaaaare, nodes are not allocated wtf??'
+      !end if 
+ 
+     ! write(*,*) 'deallocattion of nodes done '
+      !allocate (self % nodes(new_nNodes))
+      !write(*,*) 'size of new nodes :', SIZE(self % nodes)
+      !write(*,*) ' allocate array for the nodes done '
+ 
+      !do i=1, sn   
+      ! self %nodes(i) % X= tmpNodes(i) % X
+       !self %nodes(i) %globID=tmpNodes(i) % globID
+       !write(*,*) 'printing self%node%X', self %nodes(i) % X
+       !write(*,*) 'printing self%node%GlobID', self %nodes(i) % globID
+
+      !end do 
+
+      !DO j = 1, size(tmpNodes) 
+         !CALL  tmpNodes(j) %destruct ! TODO: Change for MPI
+      !END DO
+
+      !deallocate(tmpNodes)
+      write(*,*) 'marking ekelebts'
+      call self % MarkSlidingElements( new_nFaces, arr1, arr2, Connect)
+      new_nNodes=SIZE(self % nodes) 
+      write(*,*) 'rotating ekelebts'
+     ! do i=1, SIZE(self % nodes)
+        ! new_nodes(i) % X =self % nodes(i) % X 
+         !new_nodes(i) % globID =self % nodes(i) % globID 
+     !end do 
+ 
+
+     
+
+      call self % RotateNodes(theta,n, m , new_nNodes, new_nodes, arr1, arr2, Connect)
+      !modify element's node 
+      write(*,*) 'changing the nodes'
+     ! !all ChangeNodes(self,new_nNodes, new_nodes )
+      do i=1, size(self % Nodes)
+       self % nodes(i) % X =new_nodes(i) % X
+        self % nodes(i) % GlobID=new_nodes(i) % GlobID
+      end do 
+     !DO j = 1, size(self % nodes) 
+        ! CALL  self % nodes(j) %destruct ! TODO: Change for MPI
+      !END DO
+
+
+
+      !write(*,*) 'deallocattion of nodes done '
+      !allocate (self % nodes(new_nNodes))
+      !write(*,*) ' allocate array for the nodes done '
+      !DO j = 1, size(new_nodes) 
+         !CALL ConstructNode( self % nodes(j), new_nodes(j) % X, new_nodes(j)% globID ) ! TODO: Change for MPI
+      !END DO
+      write(*,*) 'newnodes constructed'
+    
+      i=1
+      !modify HO nodes 
+            write(*,*) 'changing th eHO  nodes'
+
+      !do l=1, self % no_of_elements
+          !call self % Elements(l) % geom % destruct
+        !  do j=1, 6 
+           ! if (.not.allocated(self % elements(l) % SurfInfo % facePatches(j)%points)) then
+             !  write(*,*) 'facepatch%point not allocated'
+            !   if  (.not.allocated(self % elements(l) % SurfInfo % facePatches(j)%uKnots)) then
+              !    write(*,*) 'facepatch%uKnots not allocated'
+             !  end if 
+            !else
+             ! call self % elements(l) % SurfInfo % facePatches(j) % setFacePoints(fp(i)% points)
+             ! i=i+1
+           ! end if 
+          !end do 
+      !end do 
+      !destruct the faces 
+      do l=1, self% numberOfFaces
+          call self % faces(l) % Destruct
+      end do 
+        write(*,*) 'changing the faces'
+      !if (allocated(self % faces )) then
+         !write(*,*) 'deallocatinf faces' 
+         !safedeallocate(self % faces )
+      !end if 
+      !new_nFaces=self% numberOfFaces+SIZE(arr1)
+      !self% numberOfFaces=new_nFaces
+     ! allocate (self % faces (self% numberOfFaces))
+      !write(*,*) 'allocating the new faces done'
+
+      !CALL SetElementBoundaryNames( self % elements(l), names )
+      !faces connectivity
+      CALL ConstructFaces( self, success )
+      if (allocated(self % zones) ) then 
+         deallocate(self % zones)
+      end if 
+      call self % ConstructZones()
+      !CALL ReassignZones(self % faces, self % zones)
+      CALL getElementsFaceIDs(self)
+  
+      call self % DefineAsBoundaryFaces()
+      !nodes: gauss or lobatto 
+      call self % SetConnectivitiesAndLinkFaces(nodes) 
+      call self % ConstructGeometry()
+      !construct the mortars 
+      !call construct_sliding_mortars()
+      write(*,*) ' end modifymesh'
+
+  end subroutine modify_mesh
+
+   
+
 #ifdef HAS_HDF5
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1320,6 +1720,26 @@ contains
       deallocate (HOPRNodeMap)
       
    end subroutine FinishNodeMap
+
+   !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------------------------------
+!  Mapping between the side index used by HOPR and the ones used by HORSES 3D
+!  The mapping is the same as the one for the CNGS standard.
+!  -----------------------------------------------------------------------------------------------------------------------
+   pure function HOPR2HORSESSideMap2() result(HSideMap2)
+      implicit none
+      integer :: HSideMap2(6)
+      
+      HSideMap2(1) = 3
+      HSideMap2(2) = 1
+      HSideMap2(3) = 4
+      HSideMap2(4) = 2
+      HSideMap2(5) = 6
+      HSideMap2(6) = 5
+   end function HOPR2HORSESSideMap2
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif
 end module Read_HDF5Mesh_HOPR
