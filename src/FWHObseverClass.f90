@@ -868,7 +868,6 @@ use VariableConversion, only: Pressure, PressureDot
          meshFaceIDs = mesh % elements(eID) % faceIDs
 
 !$omp task depend(inout:elements(eID))
-         if (.not.mesh%nonconforming) then
          call elements(eID) % ProlongSolutionToFaces(NCONS,&
                                                             mesh % faces(meshFaceIDs(1)),&
                                                             mesh % faces(meshFaceIDs(2)),&
@@ -877,17 +876,6 @@ use VariableConversion, only: Pressure, PressureDot
                                                             mesh % faces(meshFaceIDs(5)),&
                                                             mesh % faces(meshFaceIDs(6)),&
                                                              computeQdot = .TRUE.)
-         else 
-        call elements(eID) % ProlongSolutionToFaces(NCONS,&
-                                                            mesh % faces(meshFaceIDs(1)),&
-                                                            mesh % faces(meshFaceIDs(2)),&
-                                                            mesh % faces(meshFaceIDs(3)),&
-                                                            mesh % faces(meshFaceIDs(4)),&
-                                                            mesh % faces(meshFaceIDs(5)),&
-                                                            mesh % faces(meshFaceIDs(6)),&
-                                                            computeQdot = .TRUE.,&
-                                                            faces=mesh % faces)
-         end if 
 
          ! if ( computeGradients ) then
          !    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
