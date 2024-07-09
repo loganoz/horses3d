@@ -2,6 +2,11 @@
 !
 !This class represents the numerical source term as a sponge to complement BC
 
+!Limitations:
+! 1) 
+!ToDO
+! 1) Assert that radious, amplitude, ramp ... are positive
+
 #include "Includes.h"
 Module SpongeClass  !
 #if defined(NAVIERSTOKES) || defined (INCNS)
@@ -16,6 +21,7 @@ Module SpongeClass  !
 
     !definition of sponge class 
     type sponge_t
+        integer                                                  :: numOfSponges     ! number of sponges 
         integer                                                  :: nElements        ! number of elements in sponge region
         integer                                                  :: nElementsAll     ! number of elements in sponge region in all partitions
         integer, dimension(:), allocatable                       :: elementIndexMap  ! map from eID of mesh to sponge arrays
@@ -23,11 +29,11 @@ Module SpongeClass  !
         real(kind=RP)                                            :: amplitude        ! amplitude of the source term
         real(kind=RP)                                            :: delta            ! temporal filter width
         real(kind=RP)                                            :: rampWidth        ! length of the ramp width
-        real(kind=RP), dimension(NDIM)                           :: x0               ! position of start of the sponge (for cylindrical in the center)
-        real(kind=RP)                                            :: radious          ! radious of the ramp zone in cylindrical/cirular sponges
+        real(kind=RP), dimension(:,:),allocatable                :: x0               ! position of start of the sponge (for cylindrical in the center)
+        real(kind=RP), dimension(:), allocatable                 :: radious          ! radious of the ramp zone in cylindrical/cirular sponges
         real(kind=RP), dimension(:,:,:,:,:), allocatable         :: Qbase            ! Base flow (moving average or constant), for every variable in each GAUSS or GL node
-        real(kind=RP), dimension(NDIM)                           :: axis             ! axis vector of the sponge. In cylindrical axis of the cylinder, in cartesian, the aligned vector
-        character(len=STRING_CONSTANT_LENGTH)                    :: shapeType        ! shape of the sponge, either cartesian (aligned with an axis) or cylindrical
+        real(kind=RP), dimension(:,:) ,allocatable              :: axis             ! axis vector of the sponge. In cylindrical axis of the cylinder, in cartesian, the aligned vector
+        character(len=STRING_CONSTANT_LENGTH),dimension(:), allocatable       :: shapeType        ! shape of the sponge, either cartesian (aligned with an axis) or cylindrical
         character(len=STRING_CONSTANT_LENGTH)                    :: initialFileName  ! file name to load the initial base flow
         character(len=STRING_CONSTANT_LENGTH)                    :: solutionFileName ! file name to write base flow
         logical                                                  :: readBaseFLowFlag     ! read base flow from file or use instantaneous Q to start
@@ -49,6 +55,15 @@ Module SpongeClass  !
 
   type(sponge_t)                                                :: sponge
 
+
+    integer,                       parameter :: KEYWORD_LENGTH             = 132
+    character(len=KEYWORD_LENGTH), parameter :: SPONGE_CYLINDRICAL_NAME    = "cylindrical"
+    character(len=KEYWORD_LENGTH), parameter :: SPONGE_CARTESIAN_NAME      = "cartesian"   
+
+    enum, bind(C)
+    enumerator :: SPONGE_CYLINDRICAL = 1, SPONGE_CARTESIAN
+    end enum
+
   contains
 
 !/////////////////////////////////////////////////////////////////////////
@@ -68,25 +83,62 @@ Module SpongeClass  !
         type(FTValueDictionary), intent(in)                     :: controlVariables
 
         !local variables
-        character(len=STRING_CONSTANT_LENGTH)                   :: coordinates, axis, fileNameControl, solution_file, restart_name, restart_baseflow_name
+        character(len=STRING_CONSTANT_LENGTH)                   :: tmp, numOfSponges, coordinates, axis, fileNameControl, solution_file, restart_name, restart_baseflow_name
         logical                                                 :: fileExists
+        integer                                                 :: i 
+        logical                                                 :: useNumberedKeys !for cases where there is no number key in the control file when using a single sponge
 
         self % isActive = .false.
         if (.not. controlVariables % logicalValueForKey("use sponge")) return
-
+        
+        self % numOfSponges = controlVariables % getValueOrDefault("number of sponges",1)
         self % amplitude = controlVariables % getValueOrDefault("sponge amplitude",1.0_RP)
         self % rampWidth = controlVariables % getValueOrDefault("sponge ramp width",1.0_RP)
         self % delta = controlVariables % getValueOrDefault("sponge temporal width",1.0_RP)
-        coordinates = controlVariables % stringValueForKey("sponge start position", requestedLength = STRING_CONSTANT_LENGTH)
-        self % x0 = getRealArrayFromString(trim(coordinates))
         self % useMovingAverage = controlVariables % logicalValueForKey("sponge use moving average")
-        self % radious = controlVariables % getValueOrDefault("sponge radious",0.0_RP)
+        
+        
+        allocate(self % shapeType(self % numOfSponges))
+        allocate(self % radious(self % numOfSponges))
+        allocate(self % axis(self % numOfSponges,NDIM))
+        allocate(self % x0(self % numOfSponges,NDIM))
+ 
+        do i = 1, self% numOfSponges
+            write(tmp, '("sponge shape ",I0)') i
+            if (controlVariables % containsKey(trim(tmp))) then
+                useNumberedKeys = .true.
+            else
+                useNumberedKeys = .false.
+                write(tmp, '("sponge shape")')
+            end if
 
-        axis = controlVariables % stringValueForKey("sponge axis", requestedLength = STRING_CONSTANT_LENGTH)
-        self % axis = getRealArrayFromString(trim(axis))
-        ! self % axis = [0,0,1]
-        ! for now only cylindrical sponges are available, todo: cartesian
-        self % shapeType = trim(controlVariables % stringValueForKey("sponge shape", requestedLength = STRING_CONSTANT_LENGTH))
+            self % shapeType(i) = trim(controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH))
+            if(self % shapeType(i) == "cylindrical") then
+                if (useNumberedKeys) then
+                    write(tmp, '("sponge radious ",I0)') i
+                else
+                    write(tmp, '("sponge radious")')
+                end if
+                self % radious(i) = controlVariables % getValueOrDefault(tmp,0.0_RP)
+            endif
+            if (useNumberedKeys) then
+                write(tmp, '("sponge axis ",I0)') i
+            else
+                write(tmp, '("sponge axis")')
+            end if
+            axis = controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH)
+            self % axis(i,:) = getRealArrayFromString(trim(axis))
+            !normalize axis
+            self % axis(i,:) = self % axis(i,:)/sqrt(sum(self % axis(i,:)**2))
+
+            if (useNumberedKeys) then
+                write(tmp, '("sponge start position ",I0)') i
+            else
+                write(tmp, '("sponge start position")')
+            end if
+            coordinates = controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH)
+            self % x0(i,:) = getRealArrayFromString(trim(coordinates))
+        end do 
 
 !       Get the file name of the solution
 !       ---------------------------------
@@ -118,14 +170,21 @@ Module SpongeClass  !
          self % isActive = .true.
          if ( .not. MPI_Process % isRoot ) return
          call Subsection_Header("Sponge")
-         write(STD_OUT,'(30X,A,A28,A)') "->", "Shape: ", self % shapeType
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of elements: ", self % nElementsAll
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Amplitude: ", self % amplitude
-         write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Ramp start: ", self % x0
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Ramp width: ", self % rampWidth
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Ramp radious: ", self % radious
-         write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Axis: ", self % axis
          write(STD_OUT,'(30X,A,A28,L1)') "->", "Use moving average: ", self % useMovingAverage
+         do i = 1, self% numOfSponges
+            write(*,*) 
+            write(STD_OUT,'(30X,A,A28,I0)') "->", "Sponge: ", i 
+            write(STD_OUT,'(30X,A,A28,A)') "->", "Shape: ", self % shapeType(i)
+            if(self % shapeType(i) == "cylindrical") then
+               write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Ramp radious: ", self % radious(i)
+            endif
+            write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Axis: ", self % axis(i,:)
+            write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Ramp start: ", self % x0(i,:)
+        end do 
+
          if (self % readBaseFLowFlag) write(STD_OUT,'(30X,A,A28,A)') "->", "Initial base flow file: ", self % initialFileName
 
     End Subroutine spongeConstruct
@@ -158,39 +217,66 @@ Module SpongeClass  !
         logical, dimension(:), allocatable                      :: hasSponge
         integer                                                 :: i, j, k, eID, counter, spongeEID, ierr
         integer, dimension(NDIM)                                :: Nxyz
+        integer                                                 :: sponge_number
+        integer                                                 :: whichSponge = -1
 
         ! it wont work for p-refinement or p adaption
         Nxyz = mesh % elements(1) % Nxyz
 
-        allocate( xStar(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)), sigma(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)), hasSponge(mesh % no_of_elements) )
+        allocate(xStar(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))) 
+        allocate(sigma(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)))
+        allocate(hasSponge(mesh % no_of_elements))
         hasSponge = .false.
         ! self % elementIndexMap = 0
+        
         counter = 0
-        do eID = 1, mesh % no_of_elements
-            associate(e => mesh % elements(eID))
-                do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    r_vector(:) = e % geom % x(:,i,j,k) - self % x0(:)
-                    ! in this case xStar is actually rdiff ^2
-                    xStar(i,j,k) = sum(r_vector*r_vector) - POW2(self % radious)
-                end do         ; end do          ; end do
-                if (any(xStar .ge. 0.0_RP)) then
-                    hasSponge(eID) = .true.
-                    counter = counter + 1
-                end if 
-            end associate
+        do sponge_number=1 , self % numOfSponges 
+
+            select case (self % shapeType(sponge_number))
+            case (SPONGE_CYLINDRICAL_NAME)
+                whichSponge = SPONGE_CYLINDRICAL
+            case (SPONGE_CARTESIAN_NAME)
+                whichSponge = SPONGE_CARTESIAN
+            case default
+                print*, "Sponge name not recognized."
+                errorMessage(STD_OUT)
+                error stop
+            end select
+                
+            do eID = 1, mesh % no_of_elements
+                associate(e => mesh % elements(eID))
+                    do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
+                        r_vector(:) = e % geom % x(:,i,j,k) - self % x0(sponge_number,:)
+                        select case (whichSponge)
+                        case (SPONGE_CYLINDRICAL)
+                            ! in this case xStar is actually rdiff ^2
+                            xStar(i,j,k) = sum(r_vector*r_vector) - POW2(self % radious(sponge_number))
+                        case (SPONGE_CARTESIAN)
+                            ! in this case xstar is the distance to the plane
+                            xStar(i,j,k) = sum(r_vector(:)*self % axis(sponge_number,:))
+                        end select
+                    end do         ; end do          ; end do
+                    if (any(xStar .ge. 0.0_RP) .AND. .not.hasSponge(eID)  ) then
+                        hasSponge(eID) = .true.
+                        counter = counter + 1
+                    end if 
+                end associate
+            end do
         end do
 
         self % nElements = counter
         if ( (MPI_Process % doMPIAction) ) then
 #ifdef _HAS_MPI_
-      call mpi_allreduce(self % nElements, self % nElementsAll, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+        call mpi_allreduce(self % nElements, self % nElementsAll, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
         else
             self % nElementsAll = self % nElements
         end if
 
         ! create mapping array
-        allocate( self % intensity(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3),self%nElements), self  %  elementIndexMap(self % nElements) )
+        allocate( self % intensity(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3),self%nElements)) 
+        allocate( self  %  elementIndexMap(self % nElements) )
+        self % intensity = 0.0_RP
         counter = 0
         do eID = 1, mesh % no_of_elements
             if (hasSponge(eID)) then
@@ -200,28 +286,45 @@ Module SpongeClass  !
         end do
 
         ! now calculate the ramp amplitude
-        do spongeEID = 1, self % nElements
-            eID = self % elementIndexMap(spongeEID)
-            sigma = 0
-            associate(e => mesh % elements(eID))
-                do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    r_vector(:) = e % geom % x(:,i,j,k) - self % x0(:)
-                    ! remove components in the axis direction
-                    r_vector(:) = r_vector(:) - sum((e % geom % x(:,i,j,k) - self % x0(:))*self % axis(:))*self % axis(:)
-                    ! xStar is non-dimensionalized by the width of the ramp, since the difference is squared, the width is too
-                    xStar(i,j,k) = (sum(r_vector*r_vector) - POW2(self % radious)) / POW2(self % rampWidth)
-                end do         ; end do          ; end do
-            end associate
-            ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
-            xStar = max(0.0_RP,xStar)
-            xStar = min(1.0_RP,xStar)
-            ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
-            sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
-            ! limit sigms <=1 since after 1 should be constant at the amplitude value
-            sigma  = MIN(1.0_RP,sigma)
-            ! pre computed intensity, including amplitude and ramp damping
-            self % intensity(:,:,:,spongeEID) = self % amplitude * sigma(:,:,:)
-        end do 
+        do sponge_number=1 , self % numOfSponges 
+
+            select case (self % shapeType(sponge_number))
+            case (SPONGE_CYLINDRICAL_NAME)
+                whichSponge = SPONGE_CYLINDRICAL
+            case (SPONGE_CARTESIAN_NAME)
+                whichSponge = SPONGE_CARTESIAN
+            end select
+
+            do spongeEID = 1, self % nElements
+                eID = self % elementIndexMap(spongeEID)
+                sigma = 0
+                associate(e => mesh % elements(eID))
+                    do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
+                        r_vector(:) = e % geom % x(:,i,j,k) - self % x0(sponge_number,:)
+                        select case (whichSponge)
+                        case (SPONGE_CYLINDRICAL)
+                            ! remove components in the axis direction
+                            r_vector(:) = r_vector(:) - sum((e % geom % x(:,i,j,k) - self % x0(sponge_number,:))*self % axis(sponge_number,:))*self % axis(sponge_number,:)
+                            ! xStar is non-dimensionalized by the width of the ramp, since the difference is squared, the width is too
+                            xStar(i,j,k) = sqrt(sum(r_vector*r_vector) - POW2(self % radious(sponge_number))) / self % rampWidth
+                        case (SPONGE_CARTESIAN)
+                            xStar(i,j,k) = sum(r_vector(:)*self % axis(sponge_number,:))/(self % rampWidth)
+                        end select
+                    end do         ; end do          ; end do
+                end associate
+                if (any(xStar .ge. 0.0_RP)) then
+                    ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
+                    xStar = max(0.0_RP,xStar)
+                    xStar = min(1.0_RP,xStar)
+                    ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
+                    sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
+                    ! limit sigms <=1 since after 1 should be constant at the amplitude value
+                    sigma  = MIN(1.0_RP,sigma)
+                    ! pre computed intensity, including amplitude and ramp damping
+                    self % intensity(:,:,:,spongeEID) = max(self % intensity(:,:,:,spongeEID), self % amplitude * sigma(:,:,:))
+                endif
+            end do 
+        end do
 
         deallocate(xStar, sigma, hasSponge)
 
