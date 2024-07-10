@@ -11,7 +11,7 @@ module MonitorsClass
 #ifdef FLOW
    use ProbeClass
 #endif
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
    use StatisticsMonitor
    use SurfaceMonitorClass
 #endif
@@ -44,7 +44,7 @@ module MonitorsClass
 #ifdef FLOW
       class(Probe_t)               , allocatable :: probes(:)
 #endif
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       class(SurfaceMonitor_t)      , allocatable :: surfaceMonitors(:)
       type(StatisticsMonitor_t)                  :: stats
 #endif
@@ -138,7 +138,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          call Monitors % stats     % Construct(mesh, saveGradients)
 
@@ -200,7 +200,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Write surface monitors labels
 !        -----------------------------
@@ -274,7 +274,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Print dashes for surface monitors
 !        ---------------------------------
@@ -339,7 +339,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Print surface monitors
 !        ----------------------
@@ -423,7 +423,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Update surface monitors
 !        -----------------------
@@ -488,7 +488,7 @@ module MonitorsClass
             end do
 #endif
    
-#if defined(NAVIERSTOKES)   
+#if defined(NAVIERSTOKES) || defined(INCNS)  
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -529,7 +529,7 @@ module MonitorsClass
                end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
                do i = 1 , self % no_of_surfaceMonitors
                   call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
@@ -566,7 +566,7 @@ module MonitorsClass
          safedeallocate (self % probes)
 #endif
          
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          call self % surfaceMonitors % destruct
          safedeallocate (self % surfaceMonitors)
          
@@ -624,7 +624,7 @@ module MonitorsClass
          to % probes = from % probes
 #endif
          
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate ( to % surfaceMonitors )
          allocate ( to % surfaceMonitors ( size(from % surfaceMonitors) ) )
          to % surfaceMonitors = from % surfaceMonitors

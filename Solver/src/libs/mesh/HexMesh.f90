@@ -102,7 +102,7 @@ MODULE HexMeshClass
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
             procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
@@ -2958,7 +2958,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
          logical                          :: saveSensor, saveLES
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES) || !defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
 !
@@ -3164,6 +3164,82 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveStatistics
+
+#endif
+
+#if defined(INCNS) 
+      subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer                          :: no_stat_s
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities (//# I COPIED THESE VERBATIM. Do I reaaly need these?)
+!        ---------------------------
+
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
+            no_stat_s = 9
+            call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+         !    ! write(fid) e%storage%stats%data(7:,:,:,:)
+             Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
+             write(fid) Q
+             deallocate(Q)
+            if ( saveGradients .and. computeGradients ) then
+               allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               ! UX
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
+               write(fid) Q
+               ! UY
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
+               write(fid) Q
+               ! UZ
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:,:,:,:)
+               write(fid) Q
+               deallocate(Q)
+            end if
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SaveStatistics
+
+#endif
+
+#if defined(NAVIERSTOKES) || defined(INCNS)
 
       subroutine HexMesh_ResetStatistics(self)
          implicit none
@@ -4186,7 +4262,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    type(Element)   , pointer :: e
    type(Face)      , pointer :: f
 
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES) || !defined(INCNS))
    logical, parameter            :: computeGradients = .true.
 #endif
    !---------------------------------------------------
@@ -4348,7 +4424,7 @@ end subroutine HexMesh_pAdapt_MPI
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
       type(Face)      , pointer :: f
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES) || !(defined(INCNS)))
       logical, parameter            :: computeGradients = .true.
 #endif
       !---------------------------------------------------

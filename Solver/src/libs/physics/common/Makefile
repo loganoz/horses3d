@@ -21,7 +21,8 @@ LIBOBJS_NS = 	./build_ns/FluidData.o \
 		./build_ns/UserDefinedBC.o \
 		./build_ns/WallFunctionDefinitions.o \
 		./build_ns/WallFunctionBC.o \
-		./build_ns/BoundaryConditions.o 
+		./build_ns/BoundaryConditions.o \
+		./build_ns/LESModels.o
 
 LIBOBJS_NSSA = 	./build_nssa/FluidData.o \
 		./build_nssa/PhysicsStorage.o \
@@ -49,7 +50,8 @@ LIBOBJS_iNS = 	./build_ins/FluidData.o \
 		./build_ins/FreeSlipWallBC.o \
 		./build_ins/PeriodicBC.o \
 		./build_ins/UserDefinedBC.o \
-		./build_ins/BoundaryConditions.o 
+		./build_ins/BoundaryConditions.o \
+		./build_ins/LESModels.o
 
 LIBOBJS_CH = 	./build_ch/FluidData.o \
 		./build_ch/PhysicsStorage.o \

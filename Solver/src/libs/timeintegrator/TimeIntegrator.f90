@@ -420,6 +420,9 @@
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
+#if defined(INCNS)
+      use SpongeClass, only: sponge
+#endif
 
       use IBMClass
 
@@ -488,6 +491,9 @@
           call farm % ConstructFarm(controlVariables, t)
           call farm % UpdateFarm(t, sem % mesh)
       end if
+      call sponge % construct(sem % mesh,controlVariables)
+#endif
+#if defined(INCNS)
       call sponge % construct(sem % mesh,controlVariables)
 #endif
 !
@@ -664,6 +670,9 @@
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
          call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
+#if defined(INCNS)
+         call sponge % updateBaseFlow(sem % mesh,dt)
+#endif
 !
 !        Compute the new time
 !        --------------------
@@ -782,6 +791,9 @@
          end if
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
+#if defined(INCNS)
+         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
+#endif
       end if
 
       sem % maxResidual       = maxval(maxResidual)
@@ -810,6 +822,9 @@
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
          if(ActuatorLineFlag) call farm % DestructFarm
+         call sponge % destruct()
+#endif
+#if defined(INCNS)
          call sponge % destruct()
 #endif
       if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)
@@ -864,7 +879,7 @@
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       use SpongeClass, only: sponge
 #endif
       IMPLICIT NONE
@@ -889,7 +904,7 @@
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       call sponge % writeBaseFlow(sem % mesh, k, t)
 #endif
    END SUBROUTINE SaveRestart
