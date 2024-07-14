@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.0% of total for procedures.">49 statements</a>
+                 title=" 5.6% of total for procedures.">49 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,6 +127,12 @@
   
   
   
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../proc/observerconstruct.html#src">ObserverConstruct</a>
+      </div>
+    </div>
 
 
   </div>
@@ -142,8 +148,8 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='../module/filereadingutilities.html'>FileReadingUtilities</a></li>
-                  <li class="list-inline-item"><a href='../module/paramfileregions.html'>ParamfileRegions</a></li>
+                  <li class="list-inline-item">FileReadingUtilities</li>
+                  <li class="list-inline-item">ParamfileRegions</li>
               </ul>
             </li>
         </ul>
@@ -168,7 +174,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~90"></span>
+              <span class="anchor" id="variable-self~44"></span>
               class(<a href='../type/observerclass.html'>ObserverClass</a>)
             </td>
 <td></td>
@@ -184,7 +190,7 @@
         <tr>
             <td>
               <span class="anchor" id="variable-sourcezone"></span>
-              class(<a href='../type/zone_t.html'>Zone_t</a>),
+              class(Zone_t),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
@@ -198,7 +204,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~37"></span>
+              <span class="anchor" id="variable-mesh~23"></span>
               class(HexMesh),
             </td>
 <td>intent(in)</td>
@@ -213,7 +219,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-id~4"></span>
+              <span class="anchor" id="variable-id~8"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -228,7 +234,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-solution_file~2"></span>
+              <span class="anchor" id="variable-solution_file~11"></span>
               character(len=*),
             </td>
 <td>intent(in)</td>
@@ -243,7 +249,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-firstcall"></span>
+              <span class="anchor" id="variable-firstcall~7"></span>
               logical,
             </td>
 <td>intent(in)</td>
@@ -258,7 +264,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-interpolate"></span>
+              <span class="anchor" id="variable-interpolate~2"></span>
               logical,
             </td>
 <td>intent(in)</td>
@@ -273,7 +279,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-totalnumberoffaces"></span>
+              <span class="anchor" id="variable-totalnumberoffaces~2"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -316,6 +322,112 @@
 
 
     
+    <section>
+    <h2><span class="anchor" id="src"></span>Source Code</h2>
+    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">Subroutine </span><span class="n">ObserverConstruct</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">sourceZone</span><span class="p">,</span><span class="w"> </span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">ID</span><span class="p">,</span><span class="w"> </span><span class="n">solution_file</span><span class="p">,</span><span class="w"> </span><span class="n">FirstCall</span><span class="p">,</span><span class="w"> </span><span class="n">interpolate</span><span class="p">,</span><span class="w"> </span><span class="n">totalNumberOfFaces</span><span class="p">,</span><span class="w"> </span><span class="n">elementSide</span><span class="p">)</span>
+
+<span class="c">!        *****************************************************************************</span>
+<span class="c">!              This subroutine initializes the observer similar to a monitor. The following</span>
+<span class="c">!           data is obtained from the case file:</span>
+<span class="c">!              -&gt; Name: The observer name (10 characters maximum)</span>
+<span class="c">!              -&gt; x: The observer position</span>
+<span class="c">!        *****************************************************************************</span>
+
+<span class="w">       </span><span class="k">use </span><span class="n">ParamfileRegions</span>
+<span class="w">       </span><span class="k">use </span><span class="n">FileReadingUtilities</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">getRealArrayFromString</span>
+<span class="w">       </span><span class="k">implicit none</span>
+
+<span class="k">       class</span><span class="p">(</span><span class="n">ObserverClass</span><span class="p">)</span><span class="w">                                 </span><span class="kd">::</span><span class="w"> </span><span class="n">self</span>
+<span class="w">       </span><span class="k">class</span><span class="p">(</span><span class="n">Zone_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                            </span><span class="kd">::</span><span class="w"> </span><span class="n">sourceZone</span>
+<span class="w">       </span><span class="k">class</span><span class="p">(</span><span class="n">HexMesh</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                           </span><span class="kd">::</span><span class="w"> </span><span class="n">mesh</span>
+<span class="w">       </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                                  </span><span class="kd">::</span><span class="w"> </span><span class="n">ID</span><span class="p">,</span><span class="w"> </span><span class="n">totalNumberOfFaces</span>
+<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=*</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                         </span><span class="kd">::</span><span class="w"> </span><span class="n">solution_file</span>
+<span class="w">       </span><span class="kt">logical</span><span class="p">,</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                                  </span><span class="kd">::</span><span class="w"> </span><span class="n">FirstCall</span><span class="p">,</span><span class="w"> </span><span class="n">interpolate</span>
+<span class="w">       </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                    </span><span class="kd">::</span><span class="w"> </span><span class="n">elementSide</span>
+
+<span class="w">       </span><span class="c">! local variables</span>
+<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_OBSERVER</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">in_label</span>
+<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_OBSERVER</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">fileName</span>
+<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_OBSERVER</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">paramFile</span>
+<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_OBSERVER</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">coordinates</span>
+<span class="w">       </span><span class="kt">integer</span><span class="w">                          </span><span class="kd">::</span><span class="w"> </span><span class="n">fID</span>
+<span class="w">       </span><span class="kt">integer</span><span class="w">                          </span><span class="kd">::</span><span class="w"> </span><span class="n">MeshFaceID</span><span class="p">,</span><span class="w"> </span><span class="n">zoneFaceID</span>
+<span class="w">       </span><span class="c">! integer                          :: elementSide</span>
+<span class="c">!</span>
+<span class="c">!      Get observer ID</span>
+<span class="c">!      --------------</span>
+<span class="w">       </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">ID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ID</span>
+<span class="c">!</span>
+<span class="c">!      Search for the parameters in the case file</span>
+<span class="c">!      ------------------------------------------</span>
+<span class="w">       </span><span class="k">write</span><span class="p">(</span><span class="n">in_label</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A,I0)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;#define acoustic observer &quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">ID</span>
+
+<span class="w">       </span><span class="k">call </span><span class="nb">get_command_argument</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">paramFile</span><span class="p">)</span>
+<span class="w">       </span><span class="k">call </span><span class="n">readValueInRegion</span><span class="p">(</span><span class="nb">trim</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">paramFile</span><span class="p">),</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="p">,</span><span class="w">   </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">observerName</span><span class="p">,</span><span class="w"> </span><span class="n">in_label</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;# end&quot;</span><span class="w"> </span><span class="p">)</span><span class="w"> </span>
+<span class="w">       </span><span class="k">call </span><span class="n">readValueInRegion</span><span class="p">(</span><span class="nb">trim</span><span class="p">(</span><span class="n">paramFile</span><span class="p">),</span><span class="w"> </span><span class="s2">&quot;position&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">coordinates</span><span class="w">        </span><span class="p">,</span><span class="w"> </span><span class="n">in_label</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;# end&quot;</span><span class="w"> </span><span class="p">)</span>
+
+<span class="c">!      Get the coordinates</span>
+<span class="c">!      -------------------</span>
+<span class="w">       </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getRealArrayFromString</span><span class="p">(</span><span class="n">coordinates</span><span class="p">)</span>
+
+<span class="c">!     Enable the observer</span>
+<span class="c">!     ------------------</span>
+<span class="w">      </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">active</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">true</span><span class="p">.</span>
+<span class="w">      </span><span class="k">allocate</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Pac</span><span class="p">(</span><span class="n">OB_BUFFER_SIZE</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="p">)</span>
+
+<span class="c">!     Get source information</span>
+<span class="c">!     ------------------</span>
+<span class="w">      </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sourceZone</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">no_of_faces</span>
+
+<span class="c">!     Construct each pair observer-source</span>
+<span class="c">!     ------------------</span>
+<span class="w">      </span><span class="k">allocate</span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">sourcePair</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span><span class="p">)</span><span class="w"> </span><span class="p">)</span>
+<span class="c">!     Loop the zone to get faces</span>
+<span class="w">      </span><span class="k">do </span><span class="n">zoneFaceID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span>
+<span class="c">!         Face global ID</span>
+<span class="w">          </span><span class="n">MeshFaceID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sourceZone</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">zoneFaceID</span><span class="p">)</span>
+<span class="w">          </span><span class="k">call </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">sourcePair</span><span class="p">(</span><span class="n">zoneFaceID</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">construct</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">MeshFaceID</span><span class="p">),</span><span class="w"> </span><span class="n">MeshFaceID</span><span class="p">,</span><span class="w"> </span><span class="n">FirstCall</span><span class="p">,</span><span class="w"> </span><span class="n">elementSide</span><span class="p">(</span><span class="n">zoneFaceID</span><span class="p">))</span>
+<span class="w">      </span><span class="k">end do</span><span class="w">  </span>
+
+<span class="c">!     Allocate variables for interpolation</span>
+<span class="c">!     -------------------------------------------------</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">interpolate</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">          do </span><span class="n">zoneFaceID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span>
+<span class="w">              </span><span class="k">call </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">sourcePair</span><span class="p">(</span><span class="n">zoneFaceID</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">allocPacc</span><span class="p">(</span><span class="n">OB_BUFFER_SIZE</span><span class="p">)</span>
+<span class="w">          </span><span class="k">end do</span>
+<span class="k">      end if</span><span class="w"> </span>
+
+<span class="c">!     Set the average time delay of the observer</span>
+<span class="c">!     -------------------------------------------------</span>
+<span class="w">      </span><span class="k">call </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">updateTdelay</span><span class="p">(</span><span class="n">totalNumberOfFaces</span><span class="p">)</span>
+
+<span class="c">!     Prepare the file in which the observer is exported</span>
+<span class="c">!     -------------------------------------------------</span>
+<span class="w">      </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">fileName</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A,A,A,A)&#39;</span><span class="p">)</span><span class="w"> </span><span class="nb">trim</span><span class="p">(</span><span class="n">solution_file</span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;.&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="nb">trim</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">observerName</span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;.observer&quot;</span>
+<span class="c">!</span>
+<span class="c">!     Create file</span>
+<span class="c">!     -----------</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">FirstCall</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">         open</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">newunit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">trim</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">fileName</span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;unknown&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;write&quot;</span><span class="w"> </span><span class="p">)</span><span class="w"> </span>
+
+<span class="c">!        Write the file headers</span>
+<span class="c">!        ----------------------</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A20,A  )&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;Observer name:      &quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">trim</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">observerName</span><span class="p">)</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A20,ES24.10)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;x coordinate: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A20,ES24.10)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;y coordinate: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A20,ES24.10)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;z coordinate: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">)</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A10,5(2X,A24))&#39;</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;Iteration&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Time&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Observer_Time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;P&#39;T&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;P&#39;L&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;P&#39;&quot;</span>
+
+<span class="w">         </span><span class="k">close</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">)</span>
+<span class="w">      </span><span class="k">end if</span>
+
+<span class="k">   End Subroutine </span><span class="n">ObserverConstruct</span>
+</pre></div>
+
+    </section>
+    <br>
     
     </div>
   </div>
@@ -335,7 +447,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -359,6 +471,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

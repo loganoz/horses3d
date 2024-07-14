@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.4% of total for modules and submodules.">193 statements</a>
+                 title=" 4.8% of total for modules and submodules.">193 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -176,12 +176,12 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='filereadingutilities.html'>FileReadingUtilities</a></li>
-                  <li class="list-inline-item">SurfaceMesh</li>
-                  <li class="list-inline-item"><a href='fwhobseverclass.html'>FWHObseverClass</a></li>
-                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
                   <li class="list-inline-item">HexMeshClass</li>
+                  <li class="list-inline-item"><a href='fwhobseverclass.html'>FWHObseverClass</a></li>
+                  <li class="list-inline-item">FileReadingUtilities</li>
                   <li class="list-inline-item"><a href='fwhdefinitions.html'>FWHDefinitions</a></li>
+                  <li class="list-inline-item">SurfaceMesh</li>
+                  <li class="list-inline-item">SMConstants</li>
               </ul>
             </li>
         </ul>
@@ -223,7 +223,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-solution_file~7"></span>
+              <span class="anchor" id="variable-solution_file~9"></span>
               character(len=LINE_LENGTH),
             </td>
               <td>public</td>
@@ -257,7 +257,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-bufferline~3"></span>
+              <span class="anchor" id="variable-bufferline~9"></span>
               integer,
             </td>
               <td>public</td>
@@ -291,7 +291,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~61"></span>
+              <span class="anchor" id="variable-t~9"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -325,7 +325,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-totalnumberoffaces~3"></span>
+              <span class="anchor" id="variable-totalnumberoffaces"></span>
               integer,
             </td>
               <td>public</td>
@@ -342,7 +342,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-issolid~5"></span>
+              <span class="anchor" id="variable-issolid"></span>
               logical,
             </td>
               <td>public</td>
@@ -393,7 +393,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-interpolate~3"></span>
+              <span class="anchor" id="variable-interpolate"></span>
               logical,
             </td>
               <td>public</td>
@@ -419,12 +419,12 @@
           <tbody>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/fwhclass.html#boundprocedure-construct~8'>construct</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/fwhconstruct.html'>FWHConstruct</a></td>
+  <strong><a href='../type/fwhclass.html#boundprocedure-construct'>construct</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/fwhconstruct.html'>FWHConstruct</a></td>
                 <td></td>
               </tr>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/fwhclass.html#boundprocedure-destruct~7'>destruct</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/fwhdestruct.html'>FWHDestruct</a></td>
+  <strong><a href='../type/fwhclass.html#boundprocedure-destruct~6'>destruct</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/fwhdestruct.html'>FWHDestruct</a></td>
                 <td></td>
               </tr>
               <tr>
@@ -434,7 +434,7 @@
               </tr>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/fwhclass.html#boundprocedure-writetofile~2'>writeToFile</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/fwhwritetofile.html'>FWHWriteToFile</a></td>
+  <strong><a href='../type/fwhclass.html#boundprocedure-writetofile'>writeToFile</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/fwhwritetofile.html'>FWHWriteToFile</a></td>
                 <td></td>
               </tr>
           </tbody>
@@ -490,7 +490,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~151"></span>
+              <span class="anchor" id="variable-self~40"></span>
               class(<a href='../type/fwhclass.html'>FWHClass</a>)
             </td>
 <td></td>
@@ -505,7 +505,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~54"></span>
+              <span class="anchor" id="variable-mesh~21"></span>
               class(HexMesh),
             </td>
 <td>intent(in)</td>
@@ -520,8 +520,8 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-controlvariables~20"></span>
-              class(<a href='../type/ftvaluedictionary.html'>FTValueDictionary</a>),
+              <span class="anchor" id="variable-controlvariables~2"></span>
+              class(FTValueDictionary),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
@@ -560,7 +560,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~152"></span>
+              <span class="anchor" id="variable-self~41"></span>
               class(<a href='../type/fwhclass.html'>FWHClass</a>)
             </td>
 <td></td>
@@ -575,7 +575,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~55"></span>
+              <span class="anchor" id="variable-mesh~22"></span>
               class(HexMesh)
             </td>
 <td></td>
@@ -590,7 +590,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~62"></span>
+              <span class="anchor" id="variable-t~10"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -660,7 +660,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~153"></span>
+              <span class="anchor" id="variable-self~42"></span>
               class(<a href='../type/fwhclass.html'>FWHClass</a>)
             </td>
 <td></td>
@@ -715,7 +715,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~154"></span>
+              <span class="anchor" id="variable-self~43"></span>
               class(<a href='../type/fwhclass.html'>FWHClass</a>),
             </td>
 <td>intent(inout)</td>
@@ -758,7 +758,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -782,6 +782,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

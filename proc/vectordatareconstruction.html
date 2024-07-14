@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.0% of total for procedures.">51 statements</a>
+                 title=" 5.9% of total for procedures.">51 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,6 +127,12 @@
   
   
   
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../proc/vectordatareconstruction.html#src">VectorDataReconstruction</a>
+      </div>
+    </div>
 
 
   </div>
@@ -142,15 +148,15 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
-                  <li class="list-inline-item"><a href='../module/tessellationtypes.html'>TessellationTypes</a></li>
-                  <li class="list-inline-item"><a href='../module/kdclass.html'>KDClass</a></li>
-                  <li class="list-inline-item"><a href='../module/ibmclass.html'>IBMClass</a></li>
-                  <li class="list-inline-item"><a href='../module/mpi_ibmutilities.html'>MPI_IBMUtilities</a></li>
-                  <li class="list-inline-item"><a href='../module/mappedgeometryclass.html'>MappedGeometryClass</a></li>
+                  <li class="list-inline-item">MappedGeometryClass</li>
+                  <li class="list-inline-item">MPI_Process_Info</li>
+                  <li class="list-inline-item">TessellationTypes</li>
+                  <li class="list-inline-item">IBMClass</li>
+                  <li class="list-inline-item">MPI_IBMUtilities</li>
                   <li class="list-inline-item"><a href='https://www.openmp.org/spec-html/5.1/openmpch3.html#x156-1890003'>omp_lib</a></li>
-                  <li class="list-inline-item"><a href='../module/mpi_process_info.html'>MPI_Process_Info</a></li>
-                  <li class="list-inline-item"><a href='../module/orientedboundingbox.html'>OrientedBoundingBox</a></li>
+                  <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
+                  <li class="list-inline-item">OrientedBoundingBox</li>
+                  <li class="list-inline-item">KDClass</li>
               </ul>
             </li>
         </ul>
@@ -174,7 +180,7 @@
         <tr>
             <td>
               <span class="anchor" id="variable-ibm~3"></span>
-              type(<a href='../type/ibm_type.html'>IBM_type</a>),
+              type(IBM_type),
             </td>
 <td>intent(inout)</td>
               <td></td>            <td>
@@ -188,7 +194,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-elements~10"></span>
+              <span class="anchor" id="variable-elements~4"></span>
               type(element),
             </td>
 <td>intent(inout)</td>
@@ -203,7 +209,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-stlnum~21"></span>
+              <span class="anchor" id="variable-stlnum~4"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -218,7 +224,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-integraltype~10"></span>
+              <span class="anchor" id="variable-integraltype~6"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -233,7 +239,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-iter~39"></span>
+              <span class="anchor" id="variable-iter~6"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -263,7 +269,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-dt~30"></span>
+              <span class="anchor" id="variable-dt~3"></span>
               real(kind=RP),
             </td>
 <td>intent(in)</td>
@@ -291,6 +297,101 @@
 
 
     
+    <section>
+    <h2><span class="anchor" id="src"></span>Source Code</h2>
+    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">subroutine </span><span class="n">VectorDataReconstruction</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">,</span><span class="w"> </span><span class="n">elements</span><span class="p">,</span><span class="w"> </span><span class="n">STLNum</span><span class="p">,</span><span class="w"> </span><span class="n">integralType</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">,</span><span class="w"> </span><span class="n">autosave</span><span class="p">,</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="p">)</span>
+<span class="w">      </span><span class="k">use </span><span class="n">TessellationTypes</span>
+<span class="w">      </span><span class="k">use </span><span class="n">MappedGeometryClass</span>
+<span class="w">      </span><span class="k">use </span><span class="n">IBMClass</span>
+<span class="w">      </span><span class="k">use </span><span class="n">OrientedBoundingBox</span>
+<span class="w">      </span><span class="k">use </span><span class="n">KDClass</span>
+<span class="w">      </span><span class="k">use </span><span class="n">MPI_Process_Info</span>
+<span class="w">      </span><span class="k">use </span><span class="n">MPI_IBMUtilities</span>
+<span class="w">      </span><span class="k">use </span><span class="n">omp_lib</span>
+<span class="cp">#ifdef _HAS_MPI_</span>
+<span class="w">      </span><span class="k">use </span><span class="n">mpi</span>
+<span class="cp">#endif</span>
+<span class="c">!</span>
+<span class="c">!        -----------------------------------------------------------------------------------------</span>
+<span class="c">!           This function computes Vector integrals, that is, those</span>
+<span class="c">!           in the form:</span>
+<span class="c">!                 val = \int \vec{v}·\vec{n}dS</span>
+<span class="c">!           The data at the boundary point (BP) is computed through a Inverse Distance Weight</span>
+<span class="c">!           procedure. </span>
+<span class="c">!        -----------------------------------------------------------------------------------------</span>
+<span class="w">      </span><span class="k">implicit none</span>
+<span class="w">      </span><span class="c">!-arguments---------------------------------------------------------------------------------</span>
+<span class="w">      </span><span class="k">type</span><span class="p">(</span><span class="n">IBM_type</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">inout</span><span class="p">)</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">IBM</span>
+<span class="w">      </span><span class="k">type</span><span class="p">(</span><span class="n">element</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">inout</span><span class="p">)</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">elements</span><span class="p">(:)</span>
+<span class="w">      </span><span class="kt">integer</span><span class="p">,</span><span class="w">        </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">integralType</span><span class="p">,</span><span class="w"> </span><span class="n">STLNum</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">dt</span>
+<span class="w">      </span><span class="c">!-local-variables---------------------------------------------------------------------------</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">rp</span><span class="p">),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">Qsurf</span><span class="p">(:,:,:),</span><span class="w"> </span><span class="n">U_xsurf</span><span class="p">(:,:,:),</span><span class="w"> </span><span class="n">U_ysurf</span><span class="p">(:,:,:),</span><span class="w"> </span><span class="n">U_zsurf</span><span class="p">(:,:,:)</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                     </span><span class="kd">::</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span>
+<span class="w">      </span><span class="kt">logical</span><span class="w">                     </span><span class="kd">::</span><span class="w"> </span><span class="n">found</span><span class="p">,</span><span class="w"> </span><span class="n">autosave</span>
+
+<span class="w">      </span><span class="k">if</span><span class="p">(</span><span class="w"> </span><span class="p">.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">Integral</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">compute</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">return </span>
+
+<span class="k">      allocate</span><span class="p">(</span><span class="w"> </span><span class="n">Qsurf</span><span class="p">(</span><span class="n">NCONS</span><span class="p">,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">NumOfInterPoints</span><span class="p">,</span><span class="n">NumOfVertices</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span><span class="p">),</span><span class="w">   </span><span class="p">&amp;</span>
+<span class="w">                </span><span class="n">U_xsurf</span><span class="p">(</span><span class="n">NCONS</span><span class="p">,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">NumOfInterPoints</span><span class="p">,</span><span class="n">NumOfVertices</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span><span class="p">),</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="w">                </span><span class="n">U_ysurf</span><span class="p">(</span><span class="n">NCONS</span><span class="p">,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">NumOfInterPoints</span><span class="p">,</span><span class="n">NumOfVertices</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span><span class="p">),</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="w">                </span><span class="n">U_zsurf</span><span class="p">(</span><span class="n">NCONS</span><span class="p">,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">NumOfInterPoints</span><span class="p">,</span><span class="n">NumOfVertices</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="w">  </span><span class="p">)</span>
+<span class="w">      </span><span class="k">call </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">BandPoint_state</span><span class="p">(</span><span class="w"> </span><span class="n">elements</span><span class="p">,</span><span class="w"> </span><span class="n">STLNum</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">true</span><span class="p">.</span><span class="w"> </span><span class="p">)</span>
+<span class="w"> </span>
+<span class="w">      </span><span class="k">if</span><span class="p">(</span><span class="w"> </span><span class="p">.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">MPI_Process</span><span class="p">%</span><span class="w"> </span><span class="n">isRoot</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">return </span>
+
+<span class="k">      if</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">move</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">         if</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">motionType</span><span class="w"> </span><span class="p">.</span><span class="n">eq</span><span class="p">.</span><span class="w"> </span><span class="n">ROTATION</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">            call </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">getRotationaMatrix</span><span class="p">(</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="p">)</span>
+<span class="w">            </span><span class="k">call </span><span class="n">OBB</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">STL_rotate</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">),</span><span class="w"> </span><span class="p">.</span><span class="n">true</span><span class="p">.</span><span class="w"> </span><span class="p">)</span>
+<span class="w">         </span><span class="k">elseif</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">motionType</span><span class="w"> </span><span class="p">.</span><span class="n">eq</span><span class="p">.</span><span class="w"> </span><span class="n">LINEAR</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">            call </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">getDisplacement</span><span class="p">(</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="p">)</span>
+<span class="w">            </span><span class="k">call </span><span class="n">OBB</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">STL_translate</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">),</span><span class="w"> </span><span class="p">.</span><span class="n">true</span><span class="p">.</span><span class="w"> </span><span class="p">)</span>
+<span class="w">         </span><span class="k">end if</span>
+<span class="k">      end if</span>
+<span class="c">!$omp parallel</span>
+<span class="c">!$omp do schedule(runtime) private(j,found,Qsurf,U_xsurf,U_ysurf,U_zsurf)</span>
+<span class="w">      </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">NumOfObjs</span>
+
+<span class="w">         </span><span class="k">do </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">NumOfVertices</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span>
+<span class="w">            </span><span class="k">call </span><span class="n">GetSurfaceState</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">,</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">),</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">),</span><span class="w"> </span><span class="n">STLNum</span><span class="w"> </span><span class="p">)</span><span class="w"> </span>
+
+<span class="w">            </span><span class="n">Qsurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">)</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">BandRegion</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">Q</span><span class="w">  </span><span class="p">(:,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">)%</span><span class="w"> </span><span class="n">nearestPoints</span><span class="p">)</span><span class="w">   </span>
+<span class="w">            </span><span class="n">U_xsurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">BandRegion</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">U_x</span><span class="p">(:,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">)%</span><span class="w"> </span><span class="n">nearestPoints</span><span class="p">)</span><span class="w"> </span>
+<span class="w">            </span><span class="n">U_ysurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">BandRegion</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">U_y</span><span class="p">(:,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">)%</span><span class="w"> </span><span class="n">nearestPoints</span><span class="p">)</span><span class="w"> </span>
+<span class="w">            </span><span class="n">U_zsurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">BandRegion</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">U_z</span><span class="p">(:,</span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">)%</span><span class="w"> </span><span class="n">nearestPoints</span><span class="p">)</span><span class="w"> </span>
+<span class="w">         </span><span class="k">end do</span>
+<span class="k">         </span>
+<span class="k">         do </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">NumOfVertices</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">            </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">)%</span><span class="w"> </span><span class="n">VectorValue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IntegratedVectorValue</span><span class="p">(</span><span class="w"> </span><span class="n">Q</span><span class="w">                 </span><span class="o">=</span><span class="w"> </span><span class="n">Qsurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">),</span><span class="w">                                                  </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">U_x</span><span class="w">               </span><span class="o">=</span><span class="w"> </span><span class="n">U_xsurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">),</span><span class="w">                                                </span><span class="p">&amp;</span><span class="w">  </span>
+<span class="w">                                                                                                                </span><span class="n">U_y</span><span class="w">               </span><span class="o">=</span><span class="w"> </span><span class="n">U_ysurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">),</span><span class="w">                                                </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">U_z</span><span class="w">               </span><span class="o">=</span><span class="w"> </span><span class="n">U_zsurf</span><span class="p">(:,:,</span><span class="n">j</span><span class="p">),</span><span class="w">                                                </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">vertex</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">vertices</span><span class="p">(</span><span class="n">j</span><span class="p">),</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">normal</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stlSurfaceIntegrals</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ObjectsList</span><span class="p">(</span><span class="n">i</span><span class="p">)%</span><span class="w"> </span><span class="n">normal</span><span class="p">,</span><span class="w">      </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">y</span><span class="w">                 </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">IP_Distance</span><span class="p">,</span><span class="w">                                              </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">Wallfunction</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">Wallfunction</span><span class="p">,</span><span class="w">                                             </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">integralType</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">integralType</span><span class="p">,</span><span class="w">                                                  </span><span class="p">&amp;</span>
+<span class="w">                                                                                                                </span><span class="n">InterpolationType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">InterpolationType</span><span class="w">                                         </span><span class="p">)</span><span class="w">   </span>
+<span class="w">         </span><span class="k">end do</span>
+<span class="k">      end do</span><span class="w"> </span>
+<span class="c">!$omp end do</span>
+<span class="c">!$omp end parallel</span>
+<span class="w">      </span><span class="k">deallocate</span><span class="p">(</span><span class="w"> </span><span class="n">Qsurf</span><span class="p">,</span><span class="w"> </span><span class="n">U_xsurf</span><span class="p">,</span><span class="w"> </span><span class="n">U_ysurf</span><span class="p">,</span><span class="w"> </span><span class="n">U_zsurf</span><span class="w"> </span><span class="p">)</span>
+
+<span class="w">      </span><span class="k">if</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">stl</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">move</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">         </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">Integral</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ListComputed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">false</span><span class="p">.</span>
+<span class="w">      </span><span class="k">else</span>
+<span class="k">         </span><span class="n">IBM</span><span class="p">%</span><span class="w"> </span><span class="n">Integral</span><span class="p">(</span><span class="n">STLNum</span><span class="p">)%</span><span class="w"> </span><span class="n">ListComputed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">true</span><span class="p">.</span>
+<span class="w">      </span><span class="k">end if</span>
+
+<span class="k">      if</span><span class="p">(</span><span class="w"> </span><span class="n">autosave</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">call </span><span class="n">GenerateVectormonitorTECfile</span><span class="p">(</span><span class="w"> </span><span class="n">IBM</span><span class="p">,</span><span class="w"> </span><span class="n">STLNum</span><span class="p">,</span><span class="w"> </span><span class="n">integralType</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="w"> </span><span class="p">)</span>
+
+<span class="w">   </span><span class="k">end subroutine </span><span class="n">VectorDataReconstruction</span>
+</pre></div>
+
+    </section>
+    <br>
     
     </div>
   </div>
@@ -310,7 +411,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -334,6 +435,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

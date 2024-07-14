@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.0% of total for procedures.">36 statements</a>
+                 title=" 4.1% of total for procedures.">36 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,6 +127,12 @@
   
   
   
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../proc/observerupdatetdelay.html#src">ObserverUpdateTdelay</a>
+      </div>
+    </div>
 
 
   </div>
@@ -142,7 +148,7 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='../module/mpi_process_info.html'>MPI_Process_Info</a></li>
+                  <li class="list-inline-item">MPI_Process_Info</li>
               </ul>
             </li>
         </ul>
@@ -167,7 +173,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~92"></span>
+              <span class="anchor" id="variable-self~46"></span>
               class(<a href='../type/observerclass.html'>ObserverClass</a>)
             </td>
 <td></td>
@@ -182,7 +188,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-totalnumberoffaces~2"></span>
+              <span class="anchor" id="variable-totalnumberoffaces~3"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -210,6 +216,68 @@
 
 
     
+    <section>
+    <h2><span class="anchor" id="src"></span>Source Code</h2>
+    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">Subroutine </span><span class="n">ObserverUpdateTdelay</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">totalNumberOfFaces</span><span class="p">)</span>
+
+<span class="c">!     *******************************************************************</span>
+<span class="c">!        This subroutine updates the observer time delay. For static surfaces it </span>
+<span class="c">!        doesn&#39;t need to be updated at every iteration.</span>
+<span class="c">!        Minimum time is used, for interpolation procedures</span>
+<span class="c">!     *******************************************************************</span>
+<span class="c">!</span>
+<span class="w">      </span><span class="k">use </span><span class="n">MPI_Process_Info</span>
+<span class="w">      </span><span class="k">implicit none</span>
+<span class="k">      class</span><span class="w">   </span><span class="p">(</span><span class="n">ObserverClass</span><span class="p">)</span><span class="w">                              </span><span class="kd">::</span><span class="w"> </span><span class="n">self</span>
+<span class="w">      </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                                  </span><span class="kd">::</span><span class="w"> </span><span class="n">totalNumberOfFaces</span>
+<span class="w">      </span>
+<span class="w">      </span><span class="c">! local variables</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                              </span><span class="kd">::</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">ierr</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                        </span><span class="kd">::</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">tmax</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">             </span><span class="kd">::</span><span class="w"> </span><span class="n">alltDelay</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span><span class="p">)</span><span class="w">       </span><span class="kd">::</span><span class="w"> </span><span class="n">tDelayArray</span>
+<span class="w">      </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">nProcs</span><span class="p">)</span><span class="w">             </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_faces_p</span><span class="p">,</span><span class="w"> </span><span class="n">displs</span>
+
+<span class="w">      </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span>
+<span class="w">        </span><span class="n">tDelayArray</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">sourcePair</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">tDelay</span>
+<span class="w">      </span><span class="k">end do</span>
+
+<span class="k">      if</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="p">(</span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">doMPIAction</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="cp">#ifdef _HAS_MPI_</span>
+<span class="w">          </span><span class="k">call </span><span class="n">mpi_gather</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">MPI_INT</span><span class="p">,</span><span class="n">no_of_faces_p</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">MPI_INT</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="n">ierr</span><span class="p">)</span>
+
+<span class="w">          </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isRoot</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">              </span><span class="n">displs</span><span class="o">=</span><span class="mi">0</span>
+<span class="w">              </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">nProcs</span><span class="w"> </span>
+<span class="w">                  </span><span class="n">displs</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">displs</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">no_of_faces_p</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">              </span><span class="k">end do</span>
+<span class="k">          end if</span>
+
+<span class="k">          allocate</span><span class="p">(</span><span class="n">alltDelay</span><span class="p">(</span><span class="n">totalNumberOfFaces</span><span class="p">))</span>
+<span class="w">          </span><span class="k">call </span><span class="n">mpi_gatherv</span><span class="p">(</span><span class="n">tDelayArray</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfFaces</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_DOUBLE</span><span class="p">,</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="w">                                     </span><span class="n">alltDelay</span><span class="p">,</span><span class="w"> </span><span class="n">no_of_faces_p</span><span class="p">,</span><span class="w"> </span><span class="n">displs</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_DOUBLE</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="n">ierr</span><span class="p">)</span>
+
+<span class="w">          </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isRoot</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">              </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">minval</span><span class="p">(</span><span class="n">alltDelay</span><span class="p">)</span>
+<span class="w">              </span><span class="n">tmax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">maxval</span><span class="p">(</span><span class="n">alltDelay</span><span class="p">)</span>
+<span class="w">          </span><span class="k">end if</span>
+
+<span class="k">          call </span><span class="n">mpi_Bcast</span><span class="p">(</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_DOUBLE</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="n">ierr</span><span class="p">)</span>
+<span class="w">          </span><span class="k">call </span><span class="n">mpi_Bcast</span><span class="p">(</span><span class="n">tmax</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_DOUBLE</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="n">ierr</span><span class="p">)</span>
+<span class="cp">#endif</span>
+<span class="w">      </span><span class="k">else</span>
+<span class="k">          </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">minval</span><span class="p">(</span><span class="n">tDelayArray</span><span class="p">)</span>
+<span class="w">          </span><span class="n">tmax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">maxval</span><span class="p">(</span><span class="n">tDelayArray</span><span class="p">)</span>
+<span class="w">      </span><span class="k">end if</span>
+
+<span class="k">      </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">tDelay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t</span>
+<span class="w">      </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">tDelayMax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tmax</span>
+
+<span class="w">   </span><span class="k">End Subroutine </span><span class="n">ObserverUpdateTdelay</span>
+</pre></div>
+
+    </section>
+    <br>
     
     </div>
   </div>
@@ -229,7 +297,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -253,6 +321,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 1.8% of total for derived types.</p>Including implementation: 316 statements,  1.9% of total for derived types.">30 statements</a>
+                 title="<p>14.3% of total for derived types.</p>Including implementation: 316 statements, 12.4% of total for derived types.">30 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,24 +115,24 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/monitor_t.html#variable-solution_file~3">solution_file</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-solution_file~7">solution_file</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-no_of_probes">no_of_probes</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-no_of_surfacemonitors">no_of_surfaceMonitors</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-no_of_volumemonitors">no_of_volumeMonitors</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-no_of_loadbalancingmonitors">no_of_loadBalancingMonitors</a>
-            <a class="list-group-item" href="../type/monitor_t.html#variable-bufferline">bufferLine</a>
-            <a class="list-group-item" href="../type/monitor_t.html#variable-iter~6">iter</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-bufferline~8">bufferLine</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-iter~14">iter</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-dt_restriction">dt_restriction</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-write_dt_restriction">write_dt_restriction</a>
-            <a class="list-group-item" href="../type/monitor_t.html#variable-t~44">t</a>
-            <a class="list-group-item" href="../type/monitor_t.html#variable-solversimutime">SolverSimuTime</a>
-            <a class="list-group-item" href="../type/monitor_t.html#variable-totalsimutime">TotalSimuTime</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-t~7">t</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-solversimutime~2">SolverSimuTime</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-totalsimutime~2">TotalSimuTime</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-residuals">residuals</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-volumemonitors">volumeMonitors</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-loadbalancingmonitors">loadBalancingMonitors</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-probes">probes</a>
             <a class="list-group-item" href="../type/monitor_t.html#variable-surfacemonitors">surfaceMonitors</a>
-            <a class="list-group-item" href="../type/monitor_t.html#variable-stats~2">stats</a>
+            <a class="list-group-item" href="../type/monitor_t.html#variable-stats">stats</a>
         </div>
       </div>
     </div>
@@ -159,21 +159,27 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-construct">Construct</a>
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writelabel">WriteLabel</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-construct~2">Construct</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writelabel~6">WriteLabel</a>
             <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writeunderlines">WriteUnderlines</a>
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writevalues">WriteValues</a>
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-updatevalues">UpdateValues</a>
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writetofile">WriteToFile</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writevalues~5">WriteValues</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-updatevalues~2">UpdateValues</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-writetofile~5">WriteToFile</a>
             <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-destruct~5">destruct</a>
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-copy~2">copy</a>
-            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-assignment%28%3D%29~2">assignment(=)</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-copy~5">copy</a>
+            <a class="list-group-item" href="../type/monitor_t.html#boundprocedure-assignment%28%3D%29~5">assignment(=)</a>
         </div>
       </div>
     </div>
 
   
   
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../type/monitor_t.html#src">Monitor_t</a>
+      </div>
+    </div>
 
 
   </div>
@@ -200,7 +206,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-solution_file~3"></span>
+              <span class="anchor" id="variable-solution_file~7"></span>
               character(len=LINE_LENGTH),
             </td>
               <td>public</td>
@@ -285,7 +291,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-bufferline"></span>
+              <span class="anchor" id="variable-bufferline~8"></span>
               integer,
             </td>
               <td>public</td>
@@ -302,7 +308,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-iter~6"></span>
+              <span class="anchor" id="variable-iter~14"></span>
               integer,
             </td>
               <td>public,</td>
@@ -353,7 +359,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-t~44"></span>
+              <span class="anchor" id="variable-t~7"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -370,7 +376,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-solversimutime"></span>
+              <span class="anchor" id="variable-solversimutime~2"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -387,7 +393,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-totalsimutime"></span>
+              <span class="anchor" id="variable-totalsimutime~2"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -489,7 +495,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-stats~2"></span>
+              <span class="anchor" id="variable-stats"></span>
               type(<a href='statisticsmonitor_t.html'>StatisticsMonitor_t</a>),
             </td>
               <td>public</td>
@@ -517,7 +523,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-construct"></span>
+      <span class="anchor" id="boundprocedure-construct~2"></span>
       <h3>
           procedure, public ::
   <strong>Construct</strong> => Monitors_Construct
@@ -576,7 +582,7 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              class(<a href='ftvaluedictionary.html'>FTValueDictionary</a>),
+              class(FTValueDictionary),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
@@ -600,7 +606,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writelabel"></span>
+      <span class="anchor" id="boundprocedure-writelabel~6"></span>
       <h3>
           procedure, public ::
   <strong>WriteLabel</strong> => Monitor_WriteLabel
@@ -706,7 +712,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writevalues"></span>
+      <span class="anchor" id="boundprocedure-writevalues~5"></span>
       <h3>
           procedure, public ::
   <strong>WriteValues</strong> => Monitor_WriteValues
@@ -759,7 +765,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-updatevalues"></span>
+      <span class="anchor" id="boundprocedure-updatevalues~2"></span>
       <h3>
           procedure, public ::
   <strong>UpdateValues</strong> => Monitor_UpdateValues
@@ -902,7 +908,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writetofile"></span>
+      <span class="anchor" id="boundprocedure-writetofile~5"></span>
       <h3>
           procedure, public ::
   <strong>WriteToFile</strong> => Monitor_WriteToFile
@@ -1038,7 +1044,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-copy~2"></span>
+      <span class="anchor" id="boundprocedure-copy~5"></span>
       <h3>
           procedure, public ::
   <strong>copy</strong> => Monitor_Assign
@@ -1106,10 +1112,10 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-assignment%28%3D%29~2"></span>
+      <span class="anchor" id="boundprocedure-assignment%28%3D%29~5"></span>
       <h3>
           generic, public ::
-  <strong>assignment(=)</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/type/monitor_t.html#boundprocedure-copy~2'>copy</a>
+  <strong>assignment(=)</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/type/monitor_t.html#boundprocedure-copy~5'>copy</a>
         
       </h3>
     </div>
@@ -1173,6 +1179,45 @@
           </div>
       </section>
 
+    <section>
+    <h3><span class="anchor" id="src"></span>Source Code</h3>
+    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">type </span><span class="n">Monitor_t</span>
+<span class="w">      </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">LINE_LENGTH</span><span class="p">)</span><span class="w">                 </span><span class="kd">::</span><span class="w"> </span><span class="n">solution_file</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_probes</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_surfaceMonitors</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_volumeMonitors</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_loadBalancingMonitors</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">bufferLine</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                      </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">iter</span><span class="p">(:)</span>
+<span class="w">      </span><span class="kt">integer</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">dt_restriction</span>
+<span class="w">      </span><span class="kt">logical</span><span class="w">                                    </span><span class="kd">::</span><span class="w"> </span><span class="n">write_dt_restriction</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">t</span><span class="p">(:)</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">SolverSimuTime</span><span class="p">(:)</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">TotalSimuTime</span><span class="p">(:)</span>
+<span class="w">      </span><span class="k">type</span><span class="p">(</span><span class="n">Residuals_t</span><span class="p">)</span><span class="w">                          </span><span class="kd">::</span><span class="w"> </span><span class="n">residuals</span>
+<span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">VolumeMonitor_t</span><span class="p">)</span><span class="w">       </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">volumeMonitors</span><span class="p">(:)</span>
+<span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">LoadBalancingMonitor_t</span><span class="p">),</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">loadBalancingMonitors</span><span class="p">(:)</span>
+<span class="cp">#ifdef FLOW</span>
+<span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">Probe_t</span><span class="p">)</span><span class="w">               </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">probes</span><span class="p">(:)</span>
+<span class="cp">#endif</span>
+<span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
+<span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">SurfaceMonitor_t</span><span class="p">)</span><span class="w">      </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="p">(:)</span>
+<span class="w">      </span><span class="k">type</span><span class="p">(</span><span class="n">StatisticsMonitor_t</span><span class="p">)</span><span class="w">                  </span><span class="kd">::</span><span class="w"> </span><span class="n">stats</span>
+<span class="cp">#endif</span>
+<span class="w">      </span><span class="k">contains</span>
+<span class="k">         procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Construct</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitors_Construct</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteLabel</span><span class="w">      </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_WriteLabel</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteUnderlines</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_WriteUnderlines</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteValues</span><span class="w">     </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_WriteValues</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">UpdateValues</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_UpdateValues</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteToFile</span><span class="w">     </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_WriteToFile</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">destruct</span><span class="w">        </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_Destruct</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">copy</span><span class="w">            </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Monitor_Assign</span>
+<span class="w">         </span><span class="k">generic</span><span class="w">     </span><span class="kd">::</span><span class="w"> </span><span class="n">assignment</span><span class="p">(</span><span class="o">=</span><span class="p">)</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">copy</span>
+<span class="w">   </span><span class="k">end type </span><span class="n">Monitor_t</span>
+</pre></div>
+
+    </section>
     
     </div>
   </div>
@@ -1192,7 +1237,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -1216,6 +1261,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

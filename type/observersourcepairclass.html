@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 1.4% of total for derived types.</p>Including implementation: 189 statements,  1.1% of total for derived types.">23 statements</a>
+                 title="<p>11.0% of total for derived types.</p>Including implementation: 189 statements,  7.4% of total for derived types.">23 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -116,7 +116,7 @@
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../type/observersourcepairclass.html#variable-rvect">rVect</a>
-            <a class="list-group-item" href="../type/observersourcepairclass.html#variable-r~5">r</a>
+            <a class="list-group-item" href="../type/observersourcepairclass.html#variable-r">r</a>
             <a class="list-group-item" href="../type/observersourcepairclass.html#variable-re">re</a>
             <a class="list-group-item" href="../type/observersourcepairclass.html#variable-reunitvect">reUnitVect</a>
             <a class="list-group-item" href="../type/observersourcepairclass.html#variable-restar">reStar</a>
@@ -153,8 +153,8 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-construct~5">construct</a>
-            <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-destruct~3">destruct</a>
+            <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-construct~2">construct</a>
+            <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-destruct~7">destruct</a>
             <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-allocpacc">allocPacc</a>
             <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-interpolatesolf">interpolateSolF</a>
             <a class="list-group-item" href="../type/observersourcepairclass.html#boundprocedure-newupdate">newUpdate</a>
@@ -167,6 +167,12 @@
 
   
   
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../type/observersourcepairclass.html#src">ObserverSourcePairClass</a>
+      </div>
+    </div>
 
 
   </div>
@@ -210,7 +216,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-r~5"></span>
+              <span class="anchor" id="variable-r"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -408,7 +414,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-construct~5"></span>
+      <span class="anchor" id="boundprocedure-construct~2"></span>
       <h3>
           procedure, public ::
   <strong>construct</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/observersourcepairconstruct.html'>ObserverSourcePairConstruct</a>
@@ -537,7 +543,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~3"></span>
+      <span class="anchor" id="boundprocedure-destruct~7"></span>
       <h3>
           procedure, public ::
   <strong>destruct</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/observersourcepairdestruct.html'>ObserverSourcePairDestruct</a>
@@ -1144,6 +1150,37 @@
           </div>
       </section>
 
+    <section>
+    <h3><span class="anchor" id="src"></span>Source Code</h3>
+    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">type </span><span class="n">ObserverSourcePairClass</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:,:),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">rVect</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:),</span><span class="w">   </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">r</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:),</span><span class="w">   </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">re</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:,:),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">reUnitVect</span><span class="w"> </span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:),</span><span class="w">   </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">reStar</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:,:),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">reStarUnitVect</span><span class="w"> </span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                       </span><span class="kd">::</span><span class="w"> </span><span class="n">tDelay</span>
+<span class="w">       </span><span class="kt">integer</span><span class="w">                                             </span><span class="kd">::</span><span class="w"> </span><span class="n">faceIDinMesh</span><span class="w">    </span><span class="c">! ID of the source (face) at the Mesh array (linked list)</span>
+<span class="w">       </span><span class="kt">integer</span><span class="w">                                             </span><span class="kd">::</span><span class="w"> </span><span class="n">elementSide</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                       </span><span class="kd">::</span><span class="w"> </span><span class="n">normalCorrection</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:),</span><span class="w">   </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">Pacc</span><span class="w"> </span><span class="c">! temporal solution of acoustic pressure for each pair</span>
+<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:),</span><span class="w">     </span><span class="k">allocatable</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">tInterp</span><span class="w"> </span><span class="c">! time array for interpolation</span>
+
+<span class="w">       </span><span class="k">contains</span>
+
+<span class="k">           procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">construct</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairConstruct</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">destruct</span><span class="w">        </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairDestruct</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">allocPacc</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairAllocSolution</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">interpolateSolF</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairInterpolateSolFirst</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">newUpdate</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairNewUpdate</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">interpolateSolS</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairInterpolateSolSecond</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">updateOneStep</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSourcePairUpdateOneStep</span>
+<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">FWHSurfaceIntegral</span>
+
+<span class="w">   </span><span class="k">end type </span><span class="n">ObserverSourcePairClass</span>
+</pre></div>
+
+    </section>
     
     </div>
   </div>
@@ -1163,7 +1200,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -1187,6 +1224,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

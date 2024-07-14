@@ -17,6 +17,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
+      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -47,15 +48,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 0.9% of total for derived types.</p>Including implementation: 126 statements,  0.8% of total for derived types.">15 statements</a>
+                 title="<p> 7.1% of total for derived types.</p>Including implementation: 126 statements,  4.9% of total for derived types.">15 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,10 +115,10 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/residuals_t.html#variable-active~10">active</a>
-            <a class="list-group-item" href="../type/residuals_t.html#variable-values~40">values</a>
+            <a class="list-group-item" href="../type/residuals_t.html#variable-active~2">active</a>
+            <a class="list-group-item" href="../type/residuals_t.html#variable-values~2">values</a>
             <a class="list-group-item" href="../type/residuals_t.html#variable-cputime">CPUtime</a>
-            <a class="list-group-item" href="../type/residuals_t.html#variable-filename~38">fileName</a>
+            <a class="list-group-item" href="../type/residuals_t.html#variable-filename~3">fileName</a>
         </div>
       </div>
     </div>
@@ -145,20 +145,26 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-initialization~3">Initialization</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-update~4">Update</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-writelabel~5">WriteLabel</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-writevalues~4">WriteValues</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-writetofile~4">WriteToFile</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-destruct~34">destruct</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-copy~9">copy</a>
-            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-assignment%28%3D%29~5">assignment(=)</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-initialization~2">Initialization</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-update~2">Update</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-writelabel~2">WriteLabel</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-writevalues~2">WriteValues</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-writetofile~2">WriteToFile</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-destruct~2">destruct</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-copy~2">copy</a>
+            <a class="list-group-item" href="../type/residuals_t.html#boundprocedure-assignment%28%3D%29~2">assignment(=)</a>
         </div>
       </div>
     </div>
 
   
   
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../type/residuals_t.html#src">Residuals_t</a>
+      </div>
+    </div>
 
 
   </div>
@@ -185,7 +191,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-active~10"></span>
+              <span class="anchor" id="variable-active~2"></span>
               logical,
             </td>
               <td>public</td>
@@ -202,7 +208,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-values~40"></span>
+              <span class="anchor" id="variable-values~2"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -236,7 +242,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-filename~38"></span>
+              <span class="anchor" id="variable-filename~3"></span>
               character(len=STR_LEN_MONITORS),
             </td>
               <td>public</td>
@@ -264,7 +270,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-initialization~3"></span>
+      <span class="anchor" id="boundprocedure-initialization~2"></span>
       <h3>
           procedure, public ::
   <strong>Initialization</strong> => Residuals_Initialization
@@ -347,7 +353,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-update~4"></span>
+      <span class="anchor" id="boundprocedure-update~2"></span>
       <h3>
           procedure, public ::
   <strong>Update</strong> => Residuals_Update
@@ -445,7 +451,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writelabel~5"></span>
+      <span class="anchor" id="boundprocedure-writelabel~2"></span>
       <h3>
           procedure, public ::
   <strong>WriteLabel</strong> => Residuals_WriteLabel
@@ -498,7 +504,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writevalues~4"></span>
+      <span class="anchor" id="boundprocedure-writevalues~2"></span>
       <h3>
           procedure, public ::
   <strong>WriteValues</strong> => Residuals_WriteValue
@@ -566,7 +572,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writetofile~4"></span>
+      <span class="anchor" id="boundprocedure-writetofile~2"></span>
       <h3>
           procedure, public ::
   <strong>WriteToFile</strong> => Residuals_WriteToFile
@@ -694,7 +700,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~34"></span>
+      <span class="anchor" id="boundprocedure-destruct~2"></span>
       <h3>
           procedure, public ::
   <strong>destruct</strong> => Residuals_Destruct
@@ -747,7 +753,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-copy~9"></span>
+      <span class="anchor" id="boundprocedure-copy~2"></span>
       <h3>
           procedure, public ::
   <strong>copy</strong> => Residuals_Assign
@@ -815,10 +821,10 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-assignment%28%3D%29~5"></span>
+      <span class="anchor" id="boundprocedure-assignment%28%3D%29~2"></span>
       <h3>
           generic, public ::
-  <strong>assignment(=)</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/type/residuals_t.html#boundprocedure-copy~9'>copy</a>
+  <strong>assignment(=)</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/type/residuals_t.html#boundprocedure-copy~2'>copy</a>
         
       </h3>
     </div>
@@ -882,6 +888,26 @@
           </div>
       </section>
 
+    <section>
+    <h3><span class="anchor" id="src"></span>Source Code</h3>
+    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">type </span><span class="n">Residuals_t</span>
+<span class="w">      </span><span class="kt">logical</span><span class="w">                         </span><span class="kd">::</span><span class="w"> </span><span class="n">active</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">      </span><span class="kd">::</span><span class="w"> </span><span class="n">values</span><span class="p">(:,:)</span>
+<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">      </span><span class="kd">::</span><span class="w"> </span><span class="n">CPUtime</span><span class="p">(:)</span>
+<span class="w">      </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_MONITORS</span><span class="p">)</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">fileName</span>
+<span class="w">      </span><span class="k">contains</span>
+<span class="k">         procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Initialization</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_Initialization</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Update</span><span class="w">         </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_Update</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteLabel</span><span class="w">     </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_WriteLabel</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteValues</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_WriteValue</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteToFile</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_WriteToFile</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">destruct</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_Destruct</span>
+<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">copy</span><span class="w">           </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">Residuals_Assign</span>
+<span class="w">         </span><span class="k">generic</span><span class="w">     </span><span class="kd">::</span><span class="w"> </span><span class="n">assignment</span><span class="p">(</span><span class="o">=</span><span class="p">)</span><span class="w">  </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">copy</span>
+<span class="w">   </span><span class="k">end type </span><span class="n">Residuals_t</span>
+</pre></div>
+
+    </section>
     
     </div>
   </div>
@@ -901,7 +927,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-10 11:04              </p>
+ on 2024-07-14 09:02              </p>
           </div>
         </div>
         <br>
@@ -925,6 +951,9 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
+          <script src="../tipuesearch/tipuesearch_content.js"></script>
+          <script src="../tipuesearch/tipuesearch_set.js"></script>
+          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>
