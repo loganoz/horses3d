@@ -59,4 +59,4 @@ The non-dimensional set of equations for the particles reads:
 \frac{d T_p^*}{dt^*} = \frac{\gamma}{3\Gamma St Pr} \left(I_o^* - Nu(T_p^*-T^*)\right)
 \end{equation}
 
-where \(I_o^*=\frac{I_o D_p}{4k_oT_o}) and \(\Gamma=c_{v,p}/c_{v}\) is the ratio of the particle specific heat capacity to the fluid isochoric specific heat capacity.
+where \(I_o^*=\frac{I_o D_p}{4k_oT_o} \) and \(\Gamma=c_{v,p}/c_{v}\) is the ratio of the particle specific heat capacity to the fluid isochoric specific heat capacity.
