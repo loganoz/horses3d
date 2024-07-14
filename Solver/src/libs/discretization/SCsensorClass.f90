@@ -7,7 +7,7 @@ module SCsensorClass
    use NodalStorageClass, only: NodalStorage, NodalStorage_t
    use ElementClass,      only: Element
    use Utilities,         only: toLower
-   use Clustering,        only: GMM_t, rescale
+   use Clustering,        only: kMeans_t, GMM_t, rescale
    use StopwatchClass,    only: Stopwatch
    use MPI_Process_Info,  only: MPI_Process
    use MPI_Utilities,     only: MPI_MinMax
@@ -44,6 +44,7 @@ module SCsensorClass
          real(RP) :: high       !< Upper threshold
          integer  :: sVar       !< Variable used as input for the sensor
 
+         type(kMeans_t)        :: kmeans       !< K-means model
          type(GMM_t)           :: gmm          !< Gaussian mixture model
          logical               :: nodal        !< Nodal version of the sensor
          integer               :: nfeatures    !< Dimension of the feature space
@@ -167,6 +168,15 @@ module SCsensorClass
          call Construct_TEsensor(sensor, controlVariables, sem, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 
+      case (SC_KMEANS_VAL)
+         sensor % sens_type = SC_KMEANS_ID
+         sensor % Compute_Raw => Sensor_Kmeans
+
+         allocate(sensor % x(sensor % nfeatures, sem % NDOF))
+
+         nclusters = controlVariables % getValueOrDefault(SC_NUM_CLUSTERS_KEY, 2)
+         call sensor % kmeans % init(sensor % nfeatures, nclusters)
+
       case (SC_GMM_VAL)
          sensor % sens_type = SC_GMM_ID
          sensor % Compute_Raw => Sensor_GMM
@@ -196,6 +206,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_INTEGRAL_SQRT_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          write(STD_OUT,*) '   * ', SC_TE_VAL
+         write(STD_OUT,*) '   * ', SC_KMEANS_VAL
          write(STD_OUT,*) '   * ', SC_GMM_VAL
          write(STD_OUT,*) '   * ', SC_GMM_NODAL_VAL
          stop
@@ -208,9 +219,11 @@ module SCsensorClass
          call sem % mesh % elements(eID) % storage % AllocSensor()
       end do
 !
-!     Scaling options
-!     ---------------
-      if (sensor % sens_type /= SC_GMM_ID .and. sensor % sens_type /= SC_GMM_NODAL_ID) then
+!     Scaling options (not for k-means or GMM)
+!     ----------------------------------------
+      if (sensor % sens_type /= SC_GMM_ID .and.         &
+            sensor % sens_type /= SC_GMM_NODAL_ID .and. &
+            sensor % sens_type /= SC_KMEANS_ID) then
 !
 !        Sensor thresholds
 !        --------------
@@ -380,6 +393,7 @@ module SCsensorClass
          case (SC_INTEGRAL_SQRT_ID); write(STD_OUT,"(A)") SC_INTEGRAL_SQRT_VAL
          case (SC_MODAL_ID);         write(STD_OUT,"(A)") SC_MODAL_VAL
          case (SC_TE_ID);            write(STD_OUT,"(A)") SC_TE_VAL
+         case (SC_KMEANS_ID);        write(STD_OUT,"(A)") SC_KMEANS_VAL
          case (SC_GMM_ID);           write(STD_OUT,"(A)") SC_GMM_VAL
          case (SC_GMM_NODAL_ID);     write(STD_OUT,"(A)") SC_GMM_NODAL_VAL
       end select
@@ -395,17 +409,25 @@ module SCsensorClass
                                                 " (min. order is ", sensor % TEestim % Nmin, ")"
       end if
 
-      if (sensor % sens_type == SC_GMM_ID .or. sensor % sens_type == SC_GMM_NODAL_ID) then
+      if (sensor % sens_type == SC_GMM_ID .or.         &
+            sensor % sens_type == SC_GMM_NODAL_ID .or. &
+            sensor % sens_type == SC_KMEANS_ID) then
          write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable(s): "
          write(STD_OUT,"(A)", advance="no") trim(Sensor_id2val(sensor % features(1)))
          do i = 2, sensor % nfeatures
             write(STD_OUT,"(A,A)", advance="no") ", ", trim(Sensor_id2val(Sensor % features(i)))
          end do
          write(STD_OUT,"(A)") ""
-         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % max_nclusters
       else
          write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
          write(STD_OUT,"(A)") trim(Sensor_id2val(sensor % sVar))
+      end if
+
+      if (sensor % sens_type == SC_GMM_ID .or. sensor % sens_type == SC_GMM_NODAL_ID) then
+         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % max_nclusters
+      else if (sensor % sens_type == SC_KMEANS_ID) then
+         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % kmeans % nclusters
+      else
          write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "Minimum value: ", sensor % low
          write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "Maximum value: ", sensor % high
       end if
@@ -1067,14 +1089,80 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Sensor_GMM(sensor, sem, t)
+   subroutine Sensor_Kmeans(sensor, sem, t)
 !
-!     -------
-!     Modules
-!     -------
-      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-      use FluidData,          only: thermodynamics, dimensionless
-      use VariableConversion, only: Pressure, getVelocityGradients
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i, j, k
+      integer                :: cnt
+      integer                :: ivar
+      integer                :: n
+      integer                :: cluster
+      integer                :: nclusters
+
+!
+!     Compute the clustering variables and store them in a global array
+!     -----------------------------------------------------------------
+      cnt = 0
+      do eID = 1, sem % mesh % no_of_elements
+         e => sem % mesh % elements(eID)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            cnt = cnt + 1
+            do ivar = 1, sensor % nfeatures
+               sensor % x(ivar,cnt) = GetSensedVariable(                  &
+                  sensor % features(ivar),                                &
+                  e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k),   &
+                  e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k)  &
+               )
+            end do
+         end do ;                end do ;                end do
+      end do
+!
+!     Rescale the values
+!     ------------------
+      call rescale(sensor % x)
+!
+!     Compute the GMM clusters
+!     ------------------------
+      call sensor % kmeans % fit(sensor % x)
+      call sensor % kmeans % predict(sensor % x)
+!
+!     Compute the sensor values
+!     -------------------------
+      nclusters = sensor % kmeans % nclusters
+      if (nclusters <= 1) then
+         do eID = 1, sem % mesh % no_of_elements
+            sem % mesh % elements(eID) % storage % sensor = 0.0_RP
+         end do
+      else
+         cnt = 0
+         do eID = 1, sem % mesh % no_of_elements
+            e => sem % mesh % elements(eID)
+            n = product(e % Nxyz + 1)
+            cluster = maxval(sensor % kmeans % clusters(cnt+1:cnt+n))
+            e % storage % sensor = real(cluster - 1, RP) / (nclusters - 1)
+            cnt = cnt + n
+         end do
+      end if
+
+      nullify(e)
+
+   end subroutine Sensor_Kmeans
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Sensor_GMM(sensor, sem, t)
 !
 !     ---------
 !     Interface
@@ -1095,9 +1183,6 @@ module SCsensorClass
       integer                :: cluster
       integer                :: nclusters
       logical                :: with_kmeans
-      real(RP)               :: u2, p
-      real(RP)               :: ux(3), uy(3), uz(3)
-      real(RP)               :: dp(3)
 
 !
 !     Compute the clustering variables and store them in a global array
