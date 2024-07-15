@@ -78,6 +78,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
+            ./IncompressibleNS/Cylinder \
+            ./IncompressibleNS/CylinderVreman \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \

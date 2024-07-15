@@ -340,5 +340,38 @@ jobs:
           ./horses3d.ins RTI.control
         if: '!cancelled()'
 
+#
+# 6) INS Cylinder
+# -------------------------------
 
-          
+      - name: Build iNS-Cylinder
+        working-directory: ./Solver/test/IncompressibleNS/Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run iNS-Cylinder
+        working-directory: ./Solver/test/IncompressibleNS/Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins CylinderRe40.control
+        if: '!cancelled()'
+
+#
+# 7) INS Cylinder Vreman
+# -------------------------------
+
+      - name: Build iNS-Cylinder-Vreman
+        working-directory: ./Solver/test/IncompressibleNS/CylinderVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run iNS-Cylinder-Vreman
+        working-directory: ./Solver/test/IncompressibleNS/CylinderVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins CylinderVremanRe3900.control
+        if: '!cancelled()'

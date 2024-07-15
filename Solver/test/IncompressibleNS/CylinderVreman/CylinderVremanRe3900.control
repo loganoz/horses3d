@@ -1,0 +1,110 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          mesh file name = "../../TestMeshes/CylinderNSpol3.mesh"
+                      Solution file name = RESULTS/Cylinder.hsol
+                                 Restart = .false.
+                       Restart file name =  RESULTS/Cylinder.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                        Density (kg/m^3) = 1.2214535421047699
+                       Viscosity (Pa.s)  = 0.02134647599450589
+               reference velocity (m/s)  = 68.157529950027453
+                          Flow equations = "NS" 
+                           Froude number = 1.0d+300
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+       Artificial compressibility factor = 30.0
+
+
+!------------------------- Discretization:-
+                        Polynomial order = 3
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Exact  
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Split-form
+                               Averaging = Skew-symmetric 2 
+                  Viscous discretization = BR1   
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   
+                         Explicit method = RK3
+                                     !dt = 1.0e-4
+                                     CFL = 0.3
+                                    dCFL = 0.3
+                    Number of time steps = 100
+                         Output interval = 10
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                               LES model = Vreman
+                           !Autosave mode = Iteration
+                       !Autosave interval = 50
+
+!-------------------------------------------------------------
+!------ sponge --------
+!-------------------------------------------------------------
+use sponge                  = .false.
+sponge amplitude            = 2.0
+sponge ramp width           = 3.0
+sponge temporal width       = 2.0
+sponge start position       = "[0,0,0]"
+sponge use moving average   = .true.
+sponge radious              = 4.0
+sponge axis                 = "[0,0,1]"
+sponge shape                = cylindrical
+
+#define boundary InnerCylinder
+      type = NoSlipWall
+#end
+
+#define boundary Front__Back__Left
+      type = Inflow
+#end
+
+#define boundary Bottom__Top
+      type = FreeSlipWall
+#end
+
+#define boundary Right
+      type = Outflow
+#end
+
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,2.0,4.0]
+   Variable = u
+#end
+
+!#define statistics
+!   Sampling interval = 10
+!   Starting iteration = 15
+!   Starting time = 0.0
+!   @start*
+!   @stop
+!#end
+
+"""
+
+

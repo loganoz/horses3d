@@ -1,7 +1,7 @@
 ---
 project: HORSES3D
 summary: 
-src_dir: ../Solver/src/
+src_dir: ../Solver/src/libs/monitors
 output_dir: ./doc_output
 project_github: https://github.com/loganoz/horses3d
 project_website: 
@@ -18,9 +18,9 @@ docmark_alt:
 predocmark_alt: <
 display: public
          protected
-source: false
+source: true
 graph: false
-search: false
+search: true
 extra_mods: 
 license: by-nc
 extra_filetypes: sh #
