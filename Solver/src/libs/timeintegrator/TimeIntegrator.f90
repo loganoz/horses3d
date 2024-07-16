@@ -412,6 +412,7 @@
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
       use StopwatchClass
+      use FluidData
 #if defined(NAVIERSTOKES)
       use ShockCapturing
       use TripForceClass, only: randomTrip
@@ -634,7 +635,7 @@
 !
 !        User defined periodic operation
 !        -------------------------------
-         CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
+         CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors, FLUID_DATA_VARS)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
          if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)

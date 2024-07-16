@@ -130,15 +130,34 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors)
+      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors & 
+#ifdef FLOW
+         , thermodynamics_ &
+         , dimensionless_  &
+         , refValues_ & 
+#endif   
+#ifdef CAHNHILLIARD
+         , multiphase_ &
+#endif
+      )
          use SMConstants
          USE HexMeshClass
          use MonitorsClass
+         use fluiddata
+         use physicsstorage
          IMPLICIT NONE
          CLASS(HexMesh)               :: mesh
          REAL(KIND=RP)                :: time
          REAL(KIND=RP)                :: dt
          type(Monitor_t), intent(in) :: monitors
+#ifdef FLOW
+         type(Thermodynamics_t), intent(in)    :: thermodynamics_
+         type(Dimensionless_t),  intent(in)    :: dimensionless_
+         type(RefValues_t),      intent(in)    :: refValues_
+#endif
+#ifdef CAHNHILLIARD
+         type(Multiphase_t),     intent(in)    :: multiphase_
+#endif
       END SUBROUTINE UserDefinedPeriodicOperation_f
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -369,8 +388,17 @@ end module ProblemFileFunctions
 #endif
 
          end subroutine UserDefinedInitialCondition
+
+         subroutine UserDefinedState1(x, t, nHat, Q & 
 #ifdef FLOW
-         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+            , thermodynamics_ &
+            , dimensionless_  &
+            , refValues_ & 
+#endif
+#ifdef CAHNHILLIARD
+            , multiphase_ &
+#endif
+            )
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -379,10 +407,17 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
             real(kind=RP), intent(inout)  :: Q(NCONS)
+#ifdef FLOW
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+#endif
+#ifdef CAHNHILLIARD
+            type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
          end subroutine UserDefinedState1
+
+#ifdef FLOW
 
          subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
@@ -422,7 +457,16 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors &
+#ifdef FLOW
+         , thermodynamics_ &
+         , dimensionless_  &
+         , refValues_ & 
+#endif   
+#ifdef CAHNHILLIARD
+         , multiphase_ &
+#endif
+      )
 !
 !           ----------------------------------------------------------
 !           Called before every time-step to allow periodic operations
@@ -432,12 +476,21 @@ end module ProblemFileFunctions
             use SMConstants
             USE HexMeshClass
             use MonitorsClass
+            use fluiddata
+            use physicsstorage
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
             REAL(KIND=RP)                :: dt
             type(Monitor_t), intent(in) :: monitors
-            
+#ifdef FLOW
+            type(Thermodynamics_t), intent(in)    :: thermodynamics_
+            type(Dimensionless_t),  intent(in)    :: dimensionless_
+            type(RefValues_t),      intent(in)    :: refValues_
+#endif
+#ifdef CAHNHILLIARD
+            type(Multiphase_t),     intent(in)    :: multiphase_
+#endif
          END SUBROUTINE UserDefinedPeriodicOperation
 !
 !//////////////////////////////////////////////////////////////////////// 
