@@ -1,9 +1,10 @@
 name: build docs
 on:
   push:
-    branches: [main]
-jobs:
+    branches:
+      - main
 
+jobs:
   Build:
     runs-on: ${{ matrix.os }}
     permissions:
@@ -30,13 +31,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Python dependencies
-      if: contains( matrix.os, 'ubuntu')
+      if: contains(matrix.os, 'ubuntu')
       run: |
         sudo apt-get update
         sudo apt install -y gfortran-${GCC_V} python3-dev graphviz
         python -m pip install --upgrade pip
         pip install ford markdown
-
 
     - name: Build documentation
       run: ford doc/ford-project-file.md
