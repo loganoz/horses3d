@@ -17,7 +17,7 @@ module PhysicsStorage
    use PhysicsStorage_iNS
 #elif defined(MULTIPHASE)
    use PhysicsStorage_MU
-#ifdef ACOUSTIC
+#elif defined(ACOUSTIC)
    use PhysicsStorage_CAA
 #endif
 #ifdef CAHNHILLIARD
@@ -120,7 +120,7 @@ module PhysicsStorage
          call DescribePhysicsStorage_iNS()
 #elif defined(MULTIPHASE)
          call DescribePhysicsStorage_MU()
-#ifdef ACOUSTIC
+#elif defined(ACOUSTIC)
          call DescribePhysicsStorage_CAA(Lref)
 #endif
 

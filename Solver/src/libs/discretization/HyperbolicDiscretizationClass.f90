@@ -76,7 +76,7 @@ module HyperbolicDiscretizationClass
 
       end subroutine BaseClass_Initialize
 
-      subroutine BaseClass_ComputeInnerFluxes( self , e , HyperbolicFlux, contravariantFlux,  useBaseFlow)
+      subroutine BaseClass_ComputeInnerFluxes( self , e , HyperbolicFlux, contravariantFlux,  useBaseFlow_)
          use ElementClass
          use Physics
          use PhysicsStorage
@@ -85,7 +85,7 @@ module HyperbolicDiscretizationClass
          type(Element),           intent(in)  :: e
          procedure(HyperbolicFlux0D_f)        :: HyperbolicFlux
          real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         logical, intent(in), optional        :: useBaseFlow
+         logical, intent(in), optional        :: useBaseFlow_
 !
 !        ---------------
 !        Local variables
@@ -93,13 +93,17 @@ module HyperbolicDiscretizationClass
 !
          integer            :: i, j, k
          real(kind=RP)      :: cartesianFlux(1:NCONS, 1:NDIM)
+         logical            :: useBaseFlow
 
-         if (.not. present(useBaseFlow)) then
+         if (present(useBaseFlow_)) then
+            useBaseFlow = useBaseFlow_
+         else
             useBaseFlow = .false.
-         end if i
+         end if
 
-         if useBaseFlow then
+         if (useBaseFlow) then
 
+#if defined(ACOSUTIC)
              do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
                 call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), Qbase = e % storage % Qbase(:,i,j,k) )
 
@@ -118,6 +122,7 @@ module HyperbolicDiscretizationClass
                                                  + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
              end do               ; end do                ; end do
 
+#endif
          else
 
              do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)

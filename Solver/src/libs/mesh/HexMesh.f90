@@ -4108,8 +4108,7 @@ slavecoord:             DO l = 1, 4
       call GetStorageEquations(off, ns, c, mu, nssa, caa)
 
 
-      select case (which)
-      case (ns,nssa,caa)
+      if ( which .eq. ns .or. which .eq. nssa .or. which .eq. caa) then
 #ifdef FLOW
          self % storage % Q => self % storage % QNS
          self % storage % QDot => self % storage % QDotNS
@@ -4126,7 +4125,7 @@ slavecoord:             DO l = 1, 4
 
 #endif
 
-      case (c)
+      elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c
          self % storage % QDot => self % storage % cDot
@@ -4141,7 +4140,7 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToCH_c
          end do
 #endif
-      case (mu)
+      elseif ( which .eq. mu ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c
          self % storage % QDot => self % storage % cDot
@@ -4156,7 +4155,7 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToCH_mu
          end do
 #endif
-      end select
+      end if
 
    end subroutine HexMesh_SetStorageToEqn
 !

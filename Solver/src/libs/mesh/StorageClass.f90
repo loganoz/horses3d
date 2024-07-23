@@ -77,7 +77,7 @@ module StorageClass
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliary storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: mu_turb_NS(:,:,:)    ! mu of LES
 #endif
@@ -808,7 +808,7 @@ module StorageClass
             ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          end if
 
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          allocate( self % mu_NS(1:3,0:Nx,0:Ny,0:Nz) )
          allocate( self % mu_turb_NS(0:Nx,0:Ny,0:Nz) )
 #endif
@@ -867,13 +867,13 @@ module StorageClass
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
          self % rho    = 0.0_RP
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          self % mu_NS  = 0.0_RP
          self % mu_turb_NS  = 0.0_RP
 #endif
 #if defined (SPALARTALMARAS)
          self % S_SA   = 0.0_RP
-#end
+#endif
 #if defined (ACOUSTIC)
          self % Qbase  = 0.0_RP
 #endif
@@ -981,7 +981,7 @@ module StorageClass
          to % Qbase   = from % Qbase
 #endif
 
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          to % mu_NS     = from % mu_NS
          to % mu_turb_NS     = from % mu_turb_NS
 #endif
@@ -1079,7 +1079,7 @@ module StorageClass
             safedeallocate(self % U_yNS)
             safedeallocate(self % U_zNS)
          end if
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          safedeallocate(self % mu_NS)
          safedeallocate(self % mu_turb_NS)
 #endif
@@ -1344,7 +1344,7 @@ module StorageClass
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
 
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
          allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
          allocate( self % wallNodeDistance  (0:Nf(1),0:Nf(2)) )
@@ -1400,7 +1400,7 @@ module StorageClass
 #endif
 
          self % rho    = 0.0_RP
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          self % mu_NS  = 0.0_RP
          self % u_tau_NS = 0.0_RP
          self % wallNodeDistance = 0.0_RP
@@ -1488,7 +1488,9 @@ module StorageClass
          safedeallocate(self % u_tau_NS)
          safedeallocate(self % wallNodeDistance)
          safedeallocate(self % rho )
+#if defined (ACOUSTIC)
          safedeallocate(self % Qbase )
+#endif
 
          self % anJacobian      = .FALSE.
 
@@ -1655,7 +1657,7 @@ module StorageClass
          end if
          if (to % computeQdot) to % QdotNS = from % QdotNS
          to % rho = from % rho
-#ifndef(ACOUSTIC)
+#ifndef ACOUSTIC
          to % mu_NS  = from % mu_NS
          to % u_tau_NS  = from % u_tau_NS
          to % wallNodeDistance  = from % wallNodeDistance

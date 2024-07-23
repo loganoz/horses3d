@@ -760,9 +760,9 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
             CALL ComputeEigenvaluesForStateSA( Q , eValues )
 #elif defined(ACOSUTIC)
-            CALL ComputeEigenvaluesForStateSA( Q , eValues )
-#else
             CALL ComputeEigenvaluesForStateCAA( Q , self % mesh % elements(eID) % storage % Qbase(:,i,j,k) eValues )
+#else
+            CALL ComputeEigenvaluesForState( Q , eValues )
 #endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
