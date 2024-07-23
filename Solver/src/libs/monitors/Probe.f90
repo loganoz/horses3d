@@ -143,6 +143,22 @@ module ProbeClass
 
             end select
 #endif
+#ifdef ACOUSTIC
+            case ("pressure")
+            case ("density")
+            case ("u")
+            case ("v")
+            case ("w")
+            case default
+               print*, 'Probe variable "',trim(self % variable),'" not implemented.'
+               print*, "Options available are:"
+               print*, "   * pressure"
+               print*, "   * velocity"
+               print*, "   * u"
+               print*, "   * v"
+               print*, "   * w"
+            end select
+#endif
          
 !
 !           Find the requested point in the mesh
@@ -320,6 +336,32 @@ module ProbeClass
                                - 0.25_RP*3.0_RP*multiphase % sigma * multiphase % eps * (POW2(e % storage % c_x(1,i,j,k))+POW2(e % storage % c_y(1,i,j,k))+POW2(e % storage % c_z(1,i,j,k)))
                end do         ; end do         ; end do
 #endif 
+#ifdef ACOUSTIC
+            case("pressure")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAP,i,j,k)
+               end do            ; end do             ; end do
+
+            case("density")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAARHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("u")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAU,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("v")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAV,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("w")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAW,i,j,k)
+               end do            ; end do             ; end do
+#endif
             end select
    
             value = 0.0_RP

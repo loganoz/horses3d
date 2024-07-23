@@ -130,6 +130,7 @@ Module DGSEMClass
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       logical                     :: useRelaxPeriodic                   ! The periodic construction in direction z use a relative tolerance
       logical                     :: useWeightsPartition                ! Partitioning mesh using DOF of elements as weights
+      real(kind=RP)               :: QbaseUniform(1:NCONS)
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
@@ -410,6 +411,18 @@ Module DGSEMClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % construct(self % mesh, controlVariables)
 #endif
+!
+#if defined(ACOUSTIC)
+!
+!     --------------------
+!     Initialize Base Flow
+!     --------------------
+!
+      ! start by default with no flow conditions
+      QbaseUniform = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP/(dimensionless % gammaM2)]
+      call self % mesh % SetUniformBaseFlow(QbaseUniform)
+!
+#endif
 
 ! #if defined(NAVIERSTOKES)
 ! !
@@ -688,6 +701,8 @@ Module DGSEMClass
 #endif
 #if defined(SPALARTALMARAS)
       external                            :: ComputeEigenvaluesForStateSA
+#elif defined(ACOSUTIC)
+      external                            :: ComputeEigenvaluesForStateCAA
 #endif
       !--------------------------------------------------------
 !     Initializations
@@ -744,8 +759,10 @@ Module DGSEMClass
 
 #if defined(SPALARTALMARAS)
             CALL ComputeEigenvaluesForStateSA( Q , eValues )
+#elif defined(ACOSUTIC)
+            CALL ComputeEigenvaluesForStateSA( Q , eValues )
 #else
-            CALL ComputeEigenvaluesForState( Q , eValues )
+            CALL ComputeEigenvaluesForStateCAA( Q , self % mesh % elements(eID) % storage % Qbase(:,i,j,k) eValues )
 #endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !

@@ -109,6 +109,10 @@ MODULE HexMeshClass
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
+#if defined(ACOUSTIC)
+            procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
+            ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+#endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
@@ -2132,6 +2136,8 @@ slavecoord:             DO l = 1, 4
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
+#elif defined(ACOUSTIC)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #endif
 
 #endif
@@ -2978,6 +2984,13 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = 0.0_RP
          refs(MACH_REF)  = 0.0_RP
+#elif defined(ACOUSTIC)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
 #else
          refs = 0.0_RP
 #endif
@@ -3586,6 +3599,26 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+#if defined(ACOUSTIC)
+    Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
+        Implicit None
+         CLASS(HexMesh)                  :: self
+         real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         INTEGER                        :: eID
+
+         do eID = 1, size(self % elements)
+            self % elements(eID) % storage % Qbase(1,NCONS,:,:,:) = Q_in
+         end do
+!
+    End Subroutine HexMesh_SetUniformBaseFlow
+#endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine GetDiscretizationError(mesh,controlVariables)
       implicit none
       !----------------------------------------------
@@ -4069,12 +4102,14 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu, nssa
+      integer  :: off, ns, c, mu, nssa, caa
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu, nssa)
+      call GetStorageEquations(off, ns, c, mu, nssa, caa)
 
-      if ( which .eq. ns ) then
+
+      select case (which)
+      case (ns,nssa,caa)
 #ifdef FLOW
          self % storage % Q => self % storage % QNS
          self % storage % QDot => self % storage % QDotNS
@@ -4089,26 +4124,9 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToNS
          end do
 
-      elseif ( which .eq. nssa ) then
-
-         self % storage % Q => self % storage % QNS
-         self % storage % QDot => self % storage % QDotNS
-         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
-
-         do eID = 1, self % no_of_elements
-            call self % elements(eID) % storage % SetStorageToNS
-         end do
-
-         do fID = 1, size(self % faces)
-            call self % faces(fID) % storage(1) % SetStorageToNS
-            call self % faces(fID) % storage(2) % SetStorageToNS
-         end do
-
-
 #endif
 
-
-      elseif ( which .eq. c ) then
+      case (c)
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c
          self % storage % QDot => self % storage % cDot
@@ -4123,7 +4141,7 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToCH_c
          end do
 #endif
-      elseif ( which .eq. mu ) then
+      case (mu)
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c
          self % storage % QDot => self % storage % cDot
@@ -4138,7 +4156,7 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToCH_mu
          end do
 #endif
-      end if
+      end select
 
    end subroutine HexMesh_SetStorageToEqn
 !

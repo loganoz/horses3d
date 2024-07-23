@@ -34,6 +34,10 @@ module VolumeIntegrals
    public FREE_ENERGY
 #endif
 
+#if defined(CAHNHILLIARD)
+   public ACOUSTIC_ENERGY
+#endif
+
    public   ScalarVolumeIntegral, VectorVolumeIntegral, GetSensorRange
 
 
@@ -53,6 +57,9 @@ module VolumeIntegrals
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
+#endif
+#if defined(ACOUSTIC)
+      enumerator :: ACOUSTIC_ENERGY
 #endif
    end enum
 !
@@ -527,6 +534,17 @@ module VolumeIntegrals
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * free_en
             end do            ; end do           ; end do
 
+#endif
+#if defined(ACOUSTIC)
+         case (ACOUSTIC_ENERGY)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)* ( &
+                  0.5_RP * e % storage % Qbase(ICAARHO) * ( POW2(e %storage % Q(ICAAU,i,k,k)) &
+                                                          + POW2(e %storage % Q(ICAAV,i,k,k))
+                                                          + POW2(e %storage % Q(ICAAW,i,k,k)) ) &
+                + 0.5_RP / (thermodynamics % gamma * e % storage % Qbase(ICAAP))* ( POW2(e %storage % Q(ICAAP,i,k,k)) )
+            end do            ; end do           ; end do
 #endif
          end select
 

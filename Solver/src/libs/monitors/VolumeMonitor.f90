@@ -215,6 +215,20 @@ module VolumeMonitorClass
 
             end if
          end select
+#elif defined(ACOUSTIC)
+         select case ( trim ( self % variable ) )
+         case ("acoustic energy")
+         case default
+
+            if ( len_trim (self % variable) .eq. 0 ) then
+               print*, "Variable was not specified for volume monitor " , self % ID , "."
+            else
+               print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
+               print*, "Options available are:"
+               print*, "   * acoustic energy"
+               error stop "error stopped."
+
+            end if
 #endif
 
 
@@ -356,6 +370,9 @@ module VolumeMonitorClass
          case ("free energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, FREE_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 
+#elif defined(ACOUSTIC)
+         case ("acoustic energy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ACOUSTIC_ENERGY)
 #endif
          end select
 

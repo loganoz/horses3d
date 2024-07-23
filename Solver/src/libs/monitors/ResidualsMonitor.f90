@@ -88,6 +88,10 @@ module ResidualsMonitorClass
 #elif defined(CAHNHILLIARD)
             write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "concentration"
 
+#elif defined(ACOUSTIC)
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
+                        "Elapsed Time (s)" , "density" , "x-velocity" , "y-velocity" , "z-velocity", "pressure" , "Max-Residual"
+
 #endif
 !
 !        Close file
@@ -149,9 +153,14 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "div-v"
-
 #elif defined(CAHNHILLIARD)
          write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
+#elif defined(ACOUSTIC)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "density"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "x-velocity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "y-velocity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "z-velocity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "pressure"
 
 #endif
 
