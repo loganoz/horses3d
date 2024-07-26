@@ -93,6 +93,9 @@
             procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
             procedure   :: ProjectBCJacobianToElements   => Face_ProjectBCJacobianToElements
 #endif
+#if defined(ACOUSTIC)
+            procedure   :: AdaptBaseSolutionToFace       => Face_AdaptBaseSolutionToFace
+#endif
             procedure   :: copy           => Face_Assign
             generic     :: assignment(=)  => copy
       end type Face
@@ -301,13 +304,6 @@
       else
           prolongQdot = .FALSE.
       end if
-
-      ! if (prolongQdot) then
-      !     print *, "side: ", side
-      !     ! print *, "projectionType 1: ",  self % projectionType(1)
-      !     ! print *, "projectionType 2: ",  self % projectionType(2)
-      !     print *, "projectionType side: ",  self % projectionType(side)
-      ! end if
 
       select case (side)
       case(1)
@@ -1071,6 +1067,96 @@
       
    end subroutine Face_ProjectGradJacobianToElements
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+   subroutine Face_AdaptBaseSolutionToFace(self, nEqn, Nelx, Nely, Qe, side)
+      use MappedGeometryClass
+      implicit none
+      class(Face),   intent(inout)              :: self
+      integer,       intent(in)                 :: nEqn
+      integer,       intent(in)                 :: Nelx, Nely
+      real(kind=RP), intent(in)                 :: Qe(1:nEqn, 0:Nelx, 0:Nely)
+      integer,       intent(in)                 :: side
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer       :: i, j, k, l, m, ii, jj
+      real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+
+      select case (side)
+      case(1)
+         associate(Qf => self % storage(1) % Qbase)
+         select case ( self % projectionType(1) )
+         case (0)
+            Qf = Qe
+
+         case (1)
+            Qf = 0.0_RP
+            do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)
+               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Qe(:,l,j)
+            end do                  ; end do                   ; end do
+            
+         case (2)
+            Qf = 0.0_RP
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Qe(:,i,l)
+            end do                  ; end do                   ; end do
+   
+         case (3)
+            Qf = 0.0_RP
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
+               do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
+                  Qf(:,i,j) = Qf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
+                                            * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
+                                            * Qe(:,m,l)
+               end do                 ; end do
+            end do                  ; end do
+         end select
+         end associate
+      case(2)
+         associate( Qf => self % storage(2) % Qbase )
+         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            Qe_rot(:,i,j) = Qe(:,ii,jj) 
+         end do                        ; end do
+
+         select case ( self % projectionType(2) )
+         case (0)
+            Qf = Qe_rot
+         case (1)
+            Qf = 0.0_RP
+            do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)
+               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Qe_rot(:,l,j)
+            end do                  ; end do                   ; end do
+            
+         case (2)
+            Qf = 0.0_RP
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Qe_rot(:,i,l)
+            end do                  ; end do                   ; end do
+   
+         case (3)
+            Qf = 0.0_RP
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
+               do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
+                  Qf(:,i,j) = Qf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
+                                            * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
+                                            * Qe_rot(:,m,l)
+               end do                 ; end do
+            end do                  ; end do
+         end select
+         end associate
+      end select
+
+   end subroutine Face_AdaptBaseSolutionToFace
+#endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

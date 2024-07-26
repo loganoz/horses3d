@@ -421,6 +421,7 @@ Module DGSEMClass
       ! start by default with no flow conditions
       QbaseUniform = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP/(dimensionless % gammaM2)]
       call self % mesh % SetUniformBaseFlow(QbaseUniform)
+      call self % mesh % ProlongBaseSolutionToFaces(NCONS)
 !
 #endif
 
@@ -701,7 +702,7 @@ Module DGSEMClass
 #endif
 #if defined(SPALARTALMARAS)
       external                            :: ComputeEigenvaluesForStateSA
-#elif defined(ACOSUTIC)
+#elif defined(ACOUSTIC)
       external                            :: ComputeEigenvaluesForStateCAA
 #endif
       !--------------------------------------------------------
@@ -759,8 +760,8 @@ Module DGSEMClass
 
 #if defined(SPALARTALMARAS)
             CALL ComputeEigenvaluesForStateSA( Q , eValues )
-#elif defined(ACOSUTIC)
-            CALL ComputeEigenvaluesForStateCAA( Q , self % mesh % elements(eID) % storage % Qbase(:,i,j,k) eValues )
+#elif defined(ACOUSTIC)
+            CALL ComputeEigenvaluesForStateCAA( Q , self % mesh % elements(eID) % storage % Qbase(:,i,j,k), eValues )
 #else
             CALL ComputeEigenvaluesForState( Q , eValues )
 #endif

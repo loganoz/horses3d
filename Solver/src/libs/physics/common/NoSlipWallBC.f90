@@ -622,9 +622,9 @@ module NoSlipWallBCClass
 !
          vn = sum(Q(ICAAU:ICAAW)*nHat)
 
-         Q(ICAARHO) = self % rho
+         Q(ICAARHO) = Q(ICAARHO)
          Q(ICAAU:ICAAW) = Q(ICAAU:ICAAW) - 2.0_RP * vn * nHat
-         Q(ICAAP) = self % p
+         Q(ICAAP) = Q(ICAAP)
 
       end subroutine NoSlipWallBC_FlowState
 !

@@ -14,7 +14,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !    ******
-     MODULE PhysicsStorage_NS
+     MODULE PhysicsStorage_CAA
 !    ******
 !
      USE SMConstants
@@ -26,16 +26,18 @@
      private
      public    NCONS, NGRAD
      public    ICAARHO, ICAAU, ICAAV, ICAAW, ICAAP
-     public    computeGradients
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE, ICAAA2
+     public    computeGradients, flowIsNavierStokes
 
      public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA
      public    CheckPhysicsCAAInputIntegrity
      public    GRADVARS_STATE, grad_vars
 !
 !    ----------------------------
-!    Either NavierStokes or Euler
+!    Either NavierStokes or Euler, for compatibility reasons
 !    ----------------------------
 !
+     logical, protected :: flowIsNavierStokes = .false.
      logical, protected :: computeGradients   = .false.
 !
 !    --------------------------
@@ -50,12 +52,16 @@
 !
      INTEGER, PARAMETER       :: ICAARHO = 1 , ICAAU = 2 , ICAAV = 3 , ICAAW = 4 , ICAAP = 5
 !
+!!   The positions of the conservative variables of the base flow
+     INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+     INTEGER, PARAMETER       :: ICAAA2 = 6
+!
 !    --------------------------------
 !    Choice of the gradient variables
 !    --------------------------------
 !
      enum, bind(C)
-        enumerator :: GRADVARS_STATE=1
+        enumerator :: GRADVARS_STATE
      end enum
      integer, protected :: grad_vars = GRADVARS_STATE
 
@@ -79,7 +85,7 @@
                                                 1.0_RP / 1.4_RP, & ! InvGamma
                                    1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
                        287.15_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
-                                287.15_RP / ( 1.4_RP - 1.0_RP ), & ! cv
+                                287.15_RP / ( 1.4_RP - 1.0_RP )  & ! cv
 )
 !
 !    ========

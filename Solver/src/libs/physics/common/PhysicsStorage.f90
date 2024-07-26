@@ -121,7 +121,7 @@ module PhysicsStorage
 #elif defined(MULTIPHASE)
          call DescribePhysicsStorage_MU()
 #elif defined(ACOUSTIC)
-         call DescribePhysicsStorage_CAA(Lref)
+         call DescribePhysicsStorage_CAA()
 #endif
 
 #ifdef CAHNHILLIARD

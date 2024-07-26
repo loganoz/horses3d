@@ -1,6 +1,6 @@
 #include "Includes.h"
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOSUTIC)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
 module HyperbolicDiscretizationClass
    use SMConstants
 #if defined(SPALARTALMARAS)
@@ -11,7 +11,7 @@ module HyperbolicDiscretizationClass
    use RiemannSolvers_iNS
 #elif defined(MULTIPHASE)
    use RiemannSolvers_MU
-#elif defined(ACOSUTIC)
+#elif defined(ACOUSTIC)
    use RiemannSolvers_CAA
 #endif
    implicit none
@@ -103,7 +103,7 @@ module HyperbolicDiscretizationClass
 
          if (useBaseFlow) then
 
-#if defined(ACOSUTIC)
+#if defined(ACOUSTIC)
              do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
                 call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), Qbase = e % storage % Qbase(:,i,j,k) )
 

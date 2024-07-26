@@ -112,6 +112,7 @@ MODULE HexMeshClass
 #if defined(ACOUSTIC)
             procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
             ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+            procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
 #endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
@@ -3608,13 +3609,44 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !        Local variables
 !        ---------------
-         INTEGER                        :: eID
+         INTEGER                        :: eID, eq
 
          do eID = 1, size(self % elements)
-            self % elements(eID) % storage % Qbase(1,NCONS,:,:,:) = Q_in
+            do eq = 1,NCONS
+                self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
+            end do
          end do
 !
     End Subroutine HexMesh_SetUniformBaseFlow
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_ProlongBaseSolutionToFaces(self, nEqn)
+         implicit none
+         class(HexMesh),    intent(inout) :: self
+         integer,           intent(in)    :: nEqn
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fIDs(6)
+         integer  :: eID, i
+
+!$omp do schedule(runtime) private(fIDs)
+         do eID = 1, size(self % elements)
+            fIDs = self % elements(eID) % faceIDs
+            call self % elements(eID) % ProlongBaseSolutionToFaces(nEqn, &
+                                                                   self % faces(fIDs(1)),&
+                                                                   self % faces(fIDs(2)),&
+                                                                   self % faces(fIDs(3)),&
+                                                                   self % faces(fIDs(4)),&
+                                                                   self % faces(fIDs(5)),&
+                                                                   self % faces(fIDs(6)) )
+         end do
+!$omp end do
+
+      end subroutine HexMesh_ProlongBaseSolutionToFaces
 #endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

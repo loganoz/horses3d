@@ -15,6 +15,10 @@ module VariableConversion_CAA
    interface getConservativeGradients
       module procedure getConservativeGradients_0D, getConservativeGradients_2D, getConservativeGradients_3D
    end interface
+
+   interface getTemperatureGradient
+      module procedure getTemperatureGradient_0D, getTemperatureGradient_2D, getTemperatureGradient_3D
+   end interface
    
    contains
 !
@@ -73,6 +77,28 @@ module VariableConversion_CAA
 !---------------------------------------------------------------------
 ! /////////////////////////////////////////////////////////////////////
 !
+!---------------------------------------------------------------------
+!! Compute the pressure from the state variables
+!---------------------------------------------------------------------
+!
+      PURE function PressureBaseFlow(Q) RESULT(P)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: P
+      
+      P = thermodynamics % gammaMinus1*(Q(IRHOE) - 0.5_RP*(Q(IRHOU)**2 + Q(IRHOV)**2 + Q(IRHOW)**2)/Q(IRHO))
+
+      end function PressureBaseFlow
+!
 ! /////////////////////////////////////////////////////////////////////
 !---------------------------------------------------------------------
 !! GradientValuesForQ takes the solution (Q) values and returns the
@@ -100,12 +126,13 @@ module VariableConversion_CAA
 !
 !        **************************************
 !           Primitive variables are:
-!              V = [invRho, u,v,w,p,T,a^2]
+!              V = [rho, u,v,w,p,a2]
 !        **************************************
 !
          implicit none
          real(kind=RP), intent(in)  :: U(NCONS)
-         real(kind=RP), intent(out) :: V(NPRIM)
+         real(kind=RP), intent(out) :: V(NCONS)
+         ! real(kind=RP), intent(out) :: V(NCONS+1)
 !
 !        ---------------
 !        Local variables
@@ -115,14 +142,12 @@ module VariableConversion_CAA
 
          invRho = 1.0_RP / U(IRHO)
 
-         V(IPIRHO) = invRho
-         V(IPU) = U(IRHOU) * invRho
-         V(IPV) = U(IRHOV) * invRho
-         V(IPW) = U(IRHOW) * invRho
-         V(IPP) = thermodynamics % gammaMinus1 * ( U(IRHOE) &
-                  - 0.5_RP * (V(IPU)*U(IRHOU) + V(IPV)*U(IRHOV) + V(IPW)*U(IRHOW)))
-         V(IPT) = V(IPP) * dimensionless % gammaM2 * invRho 
-         V(IPA2) = thermodynamics % gamma * V(IPP) * invRho
+         V(ICAARHO) = U(ICAARHO)
+         V(ICAAU) = U(IRHOU) * invRho
+         V(ICAAV) = U(IRHOV) * invRho
+         V(ICAAW) = U(IRHOW) * invRho
+         V(ICAAP) = PressureBaseFlow(U)
+         ! V(ICAAA2) = thermodynamics % gamma * V(ICAAP) * invRho
 
       end subroutine getPrimitiveVariablesBaseFlow
 !

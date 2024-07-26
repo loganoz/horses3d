@@ -218,6 +218,7 @@ module VolumeMonitorClass
 #elif defined(ACOUSTIC)
          select case ( trim ( self % variable ) )
          case ("acoustic energy")
+         case ("source")            ; self % num_of_vars = NCONS
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -226,9 +227,11 @@ module VolumeMonitorClass
                print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
                print*, "Options available are:"
                print*, "   * acoustic energy"
+               print*, "   * source"
                error stop "error stopped."
 
             end if
+         end select
 #endif
 
 
@@ -373,6 +376,10 @@ module VolumeMonitorClass
 #elif defined(ACOUSTIC)
          case ("acoustic energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ACOUSTIC_ENERGY)
+
+         case ("source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
 #endif
          end select
 

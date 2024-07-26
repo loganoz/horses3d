@@ -126,7 +126,7 @@ all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu
 ./build_caa/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DACOUSTIC -I./include_caa $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_caa -c $< -o $@ $(MOD_FLAG) ./include_caa
+	$(FC) $(FFLAGS) -DACOUSTIC -I./include_caa $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_caa -c $< -o $@ $(MOD_FLAG) ./include_caa
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS)
 	@echo

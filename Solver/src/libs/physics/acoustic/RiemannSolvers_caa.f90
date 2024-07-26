@@ -81,11 +81,9 @@ module RiemannSolvers_CAA
 !        ---------------
          character(len=KEYWORD_LENGTH) :: keyword
 
-
-         RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
 !
 !        ---------------------------------------------
-!        Choose the Riemann solver (by default is Roe)
+!        Choose the Riemann solver (by default is LF)
 !        ---------------------------------------------
          if (controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY)) then
 
@@ -314,7 +312,7 @@ module RiemannSolvers_CAA
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
          ! lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR) ! this was the NS version
-         lambda = max(abs(uL) + abs(uR)) + max(aL,aR)
+         lambda = max(abs(uL), abs(uR)) + max(aL,aR)
 !
 !        ****************
 !        Compute the flux
@@ -337,8 +335,6 @@ module RiemannSolvers_CAA
 !        ************************************************
 !
          flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
-
-         end associate
 
       END SUBROUTINE LxFRiemannSolver
 !
@@ -610,8 +606,8 @@ error stop
 !
 !        Compute the flux
 !        ----------------
-         call APEFlux1D(QRight, fR, rho_=QRight(ICAARHO), Qbase=QbaseR)
-         call APEFlux1D(QLeft,  fL, rho_=QLeft(ICAARHO),  Qbase=QbaseL)
+         call APEFlux1D(QRight, fR, Qbase=QbaseR)
+         call APEFlux1D(QLeft,  fL, Qbase=QbaseL)
 
          flux = 0.5_RP*(fR+fL)
 

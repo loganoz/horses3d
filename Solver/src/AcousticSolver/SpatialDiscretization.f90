@@ -11,8 +11,9 @@ module SpatialDiscretization
       use MPI_Face_Class
       use MPI_Process_Info
       use DGSEMClass
+      use ParticlesClass
       use FluidData
-      ! use VariableConversion, only: GetGradientValues_f set_getVelocityGradients
+      use VariableConversion, only: NSGradientVariables_STATE, GetGradientValues_f
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef _HAS_MPI_
@@ -38,7 +39,6 @@ module SpatialDiscretization
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
-         use WallFunctionConnectivity
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(DGSem)                           :: sem
@@ -94,8 +94,8 @@ module SpatialDiscretization
 !
 !        Set state as default option
 !        ---------------------------
-         call SetGradientVariables(GRADVARS_STATE)
-         getGradients_BaseFlow => NSGradientVariables_STATE
+         ! call SetGradientVariables(GRADVARS_STATE)
+         ! getGradients_BaseFlow => NSGradientVariables_STATE
          ! call set_getVelocityGradients(GRADVARS_STATE)
 
 
@@ -168,7 +168,6 @@ module SpatialDiscretization
 !     This is useful for estimating the isolated truncation error
 !
       SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements)
-         use EllipticDiscretizationClass
          IMPLICIT NONE
 !
 !        ---------
@@ -444,7 +443,7 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , APEFlux, inviscidContravariantFlux, useBaseFlow = .true. )
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , APEFlux, inviscidContravariantFlux, useBaseFlow_ = .true. )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -489,7 +488,7 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , APEFlux, inviscidContravariantFlux, useBaseFlow = .true. )
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , APEFlux, inviscidContravariantFlux, useBaseFlow_ = .true. )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -550,8 +549,7 @@ module SpatialDiscretization
 !        Viscous fluxes
 !        --------------
 !
-            visc_flux = 0.0_RP
-         end if
+         visc_flux = 0.0_RP
 
          do j = 0, f % Nf(2)
             do i = 0, f % Nf(1)

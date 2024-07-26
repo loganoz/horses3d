@@ -396,14 +396,12 @@ end module ProblemFileFunctions
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
-                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
-
-                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  ! mesh % elements(eID) % storage % q(:,i,j,k) = [0.0_RP, 0.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = 0.0_RP 
                end do;        end do;        end do
                end associate
             end do
-
-            end associate
 #endif
          end subroutine UserDefinedInitialCondition
 

@@ -63,7 +63,7 @@
 !        ---------------
          real(kind=RP)              :: velocity_term
 
-         velocity_term = dot_product( Qbase(ICAAU:ICAAW) , Q(ICAAU:ICAAW) ) + Q(ICAAP)/Q(ICAARHO)
+         velocity_term = dot_product( Qbase(ICAAU:ICAAW) , Q(ICAAU:ICAAW) ) + Q(ICAAP)/Qbase(ICAARHO)
 !
 !        X-Flux
 !        ------         
@@ -71,23 +71,23 @@
          F(ICAAU, IX ) = velocity_term
          F(ICAAV, IX ) = 0.0_RP
          F(ICAAW, IX ) = 0.0_RP
-         F(ICAAP, IX ) = thermodynamics%gamma * Q(ICAAP) * Q(ICAAU) + Qbase(ICAAU) * Q(ICAAP)
+         F(ICAAP, IX ) = thermodynamics%gamma * Qbase(ICAAP) * Q(ICAAU) + Qbase(ICAAU) * Q(ICAAP)
 !
 !        Y-Flux
 !        ------
-         F(ICAARHO, IX ) = 0.0_RP
-         F(ICAAU, IX ) = 0.0_RP
-         F(ICAAV, IX ) = velocity_term
-         F(ICAAW, IX ) = 0.0_RP
-         F(ICAAP, IX ) = thermodynamics%gamma * Q(ICAAP) * Q(ICAAV) + Qbase(ICAAV) * Q(ICAAP)
+         F(ICAARHO, IY ) = 0.0_RP
+         F(ICAAU, IY ) = 0.0_RP
+         F(ICAAV, IY ) = velocity_term
+         F(ICAAW, IY ) = 0.0_RP
+         F(ICAAP, IY ) = thermodynamics%gamma * Qbase(ICAAP) * Q(ICAAV) + Qbase(ICAAV) * Q(ICAAP)
 !
 !        Z-Flux
 !        ------
-         F(ICAARHO, IX ) = 0.0_RP
-         F(ICAAU, IX ) = 0.0_RP
-         F(ICAAV, IX ) = 0.0_RP
-         F(ICAAW, IX ) = velocity_term
-         F(ICAAP, IX ) = thermodynamics%gamma * Q(ICAAP) * Q(ICAAW) + Qbase(ICAAW) * Q(ICAAP)
+         F(ICAARHO, IZ ) = 0.0_RP
+         F(ICAAU, IZ ) = 0.0_RP
+         F(ICAAV, IZ ) = 0.0_RP
+         F(ICAAW, IZ ) = velocity_term
+         F(ICAAP, IZ ) = thermodynamics%gamma * Qbase(ICAAP) * Q(ICAAW) + Qbase(ICAAW) * Q(ICAAP)
 
       end subroutine APEFlux
 !     
@@ -104,11 +104,11 @@
 !
 !        only X-Flux
 !        ------         
-         F(ICAARHO, IX ) = 0.0_RP
-         F(ICAAU, IX ) = dot_product( Qbase(ICAAU:ICAAW) , Q(ICAAU:ICAAW) ) + Q(ICAAP)/Q(ICAARHO)
-         F(ICAAV, IX ) = 0.0_RP
-         F(ICAAW, IX ) = 0.0_RP
-         F(ICAAP, IX ) = thermodynamics%gamma * Q(ICAAP) * Q(ICAAU) + Qbase(ICAAU) * Q(ICAAP)
+         F(ICAARHO) = 0.0_RP
+         F(ICAAU) = dot_product( Qbase(ICAAU:ICAAW) , Q(ICAAU:ICAAW) ) + Q(ICAAP)/Qbase(ICAARHO)
+         F(ICAAV) = 0.0_RP
+         F(ICAAW) = 0.0_RP
+         F(ICAAP) = thermodynamics%gamma * Qbase(ICAAP) * Q(ICAAU) + Qbase(ICAAU) * Q(ICAAP)
 
       end subroutine APEFlux1D
    END Module Physics_CAA
@@ -157,4 +157,4 @@
 
       end associate
       
-      END SUBROUTINE ComputeEigenvaluesForState
+      END SUBROUTINE ComputeEigenvaluesForStateCAA

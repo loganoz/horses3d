@@ -63,12 +63,14 @@ ifeq ($(PLATFORM),MACOSX)
    PROBLEM_LIB_iNS=$(HOME_DIR)/lib/libproblemfile_ins.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
    PROBLEM_LIB_CH=$(HOME_DIR)/lib/libproblemfile_ch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
    PROBLEM_LIB_MU=$(HOME_DIR)/lib/libproblemfile_mu.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_CAA=$(HOME_DIR)/lib/libproblemfile_caa.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
 else ifeq ($(PLATFORM),LINUX)
    PROBLEM_LIB_NS=-L$(HOME_DIR)/lib -lproblemfile_ns -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_NSSA=-L$(HOME_DIR)/lib -lproblemfile_nssa -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_iNS=-L$(HOME_DIR)/lib -lproblemfile_ins -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_CH=-L$(HOME_DIR)/lib -lproblemfile_ch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_MU=-L$(HOME_DIR)/lib -lproblemfile_mu -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_CAA=-L$(HOME_DIR)/lib -lproblemfile_caa -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
 endif
 
 ##########################################
@@ -217,7 +219,7 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS_GENERAL = ftobject foundation mpiutils ml spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/spallartalmaras
+HORSES_LIBS_GENERAL = ftobject foundation mpiutils ml spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/spallartalmaras physics/acoustic
 HORSES_LIBS_PARTICULAR = physics/common mesh particles sources monitors problemfile discretization jacobian timeintegrator
 HORSES_LIBS=$(HORSES_LIBS_GENERAL) $(HORSES_LIBS_PARTICULAR)
 HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ins -lml
@@ -295,6 +297,17 @@ HORSES_MU_FLAGS= FC='$(FC)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
 	         HORSES_LIBS_EXEC='$(HORSES_LIBS_MU) $(PROBLEM_LIB_MU)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
+HORSES_CAA_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+				 INCLUDEO='$(INCLUDEO)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_CAA) $(PROBLEM_LIB_CAA)' \
 	         EXTLIB_INC='$(EXTLIB_INC)' \
 	         MACROS='$(MACROS)' \
 	   	 LIBS='$(LIBS)'
@@ -509,8 +522,8 @@ addonsclean: FORCE
 	done
 
 mkdirs: FORCE
-	@mkdir -p $(HOME_DIR)/build $(HOME_DIR)/build_ns $(HOME_DIR)/build_nssa $(HOME_DIR)/build_ins $(HOME_DIR)/build_ch $(HOME_DIR)/build_mu
-	@mkdir -p $(HOME_DIR)/include $(HOME_DIR)/include_ns $(HOME_DIR)/include_nssa $(HOME_DIR)/include_ins $(HOME_DIR)/include_ch $(HOME_DIR)/include_mu
+	@mkdir -p $(HOME_DIR)/build $(HOME_DIR)/build_ns $(HOME_DIR)/build_nssa $(HOME_DIR)/build_ins $(HOME_DIR)/build_ch $(HOME_DIR)/build_mu $(HOME_DIR)/build_caa
+	@mkdir -p $(HOME_DIR)/include $(HOME_DIR)/include_ns $(HOME_DIR)/include_nssa $(HOME_DIR)/include_ins $(HOME_DIR)/include_ch $(HOME_DIR)/include_mu $(HOME_DIR)/include_caa
 	@mkdir -p $(HOME_DIR)/bin
 	@mkdir -p $(HOME_DIR)/lib
 
