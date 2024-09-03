@@ -350,7 +350,7 @@ Module SpongeClass  !
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
                 do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    e % storage % S_NS(:,i,j,k) = - self % intensity(i,j,k,spongeEID) * &
+                    e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - self % intensity(i,j,k,spongeEID) * &
                                                   (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
                 end do         ; end do          ; end do
             end associate
@@ -561,7 +561,7 @@ Module SpongeClass  !
         refs(V_REF)     = refValues      % V
         refs(T_REF)     = 0.0_RP
         refs(MACH_REF)  = 0.0_RP
-        refs(RE_REF)    = dimensionless  % Re
+        !refs(RE_REF)    = dimensionless  % Re !throws an erro in debug 
 #endif
 !       Create new file
 !       ---------------
