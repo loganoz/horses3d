@@ -583,6 +583,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , t )
+         use SpongeClass, only: sponge
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -657,6 +658,26 @@ module SpatialDiscretization
             end associate 
          end do
 !$omp end do
+
+! Sponges
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
+            end associate
+         enddo
+!$omp end do
+!for the sponge, loops are in the internal subroutine as values are precalculated
+         call sponge % addSource(mesh)
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do  
 !
 !        ******************************************
 !        Do the same for elements with shared faces

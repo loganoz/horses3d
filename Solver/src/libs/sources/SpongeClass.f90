@@ -9,7 +9,7 @@
 
 #include "Includes.h"
 Module SpongeClass  !
-#if defined(NAVIERSTOKES) || defined (INCNS)
+#if defined(FLOW) 
     use SMConstants
     use HexMeshClass
     use SolutionFile
@@ -562,6 +562,9 @@ Module SpongeClass  !
         refs(T_REF)     = 0.0_RP
         refs(MACH_REF)  = 0.0_RP
         !refs(RE_REF)    = dimensionless  % Re !throws an erro in debug 
+#endif
+#if defined(Multiphase)
+        refs = 0.0_RP
 #endif
 !       Create new file
 !       ---------------
