@@ -46,6 +46,9 @@ module pAdaptationClassRL
       type(pAdaptationAgent_t) :: agent
       real(kind=RP)            :: threshold
       real(kind=RP)            :: tol = 1e-2_RP
+      logical                  :: error_estimation = .false.
+      logical                  :: avg_error_type = .true. !True for average error, false for max error
+      integer                  :: error_variable !1:u, 2:v, 3:w, 4:rho*u, 5:rho*v, 6:rho*w 
       
       contains
          ! Base class procedures
@@ -81,8 +84,8 @@ module pAdaptationClassRL
       character(LINE_LENGTH)         :: in_label
       character(LINE_LENGTH)         :: agentFile
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd
-      logical      , allocatable     :: R_increasing, reorganize_z, R_restart
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd, R_ErrorType, R_ErrorVariable
+      logical      , allocatable     :: R_increasing, reorganize_z, R_restart, R_ErrorEstimation
       real(kind=RP), allocatable     :: R_tolerance, R_threshold
       ! Extra vars
       integer                        :: i      ! Element counter
@@ -121,6 +124,9 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "agent file"             , agentFile          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "threshold"              , R_threshold        , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "error estimation"       , R_ErrorEstimation  , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "error type"             , R_ErrorType        , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "error variable"         , R_ErrorVariable    , in_label , "# end" )
       
 !     Conforming boundaries
 !     ----------------------
@@ -177,6 +183,49 @@ module pAdaptationClassRL
          end select
       else
          GetOrderAcrossFace => NumberN_1
+      end if
+
+!     Error estimator
+!     ---------------
+      if ( allocated(R_ErrorEstimation) ) then
+         this % error_estimation = R_ErrorEstimation
+      end if
+
+      if (this % error_estimation) then
+         if ( R_ErrorType /= "" ) then
+            select case ( trim (R_ErrorType) )
+            case ("avg")
+               this % avg_error_type = .true.
+            case ("max")
+               this % avg_error_type = .false.
+            case default
+               WRITE(STD_OUT,*) 'Not recognized adaptation mode. Options are:'
+               WRITE(STD_OUT,*) '   * avg'
+               WRITE(STD_OUT,*) '   * max'
+               error stop ' '
+            end select
+         end if
+
+         if ( R_ErrorVariable /= "" ) then
+            select case ( trim (R_ErrorVariable) )
+            case ("u")
+               this % error_variable = 1
+            case ("v")
+               this % error_variable = 2
+            case ("w")
+               this % error_variable = 3
+            case ("rhou")
+               this % error_variable = 4
+            case ("rhov")
+               this % error_variable = 5
+            case ("rhow")
+               this % error_variable = 6
+            case default
+               this % error_variable = 1
+            end select
+         else
+            error stop 'Keyword error variable is mandatory for error estimation'
+         end if
       end if
       
 !     Adaptation mode: Steady(default) or unsteady
@@ -502,13 +551,16 @@ module pAdaptationClassRL
       type(Element)         , intent(in)    :: e
       integer               , intent(out)   :: NNew(NDIM)
       !-local-variables----------------------------
-      integer                    :: Pxyz(NDIM)     ! Initial polynomial order
+      integer                    :: Pxyz(NDIM)  ! Initial polynomial order
       integer                    :: i, j, k     ! Coordinate counters
       integer                    :: dir         ! Coordinate direction
       integer(kind=1)            :: action      ! Action
       integer                    :: indices_dir1(e % Nxyz(1)+1), indices_dir2(e % Nxyz(2)+1), indices_dir3(e % Nxyz(3)+1)
+      integer                    :: indices_error1(e % Nxyz(1)+1), indices_error2(e % Nxyz(2)+1), indices_error3(e % Nxyz(3)+1)
       real(kind=RP)              :: Q_dir1(NDIM, 0:e % Nxyz(1)), Q_dir2(NDIM, 0:e % Nxyz(2)), Q_dir3(NDIM, 0:e % Nxyz(3))
-      real(kind=RP)              :: minQ, maxQ
+      real(kind=RP)              :: Q_error1(0:e % Nxyz(1)), Q_error2(0:e % Nxyz(2)), Q_error3(0:e % Nxyz(3))
+      real(kind=RP)              :: minQ, maxQ, min_errorQ, max_errorQ
+      real(kind=RP)              :: error_sensor
       !--------------------------------------------
       
 !     Initialization of P
@@ -523,12 +575,20 @@ module pAdaptationClassRL
 !     Select the polynomial order in Direction 1
 !     --------------------------------
       action = -1 ! Initialized to minimum value
+      error_sensor = 0.0_RP
+
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(2)
             !Compute the state variables for each Gauss-node in axis 1
             do k = 0, Pxyz(1)
                do dir = 1, 3
                   Q_dir1(dir, k) = e % storage % Q(dir+1, k, j, i) !RHOU, RHOV, RHOW
+                  if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                     Q_error1(k) = e % storage % Q(dir+1, k, j, i)
+                     if (this % error_variable <= 3) then
+                        Q_error1(k) = Q_error1(k) / e % storage % Q(1, k, j, i)
+                     end if
+                  end if
                enddo
             enddo
             !Select the most restrictive action among RHOU, RHOV, RHOW
@@ -536,11 +596,19 @@ module pAdaptationClassRL
                ! Find minimum and maximum values in axis 1
                minQ = minval(Q_dir1(dir, :))
                maxQ = maxval(Q_dir1(dir, :))
+               if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                  min_errorQ = minval(Q_error1(:))
+                  max_errorQ = maxval(Q_error1(:))
+               end if
+
                if (maxQ - minQ < this % tol) then
                   indices_dir1(:) = this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(1) > 2) then
                      action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_dir1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else if (Pxyz(1) > 1) then
                      action = max(action, -1)
                   else
@@ -549,31 +617,55 @@ module pAdaptationClassRL
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 1
                   indices_dir1(:) = nint(2 * this % agent % smax * (Q_dir1(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                     indices_error1(:) = nint(2 * this % agent % smax * (Q_error1(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  end if
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(1) > 2) then
                      action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else if (Pxyz(1) > 1) then
                      action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1), 0)
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else
                      action = 1
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   end if
                end if
+               
             enddo
          enddo
       enddo
       ! Update NNew and make sure it is within the boundaries
       NNew(1) = min(max(Pxyz(1) + action, NMIN(1)), this % NxyzMax(1))
+      if (this % error_estimation) then
+         e % storage % sensor = sqrt(error_sensor / ((Pxyz(2)+1) * (Pxyz(3)+1))) 
+      end if
 
 !     --------------------------------
 !     Select the polynomial order in Direction 2
 !     --------------------------------
       action = -1 ! Initialized to minimum value
+      error_sensor = 0.0_RP
+
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(1)
             !Compute the state variables for each Gauss-node in axis 2
             do k = 0, Pxyz(2)
                do dir = 1, 3
                   Q_dir2(dir, k) = e % storage % Q(dir+1, j, k, i) !RHOU, RHOV, RHOW
+                  if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                     Q_error2(k) = e % storage % Q(dir+1, j, k, i)
+                     if (this % error_variable <= 3) then
+                        Q_error2(k) = Q_error2(k) / e % storage % Q(1, j, k, i)
+                     end if
+                  end if
                enddo
             enddo
             !Select the most restrictive action among RHOU, RHOV, RHOW
@@ -581,11 +673,19 @@ module pAdaptationClassRL
                ! Find minimum and maximum values in axis 2
                minQ = minval(Q_dir2(dir, :))
                maxQ = maxval(Q_dir2(dir, :))
+               if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                  min_errorQ = minval(Q_error2(:))
+                  max_errorQ = maxval(Q_error2(:))
+               end if
+
                if (maxQ - minQ < this % tol) then
                   indices_dir2(:) = this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(2) > 2) then
                      action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_dir2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else if (Pxyz(2) > 1) then
                      action = max(action, -1)
                   else
@@ -594,31 +694,59 @@ module pAdaptationClassRL
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 2
                   indices_dir2(:) = nint(2 * this % agent % smax * (Q_dir2(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                     indices_error2(:) = nint(2 * this % agent % smax * (Q_error2(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  end if
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(2) > 2) then
                      action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else if (Pxyz(2) > 1) then
                      action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2), 0)
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else
                      action = 1
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   end if
                end if
+
             enddo
          enddo
       enddo
       ! Update NNew and make sure it is within the boundaries
       NNew(2) = min(max(Pxyz(2) + action, NMIN(2)), this % NxyzMax(2))
+      if (this % error_estimation) then
+         if (this % avg_error_type) then
+            e % storage % sensor = e % storage % sensor + sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(3)+1)))
+         else
+            e % storage % sensor = max(e % storage % sensor, sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(3)+1))))
+         end if
+      end if
 
 !     --------------------------------
 !     Select the polynomial order in Direction 3
 !     --------------------------------
       action = -1 ! Initialized to minimum value
+      error_sensor = 0.0_RP
+
       do i = 0, Pxyz(2)
          do j = 0, Pxyz(1)
             !Compute the state variables for each Gauss-node in axis 3
             do k = 0, Pxyz(3)
                do dir = 1, 3
                   Q_dir3(dir, k) = e % storage % Q(dir+1, j, i, k) !RHOU, RHOV, RHOW
+                  if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                     Q_error3(k) = e % storage % Q(dir+1, j, i, k)
+                     if (this % error_variable <= 3) then
+                        Q_error3(k) = Q_error3(k) / e % storage % Q(1, j, i, k)
+                     end if
+                  end if
                enddo
             enddo
             !Select the most restrictive action among RHOU, RHOV, RHOW
@@ -626,11 +754,19 @@ module pAdaptationClassRL
                ! Find minimum and maximum values in axis 3
                minQ = minval(Q_dir3(dir, :))
                maxQ = maxval(Q_dir3(dir, :))
+               if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                  min_errorQ = minval(Q_error3(:))
+                  max_errorQ = maxval(Q_error3(:))
+               end if
+
                if (maxQ - minQ < this % tol) then
                   indices_dir3(:) = this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(3) > 2) then
                      action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_dir3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else if (Pxyz(3) > 1) then
                      action = max(action, -1)
                   else
@@ -639,20 +775,41 @@ module pAdaptationClassRL
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 3
                   indices_dir3(:) = nint(2 * this % agent % smax * (Q_dir3(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                     indices_error3(:) = nint(2 * this % agent % smax * (Q_error3(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  end if
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(3) > 2) then
                      action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else if (Pxyz(3) > 1) then
                      action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3), 0)
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   else
                      action = 1
+                     if (this % error_estimation .and. mod(this % error_variable, 3) == mod(dir, 3)) then
+                        error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     end if
                   end if
                end if
+
             enddo
          enddo
       enddo
       ! Update NNew and make sure it is within the boundaries
-      NNew(3) = min(max(Pxyz(3) + action, NMIN(3)), this % NxyzMax(3))   
+      NNew(3) = min(max(Pxyz(3) + action, NMIN(3)), this % NxyzMax(3)) 
+      if (this % error_estimation) then
+         if (this % avg_error_type) then  
+            e % storage % sensor = e % storage % sensor + sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(2)+1)))
+            e % storage % sensor = e % storage % sensor / 3.0_RP
+         else
+            e % storage % sensor = max(e % storage % sensor, sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(2)+1))))
+         end if
+      end if
       
    end subroutine pAdaptation_pAdaptRL_SelectElemPolorders  
    

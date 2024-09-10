@@ -1,0 +1,67 @@
+/* Test case of p-Adaptation for the Euler equations */
+Flow equations        = "Euler"
+mesh file name        = "MESH/cyl_circ.msh"
+solution file name    = "RESULTS/Cylinder.hsol"
+restart file name     = "RESULTS/Cylinder.hsol"
+restart               = .FALSE.
+Polynomial order      = 2
+Number of time steps  = 35
+Output Interval       = 10
+autosave mode         = "iteration"
+autosave interval     = 50000
+Convergence tolerance = 1.d-7
+cfl                   = 0.4d0
+mach number           = 0.3d0
+Riemann solver        = roe
+Reynolds number       = 0.0d0
+AOA theta             = 0.0d0
+AOA phi               = 0.0d0
+
+simulation type       = steady-state
+time integration      = explicit
+explicit method       = RK3
+
+#define boundary cylinder__left__right
+  type = FreeSlipWall
+#end
+
+#define boundary inlet
+  type = Inflow
+#end
+
+#define boundary outlet
+  type = Outflow
+#end
+
+!-Adaptation-----------------------------------
+save sensor with solution = .true.
+
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 5d-3
+   Nmax                  = [6, 6, 6]
+   Nmin                  = [2, 2, 2]
+   adjust nz             = .FALSE.
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 10
+   threshold             = 0 !Values higher than 100 leads to never adapting
+   error estimation      = .true.
+   error type            = avg
+   error variable        = u
+#end
+!---------------------------------------------
+
+#define surface monitor 1
+   Name = drag
+   Marker = cylinder
+   Variable = pressure-force
+   Direction = [1.0d0, 0.0d0, 0.0d0]
+#end
+
+#define volume monitor 1
+   Name = sensor
+   Variable = sensor range
+#end

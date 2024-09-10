@@ -4261,6 +4261,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    logical :: analyticalJac   ! Do we need analytical Jacobian storage?
    type(Element)   , pointer :: e
    type(Face)      , pointer :: f
+   real(kind=RP)             :: sensor_value
 
 #if (!defined(NAVIERSTOKES) || !defined(INCNS))
    logical, parameter            :: computeGradients = .true.
@@ -4302,7 +4303,9 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
       if ( all( e % Nxyz == NNew(:,eID)) ) then
          cycle
       else
+         sensor_value = e % storage % sensor
          call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
+         e % storage % sensor = sensor_value
 !$omp critical
          self % Nx(eID) = NNew(1,eID)
          self % Ny(eID) = NNew(2,eID)
