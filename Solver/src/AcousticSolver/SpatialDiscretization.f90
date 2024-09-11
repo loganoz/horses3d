@@ -98,7 +98,6 @@ module SpatialDiscretization
          ! getGradients_BaseFlow => NSGradientVariables_STATE
          ! call set_getVelocityGradients(GRADVARS_STATE)
 
-
       end subroutine Initialize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
@@ -139,7 +138,7 @@ module SpatialDiscretization
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces(NCONS, HO_Elements)
+         call mesh % ProlongSolutionToFaces(NCONS)
 
 !        ----------------
 !        Update MPI Faces

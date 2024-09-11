@@ -113,6 +113,8 @@ MODULE HexMeshClass
             procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
             ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
             procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
+            procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
+            procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
 #endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
@@ -1222,6 +1224,68 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#if defined(ACOUSTIC)
+      subroutine HexMesh_UpdateMPIFacesBaseSolution(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Qbase(:,i,j)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesBaseSolution
+#endif
+!
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
          class(HexMesh)    :: self
@@ -1364,6 +1428,53 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_GatherMPIFacesAviscflux
+!
+!////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+      subroutine HexMesh_GatherMPIFacesBaseSolution(self, nEqn)
+         implicit none
+         class(HexMesh)    :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForSolution
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  f % storage(otherSide(thisSide)) % Qbase(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesBaseSolution
+#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
