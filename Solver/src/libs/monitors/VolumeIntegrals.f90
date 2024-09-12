@@ -34,6 +34,10 @@ module VolumeIntegrals
    public FREE_ENERGY
 #endif
 
+#if defined(ACOUSTIC)
+   public ACOUSTIC_ENERGY, SOURCE
+#endif
+
    public   ScalarVolumeIntegral, VectorVolumeIntegral, GetSensorRange
 
 
@@ -53,6 +57,9 @@ module VolumeIntegrals
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
+#endif
+#if defined(ACOUSTIC)
+      enumerator :: ACOUSTIC_ENERGY, SOURCE
 #endif
    end enum
 !
@@ -528,6 +535,17 @@ module VolumeIntegrals
             end do            ; end do           ; end do
 
 #endif
+#if defined(ACOUSTIC)
+         case (ACOUSTIC_ENERGY)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)* ( &
+                      0.5_RP * e % storage % Qbase(ICAARHO,i,j,k) * ( POW2(e %storage % Q(ICAAU,i,j,k)) &
+                                                                    + POW2(e %storage % Q(ICAAV,i,j,k)) &
+                                                                    + POW2(e %storage % Q(ICAAW,i,j,k)) ) &
+                    + 0.5_RP / (thermodynamics % gamma * e % storage % Qbase(ICAAP,i,j,k)) * POW2(e %storage % Q(ICAAP,i,j,k)) )
+            end do            ; end do           ; end do
+#endif
          end select
 
          end associate
@@ -666,6 +684,14 @@ module VolumeIntegrals
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
 #endif
+#if defined(ACOUSTIC)
+            case ( SOURCE )
+
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+#endif
+
             case default
 
                write(STD_OUT,'(A,A)') 'VectorVolumeIntegral :: ERROR: Not defined integral type'

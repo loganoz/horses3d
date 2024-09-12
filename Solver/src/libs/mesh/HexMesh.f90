@@ -109,6 +109,13 @@ MODULE HexMeshClass
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
+#if defined(ACOUSTIC)
+            procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
+            ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+            procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
+            procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
+            procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
+#endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
@@ -1217,6 +1224,68 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#if defined(ACOUSTIC)
+      subroutine HexMesh_UpdateMPIFacesBaseSolution(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Qbase(:,i,j)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesBaseSolution
+#endif
+!
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
          class(HexMesh)    :: self
@@ -1359,6 +1428,53 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_GatherMPIFacesAviscflux
+!
+!////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+      subroutine HexMesh_GatherMPIFacesBaseSolution(self, nEqn)
+         implicit none
+         class(HexMesh)    :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForSolution
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  f % storage(otherSide(thisSide)) % Qbase(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesBaseSolution
+#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -2132,6 +2248,8 @@ slavecoord:             DO l = 1, 4
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
+#elif defined(ACOUSTIC)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #endif
 
 #endif
@@ -2978,6 +3096,13 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = 0.0_RP
          refs(MACH_REF)  = 0.0_RP
+#elif defined(ACOUSTIC)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
 #else
          refs = 0.0_RP
 #endif
@@ -3586,6 +3711,57 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+#if defined(ACOUSTIC)
+    Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
+        Implicit None
+         CLASS(HexMesh)                  :: self
+         real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         INTEGER                        :: eID, eq
+
+         do eID = 1, size(self % elements)
+            do eq = 1,NCONS
+                self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
+            end do
+         end do
+!
+    End Subroutine HexMesh_SetUniformBaseFlow
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_ProlongBaseSolutionToFaces(self, nEqn)
+         implicit none
+         class(HexMesh),    intent(inout) :: self
+         integer,           intent(in)    :: nEqn
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fIDs(6)
+         integer  :: eID, i
+
+!$omp do schedule(runtime) private(fIDs)
+         do eID = 1, size(self % elements)
+            fIDs = self % elements(eID) % faceIDs
+            call self % elements(eID) % ProlongBaseSolutionToFaces(nEqn, &
+                                                                   self % faces(fIDs(1)),&
+                                                                   self % faces(fIDs(2)),&
+                                                                   self % faces(fIDs(3)),&
+                                                                   self % faces(fIDs(4)),&
+                                                                   self % faces(fIDs(5)),&
+                                                                   self % faces(fIDs(6)) )
+         end do
+!$omp end do
+
+      end subroutine HexMesh_ProlongBaseSolutionToFaces
+#endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine GetDiscretizationError(mesh,controlVariables)
       implicit none
       !----------------------------------------------
@@ -4069,12 +4245,13 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu, nssa
+      integer  :: off, ns, c, mu, nssa, caa
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu, nssa)
+      call GetStorageEquations(off, ns, c, mu, nssa, caa)
 
-      if ( which .eq. ns ) then
+
+      if ( which .eq. ns .or. which .eq. nssa .or. which .eq. caa) then
 #ifdef FLOW
          self % storage % Q => self % storage % QNS
          self % storage % QDot => self % storage % QDotNS
@@ -4089,24 +4266,7 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToNS
          end do
 
-      elseif ( which .eq. nssa ) then
-
-         self % storage % Q => self % storage % QNS
-         self % storage % QDot => self % storage % QDotNS
-         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
-
-         do eID = 1, self % no_of_elements
-            call self % elements(eID) % storage % SetStorageToNS
-         end do
-
-         do fID = 1, size(self % faces)
-            call self % faces(fID) % storage(1) % SetStorageToNS
-            call self % faces(fID) % storage(2) % SetStorageToNS
-         end do
-
-
 #endif
-
 
       elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)

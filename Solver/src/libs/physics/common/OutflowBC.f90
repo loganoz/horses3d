@@ -495,4 +495,57 @@ module OutflowBCClass
 
       end subroutine OutflowBC_ChemPotNeumann
 #endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for Acoustic APE equations
+!        ---------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+      ! prescribed zero fluctuations of all variables, only makes sence for far field BC, possible after sponge
+      subroutine OutflowBC_FlowState(self, x, t, nHat, Q)
+         implicit none
+         class(OutflowBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: V, rho, p
+
+         V = 0.0_RP
+         rho = 0.0_RP
+         p = 0.0_RP
+
+         Q(ICAARHO) = rho
+         Q(ICAAU) = V
+         Q(ICAAV) = V
+         Q(ICAAW) = V
+         Q(ICAAP) = p
+
+      end subroutine OutflowBC_FlowState
+
+      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(OutflowBC_t),  intent(in)     :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NCONS)
+         real(kind=RP),       intent(in)    :: U_y(NCONS)
+         real(kind=RP),       intent(in)    :: U_z(NCONS)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
+
+         flux = 0.0_RP
+
+      end subroutine OutflowBC_FlowNeumann
+#endif
+!
 end module OutflowBCClass

@@ -386,7 +386,23 @@ end module ProblemFileFunctions
                end associate
             end do
 #endif
-
+!
+!           -----------------------------------
+!           Acoustic default initial condition
+!           -----------------------------------
+!
+#if defined(ACOUSTIC)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  ! mesh % elements(eID) % storage % q(:,i,j,k) = [0.0_RP, 0.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = 0.0_RP 
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
          end subroutine UserDefinedInitialCondition
 
          subroutine UserDefinedState1(x, t, nHat, Q & 

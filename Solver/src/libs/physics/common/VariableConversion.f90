@@ -12,6 +12,9 @@ module VariableConversion
 #if defined(CAHNHILLIARD)
    use VariableConversion_CH
 #endif
+#if defined(ACOUSTIC)
+   use VariableConversion_CAA
+#endif
    implicit none
 
    abstract interface
