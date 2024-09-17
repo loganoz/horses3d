@@ -2074,12 +2074,12 @@ module IBMClass
       real(kind=RP),     intent(in)    :: dt, h, Q(nEqn) 
       real(kind=RP),     intent(inout) :: Source(nEqn), x(NDIM)
 
-      integer       :: i, j
+      integer       :: i, j, ierr 
       real(kind=RP) :: dist, dist_, epsilon, xP(NDIM)
 
       Source = 0.0_RP 
 
-      if( .not. this% stl(STLNum)% moving ) return 
+      if( .not. this% stl(STLNum)% move ) return 
       if( .not.  OBB(STLNum)% isPointInside(x, 1.5_RP) ) return 
 
       dist_ = huge(1.0_RP)

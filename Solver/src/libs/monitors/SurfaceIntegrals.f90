@@ -565,48 +565,14 @@ module SurfaceIntegrals
                U_y = obj% IntegrationVertices(j)% U_y
                U_z = obj% IntegrationVertices(j)% U_z
             else
-               if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) !call GetSurfaceState( IBM, obj% IntegrationVertices(j), STLNum ) 
+               if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
                
                call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
-
-               if( any(isnan(Q))) then 
-                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
-                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
-                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
-                  error stop
-               end if 
-
                call GetPointGrads( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, U_x, U_y, U_z )
-               if( any(isnan(U_x))) then 
-                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
-                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
-                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
-                  error stop
-               end if
-               if( any(isnan(U_y))) then 
-                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
-                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
-                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
-                  error stop
-               end if
-               if( any(isnan(U_z))) then 
-                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
-                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
-                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
-                  error stop
-               end if
+
             end if 
             
             obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, U_x, U_y, U_z, obj% normal, IBM% IP_dWall, IBM% Wallfunction, integralType )
-
-            if( any(isnan(obj% IntegrationVertices(j)% VectorValue))) then 
-               write(*,*) 'Q =', q
-               write(*,*) 'U_X =', U_X
-               write(*,*) 'U_y =', U_y
-               write(*,*) 'U_z =', U_z
-               write(*,*) 'normal =', obj% normal
-               error stop
-            end if
 
          end do 
          end associate
