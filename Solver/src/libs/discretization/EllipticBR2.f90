@@ -424,11 +424,21 @@ module EllipticBR2
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
+         integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+            end if 
+
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
@@ -461,11 +471,21 @@ module EllipticBR2
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
          integer       :: i,j, thisSide
-         
+         integer       :: Sidearray(2)
+
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+            end if 
+
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
@@ -491,7 +511,7 @@ module EllipticBR2
 !        Local variables
 !        ---------------
 !
-         integer       :: i, j
+         integer       :: i, j, Sidearray(2)
          real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: bvExt(nEqn)
 
@@ -511,6 +531,15 @@ module EllipticBR2
             call GetGradients( nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
             call GetGradients( nEqn, nGradEqn, bvExt, UR )
    
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+            end if 
+
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             
             f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)

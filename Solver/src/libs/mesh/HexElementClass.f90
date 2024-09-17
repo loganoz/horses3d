@@ -75,11 +75,11 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
-         logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
+         logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint, forcingPointIndex ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
          integer, dimension(:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. (IB)
          integer                                :: IP_index 
          logical                                :: MaskCorners(8) = .false.
-         logical                                :: HO_IBM = .false., IBMConstruct = .false.
+         logical                                :: HO_IBM = .false., IBMConstruct = .false., moving = .false.
          contains
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
@@ -606,7 +606,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      logical function HexElement_FindPointWithCoords(self, x, dir2D, xi)
+      logical function HexElement_FindPointWithCoords(self, x, dir2D, xi, toll )
 !
 !        **********************************************************
 !
@@ -623,6 +623,7 @@
          real(kind=RP),       intent(in)  :: x(NDIM)
          integer,             intent(in)  :: dir2D
          real(kind=RP),       intent(out) :: xi(NDIM)
+         logical,  optional,  intent(in)  :: toll 
 !
 !        ----------------------------------
 !        Newton iterative solver parameters
@@ -648,11 +649,13 @@
          real(kind=RP)                 :: Jac(NDIM,NDIM)
          real(kind=RP)                 :: dx(NDIM)
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         logical                       :: toll_ = .true.
 
          spAxi   => NodalStorage(self % Nxyz(1))
          spAeta  => NodalStorage(self % Nxyz(2))
          spAzeta => NodalStorage(self % Nxyz(3))
 
+         if( present(toll) ) toll_ = toll
 !
 !        Initial seed
 !        ------------
@@ -677,9 +680,11 @@
 !           ------------------------------------
             if ( dir2D .gt. 0 ) F(dir2D) = 0.0_RP
             if ( maxval(abs(F)) .lt. TOL ) exit
-            ! if ( abs(xi(1)) .ge. 2.5_RP ) exit
-            ! if ( abs(xi(2)) .ge. 2.5_RP ) exit
-            ! if ( abs(xi(3)) .ge. 2.5_RP ) exit
+            if( toll_ ) then 
+               if ( abs(xi(1)) .ge. 2.5_RP ) exit
+               if ( abs(xi(2)) .ge. 2.5_RP ) exit
+               if ( abs(xi(3)) .ge. 2.5_RP ) exit
+            end if 
 !
 !           Perform a step
 !           --------------
@@ -907,16 +912,22 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !   
-      subroutine HexElement_ConstructIBM( self, Nx, Ny, Nz, NumOfSTL )
+      subroutine HexElement_ConstructIBM( self, Nx, Ny, Nz, NumOfSTL, wallfunction )
          implicit none
          class(Element), intent(inout) :: self
          integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files
+         logical,        intent(in)    :: wallfunction 
 
          if( self% IBMConstruct ) return 
          
          allocate(self% isInsideBody(0:Nx,0:Ny,0:Nz))
-         allocate(self% isForcingPoint(0:Nx,0:Ny,0:Nz))
          allocate(self% STL(0:Nx,0:Ny,0:Nz))
+         allocate(self% isForcingPoint(0:Nx,0:Ny,0:Nz))
+
+         if( wallfunction ) then 
+            allocate(self% forcingPointIndex(0:Nx,0:Ny,0:Nz))
+            self% forcingPointIndex = 0
+         end if 
          
          self% isInsideBody   = .false.
          self% isForcingPoint = .false.

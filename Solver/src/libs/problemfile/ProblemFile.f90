@@ -168,16 +168,16 @@ module ProblemFileFunctions
 #endif
 
 #ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS_f( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
+      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, dt, refValues_, GetVelocity, UpdatePosition )
          use SMConstants
          use FluidData
          use PhysicsStorage
          IMPLICIT NONE
-         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),          intent(in)    :: t, cL, cD, dt
-         logical,                intent(in)    :: computeX, computeV
-         integer,                intent(in)    :: STLNum
-         type(RefValues_t),      intent(in)    :: refValues_
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
       end subroutine UserDefinedIBMKinematicsNS_f
 #endif
 !
@@ -497,30 +497,16 @@ end module ProblemFileFunctions
 #endif
 
 #ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, dt, refValues_, GetVelocity, UpdatePosition )
          use SMConstants
          use FluidData
          use PhysicsStorage
          IMPLICIT NONE
-         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),          intent(in)    :: t, cL, cD, dt
-         logical,                intent(in)    :: computeX, computeV
-         integer,                intent(in)    :: STLNum
-         type(RefValues_t),      intent(in)    :: refValues_
-
-         integer       :: motionAxis
-         real(kind=RP) :: dx(NDIM), time, rr, w(NDIM)
-         real(kind=RP) :: theta, R(NDIM,NDIM), Omega, rotationCenter(NDIM)
-!
-!           Usage example for a rotating motion around x-axis
-!        --------------------------------------------------------
-         if( computeX ) then 
-
-         end if 
-         if( computeV ) then 
-
-         end if 
-
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
       end subroutine UserDefinedIBMKinematicsNS
 #endif
 !

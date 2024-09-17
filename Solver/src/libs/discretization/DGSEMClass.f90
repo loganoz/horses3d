@@ -101,6 +101,7 @@ Module DGSEMClass
       use MeshPartitioning
       use SurfaceMesh,      only: surfacesMesh
       use MPI_IBMUtilities, only: fixingmpifaces
+      use BoundaryConditions, only: ConstructIBMBoundaryConditions
 
       IMPLICIT NONE
 !
@@ -120,7 +121,7 @@ Module DGSEMClass
 !     Local variables
 !     ---------------
 !
-      INTEGER                     :: i,j,k,el,bcset                     ! Counters
+      INTEGER                     :: i,j,k,el,bcset, STLNum             ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       integer                     :: NelL(2), NelR(2)
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
@@ -328,23 +329,27 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
-!
+! 
       if( self% mesh% IBM% active ) then
          if( .not. self % mesh % child ) then
             call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
             call self% mesh% IBM% construct( controlVariables )
          end if
+         allocate( self% mesh% IBM% penalization(size(self% mesh% elements)) )
+         self% mesh% IBM% penalization = self% mesh% IBM% eta
+
+         call ConstructIBMBoundaryConditions( self% mesh% IBM% NumOfSTL, self% mesh% IBM% bcType, self% mesh% IBM% STLfilename)
 !
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
 !
-         call self% mesh% IBM% build( elements=self% mesh% elements, faces=self% mesh% faces, no_of_DoFs=self% mesh% NDOF, isChild=self% mesh% child, iter=0 )
+         do STLNum = 1, self% mesh% IBM% NumOfSTL
+            call self% mesh% IBM% build( self% mesh% elements, self% mesh% faces, self% mesh% MPIfaces, self% mesh% NDOF, STLNum, self% mesh% child, .false., 0 )
+         end do 
+         
          if( self% mesh% IBM% HO_IBM ) then 
             self% mesh% HO_IBM = .true.
-#ifdef _HAS_MPI_
-            call FixingmpiFaces( self% mesh% faces, self% mesh% MPIfaces, self% mesh% IBM% NumOfMaskObjs )
-#endif 
             call self% mesh% IBM% buildHOfaces( self% mesh% elements, self% mesh% faces )
          end if 
       end if

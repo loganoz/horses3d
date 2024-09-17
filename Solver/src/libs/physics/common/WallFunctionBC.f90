@@ -21,7 +21,7 @@ MODULE WallFunctionBC
 !  Public definitions
 !  ******************
 !
-   PUBLIC WallViscousFlux, wall_shear, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f 
+   PUBLIC WallViscousFlux, wall_shear, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f, WallFUnctionBC_FlowNeumann_HOIBM
 !
 
    CONTAINS 
@@ -157,7 +157,7 @@ MODULE WallFunctionBC
       ! Iterate in Newton's method until convergence criteria is met
 
       DO i = 1, newtonMaxIter
-
+         
          ! Evaluate auxiliary function at u_tau
          Aux_x0  =   Aux_f ( u_tau      , u_II, y, nu )
 
@@ -268,6 +268,89 @@ MODULE WallFunctionBC
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !
+
+   REAL(KIND=RP) FUNCTION tau_w_IBM( u_tau, y, rho, nu )
+      USE WallFunctionDefinitions, ONLY: kappa, WallC
+      IMPLICIT NONE 
+
+      real(kind=RP), intent(in) :: u_tau, y, rho, nu 
+
+      real(kind=RP) :: y_plus, gradU  
+      ! 
+      ! y_plus = y * u_tau/nu
+      ! \partial y_plus/ \partial y = u_tau/nu 
+      ! _______________________________________________________________________________________________
+      ! u = u_tau * ( 1/kappa * log( 1 + kappa * y_plus ) ) &
+      !   + u_tau * ( WallC - 1 / kappa * log(kappa) ) * & 
+      !   ( 1 - exp( -y_plus / 11 )-( y_plus / 11 ) * exp( -y_plus / 3 ) )
+      ! _______________________________________________________________________________________________
+      ! tau(y) = mu * (\partial u/\partial y)|_y
+      ! _______________________________________________________________________________________________
+      ! (\partial u/\partial y)|_y = u_tau * (u_tau/nu)/( 1 + kappa * y_plus )    &
+      !                            + u_tau * ( WallC - 1 / kappa * log(kappa) ) * &
+      !                             ( exp( -y_plus / 11 )*(u_tau/nu)/11  - (u_tau/nu)/11 * exp( -y_plus / 3 ) + y_plus/11 * exp(-y_plus/3) * (u_tau/nu)/3 )
+
+
+      y_plus = y_plus_f (y, u_tau, nu)
+      gradU  = u_tau*u_tau/( 1.0_RP + kappa * y_plus ) + ( WallC - 1.0_RP / kappa * log(kappa) ) * u_tau * u_tau /(11.0_RP) * &
+               ( exp(-y_plus/11.0_RP) - exp(-y_plus/3.0_RP) + y_plus/3.0_RP * exp(-y_plus/3.0_RP) )
+
+      tau_w_IBM = rho * gradU 
+
+   END FUNCTION tau_w_IBM
+
+   SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM( N, Q, dWall, nHat, xsb, nodes, u_tau, visc_fluxsb )   
+      use PolynomialInterpAndDerivsModule
+      use VariableConversion
+      IMPLICIT NONE 
+
+      real(kind=RP), intent(in)    :: Q(NCONS,0:N)
+      integer,       intent(in)    :: N 
+      real(kind=RP), intent(in)    :: dWall(0:N), xsb, nodes(0:N)
+      real(kind=RP), intent(in)    :: nHat(NDIM)
+      real(kind=RP), intent(inout) :: u_tau
+      real(kind=RP), intent(inout) :: visc_fluxsb(NCONS)
+
+      real(kind=RP) :: U_ref(NDIM), u_parallel(NDIM), x_II(NDIM), u_II, Q_ref(NCONS)
+      real(kind=RP) :: lj(0:N), w(0:N), den, visc_flux(NDIM,0:N)
+      real(kind=RP) :: mu_ref, kappa_ref, nu_ref, mu, nu
+      integer       :: i
+
+      visc_fluxsb = 0.0_RP 
+      den         = 0.0_RP
+      Q_ref       = Q(:,N)
+
+      U_ref      = Q_ref(IRHOU:IRHOW)/Q_ref(IRHO)
+      u_parallel = U_ref - (dot_product(U_ref, nHat) * nHat)
+      x_II       = u_parallel / norm2(u_parallel)
+      u_II       = dot_product(U_ref, x_II)
+
+      call get_laminar_mu_kappa(Q_ref, mu_ref, kappa_ref)
+
+      nu_ref = mu_ref/Q_ref(IRHO)
+      u_tau  = u_tau_f (u_II, dWall(N), nu_ref, u_tau)
+
+      do i = 0, N 
+         call get_laminar_mu_kappa(Q(:,i), mu, kappa_ref)
+         nu = mu/Q(IRHO,i)
+         visc_flux(:,i) = tau_w_IBM( u_tau, dWall(i), Q(IRHO,i), nu ) * x_II 
+      end do 
+
+      do i = 0, N
+         lj(i) = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
+         w(i)  = 1.0_RP/(abs(-1.0_RP - nodes(i))**2 + 1.0e-10)
+         den   = den + w(i) * lj(i)
+      end do
+
+      do i = 0, N
+         visc_fluxsb(IRHOU) = visc_fluxsb(IRHOU) + visc_flux(IX,i) * lj(i) * w(i)
+         visc_fluxsb(IRHOV) = visc_fluxsb(IRHOV) + visc_flux(IY,i) * lj(i) * w(i)
+         visc_fluxsb(IRHOW) = visc_fluxsb(IRHOW) + visc_flux(IZ,i) * lj(i) * w(i)
+      end do 
+
+      visc_fluxsb = -visc_fluxsb/den 
+
+   END SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM
 
 END MODULE 
 #endif

@@ -16,7 +16,8 @@ module SurfaceIntegrals
 
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW_RATE, PRESSURE_DISTRIBUTION
-   public   ScalarSurfaceIntegral, VectorSurfaceIntegral, ScalarDataReconstruction, VectorDataReconstruction
+   public   ScalarSurfaceIntegral, VectorSurfaceIntegral
+   public   ScalarDataReconstruction, VectorDataReconstruction, IBMSurfaceIntegral, IBMVectorIntegral
 
    integer, parameter   :: SURFACE = 1
    integer, parameter   :: TOTAL_FORCE = 2
@@ -459,12 +460,9 @@ module SurfaceIntegrals
        
       if( .not. IBM% Integral(STLNum)% compute ) return
 
-      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% stl(STLNum) )
+      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% stl(STLNum) )
 
-      if( IBM% stl(STLNum)% move ) then 
-         call IBM% stl(STLNum)% SetIntegrationPoints()
-         IBM% Integral(STLNum)% ListComputed = .false.
-      end if 
+      if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
 
       do i = 1, IBM% stl(STLNum)% NumOfObjs
          associate(obj => IBM% stl(STLNum)% ObjectsList(i))
@@ -472,15 +470,10 @@ module SurfaceIntegrals
             if( IBM% HO_IBM ) then 
                Q = obj% IntegrationVertices(j)% Q
             else
-               call GetSurfaceState( IBM, obj% IntegrationVertices(j), STLNum ) 
-
-               do k = 1, IBM% NumOfInterPoints
-                  Qsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% Q(obj% IntegrationVertices(j)% indeces(k),:)  
-               end do
-
-               do n = 1, NCONS 
-                  Q(n) = GetInterpolatedValue( Qsurf(n,:), obj% IntegrationVertices(j)% invPhi, obj% IntegrationVertices(j)% b, IBM% InterpolationType )
-               end do
+               if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
+               
+               call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
+               
             end if 
 
             obj% IntegrationVertices(j)% ScalarValue = IntegratedScalarValue( Q, obj% normal, integralType )   
@@ -494,6 +487,29 @@ module SurfaceIntegrals
       if( autosave ) call GenerateScalarmonitorTECfile( IBM, STLNum, integralType, iter )
 
    end subroutine ScalarDataReconstruction
+
+   function IBMSurfaceIntegral( IBM, STLNum )
+      use IBMClass 
+      use MPI_Process_Info
+      implicit none 
+
+      type(IBM_type), intent(inout) :: IBM
+      integer,        intent(in)    :: STLNum
+      real(kind=RP)                 :: IBMSurfaceIntegral
+
+      real(kind=RP) :: s 
+#ifdef _HAS_MPI_
+      real(kind=RP) :: localval
+      integer       :: ierr 
+#endif 
+      s = IBM% stl(STLNum)% ComputeScalarIntegral()
+#ifdef _HAS_MPI_
+      localval = s
+      call mpi_allreduce(localval, s, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      IBMSurfaceIntegral = s
+
+   end function IBMSurfaceIntegral
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -530,19 +546,16 @@ module SurfaceIntegrals
                        U_xsurf(NCONS,IBM% NumOfInterPoints), &
                        U_ysurf(NCONS,IBM% NumOfInterPoints), &
                        U_zsurf(NCONS,IBM% NumOfInterPoints)
-      real(kind=RP) :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS)
+      real(kind=RP) :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS), sum_
       integer       :: i, j, k, n
       logical       :: found, autosave
-
+      
       if( .not. IBM% Integral(STLNum)% compute ) return 
+ 
+      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% STL(STLNum) ) 
 
-      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% STL(STLNum) ) 
-
-      if( IBM% stl(STLNum)% move ) then 
-         call IBM% stl(STLNum)% SetIntegrationPoints()
-         IBM% Integral(STLNum)% ListComputed = .false.
-      end if 
-
+      if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
+      
       do i = 1, IBM% stl(STLNum)% NumOfObjs
          associate( obj =>  IBM% stl(STLNum)% ObjectsList(i) )
          do j = 1, NumOfIntegrationVertices
@@ -552,23 +565,48 @@ module SurfaceIntegrals
                U_y = obj% IntegrationVertices(j)% U_y
                U_z = obj% IntegrationVertices(j)% U_z
             else
-               call GetSurfaceState( IBM, obj% IntegrationVertices(j), STLNum ) 
-               do k = 1, IBM% NumOfInterPoints
-                  Qsurf  (:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% Q  (obj% IntegrationVertices(j)% indeces(k),:)  
-                  U_xsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% U_x(obj% IntegrationVertices(j)% indeces(k),:) 
-                  U_ysurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% U_y(obj% IntegrationVertices(j)% indeces(k),:) 
-                  U_zsurf(:,k) = IBM% BandRegion(STLnum)% IBMmask(obj% IntegrationVertices(j)% domains(k))% U_z(obj% IntegrationVertices(j)% indeces(k),:) 
-               end do
+               if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) !call GetSurfaceState( IBM, obj% IntegrationVertices(j), STLNum ) 
+               
+               call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
 
-               do n = 1, NCONS 
-                  Q(n)   = GetInterpolatedValue( Qsurf(n,:)  , obj% IntegrationVertices(j)% invPhi, obj% IntegrationVertices(j)% b, IBM% InterpolationType )
-                  U_x(n) = GetInterpolatedValue( U_xsurf(n,:), obj% IntegrationVertices(j)% invPhi, obj% IntegrationVertices(j)% b, IBM% InterpolationType )
-                  U_y(n) = GetInterpolatedValue( U_ysurf(n,:), obj% IntegrationVertices(j)% invPhi, obj% IntegrationVertices(j)% b, IBM% InterpolationType )
-                  U_z(n) = GetInterpolatedValue( U_zsurf(n,:), obj% IntegrationVertices(j)% invPhi, obj% IntegrationVertices(j)% b, IBM% InterpolationType )
-               end do
+               if( any(isnan(Q))) then 
+                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
+                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
+                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
+                  error stop
+               end if 
+
+               call GetPointGrads( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, U_x, U_y, U_z )
+               if( any(isnan(U_x))) then 
+                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
+                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
+                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
+                  error stop
+               end if
+               if( any(isnan(U_y))) then 
+                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
+                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
+                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
+                  error stop
+               end if
+               if( any(isnan(U_z))) then 
+                  write(*,*) 'indeces =', obj% IntegrationVertices(j)% indeces
+                  write(*,*) 'domains =', obj% IntegrationVertices(j)% domains
+                  write(*,*) 'b =', obj% IntegrationVertices(j)% b 
+                  error stop
+               end if
             end if 
             
-            obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, U_x, U_y, U_z, obj% normal, IBM% IP_Distance, IBM% Wallfunction, integralType )
+            obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, U_x, U_y, U_z, obj% normal, IBM% IP_dWall, IBM% Wallfunction, integralType )
+
+            if( any(isnan(obj% IntegrationVertices(j)% VectorValue))) then 
+               write(*,*) 'Q =', q
+               write(*,*) 'U_X =', U_X
+               write(*,*) 'U_y =', U_y
+               write(*,*) 'U_z =', U_z
+               write(*,*) 'normal =', obj% normal
+               error stop
+            end if
 
          end do 
          end associate
@@ -579,6 +617,30 @@ module SurfaceIntegrals
       if( autosave ) call GenerateVectormonitorTECfile( IBM, STLNum, integralType, iter )
 
    end subroutine VectorDataReconstruction
+
+   function IBMVectorIntegral( IBM, STLNum ) 
+      use IBMClass
+      use MPI_Process_Info
+      implicit none 
+
+      type(IBM_type), intent(inout) :: IBM
+      integer,        intent(in)    :: STLNum
+      real(kind=RP)                 :: IBMVectorIntegral(NDIM)
+
+      real(kind=RP) :: F(NDIM)
+#ifdef _HAS_MPI_
+      real(kind=RP) :: localval(NDIM)
+      integer       :: ierr 
+#endif 
+      F = IBM% stl(STLNum)% ComputeVectorIntegral()
+#ifdef _HAS_MPI_
+      localval = F
+      call mpi_allreduce(localval, F, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      IBMVectorIntegral = F 
+
+   end function IBMVectorIntegral
+
 
    subroutine GetSurfaceState( IBM, IntegrationVertex, STLNum )
       use TessellationTypes
@@ -599,18 +661,18 @@ module SurfaceIntegrals
 
       if( IBM% Integral(STLNum)% ListComputed ) return 
       
-      call IBM% minDistance( IntegrationVertex% coords, STLNum, IntegrationVertex% indeces, IntegrationVertex% domains )
-
+      !call IBM% minDistance( IntegrationVertex% coords, STLNum, IntegrationVertex% indeces, IntegrationVertex% domains )
+      
       do k = 1, IBM% NumOfInterPoints
          x(k)% coords = IBM% bandRegion(STLNum)% IBMmask(IntegrationVertex% domains(k))% coords(IntegrationVertex% indeces(k),:) 
       end do 
-
-      call GetMatrixInterpolationSystem( IntegrationVertex% coords, &
-                                         x,                         &
-                                         IntegrationVertex% invPhi, &
-                                         IntegrationVertex% b,      &
-                                         IBM% InterpolationType     )
-
+      
+      ! call GetMatrixInterpolationSystem( IntegrationVertex% coords, &
+      !                                    x,                         &
+      !                                    IntegrationVertex% invPhi, &
+      !                                    IntegrationVertex% b,      &
+      !                                    IBM% InterpolationType     )
+                                         
    end subroutine GetSurfaceState 
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -643,11 +705,11 @@ module SurfaceIntegrals
 
          case( MASS_FLOW )
                
-            outvalue = -(1.0_RP / Q(IRHO))*(Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ))       
+            outvalue = (1.0_RP / Q(IRHO))*(Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ))       
             
          case ( FLOW_RATE )
 
-            outvalue = -(Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ)) 
+            outvalue = (Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ)) 
                
          case( PRESSURE_DISTRIBUTION )
 

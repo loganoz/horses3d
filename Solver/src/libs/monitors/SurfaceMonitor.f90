@@ -64,6 +64,7 @@ module SurfaceMonitorClass
 !        *****************************************************************************
 !  
          use ParamfileRegions
+         use OrientedBoundingBox
          implicit none
          class(SurfaceMonitor_t) :: self
          class(HexMesh)          :: mesh
@@ -116,11 +117,7 @@ module SurfaceMonitorClass
                      write(*,'(A)') "Warning: for surface monitors with IBM, 'band region' must be set '.true.'"
                      error stop
                   end if
-                  self% marker = STLNum    
-                  if( mesh% IBM% Integral(STLNum)% compute ) then 
-                     call mesh% IBM% stl(STLNum)% SetIntegrationPoints( )
-                     if( .not. mesh% IBM % HO_IBM ) call mesh% IBM% stl(STLNum)% SetIntegration( mesh% IBM% NumOfInterPoints )  
-                  end if                 
+                  self% marker = STLNum                
                   self% IBM                                 = .true.
                   mesh% IBM% Integral(STLNum)% compute      = .true.
                   mesh% IBM% Integral(STLNum)% ListComputed = .false.         
@@ -329,14 +326,24 @@ module SurfaceMonitorClass
          real(kind=RP)                   :: F(NDIM)
          real(kind=RP)                   :: dt
          logical                         :: autosave
-         
+
+         if( self% IBM ) then 
+            STLNum = self% marker
+            if( mesh % IBM% stl(STLNum)% move ) then 
+               call mesh % IBM% DestroyBandRegion( STLNum )
+#ifdef FLOW 
+               call mesh % IBM% constructBandRegion( mesh % elements, mesh % NDOF, STLNum, NCONS )
+#endif
+            end if 
+         end if
+
          select case ( trim ( self % variable ) )
 
          case ("mass-flow")
             if( self% IBM ) then
                STLNum = self% marker
                call ScalarDataReconstruction( mesh% IBM, mesh% elements, STLNum, MASS_FLOW, iter, autosave )
-               self % values(bufferPosition) = mesh% IBM% stl(STLNum)% ComputeScalarIntegral()
+               self % values(bufferPosition) = IBMSurfaceIntegral( mesh% IBM, STLNum ) 
             else
                self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW, iter)
             end if 
@@ -344,7 +351,7 @@ module SurfaceMonitorClass
             if( self% IBM ) then
                STLNum = self% marker
                call ScalarDataReconstruction( mesh% IBM, mesh% elements, STLNum, FLOW_RATE, iter, autosave ) 
-               self % values(bufferPosition) = mesh% IBM% stl(STLNum)% ComputeScalarIntegral()
+               self % values(bufferPosition) = IBMSurfaceIntegral( mesh% IBM, STLNum )
             else
                self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE, iter)
             end if 
@@ -353,7 +360,7 @@ module SurfaceMonitorClass
             if( self% IBM ) then 
                STLNum = self% marker
                call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, PRESSURE_FORCE, iter, autosave )
-               F = mesh% IBM% stl(STLNum)% ComputeVectorIntegral()
+               F = IBMVectorIntegral( mesh% IBM, STLNum ) 
             else
                F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
             end if
@@ -364,7 +371,7 @@ module SurfaceMonitorClass
             if( self% IBM ) then 
                STLNum = self% marker
                call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, VISCOUS_FORCE, iter, autosave )
-               F = mesh% IBM% stl(STLNum)% ComputeVectorIntegral()
+               F = IBMVectorIntegral( mesh% IBM, STLNum ) 
             else
                F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE, iter)
             end if
@@ -375,7 +382,7 @@ module SurfaceMonitorClass
             if( self% IBM ) then 
                STLNum = self% marker
                call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
-               F = mesh% IBM% stl(STLNum) % ComputeVectorIntegral()
+               F = IBMVectorIntegral( mesh% IBM, STLNum ) 
             else
                F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             end if 
@@ -386,7 +393,7 @@ module SurfaceMonitorClass
             if( self% IBM ) then 
                STLNum = self% marker
                call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
-               F = mesh% IBM% stl(STLNum) % ComputeVectorIntegral()
+               F = IBMVectorIntegral( mesh% IBM, STLNum ) 
             else
                F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             end if 
@@ -398,15 +405,15 @@ module SurfaceMonitorClass
                if( self% IBM ) then 
                   STLNum = self% marker
                   call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
-                  F = mesh% IBM% stl(STLNum) % ComputeVectorIntegral()
+                  F = IBMVectorIntegral( mesh% IBM, STLNum ) 
                else
                   F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
                end if
             else
                if( self% IBM ) then 
                   STLNum = self% marker
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements,STLNum, TOTAL_FORCE, iter, autosave )
-                  F = mesh% IBM% stl(STLNum) % ComputeVectorIntegral()
+                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
+                  F = IBMVectorIntegral( mesh% IBM, STLNum ) 
                else
                   F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
                end if 

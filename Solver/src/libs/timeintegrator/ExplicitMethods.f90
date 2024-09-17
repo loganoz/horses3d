@@ -87,6 +87,7 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
 
+      REAL(KIND=RP) :: invdS_dQ(5,5)
 
       INTEGER :: i, j, k, id
 
@@ -124,11 +125,16 @@ MODULE ExplicitMethods
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
 
-!$omp parallel do schedule(runtime)
+!$omp parallel do schedule(runtime) private(invdS_dQ)
             do id = 1, SIZE( mesh % elements )
 #ifdef FLOW
                   mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
-                  mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+                  if( mesh% IBM% active .and. mesh% IBM% Implicit ) then 
+                     !call mesh% IBM% GetImplicitStep( id, mesh % elements(id) % storage % Q, c(k)*deltaT, mesh % elements(id) % storage % G_NS )
+                     mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + mesh % elements(id) % storage % G_NS
+                  else   
+                     mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+                  end if 
 #endif
 
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
@@ -530,7 +536,11 @@ MODULE ExplicitMethods
       else
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+            if( mesh% IBM% active .and. mesh% IBM% Implicit ) then 
+               call mesh% IBM% GetImplicitStep( mesh % elements(id), id, deltaT )
+            else   
+               mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+            end if 
          END DO
 !$omp end parallel do
       end if

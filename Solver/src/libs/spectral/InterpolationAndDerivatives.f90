@@ -55,7 +55,7 @@
       public   PolynomialInterpolationMatrix
       public   MatrixMultiplyDeriv
       public   ComputeVandermonde, JacobiPolynomial, ComputeModalForm
-      public   LagrangeInterpolatingPolynomial
+      public   LagrangeInterpolatingPolynomial, LagrangeInterpolation
 
       INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
       

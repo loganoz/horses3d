@@ -23,7 +23,7 @@ module GenericBoundaryConditionClass
 !  Public definitions
 !  ******************
 !
-   public GenericBC_t, GetValueWithDefault, CheckIfBoundaryNameIsContained
+   public GenericBC_t, GetValueWithDefault, CheckIfBoundaryNameIsContained, CheckIfStlNameIsContained
 !
 !  ****************************
 !  Static variables definitions
@@ -49,9 +49,16 @@ module GenericBoundaryConditionClass
          procedure         :: Describe          => GenericBC_Describe
          procedure         :: GetPeriodicPair   => GenericBC_GetPeriodicPair
 #ifdef FLOW
-         procedure         :: FlowState         => GenericBC_FlowState
-         procedure         :: FlowGradVars      => GenericBC_FlowGradVars
-         procedure         :: FlowNeumann       => GenericBC_FlowNeumann
+         procedure         :: FlowState           => GenericBC_FlowState
+         procedure         :: FlowGradVars        => GenericBC_FlowGradVars
+         procedure         :: FlowNeumann         => GenericBC_FlowNeumann
+         procedure         :: FlowState_VPIBM     => GenericBC_FlowState_VPIBM
+         procedure         :: FlowState_HOIBM     => GenericBC_FlowState_HOIBM
+         procedure         :: FlowStateWeak_HOIBM => GenericBC_FlowStateWeak_HOIBM
+         procedure         :: FlowGradVars_HOIBM  => GenericBC_FlowGradVars_HOIBM
+         procedure         :: FlowNeumann_HOIBM   => GenericBC_FlowNeumann_HOIBM
+         procedure         :: FlowStateMoving_IBM => GenericBC_FlowStateMoving_IBM
+         procedure         :: PositionMoving_IBM  => GenericBC_PositionMoving_IBM
 #endif
 #ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => GenericBC_PhaseFieldState
@@ -289,6 +296,64 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(in)    :: U_z(NGRAD)
          real(kind=RP),       intent(inout) :: flux(NCONS)
       end subroutine GenericBC_FlowNeumann
+
+      subroutine GenericBC_FlowState_VPIBM( self, Q, x, Qsb )   
+         implicit none
+         class(GenericBC_t),    intent(in)    :: self
+         real(kind=RP),         intent(in)    :: Q(NCONS)
+         real(kind=RP),         intent(in)    :: x(NDIM)
+         real(kind=RP),         intent(inout) :: Qsb(NCONS)  
+      end subroutine GenericBC_FlowState_VPIBM
+
+      subroutine GenericBC_FlowStateMoving_IBM( self, Q, x, dt, cL, cD, Qsb )  
+         implicit none 
+         class(GenericBC_t),       intent(in)    :: self
+         real(kind=RP),            intent(in)    :: Q(NCONS)
+         real(kind=RP),            intent(inout) :: x(NDIM)
+         real(kind=RP),            intent(in)    :: dt
+         real(kind=RP),            intent(in)    :: cL, cD 
+         real(kind=RP),            intent(inout) :: Qsb(NCONS)
+      end subroutine GenericBC_FlowStateMoving_IBM
+
+      subroutine GenericBC_PositionMoving_IBM( self, x, dt, cL, cD )  
+         implicit none 
+         class(GenericBC_t),      intent(in)    :: self
+         real(kind=RP),           intent(inout) :: x(NDIM)
+         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+      end subroutine GenericBC_PositionMoving_IBM
+
+      subroutine GenericBC_FlowState_HOIBM( self, Q, xb, xsb, nodes, N, x, time, nHat, Qsb )   
+         implicit none
+         class(GenericBC_t),    intent(in)    :: self
+         real(kind=RP),         intent(inout) :: Q(NCONS,0:N)
+         real(kind=RP),         intent(in)    :: xb, xsb, nodes(0:N), x(NDIM), time, nHat(NDIM)
+         integer,               intent(in)    :: N
+         real(kind=RP),         intent(inout) :: Qsb(NCONS)
+      end subroutine GenericBC_FlowState_HOIBM
+
+      subroutine GenericBC_FlowStateWeak_HOIBM( self, QIn, Qsb, Qsb_weak )    
+         implicit none
+         class(GenericBC_t),    intent(in)    :: self
+         real(kind=RP),         intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),         intent(inout) :: Qsb_weak(NCONS)
+      end subroutine GenericBC_FlowStateWeak_HOIBM
+
+      subroutine GenericBC_FlowGradVars_HOIBM( self, QIn, Qsb, x, time, nHat, Usb, GetGradients )    
+         implicit none
+         class(GenericBC_t),     intent(in)    :: self
+         real(kind=RP),          intent(in)    :: QIn(NCONS), Qsb(NCONS), x(NDIM), time, nHat(NDIM)
+         real(kind=RP),          intent(inout) :: Usb(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
+      end subroutine GenericBC_FlowGradVars_HOIBM
+
+      subroutine GenericBC_FlowNeumann_HOIBM( self, QIn, UIn_x, UIn_y, UIn_z, Qsb, x, time, nHat, flux )    
+         implicit none
+         class(GenericBC_t),    intent(in)    :: self
+         real(kind=RP),         intent(in)    :: QIn(NCONS), Qsb(NCONS), x(NDIM), time, nHat(NDIM)
+         real(kind=RP),         intent(in)    :: UIn_x(NGRAD), UIn_y(NGRAD), UIn_z(NGRAD)
+         real(kind=RP),         intent(inout) :: flux(NCONS)
+      end subroutine GenericBC_FlowNeumann_HOIBM
 #endif
 !
 !////////////////////////////////////////////////////////////////////////////
@@ -456,5 +521,70 @@ module GenericBoundaryConditionClass
          CheckIfBoundarynameIsContained = .false.
 
       end function CheckIfBoundaryNameIsContained
+
+      logical function CheckIfStlNameIsContained(line, stlname)
+
+         implicit none
+         character(len=*), intent(in)  :: line
+         character(len=*), intent(in)  :: stlname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos1, pos2
+         character(len=LINE_LENGTH) :: str, curName
+         logical     :: found
+               
+      
+         str = "#define stl"
+!
+!        Exit if not a #define boundary sentinel
+!        ---------------------------------------
+         if ( line(1:len_trim(str)) .ne. trim(str) ) then
+            CheckIfStlNameIsContained = .false.
+            return
+         end if
+!
+!        Get only the boundary names
+!        ---------------------------
+         str = adjustl(line(len_trim(str)+1:len_trim(line)))
+!
+!        Exit if empty
+!        -------------
+         if (len_trim(str) .eq. 0) then
+            CheckIfStlNameIsContained = .false.
+            return
+         end if
+!
+!        Check the entries
+!        -----------------
+         pos1 = 1
+         pos2 = len_trim(str)
+         found = .false.
+         do while(pos2 .ne. 0)
+            pos2 = index(str(pos1:len_trim(str)),"__") + pos1 - 1
+            if ( pos2 .eq. pos1-1 ) then
+!
+!              Last iteration
+!              --------------
+               curName = str(pos1:len_trim(str))
+               pos2 = 0
+            else
+               curName = str(pos1:pos2-1)
+            end if
+
+            if ( trim(curName) .eq. trim(stlname) ) then
+               found = .true.
+               CheckIfStlNameIsContained = .true.
+               return      
+            else
+               pos1 = pos2+2
+            end if
+         end do
+
+         CheckIfStlNameIsContained = .false.
+      
+      end function CheckIfStlNameIsContained
 
 end module GenericBoundaryConditionClass

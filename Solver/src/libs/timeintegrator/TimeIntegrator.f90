@@ -585,7 +585,6 @@
 !     ----------------
 !
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
-
 !
 !        CFL-bounded time step
 !        ---------------------      
@@ -602,24 +601,9 @@
 !        -----------------------------
          if( sem % mesh% IBM% active ) then
             if( sem% mesh% IBM% TimePenal ) sem % mesh% IBM% penalization = dt
+            sem % mesh% IBM% autosave = self % autosave % Autosave(k+1)
+            sem % mesh% IBM% iter     = k+1
          end if
-
-!
-!        Moving Body IMMERSED BOUNDARY
-!        -----------------------------
-         if( sem% mesh% IBM% active ) then
-            do STLNum = 1, sem% mesh% IBM% NumOfSTL 
-               if( .not. sem% mesh% IBM% stl(STLNum)% move ) cycle 
-               call MoveSTL( sem% mesh% IBM% stlmove(STLNum), t, dt, STLNum )
-            end do 
-            sem% mesh% IBM% dt = dt
-            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
-                                           sem% mesh% faces,                      &
-                                           sem% mesh% NDOF, sem% mesh% child, dt, &
-                                           k+1,                                   &
-                                           self % autosave % Autosave(k+1)        )
-         end if
- 
 !
 !        User defined periodic operation
 !        -------------------------------
@@ -776,6 +760,8 @@
 
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
+! plot final result
+      call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
 
 !
 !     ---------
@@ -1002,35 +988,6 @@
       end select
 
    end function TimeIntegrator_CorrectDt
-
-   subroutine MoveSTL( STL, t, dt, STLNum )
-#if defined(NAVIERSTOKES)
-      use ProblemFileFunctions, only : UserDefinedIBMKinematicsNS_f
-#endif
-      use FluidData
-      use OrientedBoundingBox
-      use TessellationTypes
-      implicit none 
-
-      class(STLfile), intent(inout) :: STL 
-      real(kind=RP),  intent(in)    :: t, dt 
-      integer,        intent(in)    :: STLNum
-      
-      integer       :: i, j 
-      real(kind=RP) :: V(NDIM), cL, cD                      
-#if defined(NAVIERSTOKES)
-      procedure(UserDefinedIBMKinematicsNS_f) :: UserDefinedIBMKinematicsNS
-
-      if( .not. MPI_Process% isRoot ) return 
-
-      do i = 1, STL% NumOfObjs
-         do j = 1, NumOfVertices
-            call UserDefinedIBMKinematicsNS( STL% ObjectsList(i)% vertices(j)% coords, .true., V, .false., cL, cD, t, dt, STLNum, refValues )
-         end do 
-      end do
-      call STL% updateNormals()
-#endif
-   end subroutine MoveSTL
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !

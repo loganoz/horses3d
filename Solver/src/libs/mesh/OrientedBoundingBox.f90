@@ -44,19 +44,21 @@ module OrientedBoundingBox
 !  **************************************************
    type OBB_type
       
-      type(point_type), dimension(:), allocatable :: Points, allPoints
-      type(rectangle)                             :: MBR
-      real(kind=rp),    dimension(NDIM,8)         :: vertices, LocVertices, partitionVertices
-      real(kind=rp),    dimension(NDIM,NDIM)      :: R, invR
-      real(kind=rp),    dimension(NDIM)           :: CloudCenter, LocFrameCenter
-      real(kind=rp)                               :: nMin, nMax
-      integer                                     :: NumOfPoints, center, left, right, maxAxis, minAxis
-      character(len=LINE_LENGTH)                  :: filename
-      logical                                     :: verbose, AAB
+      type(point_type), dimension(:), allocatable   :: Points, allPoints
+      type(rectangle)                               :: MBR
+      real(kind=rp),    dimension(NDIM,BOXVERTICES) :: vertices, LocVertices, partitionVertices, &
+                                                       GlobalVertices
+      real(kind=rp),    dimension(NDIM,NDIM)        :: R, invR
+      real(kind=rp),    dimension(NDIM)             :: CloudCenter, LocFrameCenter 
+      real(kind=rp)                                 :: nMin, nMax
+      integer                                       :: NumOfPoints, center, left, right, maxAxis, minAxis
+      character(len=LINE_LENGTH)                    :: filename
+      logical                                       :: verbose, AAB
       
       contains
          procedure :: construct             => OBB_construct
          procedure :: ReadStorePoints       => OBB_ReadStorePoints
+         procedure :: ReadPointsList        => OBB_ReadPointsList
          procedure :: ComputeAngle          => OBB_ComputeAngle
          procedure :: SortingNodes          => OBB_SortingNodes
          procedure :: isPointInside         => OBB_isPointInside
@@ -68,6 +70,9 @@ module OrientedBoundingBox
          procedure :: GetMinAxis            => OBB_GetMinAxis
          procedure :: RotatePoints          => OBB_RotatePoints
          procedure :: TranslatePoints       => OBB_TranslatePoints
+         procedure :: UpdateMBRCenter       => OBB_UpdateMBRCenter
+         procedure :: isPointInsideAAB      => OBB_isPointInsideAAB
+         procedure :: GetGLobalVertices     => OBB_GetGLobalVertices
    end type
 
    type OBB_all_t 
@@ -261,29 +266,53 @@ contains
       end associate
 
    end subroutine OBB_ReadStorePoints
+
+   subroutine OBB_ReadPointsList( this, Points )
+
+      implicit none
+      !-arguments----------------------
+      class(OBB_type), intent(inout) :: this
+      real(kind=RP),   intent(in)    :: Points(:,:)
+      !-local.variables-------------------
+      integer                        :: i
+
+      this% NumOfPoints = size(Points,1)
+      
+      allocate( this% Points(this% NumOfPoints),   &
+                this% allPoints(this% NumOfPoints) )
+                
+      do i = 1, this% NumOfPoints
+         this% Points(i)% coords = Points(i,:)
+         this% Points(i)% index  = i 
+         this% allPoints(i)% coords = Points(i,:)
+         this% allPoints(i)% index  = i
+      end do
+
+   end subroutine OBB_ReadPointsList
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !   
 !  -------------------------------------------------------------------------------------------
 !  Subroutine for plotting the OBB
 !  -------------------------------------------------------------------------------------------
-   subroutine OBB_plot( this, domain )
+   subroutine OBB_plot( this, domain, iter )
       use PhysicsStorage
       use MPI_Process_Info
       implicit none
       !-arguments--------------------------
       class(OBB_type), intent(inout) :: this
-      integer, optional, intent(in) ::  domain
+      integer, optional, intent(in) ::  domain, iter 
       !-local-variables----------------------
       integer                        :: i, funit
-      character(LINE_LENGTH) :: rank, filename
+      character(LINE_LENGTH) :: rank, filename, it 
    real(kind=RP) :: v(NDIM)
       !if( .not. MPI_Process% isRoot ) return
 
       funit = UnusedUnit()
       write(rank,*) domain
+      write(it,*) iter
 
-      filename = 'cylinder'//trim(adjustl(rank))
+      filename = 'cylinder'//trim(adjustl(rank))//'_'//trim(adjustl(it))
       open(funit,file='IBM/OrientedBoundingBox_'//trim(filename)//'.tec', status='unknown')
       ! open(funit,file='IBM/OrientedBoundingBox_'//trim(this% filename)//'.tec', status='unknown')
 
@@ -373,23 +402,28 @@ contains
 !  -------------------------------------------------
 ! This subroutine computes the Oriented Bounding Box. 
 !  -------------------------------------------------
-   subroutine OBB_construct( this, stl, isPlot, AAB, move )
+   subroutine OBB_construct( this, stl, isPlot, AAB, move, Points )
    
       implicit none
       !-arguments-----------------------------------
       class(OBB_type), intent(inout) :: this
       type(STLfile),   intent(in)    :: stl
       logical,         intent(in)    :: isPlot, AAB, move
+      real(kind=RP),  optional, intent(in) :: Points(:,:)
       !-local-variables-----------------------------
       type(Hull_type) :: Hull
       real(kind=rp)   :: EigenVal
       integer         :: i
-      
+
       this% AAB = AAB
 ! 
 !     Reading the data
 !     ---------------
-      call this% ReadStorePoints( stl )
+      if( present(Points) ) then 
+         call this% ReadPointsList( Points )
+      else
+         call this% ReadStorePoints( stl )
+      end if 
 !
 !     Computing center of the points cloud
 !     ---------------------------------
@@ -410,27 +444,27 @@ contains
 !     Computing rotation matrix
 !     ------------------------
       call this% ComputeRotationMatrix( this% MBR% t1, this% MBR% t2, this% MBR% normal ) 
-
+      
 !
 !     Point projection
 !     ---------------
       call ProjectPointsOnPlane( this )
-
+      
 !
 !     Computing convex hull
 !     ---------------------
       call ConvexHull( Hull, this )
- 
+      
 !
 !     Minimum Bounding Rectangle
 !     ---------------------------
       call RotatingCalipers( Hull, this% MBR% Width, this% MBR% Length, this% MBR% Angle, this% MBR% Center, this% AAB )
-
+      
 !
 !     Setting vertices of the MBR
 !    -----------------------------
      call this% MBR% ComputeVertices()
-
+     
 !
 !     Extrusion
 !     ---------
@@ -439,7 +473,7 @@ contains
       if( isPlot ) call this% plot()
 
       deallocate(Hull% Points, this% Points, this% allpoints)
-
+      
    end subroutine OBB_construct
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -793,16 +827,25 @@ contains
       type(point_type) ,pointer :: p, p1
       integer                   :: i, LowestIndex, start, index0, index1
       type(PointLinkedList)     :: convPoints
+
+      if( OBB% AAB ) then
+         allocate(Hull% Points(OBB% NumOfPoints))
+         Hull% NumOfPoints = OBB% NumOfPoints
+         do i = 1, OBB% NumOfPoints
+            Hull% Points(i) = OBB% Points(i)
+         end do 
+         return 
+      end if 
 !     
 !     Compute Left most point & set Hull's head
 !     -----------------------------------------
       call ComputeHullExtremePoint( OBB, LowestIndex )
-
+      
 !     
 !     Compute the angles
 !     ------------------
       call OBB% ComputeAngle( LowestIndex ) 
-
+      
 !
 !     Sorting points according to their angle  
 !     ---------------------------------------
@@ -830,9 +873,9 @@ contains
       do i = 1, OBB% NumOfPoints
          if( OBB% Points(i)% delete ) cycle 
          index0 = index0 + 1
-         Hull% Points(index0) =  OBB% Points(i)
+         Hull% Points(index0) = OBB% Points(i)
       end do
-      
+
       ! convPoints = PointLinkedList()
       ! call convPoints% add( OBB% Points(1) )
       
@@ -1006,10 +1049,8 @@ contains
          Caliper1 = (/ 1.0_RP, 0.0_RP/)
          Caliper2 = (/ -1.0_RP, 0.0_RP/)
       
-         MinIndex = minloc(Hull% Points(:)% coords(2))
-         MaxIndex = maxloc(Hull% Points(:)% coords(2))
-      
-         indexMin1 = MinIndex(1); indexMax1 = MaxIndex(1)   
+         indexMin1 = minloc(Hull% Points(:)% coords(2),dim=1)
+         indexMax1 = maxloc(Hull% Points(:)% coords(2),dim=1)
       
          do while( RotAngle .lt. PI )
       
@@ -1121,6 +1162,40 @@ contains
       OBB% LocFrameCenter = OBB% CloudCenter + matmul(OBB% R, (/ OBB% MBR% Center,0.0_RP/))
       
    end subroutine ExtrudeMBR
+
+
+   subroutine OBB_UpdateMBRCenter( this )
+      use MappedGeometryClass
+      implicit none
+      !-arguments-------------------------------------------------
+      class(OBB_type), intent(inout) :: this
+
+      real(kind=RP) :: MBRCenter(NDIM), x(NDIM)
+      real(kind=RP) :: maxX, minX, maxY, minY, maxZ, minZ
+
+      ! maxX = maxval(this% vertices(IX,:))
+      ! minX = minval(this% vertices(IX,:))
+      ! maxY = maxval(this% vertices(IY,:))
+      ! minY = minval(this% vertices(IY,:))
+      ! maxZ = maxval(this% vertices(IZ,:))
+      ! minZ = minval(this% vertices(IZ,:))
+
+      ! MBRCenter(IX) = 0.5_RP*(maxX + minX)!sum(this% vertices(IX,:))/8.0_RP!
+      ! MBRCenter(IY) = 0.5_RP*(maxY + minY)
+      ! MBRCenter(IZ) = 0.5_RP*(maxZ + minZ)
+
+      ! x = MBRCenter - this% CloudCenter
+
+      ! this% MBR% Center = (/ vdot(x, this% MBR% t1), vdot(x, this% MBR% t2) /) 
+      ! x(1:NDIM-1) = this% MBR% center
+      ! this% MBR% Center = this% CloudCenter(1:NDIM-1) - x(1:NDIM-1)  !MBRCenter(1:NDIM-1) 
+
+      MBRCenter = this% LocFrameCenter - this% CloudCenter
+      MBRCenter = matmul(this% invR,MBRCenter)
+
+      this% MBR% Center = MBRCenter(1:NDIM-1)
+
+   end subroutine OBB_UpdateMBRCenter
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1133,13 +1208,12 @@ contains
       !-arguments------------------------------------
       class(OBB_type),             intent(inout) :: this
       real(kind=rp), dimension(:), intent(in)    :: coords
-      real(kind=rp),               intent(in)    :: coeff
+      real(kind=rp), optional,     intent(in)    :: coeff
       logical                                    :: isInsideOBB
       !-local-variables--------------------------------
-      real(kind=rp), dimension(NDIM) :: Point
-      real(kind=rp)                  :: Multcoeff
-      
-      optional :: coeff
+      real(kind=rp) :: Point(NDIM), Center(NDIM), Vertices(NDIM,BOXVERTICES)
+      real(kind=rp) :: Multcoeff
+      integer       :: i      
       
       if( present(coeff) ) then
          Multcoeff = coeff
@@ -1150,11 +1224,67 @@ contains
       call this% ChangeRefFrame(coords, LOCAL, Point)
       
       isInsideOBB = .false.
+
+      Center(IX) = sum(this% LocVertices(IX,:))/BOXVERTICES
+      Center(IY) = sum(this% LocVertices(IY,:))/BOXVERTICES
+      Center(IZ) = sum(this% LocVertices(IZ,:))/BOXVERTICES
       
+      do i = 1, BOXVERTICES
+         Vertices(IX,i) = Center(IX) + Multcoeff*(this% LocVertices(IX,i) - Center(IX))
+         Vertices(IY,i) = Center(IY) + Multcoeff*(this% LocVertices(IY,i) - Center(IY))
+         Vertices(IZ,i) = Center(IZ) + Multcoeff*(this% LocVertices(IZ,i) - Center(IZ))
+      end do
       !check x y z     
-       if( isInsideBox(Point, Multcoeff*this% LocVertices) ) isInsideOBB = .true.
+       if( isInsideBox(Point, Vertices) ) isInsideOBB = .true.
 
    end function OBB_isPointInside
+
+   subroutine OBB_GetGLobalVertices( this )
+      use MPI_Utilities
+      implicit none 
+
+      class(OBB_type), intent(inout) :: this 
+      !-local-variables--------------------------------
+      real(kind=rp) :: Vertices(NDIM,BOXVERTICES)
+      integer       :: i      
+      
+      this% GlobalVertices = this% Vertices
+
+      call MPI_MinMax(this% GlobalVertices(IX,1), this% GlobalVertices(IX,7))
+      call MPI_MinMax(this% GlobalVertices(IY,1), this% GlobalVertices(IY,7))
+      call MPI_MinMax(this% GlobalVertices(IZ,1), this% GlobalVertices(IZ,7))
+
+      this% GlobalVertices(:,2) = (/this% GlobalVertices(IX,7), this% GlobalVertices(IY,1), this% GlobalVertices(IZ,1)/)
+      this% GlobalVertices(:,6) = (/this% GlobalVertices(IX,7), this% GlobalVertices(IY,1), this% GlobalVertices(IZ,7)/)
+
+      this% GlobalVertices(:,3) = (/this% GlobalVertices(IX,7), this% GlobalVertices(IY,7), this% GlobalVertices(IZ,1)/)
+      this% GlobalVertices(:,5) = (/this% GlobalVertices(IX,1), this% GlobalVertices(IY,1), this% GlobalVertices(IZ,7)/)
+
+      this% GlobalVertices(:,4) = (/this% GlobalVertices(IX,1), this% GlobalVertices(IY,7), this% GlobalVertices(IZ,1)/)
+      this% GlobalVertices(:,8) = (/this% GlobalVertices(IX,1), this% GlobalVertices(IY,7), this% GlobalVertices(IZ,7)/)
+
+      do i = 1, BOXVERTICES
+         call this% ChangeRefFrame(this% GlobalVertices(:,i), LOCAL, this% LocVertices(:,i) )
+      end do 
+
+   end subroutine OBB_GetGLobalVertices
+
+   function OBB_isPointInsideAAB( this, coords ) result( isInsideAAB )
+   
+      implicit none
+      !-arguments------------------------------------
+      class(OBB_type),             intent(inout) :: this
+      real(kind=rp), dimension(:), intent(in)    :: coords
+      logical                                    :: isInsideAAB
+      !-local-variables--------------------------------
+      real(kind=rp) :: x(NDIM), Center(NDIM), Vertices(NDIM,BOXVERTICES)     
+      
+      isInsideAAB = .false.
+      Vertices    = this% GlobalVertices 
+      !check x y z     
+       if( isInsideBox(coords, Vertices) ) isInsideAAB = .true. 
+
+   end function OBB_isPointInsideAAB
    
    
    subroutine OBB_ChangeObjsRefFrame( this, objs, FRAME )
@@ -1196,20 +1326,30 @@ contains
       class(OBB_type), intent(inout) :: this 
       integer,         intent(in)    :: maxAxis, clipAxis 
 
-      integer :: minAxis
+      real(kind=RP) :: dx, dy, dz 
+      integer       :: i, vec(NDIM), minAxis
 
-      minAxis = minloc((/this% MBR% Length, this% MBR% Width, &
-                        abs(this% nMax) + abs(this% nMin)/), &
-                        dim=1                                )
-      
-      if( minAxis .eq. ClipAxis ) then 
-         minAxis = ClipAxis - 1 
-         if( minAxis .eq. 0 ) minAxis = 3 
-      end if 
+      ! minAxis = minloc((/this% MBR% Length, this% MBR% Width, &
+      !                   abs(this% nMax) + abs(this% nMin)/), &
+      !                   dim=1                                )
 
-      if( minAxis .eq. maxAxis ) then 
-         minAxis = maxAxis - 1 
-         if( minAxis .eq. 0 ) minAxis = 3 
+      dx = abs( this% GlobalVertices(IX,7) - this% GlobalVertices(IX,1) )
+      dy = abs( this% GlobalVertices(IY,7) - this% GlobalVertices(IY,1) )
+      dz = abs( this% GlobalVertices(IZ,7) - this% GlobalVertices(IZ,1) )
+
+      minAxis = minloc((/dx,dy,dz/),dim=1)
+
+      vec = 0
+      do i = 1, NDIM
+         if( i .eq. ClipAxis ) cycle  
+         if( i .eq. maxAxis  ) cycle
+         vec(i)  = i 
+      end do
+
+      if( vec(minAxis) .eq. 0 ) then 
+         do i = 1, NDIM 
+            if( vec(i) .ne. 0 ) minAxis = i 
+         end do 
       end if 
 
       OBB_GetMinAxis = minAxis
@@ -1488,6 +1628,5 @@ contains
       t = tmin
 
    end subroutine RayAABIntersection
-
 
 end module OrientedBoundingBox

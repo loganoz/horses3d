@@ -876,10 +876,6 @@ module FASMultigridClass
          end if
       end do
 
-      if( this% p_sem% mesh% IBM% active ) then
-          if( any(this% p_sem% mesh% IBM%  stl(:)% move) .and. MGlevels-1 > 1 ) call FAS_movingIBM( this% child, dt, MGlevels-1 )
-      end if
-
       do i = 1, tau_maxit
 
          call this % solve(i, tk, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
@@ -1257,7 +1253,7 @@ module FASMultigridClass
 !$omp end do
 !$omp end parallel
 
-      if( Child_p% p_sem% mesh% IBM% TimePenal ) Child_p% p_sem% mesh% IBM% penalization = dt
+      if( Child_p% p_sem% mesh% IBM% active .and. Child_p% p_sem% mesh% IBM% TimePenal ) Child_p% p_sem% mesh% IBM% penalization = dt
 
 !
 !     -------------------------------------------
@@ -1372,7 +1368,7 @@ module FASMultigridClass
             error stop "FASMultigrid :: LTS needs cfd & dcfl."
          end if
 
-         if( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+         if( this% p_sem% mesh% IBM% active .and. this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
 
          select case (Smoother)
             ! Euler Smoother
@@ -1425,8 +1421,10 @@ module FASMultigridClass
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
 
-                  if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
-                  if( this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  if( this% p_sem% mesh% IBM% active ) then 
+                     if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  end if 
 
                   call TakeExplicitEulerStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
@@ -1438,8 +1436,10 @@ module FASMultigridClass
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
 
-                  if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
-                  if(  this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  if( this% p_sem% mesh% IBM% active ) then 
+                     if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  end if 
 
                   call TakeRK3Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
@@ -1450,9 +1450,11 @@ module FASMultigridClass
             case (RK5_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
-
-                  if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
-                  if(  this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then 
+                     if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  end if 
 
                   call TakeRK5Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
@@ -1464,8 +1466,10 @@ module FASMultigridClass
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
 
-                  if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
-                  if(  this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  if( this% p_sem% mesh% IBM% active ) then 
+                     if ( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, t, smoother_dt )
+                  end if 
 
                   call TakeRKOptStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, N_STAGES=erk_order, dts=DualTimeStepping, global_dt=dt )
@@ -1483,7 +1487,7 @@ module FASMultigridClass
 
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
-                  if( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                  if( this% p_sem% mesh% IBM% active .and. this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
                   call TakeSGSStep ( this=this, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
                end do
@@ -1494,7 +1498,7 @@ module FASMultigridClass
 
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
-                  if( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                  if( this% p_sem% mesh% IBM% active .and. this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
                   call TakeILUStep ( this=this, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
                end do
@@ -1505,7 +1509,7 @@ module FASMultigridClass
 
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
-                  if( this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
+                  if( this% p_sem% mesh% IBM% active .and. this% p_sem% mesh% IBM% TimePenal ) this% p_sem% mesh% IBM% penalization = smoother_dt
                   call TakeBIRK5Step ( this=this, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
                end do
@@ -1899,26 +1903,6 @@ module FASMultigridClass
       end if
 
    end subroutine FAS_ComputeAndFactorizeJacobian
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   
-   recursive subroutine FAS_MovingIBM( Solver, dt, lvl )
-   
-      implicit none
-      !-arguments------------------------------------------
-      type(FASMultigrid_t), intent(inout) :: Solver
-      real(kind=RP),        intent(in)    :: dt
-      integer,              intent(in)    :: lvl
-
-      call  Solver% p_sem% mesh% IBM% MoveBody( Solver% p_sem% mesh% elements, &
-                                                Solver% p_sem% mesh% faces,    &
-                                                Solver% p_sem% mesh% NDOF,     &
-                                                .true., dt                     )
-
-      if( lvl > 1 ) call FAS_movingIBM( Solver% Child, dt, lvl-1 )
-   
-   end subroutine FAS_MovingIBM
    
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
