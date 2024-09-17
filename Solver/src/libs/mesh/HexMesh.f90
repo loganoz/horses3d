@@ -3970,8 +3970,8 @@ slavecoord:             DO l = 1, 4
 
    subroutine HexMesh_CreateDeviceData(self)
       use Physics
-      !use cudafor
-      !use openacc
+      use cudafor
+      use openacc
       implicit none
       !-----------------------------------------------------------
       class(HexMesh)                  :: self
@@ -3979,13 +3979,12 @@ slavecoord:             DO l = 1, 4
       integer :: eID
       integer     :: i, j, k, iFace, fID, zoneID, nZones
       !-----------------------------------------------------------
-      !integer(kind=cuda_count_kind) :: heapsize 
-      !integer(kind=cuda_count_kind) :: val
-      !integer :: Istat
-      !heapSize = 16_8*1024_8 * 1024_8  ! Example: 1 GB heap size
-      !istat = cudaDeviceGetLimit(val,cudaLimitMallocHeapSize)
-      !print*, val
-      !istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize , heapsize)
+      integer(kind=cuda_count_kind) :: heapsize 
+      integer(kind=cuda_count_kind) :: val
+      integer :: Istat
+      heapSize = 16_8*1024_8 * 1024_8  ! Example: 1 GB heap size
+      istat = cudaDeviceGetLimit(val,cudaLimitMallocHeapSize)
+      istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize , heapsize)
       
       print*, "I allocate the device data"
 
