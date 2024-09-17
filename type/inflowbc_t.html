@@ -116,19 +116,19 @@
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-constructed~4">constructed</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-bname~10">bname</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-bname~7">bname</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-bctype">BCType</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-currenteqn">currentEqn</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-aoaphi~3">AoAPhi</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-aoatheta~3">AoATheta</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-v~39">v</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-rho~21">rho</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-p~28">p</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-turbintensity">TurbIntensity</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-eddy_theta~2">eddy_theta</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-aoaphi~4">AoAPhi</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-aoatheta~4">AoATheta</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-v~15">v</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-rho~14">rho</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-p~14">p</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-turbintensity">TurbIntensity</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-eddy_theta">eddy_theta</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-aoaphi~5">AoAPhi</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-aoatheta~5">AoATheta</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-v~16">v</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-v~40">v</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-islayered">isLayered</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-isxlimited">isXLimited</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-isylimited">isYLimited</a>
@@ -138,7 +138,7 @@
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-zlim">zLim</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-phase1vel">phase1Vel</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#variable-phase2vel">phase2Vel</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#variable-rho~15">rho</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#variable-rho~22">rho</a>
         </div>
       </div>
     </div>
@@ -177,12 +177,12 @@
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-getperiodicpair~2">GetPeriodicPair</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-flowgradvars~4">FlowGradVars</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-flowgradvars">FlowGradVars</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-stateforeqn">StateForEqn</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-gradvarsforeqn">GradVarsForEqn</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-neumannforeqn">NeumannForEqn</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-destruct~7">Destruct</a>
-            <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-describe~5">Describe</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-destruct~11">Destruct</a>
+            <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-describe~9">Describe</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-flowstate~2">FlowState</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-flowneumann~2">FlowNeumann</a>
             <a class="list-group-item" href="../type/inflowbc_t.html#boundprocedure-createdevicedata~2">CreateDeviceData</a>
@@ -239,7 +239,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-bname~10"></span>
+              <span class="anchor" id="variable-bname~7"></span>
               character(len=LINE_LENGTH),
             </td>
               <td>public</td>
@@ -290,6 +290,125 @@
         </tr>
         <tr>
             <td>
+              <span class="anchor" id="variable-aoaphi~3"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>AoAPhi</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-aoatheta~3"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>AoATheta</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-v~39"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>v</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-rho~21"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>rho</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-p~28"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>p</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-turbintensity"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>TurbIntensity</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-eddy_theta~2"></span>
+              real(kind=RP),
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>eddy_theta</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
               <span class="anchor" id="variable-aoaphi~4"></span>
               real(kind=RP),
             </td>
@@ -324,126 +443,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-v~15"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>v</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-rho~14"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>rho</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-p~14"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>p</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-turbintensity"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>TurbIntensity</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-eddy_theta"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>eddy_theta</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-aoaphi~5"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>AoAPhi</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-aoatheta~5"></span>
-              real(kind=RP),
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>AoATheta</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-v~16"></span>
+              <span class="anchor" id="variable-v~40"></span>
               real(kind=RP),
             </td>
               <td>public</td>
@@ -613,7 +613,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-rho~15"></span>
+              <span class="anchor" id="variable-rho~22"></span>
               real(kind=RP),
             </td>
               <td>public</td>
@@ -766,7 +766,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-flowgradvars~4"></span>
+      <span class="anchor" id="boundprocedure-flowgradvars"></span>
       <h3>
           procedure, public ::
   <strong>FlowGradVars</strong> => GenericBC_FlowGradVars
@@ -1353,7 +1353,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~7"></span>
+      <span class="anchor" id="boundprocedure-destruct~11"></span>
       <h3>
           procedure, public ::
   <strong>Destruct</strong> => InflowBC_Destruct
@@ -1406,7 +1406,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-describe~5"></span>
+      <span class="anchor" id="boundprocedure-describe~9"></span>
       <h3>
           procedure, public ::
   <strong>Describe</strong> => InflowBC_Describe
@@ -2388,7 +2388,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-17 06:42              </p>
+ on 2024-09-17 09:11              </p>
           </div>
         </div>
         <br>
