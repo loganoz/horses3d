@@ -16,14 +16,15 @@
 
       integer, parameter :: EFRONT = 1, EBACK = 2, EBOTTOM = 3
       integer, parameter :: ERIGHT = 4, ETOP = 5, ELEFT = 6
-
+      !$acc declare copyin(EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT)
    
       integer, parameter :: HMESH_NONE      = 0       ! Not constructed
       integer, parameter :: HMESH_UNDEFINED = -1      ! Constructed but undefined
       integer, parameter :: HMESH_INTERIOR  = 1       ! Interior face
       integer, parameter :: HMESH_BOUNDARY  = 2       ! Physical boundary face
       integer, parameter :: HMESH_MPI       = 3       ! MPI face
-      
+      !$acc declare copyin(HMESH_NONE, HMESH_UNDEFINED, HMESH_INTERIOR, HMESH_BOUNDARY, HMESH_MPI)
+
       CHARACTER(LEN=3), parameter   :: emptyBCName = "---"
       
       integer, parameter :: SPECMESH = 1
@@ -40,6 +41,7 @@
 !     outputs the corresponding indexes on the other Face 
 !  -------------------------------------------------------------------------
    subroutine indexesOnOtherFace(i,j,Nx,Ny,rotation,side,ii,jj)
+      !$acc routine seq
       implicit none
       !-arguments---------------------------------------------
       integer, intent(in)  :: i,j       !<  Input indexes
@@ -68,6 +70,7 @@
 !     outputs the corresponding indexes on the right Face 
 !  -------------------------------------------------------------------------
    subroutine leftIndexes2Right(i,j,Nx,Ny,rotation,ii,jj)
+      !$acc routine seq
       implicit none
       !-arguments---------------------------------------------
       integer, intent(in)  :: i,j       !<  Input indexes
@@ -115,6 +118,7 @@
 !     outputs the corresponding indexes on the left Face 
 !  -------------------------------------------------------------------------
    subroutine rightIndexes2Left(i,j,Nx,Ny,rotation,ii,jj)
+      !$acc routine seq
       implicit none
       !-arguments---------------------------------------------
       integer, intent(in)  :: i,j       !<  Input indexes
@@ -162,6 +166,7 @@
 !                 the corresponding coordinates on the slave face (right)
 !  --------------------------------------------------------------------------
    SUBROUTINE coordRotation(xi,eta,rotation,xiRot, etaRot)
+      !$acc routine seq
       IMPLICIT NONE
       real(kind=RP), intent(in)   :: xi, eta       ! Master coords 
       integer,       intent(in)   :: rotation      ! Face rotation

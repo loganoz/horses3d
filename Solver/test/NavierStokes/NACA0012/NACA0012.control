@@ -1,11 +1,11 @@
 /* Control file for the implicit Navier-Stokes solver */
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/naca0012_p3.msh"
-Polynomial order    = 3 ! T
+Polynomial order      = 2 ! T
 Number of time steps  = 1
 Output Interval       = 1 ! for explicit
 autosave mode         = "iteration"
-autosave interval     = 1
+autosave interval     = 100
 
 Convergence tolerance = 1.d-10
 cfl                   = 0.001d0
@@ -19,12 +19,12 @@ solution file name    = "RESULTS/naca.hsol"
 save gradients with solution = .true.
 restart               = .false.
 restart file name     = "RESULTS/restart.hsol"
-riemann solver         = "lax-friedrichs"
-viscous discretization = "IP"
+riemann solver         = "central"
+viscous discretization = "BR1"
 
-!simulation type       = time-accurate
-!final time            = 40.d0
-simulation type       = steady-state
+simulation type       = time-accurate
+final time            = 40.d0
+!simulation type       = steady-state
 time integration        = explicit
 partitioning = SFC
 !-------------------------------------------------------------

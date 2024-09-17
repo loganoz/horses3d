@@ -22,7 +22,7 @@
       IMPLICIT NONE 
 
       private
-      public   Face
+      public   Face, Face_ProjectFluxToElements, Face_AdaptSolToFace, Face_AdaptGradientsToFace, Face_ProjectGradientFluxToElements
 !
 !     ************************************************************************************
 !
@@ -84,10 +84,10 @@
             procedure   :: Print                         => PrintFace
             procedure   :: LinkWithElements              => Face_LinkWithElements
             procedure   :: AdaptSolutionToFace           => Face_AdaptSolutionToFace
-            procedure   :: AdaptGradientsToFace          => Face_AdaptGradientsToFace
+            !procedure   :: AdaptGradientsToFace          => Face_AdaptGradientsToFace
             procedure   :: AdaptAviscFluxToFace          => Face_AdaptAviscFluxToFace
-            procedure   :: ProjectFluxToElements         => Face_ProjectFluxToElements
-            procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
+            !procedure   :: ProjectFluxToElements         => Face_ProjectFluxToElements
+            !procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
 #if defined(NAVIERSTOKES)
             procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
@@ -276,6 +276,7 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot)
+      !$acc routine vector
       use MappedGeometryClass
       implicit none
       class(Face),   intent(inout)              :: self
@@ -291,218 +292,137 @@
 !     ---------------
 !
       integer       :: i, j, k, l, m, ii, jj
-      real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-      ! real(kind=RP) :: QdotE_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-      logical :: prolongQdot
-
-      ! prolongQdot = present(QdotE)
-      if (present(computeQdot)) then
-          prolongQdot = computeQdot
-      else
-          prolongQdot = .FALSE.
-      end if
-
-      ! if (prolongQdot) then
-      !     print *, "side: ", side
-      !     ! print *, "projectionType 1: ",  self % projectionType(1)
-      !     ! print *, "projectionType 2: ",  self % projectionType(2)
-      !     print *, "projectionType side: ",  self % projectionType(side)
-      ! end if
 
       select case (side)
       case(1)
-         associate(Qf => self % storage(1) % Q)
          select case ( self % projectionType(1) )
          case (0)
-            Qf = Qe
-            if (prolongQdot) self % storage(1) % Qdot = QdotE
-
-         case (1)
-            Qf = 0.0_RP
-            do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)
-               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Qe(:,l,j)
-            end do                  ; end do                   ; end do
-            
-         case (2)
-            Qf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Qe(:,i,l)
-            end do                  ; end do                   ; end do
-   
-         case (3)
-            Qf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
-               do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
-                  Qf(:,i,j) = Qf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
-                                            * Qe(:,m,l)
-               end do                 ; end do
-            end do                  ; end do
+            !$acc loop vector collapse(2)
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+               self % storage(1) % Q(:,i,j) = Qe(:,i,j)
+!               if (prolongQdot) self % storage(1) % Qdot(:,i,j) = QdotE(:,i,j)
+            enddo ; enddo
          end select
-         end associate
       case(2)
-         associate( Qf => self % storage(2) % Q )
+         !$acc loop vector collapse(2)
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-            Qe_rot(:,i,j) = Qe(:,ii,jj) 
+            self % storage(2) % Q(:,i,j) = Qe(:,ii,jj) 
          end do                        ; end do
 
-         select case ( self % projectionType(2) )
-         case (0)
-            Qf = Qe_rot
-         case (1)
-            Qf = 0.0_RP
-            do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)
-               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Qe_rot(:,l,j)
-            end do                  ; end do                   ; end do
-            
-         case (2)
-            Qf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-               Qf(:,i,j) = Qf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Qe_rot(:,i,l)
-            end do                  ; end do                   ; end do
-   
-         case (3)
-            Qf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
-               do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
-                  Qf(:,i,j) = Qf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
-                                            * Qe_rot(:,m,l)
-               end do                 ; end do
-            end do                  ; end do
-         end select
-         end associate
       end select
 
    end subroutine Face_AdaptSolutionToFace
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine Face_AdaptGradientsToFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side)
+   
+   subroutine Face_AdaptSolToFace(self, nEqn, Nelx, Nely, Qe, side)
+      !$acc routine vector
       use MappedGeometryClass
       implicit none
-      class(Face),   intent(inout)  :: self
-      integer,       intent(in)     :: nEqn 
-      integer,       intent(in)     :: Nelx, Nely
-      real(kind=RP), intent(in)     :: Uxe(nEqn, 0:Nelx, 0:Nely)
-      real(kind=RP), intent(in)     :: Uye(nEqn, 0:Nelx, 0:Nely)
-      real(kind=RP), intent(in)     :: Uze(nEqn, 0:Nelx, 0:Nely)
-      integer,       intent(in)     :: side
+      type(Face),   intent(inout)              :: self
+      integer,       intent(in)                 :: nEqn
+      integer,       intent(in)                 :: Nelx, Nely
+      real(kind=RP), intent(in)                 :: Qe(1:nEqn, 0:Nelx, 0:Nely)
+      integer,       intent(in)                 :: side
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      integer       :: i, j, k, l, m, ii, jj
-      real(kind=RP) :: Uxe_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-      real(kind=RP) :: Uye_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-      real(kind=RP) :: Uze_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      integer       :: i, j, k, l, m, ii, jj, eq
 
       select case (side)
       case(1)
-         associate(Uxf => self % storage(1) % U_x, &
-                   Uyf => self % storage(1) % U_y, &
-                   Uzf => self % storage(1) % U_z   )
          select case ( self % projectionType(1) )
          case (0)
-            Uxf = Uxe
-            Uyf = Uye
-            Uzf = Uze
-         case (1)
-            Uxf = 0.0_RP
-            Uyf = 0.0_RP
-            Uzf = 0.0_RP
-            do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)
-               Uxf(:,i,j) = Uxf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Uxe(:,l,j)
-               Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Uye(:,l,j)
-               Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Uze(:,l,j)
-            end do                  ; end do                   ; end do
-            
-         case (2)
-            Uxf = 0.0_RP
-            Uyf = 0.0_RP
-            Uzf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-               Uxf(:,i,j) = Uxf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Uxe(:,i,l)
-               Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Uye(:,i,l)
-               Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Uze(:,i,l)
-            end do                  ; end do                   ; end do
-   
-         case (3)
-            Uxf = 0.0_RP
-            Uyf = 0.0_RP
-            Uzf = 0.0_RP
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
-               do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
-                  Uxf(:,i,j) = Uxf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
-                                            * Uxe(:,m,l)
-                  Uyf(:,i,j) = Uyf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
-                                            * Uye(:,m,l)
-                  Uzf(:,i,j) = Uzf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
-                                            * Uze(:,m,l)
-               end do                 ; end do
-            end do                  ; end do
+            !$acc loop vector collapse(2) independent
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+               !$acc loop seq
+               do eq = 1, NCONS
+                  self % storage(1) % Q(eq,i,j) = Qe(eq,i,j)
+               enddo
+            enddo ; enddo
          end select
-         end associate
       case(2)
-         associate(Uxf => self % storage(2) % U_x, &
-                   Uyf => self % storage(2) % U_y, &
-                   Uzf => self % storage(2) % U_z   )
+         !$acc loop vector collapse(2) independent
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-            Uxe_rot(:,i,j) = Uxe(:,ii,jj) 
-            Uye_rot(:,i,j) = Uye(:,ii,jj) 
-            Uze_rot(:,i,j) = Uze(:,ii,jj) 
-         end do                        ; end do
+            !$acc loop seq
+            do eq = 1, NCONS
+               self % storage(2) % Q(eq,i,j) = Qe(eq,ii,jj)
+            enddo 
+         enddo ; enddo 
 
-         select case ( self % projectionType(2) )
+      end select
+
+   end subroutine Face_AdaptSolToFace
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Face_AdaptGradientsToFace(self, nEqn, Nelx, Nely, Uxe, side, dir)
+      !$acc routine vector
+      use MappedGeometryClass
+      implicit none
+      type(Face),   intent(inout)  :: self
+      integer,       intent(in)     :: nEqn 
+      integer,       intent(in)     :: Nelx, Nely
+      real(kind=RP), intent(in)     :: Uxe(nEqn, 0:Nelx, 0:Nely)
+      integer,       intent(in)     :: side
+      integer,       intent(in)     :: dir
+
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer       :: i, j, k, l, m, ii, jj, eq
+
+      select case (side)
+      case(1)
+         select case ( self % projectionType(1) )
          case (0)
-            Uxf = Uxe_rot
-            Uyf = Uye_rot
-            Uzf = Uze_rot
-         case (1)
-            Uxf = 0.0_RP
-            Uyf = 0.0_RP
-            Uzf = 0.0_RP
-            do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)
-               Uxf(:,i,j) = Uxf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Uxe_rot(:,l,j)
-               Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Uye_rot(:,l,j)
-               Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Uze_rot(:,l,j)
-            end do                  ; end do                   ; end do
-            
-         case (2)
-            Uxf = 0.0_RP
-            Uyf = 0.0_RP
-            Uzf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-               Uxf(:,i,j) = Uxf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Uxe_rot(:,i,l)
-               Uyf(:,i,j) = Uyf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Uye_rot(:,i,l)
-               Uzf(:,i,j) = Uzf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Uze_rot(:,i,l)
-            end do                  ; end do                   ; end do
-   
-         case (3)
-            Uxf = 0.0_RP
-            Uyf = 0.0_RP
-            Uzf = 0.0_RP
-            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
-               do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
-                  Uxf(:,i,j) = Uxf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
-                                            * Uxe_rot(:,m,l)
-                  Uyf(:,i,j) = Uyf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
-                                            * Uye_rot(:,m,l)
-                  Uzf(:,i,j) = Uzf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
-                                            * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
-                                            * Uze_rot(:,m,l)
-               end do                 ; end do
-            end do                  ; end do
+            !$acc loop vector collapse(2)
+            do j=0,Nely ; do i=0,Nelx
+               select case (dir)
+               case (1)
+                  !$acc loop seq
+                  do eq = 1, NCONS
+                     self % storage(1) % U_x(eq,i,j) = Uxe(eq,i,j)
+                  enddo
+               case (2)
+                  !$acc loop seq
+                  do eq = 1, NCONS
+                     self % storage(1) % U_y(eq,i,j) = Uxe(eq,i,j)
+                  enddo
+               case (3)
+                  !$acc loop seq
+                  do eq = 1, NCONS
+                     self % storage(1) % U_z(eq,i,j) = Uxe(eq,i,j)
+                  enddo
+               end select
+            enddo ; enddo
          end select
-         end associate
+      case(2)
+         !$acc loop vector collapse(2)
+         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            select case (dir)
+            case (1)
+               !$acc loop seq
+               do eq = 1, NCONS
+                  self % storage(2) % U_x(eq,i,j) = Uxe(eq,ii,jj)
+               enddo
+            case (2)
+               !$acc loop seq
+               do eq = 1, NCONS
+                  self % storage(2) % U_y(eq,i,j) = Uxe(eq,ii,jj)
+               enddo
+            case (3)
+               !$acc loop seq
+               do eq = 1, NCONS
+                  self % storage(2) % U_z(eq,i,j) = Uxe(eq,ii,jj)
+               enddo
+            end select
+         end do                        ; end do
       end select
 
    end subroutine Face_AdaptGradientsToFace
@@ -591,104 +511,51 @@
 
    end subroutine Face_AdaptAviscFluxToFace
 
-   subroutine Face_ProjectFluxToElements(self, nEqn, flux, whichElements)
+   subroutine Face_ProjectFluxToElements(self, nEqn, flux, side)
+      !$acc routine vector
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
-      class(Face)       :: self
+      type(Face),    intent(inout)  :: self
       integer,       intent(in)  :: nEqn
       real(kind=RP), intent(in)  :: flux(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
-      integer,       intent(in)  :: whichElements(2)
+      integer,       intent(in)  :: side
+
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      integer           :: i, j, ii, jj, l, m, side
-      real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      integer           :: i, j, ii, jj, l, m, eq
+      !real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
 
-      do side = 1, 2
-         select case ( whichElements(side) )
-         case (1)    ! Prolong to left element
-            associate(fStar => self % storage(1) % Fstar)
-            select case ( self % projectionType(1) )
-            case (0)
-               fStar(1:nEqn,:,:) = flux
-            case (1)
-               fStar(1:nEqn,:,:) = 0.0
-               do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * flux(:,l,j)
-               end do                  ; end do                   ; end do
-               
-            case (2)
-               fStar(1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * flux(:,i,l)
-               end do                  ; end do                   ; end do
-      
-            case (3)
-               fStar(1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
-                  do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
-                                                             * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
-                                                             * flux(:,m,l)
-                  end do                 ; end do
-               end do                  ; end do
-            end select
-            end associate
+      select case ( side )
+      case (1)    ! Prolong to left element
+         
+         select case ( self % projectionType(1) )
+         case (0)
+            !   !$acc loop vector collapse(2)
+            !   do j = 0, self % Nf(2)  ; do i = 0, self % Nf(1)   
+            !      self % storage(1) % fStar(:,i,j) = flux(:,i,j)     
+            !   enddo ; enddo 
+         end select
 
-         case (2)    ! Prolong to right element
+      case (2)    ! Prolong to right element
 !      
 !           *********
-!           1st stage: Projection
+!           2nd and 3rd stage: Rotation and Inversion
 !           *********
 !      
-            select case ( self % projectionType(2) )
-            case (0)
-               fStarAux(1:nEqn,:,:) = flux
-            case (1)
-               fStarAux(1:nEqn,:,:) = 0.0
-               do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * flux(:,l,j)
-               end do                  ; end do                   ; end do
-               
-            case (2)
-               fStarAux(1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * flux(:,i,l)
-               end do                  ; end do                   ; end do
-      
-            case (3)
-               fStarAux(1:nEqn,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
-                  do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
-                     fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
-                                                             * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
-                                                             * flux(:,m,l)
-                  end do                 ; end do
-               end do                  ; end do
-            end select
-!      
-!           *********
-!           2nd stage: Rotation
-!           *********
-!      
-            associate(fStar => self % storage(2) % Fstar)
+            !$acc loop vector collapse(2)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
+               !$acc loop seq
+               do eq = 1, NCONS
+                  self % storage(2) % Fstar(eq,ii,jj) = -flux(eq,i,j) 
+               enddo
             end do                        ; end do
-!
-!           *********
-!           3rd stage: Inversion
-!           *********
-!
-            fStar = -fStar
 
-            end associate
-         end select
-      end do
+      end select
 
    end subroutine Face_ProjectFluxToElements
 #if defined(NAVIERSTOKES) 
@@ -859,105 +726,56 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 #endif
-   subroutine Face_ProjectGradientFluxToElements(self, nEqn, Hflux, whichElements, factor)
+   subroutine Face_ProjectGradientFluxToElements(self, nEqn, Hflux, side, factor)
+      !$acc routine vector
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
-      class(Face)       :: self
+      type(Face)                 :: self
       integer,       intent(in)  :: nEqn
       real(kind=RP), intent(in)  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
-      integer,       intent(in)  :: whichElements(2)
+      integer,       intent(in)  :: side
       integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      integer           :: i, j, ii, jj, l, m, side
-      real(kind=RP)     :: hStarAux(nEqn, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
+      integer           :: i, j, ii, jj, l, m,eq
+      !real(kind=RP)     :: hStarAux(nEqn, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
 
-      do side = 1, 2
-         select case ( whichElements(side) )
-         case (1)    ! Prolong from left element
-            associate(unStar => self % storage(1) % unStar)
-            select case ( self % projectionType(1) )
-            case (0)
-               unStar(:,:,:,:) = Hflux
-            case (1)
-               unStar(:,:,:,:) = 0.0
-               do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  unStar(:,:,i,j) = unStar(:,:,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * Hflux(:,:,l,j)
-               end do                  ; end do                   ; end do
-               
-            case (2)
-               unStar(:,:,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  unStar(:,:,i,j) = unStar(:,:,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * Hflux(:,:,i,l)
-               end do                  ; end do                   ; end do
-      
-            case (3)
-               unStar(:,:,:,:) = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
-                  do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     unStar(:,:,i,j) = unStar(:,:,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
-                                                             * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
-                                                             * Hflux(:,:,m,l)
-                  end do                 ; end do
-               end do                  ; end do
-            end select
-            end associate
-
-         case (2)    ! Prolong from right element
-!      
-!           *********
-!           1st stage: Projection
-!           *********
-!      
-            select case ( self % projectionType(2) )
-            case (0)
-               HstarAux = Hflux
-            case (1)
-               HstarAux = 0.0
-               do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
-                  HstarAux(:,:,i,j) = HstarAux(:,:,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * Hflux(:,:,l,j)
-               end do                  ; end do                   ; end do
-               
-            case (2)
-               HstarAux = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                  HstarAux(:,:,i,j) = HstarAux(:,:,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * Hflux(:,:,i,l)
-               end do                  ; end do                   ; end do
-      
-            case (3)
-               HstarAux = 0.0
-               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
-                  do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
-                     HstarAux(:,:,i,j) = HstarAux(:,:,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
-                                                             * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
-                                                             * Hflux(:,:,m,l)
-                  end do                 ; end do
-               end do                  ; end do
-            end select
-!      
-!           *********
-!           2nd stage: Rotation
-!           *********
-!      
-            associate(unStar => self % storage(2) % unStar)
+      select case ( side )
+      case (1)    ! Prolong from left element
+         select case ( self % projectionType(1) )
+         case (0)
+            !$acc loop vector collapse(2)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               unStar(:,:,ii,jj) = HstarAux(:,:,i,j) 
+               !$acc loop seq
+               do eq = 1, NCONS
+                  self % storage(1) % unStar(eq,IX,i,j) = Hflux(eq,IX,i,j)
+                  self % storage(1) % unStar(eq,IY,i,j) = Hflux(eq,IY,i,j)
+                  self % storage(1) % unStar(eq,IZ,i,j) = Hflux(eq,IZ,i,j)
+               enddo
             end do                        ; end do
-!
-!           *********
-!           3rd stage: Multiplication by a factor (inversion usually)
-!           *********
-!
-            unStar = factor * unStar
-
-            end associate
          end select
-      end do
+
+      case (2)    ! Prolong from right element
+!      
+!           *********
+!           2nd stage: Rotation & 3rd stage: Multiplication by a factor (inversion usually)
+!           *********
+!      
+         !$acc loop vector collapse(2)
+         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            !$acc loop seq
+            do eq = 1, NCONS
+               self % storage(2) % unStar(eq,IX,ii,jj) = factor * Hflux(eq,IX,i,j)
+               self % storage(2) % unStar(eq,IY,ii,jj) = factor * Hflux(eq,IY,i,j)
+               self % storage(2) % unStar(eq,IZ,ii,jj) = factor * Hflux(eq,IZ,i,j)
+            enddo
+         end do                        ; end do
+      end select
 
    end subroutine Face_ProjectGradientFluxToElements
 !

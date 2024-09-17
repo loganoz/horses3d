@@ -4,12 +4,15 @@ module ZoneClass
    use FaceClass              , only: Face
    use SharedBCModule         , only: zoneNameDictionary
    use MeshTypes              , only: HMESH_INTERIOR, HMESH_MPI
-   use BoundaryConditions     , only: ConstructBoundaryConditions
+   !use BoundaryConditions     , only: ConstructBoundaryConditions_bcs
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
-   use Utilities              , only: toLower
+   use FTValueDictionaryClass,        only: FTValueDictionary
+   use FileReaders,                   only: controlFileName
+   use FileReadingUtilities,          only: GetKeyword, GetValueAsString, PreprocessInputLine, CheckIfBoundaryNameIsContained
+   use Utilities, only: toLower, almostEqual
    
    private
-   public Zone_t , ConstructZones, ReassignZones, constructZoneModule, AllZoneNames
+   public Zone_t , ConstructZones, ReassignZones, constructZoneModule, AllZoneNames, GetZoneType
 
    integer, parameter      :: STR_LEN_ZONE = BC_STRING_LENGTH
    
@@ -19,13 +22,19 @@ module ZoneClass
       character(len=STR_LEN_ZONE) :: Name
       integer                     :: no_of_faces
       integer, allocatable        :: faces(:)
+      integer                     :: zoneBCType
+      character(len=LINE_LENGTH)  :: zoneBCName
+      character(len=LINE_LENGTH)  :: assocPeriodZone   
+
       contains
-         procedure   :: Initialize       => Zone_Initialize
-         procedure   :: copy             => Zone_Assign
-         generic     :: assignment(=)    => copy
-         procedure   :: CreateFictitious => Zone_CreateFictitious
+         procedure   :: Initialize           => Zone_Initialize
+         procedure   :: copy                 => Zone_Assign
+         generic     :: assignment(=)        => copy
+         procedure   :: CreateFictitious     => Zone_CreateFictitious
+         procedure   :: ConstructZoneTypes   => Zones_ConstructZoneTypes
+         procedure   :: getPeriodicPairZone  => Zones_getPeriodicPairZone
    end type Zone_t
-   
+
    contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +79,9 @@ module ZoneClass
 !
 !        Construct Boundary conditions
 !        ----------------------------- 
-         call ConstructBoundaryConditions(no_of_markers, zoneNames)
+         do zoneID = 1 , no_of_markers
+            call zones(zoneID) %  ConstructZoneTypes()
+         end do
          
          deallocate (zoneNames)
       end subroutine ConstructZones
@@ -242,5 +253,203 @@ module ZoneClass
          self % faces = facesID
 
       End Subroutine Zone_CreateFictitious
+
+      subroutine Zones_ConstructZoneTypes(self)
+         implicit none
+         class(Zone_t)        :: self
+   !
+   !           Get zone type
+   !           -------------
+         self % zoneBCType = GetZoneType(trim(self % Name))
+   !
+   !           Allocate the boundary condition and construct
+   !           ---------------------------------------------
+         select case(self % zoneBCType)
+            case(INFLOW_BC)
+               self % zoneBCName = "inflow"
+            case(OUTFLOW_BC)
+               self % zoneBCName = "outflow"
+            case(NOSLIPWALL_BC)
+               self % zoneBCName = "noslipwall"
+            case(FREESLIPWALL_BC)
+               self % zoneBCName = "freeslipwall"
+            case(PERIODIC_BC)
+               self % zoneBCName = "periodic"
+               call self % getPeriodicPairZone()
+            case(USERDEFINED_BC)
+               self % zoneBCName = "user-defined"
+            case default
+               print*, "Unrecognized BC option"
+               errorMessage(STD_OUT)
+               error stop 99
+            end select 
+   
+      end subroutine Zones_ConstructZoneTypes
+
+      integer function GetZoneType(bname)
+      implicit none
+      character(len=*), intent(in)  :: bname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+      integer        :: fid, io, bctype
+      character(len=LINE_LENGTH) :: currentLine, loweredBname
+      character(len=LINE_LENGTH) :: keyword, keyval
+      logical                    :: inside
+      type(FTValueDIctionary)    :: bcdict
+
+      loweredbName = bname
+      call toLower(loweredbName)
+      call bcdict % initWithSize(16)
+
+      open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
+!
+!        Navigate until the "#define boundary bname" sentinel is found
+!        -------------------------------------------------------------
+      inside = .false.
+      do 
+         read(fid, '(A)', iostat=io) currentLine
+
+         IF(io .ne. 0 ) EXIT
+
+         call PreprocessInputLine(currentLine)
+         call toLower(currentLine)
+
+         if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+            inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(loweredbname)) 
+         end if
+      
+      
+!
+!           Get all keywords inside the zone
+!           --------------------------------
+         if ( inside ) then
+            if ( trim(currentLine) .eq. "#end" ) exit
+
+            keyword  = ADJUSTL(GetKeyword(currentLine))
+            keyval   = ADJUSTL(GetValueAsString(currentLine))
+            call ToLower(keyword)
+   
+            call bcdict % AddValueForKey(keyval, trim(keyword))
+
+         end if
+
+      end do
+
+      if ( .not. bcdict % ContainsKey("type") ) then
+         print*, "Missing boundary condition type for boundary ", trim(bname)
+         errorMessage(STD_OUT)
+         call exit(99)
+      end if
+
+      keyval = bcdict % StringValueForKey("type", LINE_LENGTH)
+
+      call tolower(keyval)
+
+      
+      GetZoneType = -1
+      do bctype = 1, size(implementedBCnames)
+         if ( trim(keyval) .eq. trim(implementedBCnames(bctype)) ) then
+            GetZoneType = bctype
+         end if
+      end do
+
+      if ( GetZoneType .eq. -1 ) then
+         print*, "Boundary type " ,trim(keyval), " not recognized."
+         print*, "Options available are:"
+         print*, "   * Inflow"
+         print*, "   * Outflow"
+         print*, "   * NoSlipWall"
+         print*, "   * FreeSlipWall"
+         print*, "   * Periodic"
+         print*, "   * User-defined"
+         errorMessage(STD_OUT)
+         error stop
+      end if
+
+      call bcdict % Destruct
+      close(fid)
+
+   end function GetZoneType
+
+   subroutine Zones_getPeriodicPairZone(self)
+      !
+      !        ********************************************************************
+      !        · Definition of the periodic boundary condition in the control file:
+      !              #define boundary bname
+      !                 type             = periodic
+      !                 coupled boundary = bname
+      !              #end
+      !        ********************************************************************
+      !
+               implicit none
+               class(Zone_t)             :: self
+      !
+      !        ---------------
+      !        Local variables
+      !        ---------------
+      !
+               integer        :: fid, io
+               character(len=LINE_LENGTH) :: boundaryHeader
+               character(len=LINE_LENGTH) :: currentLine
+               character(len=LINE_LENGTH) :: keyword, keyval
+               logical                    :: inside
+               type(FTValueDIctionary)    :: bcdict
+      
+               open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
+      
+               call bcdict % InitWithSize(16)
+      
+               call ToLower(self % Name)      
+               write(boundaryHeader,'(A,A)') "#define boundary ",trim(self % Name)
+               call toLower(boundaryHeader)
+      !
+      !        Navigate until the "#define boundary bname" sentinel is found
+      !        -------------------------------------------------------------
+               inside = .false.
+               do 
+                  read(fid, '(A)', iostat=io) currentLine
+      
+                  IF(io .ne. 0 ) EXIT
+      
+                  call PreprocessInputLine(currentLine)
+                  call toLower(currentLine)
+      
+                  if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+                     inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(self % Name)) 
+                  end if
+      !
+      !           Get all keywords inside the zone
+      !           --------------------------------
+                  if ( inside ) then
+                     if ( trim(currentLine) .eq. "#end" ) exit
+      
+      
+                     keyword  = ADJUSTL(GetKeyword(currentLine))
+                     keyval   = ADJUSTL(GetValueAsString(currentLine))
+                     call ToLower(keyword)
+            
+                     call bcdict % AddValueForKey(keyval, trim(keyword))
+      
+                  end if
+      
+               end do
+      !
+      !        Analyze the gathered data
+      !        -------------------------
+               if ( .not. bcdict % ContainsKey("coupled boundary") ) then
+                  print*, 'Select a "coupled boundary" for boundary',trim(self % Name)
+                  errorMessage(STD_OUT)
+               else
+                  self % assocPeriodZone = bcdict % StringValueForKey("coupled boundary", LINE_LENGTH)
+               end if
+               close(fid)
+               call bcdict % Destruct
+         
+            end subroutine Zones_getPeriodicPairZone
+
+
 
 end module ZoneClass

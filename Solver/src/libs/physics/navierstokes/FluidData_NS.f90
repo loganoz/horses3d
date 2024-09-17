@@ -69,8 +69,10 @@ module FluidData_NS
 !  ---------
 !
    type(Thermodynamics_t), protected   :: thermodynamics
+   !$acc declare create(thermodynamics)
    type(RefValues_t),      protected   :: refValues
    type(Dimensionless_t),  protected   :: dimensionless
+   !$acc declare create(dimensionless)
 
 
      interface getThermalConductivity
@@ -109,6 +111,11 @@ module FluidData_NS
          thermodynamics % cv                  = thermodynamics_ % cv
          thermodynamics % lambda              = thermodynamics_ % lambda
 
+         !$acc update device(thermodynamics, thermodynamics % fluidName,thermodynamics % gammaMinus1)
+         !$acc update device(thermodynamics % R, thermodynamics % gamma,thermodynamics % InvGamma)
+         !$acc update device(thermodynamics % cp, thermodynamics % cv,thermodynamics % gammaDivGammaMinus1)
+         !$acc update device(thermodynamics % InvGammaMinus1, thermodynamics % InvGammaPlus1Div2)
+
       end subroutine SetThermodynamics
 
       subroutine SetRefValues( refValues_ )
@@ -144,6 +151,11 @@ module FluidData_NS
          dimensionless % invFr2 = dimensionless_ % invFr2
          dimensionless % gravity_dir     = dimensionless_ % gravity_dir
 
+         !$acc update device(dimensionless, dimensionless % cp, dimensionless % Re , dimensionless % gammaM2)
+         !$acc update device(dimensionless % Mach, dimensionless % mu_to_kappa , dimensionless % kappa)
+         !$acc update device(dimensionless % mu, dimensionless % Fr , dimensionless % cv, dimensionless % Pr)
+         !$acc update device(dimensionless % Prt, dimensionless % invFr2 , dimensionless % gravity_dir)
+
       end subroutine SetDimensionless
 !
 !/////////////////////////////////////////////////////////////////////////////
@@ -154,6 +166,7 @@ module FluidData_NS
 !/////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine equationOfState(p, rho, T)
+         !$acc routine seq
          implicit none
          real(kind=RP),    intent(in)  :: p
          real(kind=RP),    intent(in)  :: rho
@@ -171,6 +184,7 @@ module FluidData_NS
 !//////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine getThermalConductivity0D(mu, Pr, kappa)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: Pr
@@ -181,6 +195,7 @@ module FluidData_NS
       end subroutine getThermalConductivity0D
 
       pure subroutine getThermalConductivity3D(N, mu, Pr, kappa)
+         !$acc routine seq
          implicit none
          integer,       intent(in)  :: N(3)
          real(kind=RP), intent(in)  :: mu(0:N(1), 0:N(2), 0:N(3))

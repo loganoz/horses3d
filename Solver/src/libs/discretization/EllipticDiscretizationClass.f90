@@ -156,7 +156,7 @@ module EllipticDiscretizationClass
 
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
-            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+         !   call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, set_mu)
          end do
 !$omp end do nowait
 

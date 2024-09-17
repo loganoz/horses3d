@@ -36,6 +36,7 @@
          COMPLEX(KIND=CP), parameter      :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
 
          integer, parameter               :: NDIM = 3, IX = 1, IY = 2, IZ = 3, IXY = 4, IXZ = 5, IYZ = 6 , IXYZ = 7
+         !$acc declare copyin(NDIM, IX, IY, IZ, IXY, IXZ, IYZ, IXYZ)
          
          integer, parameter               :: DT_FIXED = 0
          integer, parameter               :: DT_DIFF  = 1
@@ -43,7 +44,8 @@
 
          INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
          INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
-
+         !$acc declare copyin(LEFT, RIGHT, TOP, BOTTOM, FRONT, BACK)
+         
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 64
 
          CHARACTER(len=*), parameter   :: VERSION = "v0.8.9: Compressible Navier-Stokes physics now using conservative gradients."
@@ -56,6 +58,22 @@
             enumerator :: NO_OF_SOLVERS
             enumerator :: UNKNOWN_SOLVER = -1
          end enum
+
+         enum, bind(C)
+            enumerator :: INFLOW_BC = 1 , OUTFLOW_BC
+            enumerator :: NOSLIPWALL_BC , FREESLIPWALL_BC
+            enumerator :: PERIODIC_BC   , USERDEFINED_BC
+         end enum
+   
+         character(len=BC_STRING_LENGTH), dimension(8)  :: implementedBCNames = [&
+                   "inflow              ",  &
+                   "outflow             ",  &
+                   "noslipwall          ",  &
+                   "freeslipwall        ",  &
+                   "periodic            ",  &
+                   "user-defined        ",  &
+                   "manufacturedsol     ",  &
+                   "msoutflowspecifyp   "]
 
          contains
             subroutine SetSolver(which)

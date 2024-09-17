@@ -147,17 +147,17 @@ module EllipticBR2
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             associate( e => mesh % elements(eID) )
-            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
+            !call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
 !
 !           Prolong to faces
 !           ----------------
             fIDs = e % faceIDs
-            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
-                                             mesh % faces(fIDs(2)),&
-                                             mesh % faces(fIDs(3)),&
-                                             mesh % faces(fIDs(4)),&
-                                             mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+            !call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+            !                                 mesh % faces(fIDs(2)),&
+            !                                 mesh % faces(fIDs(3)),&
+            !                                 mesh % faces(fIDs(4)),&
+            !                                 mesh % faces(fIDs(5)),&
+            !                                 mesh % faces(fIDs(6)) )
 
             end associate
          end do
@@ -435,7 +435,7 @@ module EllipticBR2
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
+         !call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
          
       end subroutine BR2_GradientInterfaceSolution   
 
@@ -473,7 +473,7 @@ module EllipticBR2
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
+         !call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 

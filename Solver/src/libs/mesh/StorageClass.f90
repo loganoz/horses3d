@@ -68,6 +68,9 @@ module StorageClass
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
       type(RKStep_t),          allocatable :: RKSteps(:)         ! Runge-Kutta stages
 #ifdef FLOW
+      real(kind=RP),           allocatable :: FluxF(:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: FluxG(:,:,:,:)         ! NSE State vector
+      real(kind=RP),           allocatable :: FluxH(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
       real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
@@ -167,17 +170,19 @@ module StorageClass
       integer                                          :: NDIM
       integer                                          :: currentlyLoaded
       integer                                          :: Nf(2), Nel(2)
-      real(kind=RP), dimension(:,:,:),     pointer     :: Q
+      real(kind=RP), dimension(:,:,:),     pointer, contiguous     :: Q
       real(kind=RP), dimension(:,:,:),     pointer     :: Qdot
-      real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
-      real(kind=RP), dimension(:,:,:),     pointer     :: FStar
+      real(kind=RP), dimension(:,:,:),     pointer, contiguous :: U_x, U_y, U_z
+      real(kind=RP), dimension(:,:,:),     pointer, contiguous :: FStar
+      real(kind=RP), dimension(:),         allocatable :: flux
       real(kind=RP), dimension(:,:,:),     allocatable :: AviscFlux
-      real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
+      real(kind=RP), dimension(:,:,:,:),   pointer, contiguous :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
 #ifdef FLOW
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: QdotNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
+      real(kind=RP), dimension(:,:,:),     allocatable :: Q_aux
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
       real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
@@ -777,6 +782,10 @@ module StorageClass
          allocate ( self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxF (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxG (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxH (1:NCONS,0:Nx,0:Ny,0:Nz) )
+
          ! Previous solution
          if ( prevSol_num /= 0 ) then
             allocate ( self % PrevQ(prevSol_num) )
@@ -853,6 +862,9 @@ module StorageClass
          self % S_NSP  = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
+         self % FluxF    = 0.0_RP
+         self % FluxG    = 0.0_RP
+         self % FluxH    = 0.0_RP
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
          self % mu_turb_NS  = 0.0_RP
@@ -945,6 +957,10 @@ module StorageClass
 
 #ifdef FLOW
          to % QNS    = from % QNS
+         
+         to % FluxF    = from % FluxF
+         to % FluxG    = from % FluxG
+         to % FluxH    = from % FluxH
 
          if (to % computeGradients) then
             to % U_xNS  = from % U_xNS
@@ -1032,6 +1048,10 @@ module StorageClass
 #ifdef FLOW
          safedeallocate(self % QNS)
          safedeallocate(self % QDotNS)
+
+         safedeallocate(self % FluxF)
+         safedeallocate(self % FluxG)
+         safedeallocate(self % FluxH)
 
          if ( allocated(self % PrevQ) ) then
             num_prevSol = size(self % PrevQ)
@@ -1296,6 +1316,7 @@ module StorageClass
 
 #ifdef FLOW
          ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % Q_aux (NCONS,0:Nel(1),0:Nel(2)) )
 
          if (computeGradients) then
             ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
@@ -1335,6 +1356,7 @@ module StorageClass
 !
 !        Reserve memory for the interface fluxes
 !        ---------------------------------------
+         allocate(self % flux(NCONS*product(Nf + 1)))
          allocate(self % genericInterfaceFluxMemory(interfaceFluxMemorySize))
 
 #ifdef FLOW
@@ -1350,6 +1372,7 @@ module StorageClass
 !
 #ifdef FLOW
          self % QNS    = 0.0_RP
+         self % Q_aux  = 0.0_RP
 
          if (computeGradients) then
             self % U_xNS = 0.0_RP
@@ -1365,6 +1388,7 @@ module StorageClass
          self % mu_NS  = 0.0_RP
          self % u_tau_NS = 0.0_RP
          self % wallNodeDistance = 0.0_RP
+         self % flux = 0.0_RP
 #endif
 
 #ifdef NAVIERSTOKES
@@ -1435,6 +1459,7 @@ module StorageClass
 
 #ifdef FLOW
          safedeallocate(self % QNS)
+         safedeallocate(self % Q_aux)
          if (self % computeGradients) then
             safedeallocate(self % U_xNS)
             safedeallocate(self % U_yNS)
@@ -1495,9 +1520,11 @@ module StorageClass
 !        Get sizes
 !        ---------
          self % Q   (1:,0:,0:)            => self % QNS
-         self % fStar(1:NCONS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         !self % fStar(1:NCONS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         self % fStar(1:NCONS, 0:self % Nel(1), 0:self % Nel(2)) => self % flux
 
          self % genericInterfaceFluxMemory = 0.0_RP
+         self % flux = 0.0_RP
 
          if (self % computeGradients) then
             self % U_x (1:,0:,0:) => self % U_xNS
@@ -1601,6 +1628,7 @@ module StorageClass
 
 #ifdef FLOW
          to % QNS = from % QNS
+         to % Q_aux = from % Q_aux
          if (to % computeGradients) then
             to % U_xNS = from % U_xNS
             to % U_yNS = from % U_yNS

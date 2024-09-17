@@ -11,7 +11,7 @@ module MPI_Face_Class
    public  MPI_FacesSet_t
 
    public  ConstructMPIFaces, DestructMPIFaces
-   public  ConstructMPIFacesStorage
+   public  ConstructMPIFacesStorage, MPIFaces_CreateMPIFacesStorage
 
    type MPI_Face_t
       integer                    :: nDOFs
@@ -33,6 +33,7 @@ module MPI_Face_Class
       real(kind=RP), allocatable :: U_xyzrecv(:)
       real(kind=RP), allocatable :: AviscFluxSend(:)
       real(kind=RP), allocatable :: AviscFluxRecv(:)
+      integer      , allocatable :: mpiFaceToFace(:,:,:)
       contains
          procedure   :: Construct        => MPI_Face_Construct
          procedure   :: Destruct         => MPI_Face_Destruct
@@ -126,6 +127,42 @@ module MPI_Face_Class
          end do
 
       end subroutine ConstructMPIFacesStorage
+
+      subroutine MPIFaces_CreateMPIFacesStorage(facesSet, NDOFS)
+         implicit none
+         type(MPI_FacesSet_t)    :: facesSet
+         integer, intent(in)     :: NDOFS(MPI_Process % nProcs)
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: domain
+
+         if ( MPI_Process % doMPIAction ) then
+
+            !$acc enter data copyin(facesSet)
+            do domain = 1, MPI_Process % nProcs
+               if ( NDOFS(domain) .gt. 0 ) then
+                  !$acc enter data copyin(facesSet % faces(domain))
+                  !$acc enter data copyin(facesSet % faces(domain) % nDOFs)
+                  !$acc enter data copyin(facesSet % faces(domain) % sizeQ)
+                  !$acc enter data copyin(facesSet % faces(domain) % sizeU_xyz)
+                  !$acc enter data copyin(facesSet % faces(domain) % sizeAviscFlux)
+
+                  !$acc enter data copyin(facesSet % faces(domain) % Qsend)
+                  !$acc enter data copyin(facesSet % faces(domain) % U_xyzsend)
+                  !$acc enter data copyin(facesSet % faces(domain) % Qrecv)
+                  !$acc enter data copyin(facesSet % faces(domain) % U_xyzrecv)
+                  !$acc enter data copyin(facesSet % faces(domain) % AviscFluxSend)
+                  !$acc enter data copyin(facesSet % faces(domain) % AviscFluxRecv)
+               end if
+            end do
+         end if
+
+
+      end subroutine MPIFaces_CreateMPIFacesStorage
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -186,9 +223,11 @@ module MPI_Face_Class
 
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
+            !$acc host_data use_device(self % Qsend)
             call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
+            !$acc end host data 
          end if
 #endif
 
@@ -208,8 +247,10 @@ module MPI_Face_Class
 
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
+            !$acc host_data use_device(self % Qrecv)
             call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, self % Qrecv_req, ierr)
+            !$acc end host data 
          end if
 #endif
 
@@ -231,9 +272,11 @@ module MPI_Face_Class
 
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
+            !$acc host_data use_device(self % U_xyzsend)
             call mpi_isend(self % U_xyzsend, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
+            !$acc end host data 
          end if
 #endif
 
@@ -253,8 +296,10 @@ module MPI_Face_Class
 
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
+            !$acc host_data use_device(self % U_xyzrecv)
             call mpi_irecv(self % U_xyzrecv, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, self % gradQrecv_req, ierr)
+            !$acc end host data 
          end if
 #endif
 
@@ -342,8 +387,10 @@ module MPI_Face_Class
 !        -----------------------------------
 !        Wait until the solution is received
 !        -----------------------------------
-!
+!            
+         !$acc host_data use_device(self % Qrecv_req)
          call mpi_wait(self % Qrecv_req, status, ierr)
+         !$acc end host data
 #endif
 
       end subroutine MPI_Face_WaitForSolution
@@ -367,7 +414,9 @@ module MPI_Face_Class
 !        Wait until gradients are received
 !        --------------------------------
 !
+         !$acc host_data use_device(self % gradQrecv_req)
          call mpi_wait(self % gradQrecv_req, status, ierr)
+         !$acc end host data
 #endif
 
       end subroutine MPI_Face_WaitForGradients

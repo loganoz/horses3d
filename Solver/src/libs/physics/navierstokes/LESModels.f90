@@ -8,11 +8,11 @@ module LESModels
    use Headers
    use Utilities                 , only: toLower
    use FluidData_NS
-   use VariableConversion_NS     , only: getVelocityGradients, getTemperatureGradient
+   use VariableConversion_NS     , only: getVelocityGradients, getTemperatureGradient, getVelocityGradients_State
    implicit none
 
    private
-   public LESModel, InitializeLESModel, Smagorinsky_t
+   public LESModel, InitializeLESModel, Smagorinsky_t, LESModel_Selector
    
 !  Keywords
 !  --------
@@ -22,6 +22,7 @@ module LESModels
 !  Model parameters
 !  ----------------
    real(kind=RP)   , parameter   :: K_VONKARMAN     = 0.4_RP
+   !$acc declare copyin(K_VONKARMAN)
    
 !  Wall models
 !  -----------
@@ -32,6 +33,7 @@ module LESModels
       logical  :: active
       logical  :: requiresWallDistances = .FALSE.
       integer  :: WallModel
+      integer  :: LESModel
       contains
          procedure            :: Initialize         => LESModel_Initialize
          procedure, private   :: ComputeWallEffect  => LESModel_ComputeWallEffect
@@ -88,15 +90,18 @@ module LESModels
             select case (trim(modelName))
             case ("none")
                if (.not. allocated(model)) allocate(LESModel_t     :: model)
-
+               model % LESModel = 0 
             case ("smagorinsky")
                if (.not. allocated(model)) allocate(Smagorinsky_t  :: model)
+               model % LESModel = 1 
 
             case ("wale")
                if (.not. allocated(model)) allocate(WALE_t  :: model)
+               model % LESModel = 2 
 
             case ("vreman")
                if (.not. allocated(model)) allocate(Vreman_t  :: model)
+               model % LESModel = 3 
 
             case default
                write(STD_OUT,'(A,A,A)') "LES Model ",trim(modelName), " is not implemented."
@@ -177,9 +182,14 @@ module LESModels
 
          self % active                = .false.
 
+         !$acc enter data copyin(self)
+         !$acc enter data copyin(self % WallModel)
+         !$acc enter data copyin(self % LESModel)
+
       end subroutine LESModel_Initialize
 
       pure real(kind=RP) function LESModel_ComputeWallEffect (self,LS,dWall)
+         !$acc routine seq
          implicit none
          class(LESModel_t), intent(in) :: self
          real(kind=RP)    , intent(in) :: LS
@@ -196,6 +206,7 @@ module LESModels
       end function LESModel_ComputeWallEffect
 
       pure subroutine LESModel_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------
          class(LESModel_t), intent(in)    :: this
@@ -215,6 +226,32 @@ module LESModels
 
 
       end subroutine
+
+      subroutine LESModel_Selector(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         !$acc routine seq
+         implicit none
+         !-arguments---------------------------------------------
+         class(LESModel_t), intent(in)       :: this
+         real(kind=RP), intent(in)           :: delta
+         real(kind=RP), intent(in)           :: dWall
+         real(kind=RP), intent(in)           :: Q(NCONS)
+         real(kind=RP), intent(in)           :: Q_x(NGRAD)
+         real(kind=RP), intent(in)           :: Q_y(NGRAD)
+         real(kind=RP), intent(in)           :: Q_z(NGRAD)
+         real(kind=RP), intent(out)          :: mu
+
+         select case (this % LESModel)
+         case (0) !none
+            call LESModel_ComputeViscosity(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         case (1) !Smagorinsky
+            call Smagorinsky_ComputeViscosity(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         case (2) !WALE
+            call WALE_ComputeViscosity(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         case (3) !Vreman
+            call Vreman_ComputeViscosity(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         end select
+
+      end subroutine LESModel_Selector
 !
 !//////////////////////////////////////////////////////////////////////////////////////
 !
@@ -242,11 +279,17 @@ module LESModels
 
          end if
 
+         !$acc enter data copyin(self)
+         !$acc enter data copyin(self % CS)
+         !$acc enter data copyin(self % WallModel)
+         !$acc enter data copyin(self % LESModel)
+
       end subroutine Smagorinsky_Initialize
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine Smagorinsky_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------
          class(Smagorinsky_t), intent(in)    :: this
@@ -265,7 +308,9 @@ module LESModels
          real(kind=RP)  :: U_z(NDIM)
          !-------------------------------------------------------
          
-         call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         !call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getVelocityGradients_State(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+
 !
 !        Compute symmetric part of the deformation tensor
 !        ------------------------------------------------
@@ -286,7 +331,7 @@ module LESModels
 !        Compute viscosity and thermal conductivity
 !        ------------------------------------------
          LS = this % CS * delta
-         LS = this % ComputeWallEffect(LS,dWall)
+         LS = LESModel_ComputeWallEffect(this,LS,dWall)
          mu = Q(IRHO) * POW2(LS) * normS
          
       end subroutine Smagorinsky_ComputeViscosity
@@ -340,9 +385,15 @@ module LESModels
 
          end if
 
+         !$acc enter data copyin(self)
+         !$acc enter data copyin(self % Cw)
+         !$acc enter data copyin(self % WallModel)
+         !$acc enter data copyin(self % LESModel)
+
       end subroutine WALE_Initialize
 
       pure subroutine WALE_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------
          class(WALE_t), intent(in)    :: this
@@ -364,7 +415,8 @@ module LESModels
          integer        :: i,j
          !-------------------------------------------------------
          
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         !call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getVelocityGradients_State(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
 
          gradV(1,:) = U_x(1:3)
          gradV(2,:) = U_y(1:3)
@@ -448,9 +500,15 @@ module LESModels
 
          end if
 
+         !$acc enter data copyin(self)
+         !$acc enter data copyin(self % C)
+         !$acc enter data copyin(self % WallModel)
+         !$acc enter data copyin(self % LESModel)
+
       end subroutine Vreman_Initialize
 
       pure subroutine Vreman_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------
          class(Vreman_t), intent(in)    :: this
@@ -471,7 +529,8 @@ module LESModels
          integer        :: i,j,k
          !-------------------------------------------------------
          
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         !call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getVelocityGradients_State(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
 
          delta2 = delta*delta 
          gradV(1,:) = U_x(1:3)

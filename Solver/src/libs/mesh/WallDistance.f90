@@ -240,7 +240,7 @@ module WallDistance
 
       end subroutine OptimizationStep
 
-      subroutine HessianEstimation_DFP_DFP(x, dphi, B)
+      subroutine HessianEstimation_DFP(x, dphi, B)
 !
 !        ******************************************************
 !              This (inverse) Hessian estimation is performed
@@ -274,7 +274,7 @@ module WallDistance
             B = B0 + uu / dot_product(u,g) - matmul(B0,matmul(gg,B0))/ (dot_product(g,matmul(B0,g)))
          end if
 
-      end subroutine HessianEstimation_DFP_DFP
+      end subroutine HessianEstimation_DFP
 
       subroutine correctDirection(x, dir)
 !

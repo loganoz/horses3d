@@ -28,7 +28,7 @@ module AnalyticalJacobian
    use ConnectivityClass               , only: Connectivity
    use FTValueDictionaryClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-   use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
+   use RiemannSolvers_NS               , only: RiemannSolver_dFdQ !, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
    use VariableConversion              , only: NSGradientVariables_STATE
    use FluidData_NS, only: dimensionless
@@ -774,15 +774,15 @@ contains
 !     ------------------------
       call ViscousFlux_STATE(NCONS,NCONS,q,Q_xL,Q_yL,Q_zL,mu,beta,kappa,fv_3d)
       flux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
-      CALL BCs(f % zone) % bc % FlowNeumann( & 
-                                    x,       & 
-                                    time,    & 
-                                    nHat,    & 
-                                    q,       & 
-                                    Q_xL,    & 
-                                    Q_yL,    & 
-                                    Q_zL,    & 
-                                    flux )
+!      CALL BCs(f % zone) % bc % FlowNeumann( & 
+!                                    x,       & 
+!                                    time,    & 
+!                                    nHat,    & 
+!                                    q,       & 
+!                                    Q_xL,    & 
+!                                    Q_yL,    & 
+!                                    Q_zL,    & 
+!                                    flux )
       
 !
 !     Get contribution to dF_dq
@@ -793,15 +793,15 @@ contains
          
          call ViscousFlux_STATE(NCONS,NCONS,q,Q_xL,Q_yL,Q_zL,mu,beta,kappa,fv_3d)
          newflux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
-         CALL BCs(f % zone) % bc % FlowNeumann( & 
-                                       x,       & 
-                                       time,    & 
-                                       nHat,    & 
-                                       q,       & 
-                                       Q_xL,    & 
-                                       Q_yL,    & 
-                                       Q_zL,    & 
-                                       newflux )
+!         CALL BCs(f % zone) % bc % FlowNeumann( & 
+!                                       x,       & 
+!                                       time,    & 
+!                                       nHat,    & 
+!                                       q,       & 
+!                                       Q_xL,    & 
+!                                       Q_yL,    & 
+!                                       Q_zL,    & 
+!                                       newflux )
          
          dF_dQ(:,i) =  dF_dQ(:,i) - (newFlux-flux)/eps
          
@@ -818,15 +818,15 @@ contains
 
             call ViscousFlux_STATE(NCONS,NCONS,q,gradQL(:,1),gradQL(:,2),gradQL(:,3),mu,beta,kappa,fv_3d)
             newflux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
-            CALL BCs(f % zone) % bc % FlowNeumann( & 
-                                       x,       & 
-                                       time,    & 
-                                       nHat,    & 
-                                       q,       & 
-                                       gradQL(:,1), & 
-                                       gradQL(:,2), & 
-                                       gradQL(:,3), & 
-                                       newflux )
+   !         CALL BCs(f % zone) % bc % FlowNeumann( & 
+   !                                    x,       & 
+   !                                    time,    & 
+   !                                    nHat,    & 
+   !                                    q,       & 
+   !                                    gradQL(:,1), & 
+   !                                    gradQL(:,2), & 
+   !                                    gradQL(:,3), & 
+   !                                    newflux )
 
             dF_dgradQ(:,i,dir) = (newFlux-flux)/eps 
             gradQL(i,dir) = buffer
@@ -862,7 +862,7 @@ contains
       integer :: i
       !--------------------------------------------
       
-      call RiemannSolver (Qleft, QRight, nHat, t1, t2, flux)
+      !call RiemannSolver (Qleft, QRight, nHat, t1, t2, flux)
       
       select case (side)
       case(LEFT)
@@ -871,7 +871,7 @@ contains
             buffer = q(i)
             q(i) = q(i) + eps
             
-            call RiemannSolver (q, QRight, nHat, t1, t2, newQext)
+            !call RiemannSolver (q, QRight, nHat, t1, t2, newQext)
             
             BCjac(:,i) = (newQext-flux)/eps
             
@@ -884,7 +884,7 @@ contains
             buffer = q(i)
             q(i) = q(i) + eps
             
-            call RiemannSolver (QLeft, q, nHat, t1, t2, newQext)
+            !call RiemannSolver (QLeft, q, nHat, t1, t2, newQext)
             
             BCjac(:,i) = (newQext-flux)/eps
             

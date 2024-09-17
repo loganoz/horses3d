@@ -29,6 +29,7 @@ Module DGSEMClass
    use FluidData
    use ProblemFileFunctions, only: UserDefinedInitialCondition_f
    use MPI_Utilities,        only: MPI_MinMax
+   use BoundaryConditions
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -283,6 +284,13 @@ Module DGSEMClass
       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)   
+!     
+!     Construct Boundary conditions
+!     -----------------------------------
+      if (.not. self % mesh % child) then
+         call ConstructBoundaryConditions()
+         call DescribeBoundaryConditions(self % mesh)
+      endif
 !     
 !     Immersed boundary method parameter
 !     -----------------------------------
@@ -565,7 +573,7 @@ Module DGSEMClass
 !     Local variables
 !     ---------------
 !
-      INTEGER       :: id , eq, ierr
+      INTEGER       :: id , eq, ierr, maxElem
       REAL(KIND=RP) :: localMaxResidual(NCONS)
       real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
       real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
@@ -578,6 +586,11 @@ Module DGSEMClass
       R5 = 0.0_RP
       R6 = 0.0_RP
       c    = 0.0_RP
+
+      DO id = 1, SIZE(mesh % elements)
+         !$acc update self(mesh % elements(id) % storage % QDot)
+      ENDDO
+      !$acc wait
 
 !$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
 !$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
@@ -622,6 +635,8 @@ Module DGSEMClass
       END DO
 !$omp end do
 !$omp end parallel
+
+      print*, "The ELEMENT WITH MAX RES IS", R1, R2, R3, R4, R5, R6
 
 #if defined FLOW && (!(SPALARTALMARAS))
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]

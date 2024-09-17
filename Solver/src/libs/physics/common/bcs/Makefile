@@ -8,40 +8,48 @@ ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
 
-LIBOBJS_NS = 	./build_ns/FluidData.o \
-		./build_ns/PhysicsStorage.o \
-		./build_ns/VariableConversion.o \
-		./build_ns/Physics.o \
-		./build_ns/WallFunctionDefinitions.o \
-		./build_ns/WallFunctionBC.o 
-
-LIBOBJS_NSSA = 	./build_nssa/FluidData.o \
-		./build_nssa/PhysicsStorage.o \
-		./build_nssa/VariableConversion.o \
-		./build_nssa/Physics.o \
-		./build_nssa/WallFunctionDefinitions.o \
-		./build_nssa/WallFunctionBC.o \
+LIBOBJS_NS =  ./build_ns/GenericBoundaryConditionClass.o \
+        ./build_ns/InflowBC.o \
+		./build_ns/OutflowBC.o \
+		./build_ns/NoSlipWallBC.o \
+		./build_ns/FreeSlipWallBC.o \
+		./build_ns/PeriodicBC.o \
+		./build_ns/UserDefinedBC.o \
 		./build_ns/BoundaryConditions.o
+
+LIBOBJS_NSSA = 	./build_nssa/GenericBoundaryConditionClass.o \
+		./build_nssa/InflowBC.o \
+		./build_nssa/OutflowBC.o \
+		./build_nssa/NoSlipWallBC.o \
+		./build_nssa/FreeSlipWallBC.o \
+		./build_nssa/PeriodicBC.o \
+		./build_nssa/UserDefinedBC.o \
 		
-LIBOBJS_iNS = 	./build_ins/FluidData.o \
-		./build_ins/PhysicsStorage.o \
-		./build_ins/VariableConversion.o \
-		./build_ins/Physics.o \
-		./build_ns/BoundaryConditions.o
+LIBOBJS_iNS = 	./build_ins/GenericBoundaryConditionClass.o \
+		./build_ins/InflowBC.o \
+		./build_ins/OutflowBC.o \
+		./build_ins/NoSlipWallBC.o \
+		./build_ins/FreeSlipWallBC.o \
+		./build_ins/PeriodicBC.o \
+		./build_ins/UserDefinedBC.o \
 
-LIBOBJS_CH = 	./build_ch/FluidData.o \
-		./build_ch/PhysicsStorage.o \
-		./build_ch/VariableConversion.o \
-		./build_ch/Physics.o \
-		./build_ns/BoundaryConditions.o
+LIBOBJS_CH = 	./build_ch/GenericBoundaryConditionClass.o \
+		./build_ch/InflowBC.o \
+		./build_ch/OutflowBC.o \
+		./build_ch/NoSlipWallBC.o \
+		./build_ch/FreeSlipWallBC.o \
+		./build_ch/PeriodicBC.o \
+		./build_ch/UserDefinedBC.o \
 
-LIBOBJS_MU = 	./build_mu/FluidData.o \
-		./build_mu/PhysicsStorage.o \
-		./build_mu/VariableConversion.o \
-		./build_mu/Physics.o \
-		./build_ns/BoundaryConditions.o
+LIBOBJS_MU = 	./build_mu/GenericBoundaryConditionClass.o \
+		./build_mu/InflowBC.o \
+		./build_mu/OutflowBC.o \
+		./build_mu/NoSlipWallBC.o \
+		./build_mu/FreeSlipWallBC.o \
+		./build_mu/PeriodicBC.o \
+		./build_mu/UserDefinedBC.o \
 
-LIB = physics
+LIB = physics_bcs
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -155,7 +163,7 @@ install-nssa: lib$(LIB)_nssa.a
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building common Physics    "
+	@echo ">>   Building Physics BCs    "
 	@echo "================================"
 	@echo
 	@echo

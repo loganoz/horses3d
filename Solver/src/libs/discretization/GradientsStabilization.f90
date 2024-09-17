@@ -181,7 +181,7 @@ module GradientsStabilization
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(NCOMP, HFlux,(/1,2/),-1)
+         !call f % ProjectGradientFluxToElements(NCOMP, HFlux,(/1,2/),-1)
          
       end subroutine GradientsStabilization_InteriorFace   
 
@@ -219,7 +219,7 @@ module GradientsStabilization
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(NCOMP, HFlux, (/thisSide, HMESH_NONE/), -1)
+         !call f % ProjectGradientFluxToElements(NCOMP, HFlux, (/thisSide, HMESH_NONE/), -1)
          
       end subroutine GradientsStabilization_MPIFace   
 

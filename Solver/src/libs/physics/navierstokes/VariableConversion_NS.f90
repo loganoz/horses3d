@@ -14,6 +14,7 @@ module VariableConversion_NS
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
    public   set_getVelocityGradients
+   public   getVelocityGradients_State
   
 
    interface getTemperatureGradient
@@ -47,6 +48,7 @@ module VariableConversion_NS
 !---------------------------------------------------------------------
 !
       PURE function Pressure(Q) RESULT(P)
+      !$acc routine seq
 !
 !     ---------
 !     Arguments
@@ -96,6 +98,7 @@ module VariableConversion_NS
 !---------------------------------------------------------------------
 !
       PURE function Temperature(Q) RESULT(T)
+      !$acc routine seq
 !
 !     ---------
 !     Arguments
@@ -144,6 +147,7 @@ module VariableConversion_NS
       end subroutine GetNSViscosity
 
       pure subroutine get_laminar_mu_kappa(Q,mu,kappa)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: Q(NCONS)
          real(kind=RP), intent(out) :: mu, kappa
@@ -163,6 +167,7 @@ module VariableConversion_NS
       end subroutine get_laminar_mu_kappa
 
       PURE FUNCTION SutherlandsLaw(T) RESULT(mu)
+      !$acc routine seq
 !
 !     ---------
 !     Arguments
@@ -193,6 +198,7 @@ module VariableConversion_NS
 !---------------------------------------------------------------------
 !
       pure subroutine NSGradientVariables_STATE( nEqn, nGrad, Q, U, rho_ )
+         !$acc routine seq
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
@@ -208,6 +214,7 @@ module VariableConversion_NS
       end subroutine NSGradientVariables_STATE
 
       pure subroutine NSGradientVariables_ENTROPY( nEqn, nGrad, Q, U, rho_ )
+         !$acc routine seq
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
@@ -236,6 +243,7 @@ module VariableConversion_NS
       end subroutine NSGradientVariables_ENTROPY
 
       pure subroutine NSGradientVariables_ENERGY( nEqn, nGrad, Q, U, rho_ )
+         !$acc routine seq
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
@@ -263,6 +271,7 @@ module VariableConversion_NS
 ! /////////////////////////////////////////////////////////////////////
 !
       pure subroutine getPrimitiveVariables(U,V)
+      !$acc routine seq
 !
 !        **************************************
 !           Primitive variables are:
@@ -293,6 +302,7 @@ module VariableConversion_NS
       end subroutine getPrimitiveVariables
 
       pure subroutine getEntropyVariables(U,p,invRho,S)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: U(NCONS)
          real(kind=RP), intent(in)  :: p, invRho
@@ -320,6 +330,8 @@ module VariableConversion_NS
       end subroutine getEntropyVariables
 
       pure subroutine getRoeVariables(QL, QR, VL, VR, rho, u, v, w, V2, H, a)
+         !$acc routine seq
+
 !
 !        ***************************************************
 !           Roe variables are: [rho, u, v, w, H, a]
@@ -370,6 +382,7 @@ module VariableConversion_NS
 !     --------------------------------------
 !
       pure subroutine getVelocityGradients_State(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------------
          real(kind=RP), intent(in)  :: Q(NCONS)
@@ -391,6 +404,7 @@ module VariableConversion_NS
       end subroutine getVelocityGradients_State
 
       pure subroutine getVelocityGradients_Energy(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------------
          real(kind=RP), intent(in)  :: Q(NCONS)
@@ -407,6 +421,7 @@ module VariableConversion_NS
       end subroutine getVelocityGradients_Energy
 
       pure subroutine getVelocityGradients_Entropy(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         !$acc routine seq
          implicit none
          !-arguments---------------------------------------------------
          real(kind=RP), intent(in)  :: Q(NCONS)

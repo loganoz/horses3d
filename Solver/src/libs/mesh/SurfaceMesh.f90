@@ -76,7 +76,7 @@ Module SurfaceMesh
         use mainKeywordsModule
         use Utilities,            only: toLower
         use Headers
-        use BoundaryConditions
+!        use BoundaryConditions
         use MPI_Process_Info
 #ifdef _HAS_MPI_
         use mpi
@@ -281,7 +281,8 @@ Module SurfaceMesh
                 end do
                 if (j .gt. size(mesh % zones)) cycle bcs_loop
                 ! if ( BCs(j) % bc % BCType .eq. "noslipwall" ) isNoSlip = .true.
-                isNoSlip = ( BCs(j) % bc % BCType .eq. "noslipwall" ) 
+                !isNoSlip = ( BCs(j) % bc % BCType .eq. "noslipwall" ) 
+                isNoSlip = ( mesh % zones(j) % zoneBCName .eq. "noslipwall" ) 
                 numberOfFaces = mesh % zones(j) % no_of_faces
                 allocate( facesIDs(numberOfFaces) )
                 facesIDs = mesh % zones(j) % faces
@@ -1365,7 +1366,7 @@ Module SurfaceMesh
 !         
 #if defined(NAVIERSTOKES)
     Subroutine getU_tauInSurfaces(surfaces, mesh)
-        use BoundaryConditions
+!        use BoundaryConditions
         use Physics
         implicit none
         type(SurfaceMesh_t)                                     :: surfaces
@@ -1410,7 +1411,7 @@ Module SurfaceMesh
     End Subroutine getU_tauInSurfaces
 !
     Subroutine getWallDistInSurfaces(surfaces, mesh)
-        use BoundaryConditions
+!        use BoundaryConditions
         use Physics
         implicit none
         type(SurfaceMesh_t)                                     :: surfaces

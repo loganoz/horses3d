@@ -13,7 +13,7 @@ MODULE ExplicitMethods
    use TimeIntegratorDefinitions
    use DGSEMClass, only: ComputeTimeDerivative_f
    use ParticlesClass
-   use PhysicsStorage, only: CTD_IGNORE_MODE
+   use PhysicsStorage, only: NCONS, CTD_IGNORE_MODE
    IMPLICIT NONE
 
    private
@@ -87,8 +87,9 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
 
+      INTEGER :: i, j, k, l, m, id
 
-      INTEGER :: i, j, k, id
+      !$acc enter data copyin(a,b,c)
 
       if (present(dt_vec)) then   
          
@@ -113,32 +114,49 @@ MODULE ExplicitMethods
             end do ! id
 !$omp end parallel do
 
-         end do ! k
+         end do ! l
 
       else
 
-         do k = 1,3
-            tk = t + b(k)*deltaT
+         !$acc data copyin(deltaT)
+
+         do l = 1,3
+            tk = t + b(l)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
 
-!$omp parallel do schedule(runtime)
+!!$omp parallel do schedule(runtime)
+            !$acc parallel loop gang present(mesh,a,b,c,deltaT)
             do id = 1, SIZE( mesh % elements )
+               !$acc loop vector collapse(3)
+               do k = 0, mesh % elements(id) % Nxyz(3) 
+                   do j = 0, mesh % elements(id) % Nxyz(2) 
+                      do i = 0, mesh % elements(id) % Nxyz(1)
+                        
 #ifdef FLOW
-                  mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
-                  mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+                        !$acc loop seq
+                        do m = 1, NCONS
+                           mesh % elements(id) % storage % G_NS(m,i,j,k) = a(l)* mesh % elements(id) % storage % G_NS(m,i,j,k)  +              mesh % elements(id) % storage % QDot(m,i,j,k)
+                           mesh % elements(id) % storage % Q(m,i,j,k)    =       mesh % elements(id) % storage % Q(m,i,j,k)     + c(l)*deltaT* mesh % elements(id) % storage % G_NS(m,i,j,k)
+                        enddo
 #endif
 
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-                  mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
-                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+                  mesh % elements(id) % storage % G_CH = a(l)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(l)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
+                     end do              
+                  end do                
+               end do
             end do ! id
-!$omp end parallel do
+            !$acc end parallel loop
+!!$omp end parallel do
 
-         end do ! k
+         end do ! l
+
+         !$acc end data
 
       end if
 !

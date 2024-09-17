@@ -250,6 +250,8 @@ module Utilities
 ! /////////////////////////////////////////////////////////////////////
 !
    subroutine toLower(str)
+      !$acc routine seq
+
 !
 !  ----------------
 !  From ResettaCode
@@ -267,6 +269,7 @@ module Utilities
    end subroutine toLower
 
    pure subroutine logarithmicMean(aL, aR, lnMean)
+      !$acc routine seq
 !
 !     ************************************************
 !        Algorithm by Ismail and Roe
@@ -306,6 +309,7 @@ module Utilities
 !  Subroutine for performing least square regression and giving up the coefficients
 !  -----------------------------------------------------------------------
    pure subroutine LeastSquaresLinRegression(N,x,y,C,eta,r)
+      !$acc routine seq
       implicit none
       !--------------------------------------
       integer      , intent(in)  :: N        !< Number of points

@@ -56,10 +56,12 @@ MODULE NodalStorageClass
 !  for every possible polynomial order of the mesh
 !  ------------------------------------------------
    type(NodalStorage_t), target, allocatable :: NodalStorage_Gauss(:)
+   !!$acc declare copyin(NodalStorage_Gauss)
    type(NodalStorage_t), target, allocatable :: NodalStorage_GaussLobatto(:)
-
-
+   !!$acc declare copyin(NodalStorage_GaussLobatto)
    type(NodalStorage_t), pointer :: NodalStorage(:)   ! Default nodal storage
+   !$acc declare create(NodalStorage)
+   
    integer  :: CurrentNodes
 
    interface InitializeNodalStorage

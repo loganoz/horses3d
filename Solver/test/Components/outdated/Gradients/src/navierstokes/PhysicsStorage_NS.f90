@@ -65,7 +65,8 @@ Module Physics_NSKeywordsModule
      public    IGU, IGV, IGW, IGT
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
-     public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
+     public    computeGradients
+     public    lambdaStab, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
      public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS

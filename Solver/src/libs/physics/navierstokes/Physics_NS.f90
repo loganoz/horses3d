@@ -49,6 +49,7 @@
 !//////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine EulerFlux(Q, F, rho_)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS , 1:NDIM)
@@ -60,12 +61,10 @@
 !
          real(kind=RP)           :: u , v , w , p
 
-         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
-
          u = Q(IRHOU) / Q(IRHO)
          v = Q(IRHOV) / Q(IRHO)
          w = Q(IRHOW) / Q(IRHO)
-         p = gammaMinus1 * (Q(IRHOE) - 0.5_RP * ( Q(IRHOU) * u + Q(IRHOV) * v + Q(IRHOW) * w ) )
+         p = thermodynamics % gammaMinus1 * (Q(IRHOE) - 0.5_RP * ( Q(IRHOU) * u + Q(IRHOV) * v + Q(IRHOW) * w ) )
 !
 !        X-Flux
 !        ------         
@@ -91,8 +90,6 @@
          F(IRHOW,IZ) = Q(IRHOW) * w + P
          F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
       
-         end associate
-
       end subroutine EulerFlux
 !     -------------------------------------------------------------------------------
 !     Subroutine for computing the Jacobian of the inviscid flux when it has the form 
@@ -243,6 +240,7 @@
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine ViscousFlux_STATE(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+         !$acc routine seq
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -303,6 +301,7 @@
       end subroutine ViscousFlux_STATE
 
       pure subroutine ViscousFlux_ENTROPY(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+         !$acc routine seq
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -358,6 +357,7 @@
       end subroutine ViscousFlux_ENTROPY
 
       pure subroutine ViscousFlux_ENERGY(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+         !$acc routine seq   
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
