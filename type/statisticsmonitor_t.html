@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 8.6% of total for derived types.</p>Including implementation: 308 statements, 12.0% of total for derived types.">18 statements</a>
+                 title="<p> 1.1% of total for derived types.</p>Including implementation: 274 statements,  1.7% of total for derived types.">18 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,14 +115,14 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-state">state</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-state~3">state</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-sampling_interval">sampling_interval</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-dump_interval">dump_interval</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-reset_interval">reset_interval</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-starting_iteration">starting_iteration</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-starting_time">starting_time</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-no_of_samples">no_of_samples</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savegradients">saveGradients</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savegradients~2">saveGradients</a>
         </div>
       </div>
     </div>
@@ -149,11 +149,11 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-construct">Construct</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-update~4">Update</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-construct~3">Construct</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-update~2">Update</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-updatevalues">UpdateValues</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-getstate">GetState</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writelabel~4">WriteLabel</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writelabel~2">WriteLabel</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writevalue">WriteValue</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writefile">WriteFile</a>
         </div>
@@ -162,12 +162,6 @@
 
   
   
-    <div class="card card-primary">
-      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
-      <div class="list-group">
-        <a class="list-group-item" href="../type/statisticsmonitor_t.html#src">StatisticsMonitor_t</a>
-      </div>
-    </div>
 
 
   </div>
@@ -194,7 +188,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-state"></span>
+              <span class="anchor" id="variable-state~3"></span>
               integer,
             </td>
               <td>public</td>
@@ -313,7 +307,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-savegradients"></span>
+              <span class="anchor" id="variable-savegradients~2"></span>
               logical,
             </td>
               <td>public</td>
@@ -341,7 +335,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-construct"></span>
+      <span class="anchor" id="boundprocedure-construct~3"></span>
       <h3>
           procedure, public ::
   <strong>Construct</strong> => StatisticsMonitor_Construct
@@ -424,7 +418,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-update~4"></span>
+      <span class="anchor" id="boundprocedure-update~2"></span>
       <h3>
           procedure, public ::
   <strong>Update</strong> => StatisticsMonitor_Update
@@ -688,7 +682,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writelabel~4"></span>
+      <span class="anchor" id="boundprocedure-writelabel~2"></span>
       <h3>
           procedure, public ::
   <strong>WriteLabel</strong> => StatisticsMonitor_WriteLabel
@@ -906,29 +900,6 @@
           </div>
       </section>
 
-    <section>
-    <h3><span class="anchor" id="src"></span>Source Code</h3>
-    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">type </span><span class="n">StatisticsMonitor_t</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">state</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">sampling_interval</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">dump_interval</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">reset_interval</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">starting_iteration</span>
-<span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">starting_time</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_samples</span>
-<span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveGradients</span>
-<span class="w">      </span><span class="k">contains</span>
-<span class="k">         procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Construct</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_Construct</span>
-<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Update</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_Update</span>
-<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">UpdateValues</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_UpdateValues</span>
-<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">GetState</span><span class="w">     </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_GetState</span>
-<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteLabel</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_WriteLabel</span>
-<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteValue</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_WriteValue</span>
-<span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">WriteFile</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_WriteFile</span>
-<span class="w">   </span><span class="k">end type </span><span class="n">StatisticsMonitor_t</span>
-</pre></div>
-
-    </section>
     
     </div>
   </div>
@@ -948,7 +919,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -972,9 +943,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

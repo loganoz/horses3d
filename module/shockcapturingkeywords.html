@@ -1,0 +1,1608 @@
+<!-- -*- mode: jinja2 -*- -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="description" content="Documentation for HORSES3D">
+    <meta name="author" content="HORSES3D developers" >
+    <link rel="icon" href="../favicon.png">
+
+    <title>ShockCapturingKeywords &ndash; HORSES3D</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="../css/pygments.css" rel="stylesheet">
+    <link href="../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../css/local.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="../js/svg-pan-zoom.min.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="container-fluid mb-sm-4 mb-xl-2">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="../index.html">HORSES3D </a>
+          <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar"
+                  aria-expanded="false" aria-controls="navbar" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon">
+          </button>
+
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="../page/index.html">Documentation</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="../lists/files.html">Source Files</a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/modules.html">Modules</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/procedures.html">Procedures</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/types.html">Derived Types</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+    </div>
+
+    <div class="container">
+  <div class="row">
+    <h1>ShockCapturingKeywords
+      <small>Module</small>
+      
+    </h1>
+      <div class="container p-2 mb-4 bg-light border rounded-3">
+    <div class="row align-items-center justify-content-between" id="info-bar">
+      <div class="col">
+        <ul class="list-inline" style="margin-bottom:0px;display:inline">
+            <li class="list-inline-item" id="meta-license"><i class="fa fa-legal"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a></li>
+
+            <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
+              <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
+                 title=" 0.2% of total for modules and submodules.">79 statements</a>
+            </li>
+
+            <li class="list-inline-item" id="source-file">
+              <i class="fa fa-code"></i>
+              <a href="../src/ShockCapturingKeywords.f90"> Source File</a>
+            </li>
+        </ul>
+      </div>
+      <div class="col">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb justify-content-end mb-0">
+                <li class="breadcrumb-item"><a href='../sourcefile/shockcapturingkeywords.f90.html'>ShockCapturingKeywords.f90</a></li>
+            <li class="breadcrumb-item active" aria-current="page">ShockCapturingKeywords</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
+  <script>
+    $(function () {
+    $('[data-bs-toggle="tooltip"]').tooltip()
+    })
+  </script>
+
+  </div>
+
+  <div class="row">
+    <div class="col-md-3">
+        <div id="sidebar">
+      <h3>Contents</h3>
+  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#vars-0"
+         aria-expanded="false" aria-controls="vars-0">
+         <h4 class="card-header bg-primary text-white">Variables</h4>
+      </a>
+      <div id="vars-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_key">SC_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_sensor_key">SC_SENSOR_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_method1_key">SC_METHOD1_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_method2_key">SC_METHOD2_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_visc_flux1_key">SC_VISC_FLUX1_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_visc_flux2_key">SC_VISC_FLUX2_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_update_key">SC_UPDATE_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_mu1_key">SC_MU1_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_alpha1_key">SC_ALPHA1_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_mu2_key">SC_MU2_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_alpha2_key">SC_ALPHA2_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_alpha_mu_key">SC_ALPHA_MU_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_variable_key">SC_VARIABLE_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_low_thres_key">SC_LOW_THRES_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_high_thres_key">SC_HIGH_THRES_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_te_nmin_key">SC_TE_NMIN_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_te_delta_key">SC_TE_DELTA_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_te_dtype_key">SC_TE_DTYPE_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_num_clusters_key">SC_NUM_CLUSTERS_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_sensor_inertia_key">SC_SENSOR_INERTIA_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_zero_val">SC_ZERO_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_one_val">SC_ONE_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_integral_val">SC_INTEGRAL_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_integral_sqrt_val">SC_INTEGRAL_SQRT_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_modal_val">SC_MODAL_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_te_val">SC_TE_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_alias_val">SC_ALIAS_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_gmm_val">SC_GMM_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_zero_id">SC_ZERO_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_one_id">SC_ONE_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_integral_id">SC_INTEGRAL_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_integral_sqrt_id">SC_INTEGRAL_SQRT_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_modal_id">SC_MODAL_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_te_id">SC_TE_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_alias_id">SC_ALIAS_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_gmm_id">SC_GMM_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_no_val">SC_NO_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_nosvv_val">SC_NOSVV_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_svv_val">SC_SVV_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_phys_val">SC_PHYS_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_gp_val">SC_GP_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_phys_id">SC_PHYS_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_gp_id">SC_GP_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_const_val">SC_CONST_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_sensor_val">SC_SENSOR_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_smag_val">SC_SMAG_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_const_id">SC_CONST_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_sensor_id">SC_SENSOR_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_smag_id">SC_SMAG_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rho_val">SC_RHO_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhou_val">SC_RHOU_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhov_val">SC_RHOV_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhow_val">SC_RHOW_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhoe_val">SC_RHOE_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_u_val">SC_U_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_v_val">SC_V_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_w_val">SC_W_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_p_val">SC_P_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhop_val">SC_RHOP_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rho_grad_val">SC_RHO_GRAD_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_divv_val">SC_DIVV_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_divv_p_grad_val">SC_DIVV_P_GRAD_VAL</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rho_id">SC_RHO_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhou_id">SC_RHOU_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhov_id">SC_RHOV_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhow_id">SC_RHOW_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhoe_id">SC_RHOE_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_u_id">SC_U_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_v_id">SC_V_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_w_id">SC_W_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_p_id">SC_P_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rhop_id">SC_RHOP_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_rho_grad_id">SC_RHO_GRAD_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_divv_id">SC_DIVV_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_divv_p_grad_id">SC_DIVV_P_GRAD_ID</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_isolated_key">SC_ISOLATED_KEY</a>
+            <a class="list-group-item" href="../module/shockcapturingkeywords.html#variable-sc_non_isolated_key">SC_NON_ISOLATED_KEY</a>
+        </div>
+      </div>
+    </div>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+
+  </div>
+
+    </div>
+
+    <div class="col-md-9" id='text'>
+      
+      
+      
+      <br>
+
+
+        <section>
+          <h2>Variables</h2>
+            <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Visibility</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+<th></th><th scope="col">Initial</th>        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_KEY</strong></td>
+<td> =</td>
+                <td>&#34;enable shock-capturing&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_sensor_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SENSOR_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock sensor&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_method1_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_METHOD1_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock first method&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_method2_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_METHOD2_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock second method&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_visc_flux1_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_VISC_FLUX1_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock viscous flux 1&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_visc_flux2_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_VISC_FLUX2_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock viscous flux 2&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_update_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_UPDATE_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock update strategy&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_mu1_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_MU1_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock mu 1&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_alpha1_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ALPHA1_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock alpha 1&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_mu2_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_MU2_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock mu 2&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_alpha2_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ALPHA2_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock alpha 2&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_alpha_mu_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ALPHA_MU_KEY</strong></td>
+<td> =</td>
+                <td>&#34;shock alpha/mu&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_variable_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_VARIABLE_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor variable&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_low_thres_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_LOW_THRES_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor lower limit&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_high_thres_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_HIGH_THRES_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor higher limit&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_te_nmin_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_TE_NMIN_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor te min n&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_te_delta_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_TE_DELTA_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor te delta n&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_te_dtype_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_TE_DTYPE_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor te derivative&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_num_clusters_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_NUM_CLUSTERS_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor number of clusters&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_sensor_inertia_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SENSOR_INERTIA_KEY</strong></td>
+<td> =</td>
+                <td>&#34;sensor min. timesteps&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_zero_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ZERO_VAL</strong></td>
+<td> =</td>
+                <td>&#34;zeros&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_one_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ONE_VAL</strong></td>
+<td> =</td>
+                <td>&#34;ones&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_integral_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_INTEGRAL_VAL</strong></td>
+<td> =</td>
+                <td>&#34;integral&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_integral_sqrt_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_INTEGRAL_SQRT_VAL</strong></td>
+<td> =</td>
+                <td>&#34;integral with sqrt&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_modal_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_MODAL_VAL</strong></td>
+<td> =</td>
+                <td>&#34;modal&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_te_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_TE_VAL</strong></td>
+<td> =</td>
+                <td>&#34;truncation error&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_alias_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ALIAS_VAL</strong></td>
+<td> =</td>
+                <td>&#34;aliasing error&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_gmm_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_GMM_VAL</strong></td>
+<td> =</td>
+                <td>&#34;gmm&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_zero_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ZERO_ID</strong></td>
+<td> =</td>
+                <td>1</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_one_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ONE_ID</strong></td>
+<td> =</td>
+                <td>2</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_integral_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_INTEGRAL_ID</strong></td>
+<td> =</td>
+                <td>3</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_integral_sqrt_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_INTEGRAL_SQRT_ID</strong></td>
+<td> =</td>
+                <td>4</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_modal_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_MODAL_ID</strong></td>
+<td> =</td>
+                <td>5</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_te_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_TE_ID</strong></td>
+<td> =</td>
+                <td>6</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_alias_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ALIAS_ID</strong></td>
+<td> =</td>
+                <td>7</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_gmm_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_GMM_ID</strong></td>
+<td> =</td>
+                <td>8</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_no_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_NO_VAL</strong></td>
+<td> =</td>
+                <td>&#34;none&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_nosvv_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_NOSVV_VAL</strong></td>
+<td> =</td>
+                <td>&#34;non-filtered&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_svv_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SVV_VAL</strong></td>
+<td> =</td>
+                <td>&#34;svv&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_phys_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_PHYS_VAL</strong></td>
+<td> =</td>
+                <td>&#34;physical&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_gp_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_GP_VAL</strong></td>
+<td> =</td>
+                <td>&#34;guermond-popov&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_phys_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_PHYS_ID</strong></td>
+<td> =</td>
+                <td>1</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_gp_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_GP_ID</strong></td>
+<td> =</td>
+                <td>2</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_const_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_CONST_VAL</strong></td>
+<td> =</td>
+                <td>&#34;constant&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_sensor_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SENSOR_VAL</strong></td>
+<td> =</td>
+                <td>&#34;sensor&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_smag_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SMAG_VAL</strong></td>
+<td> =</td>
+                <td>&#34;smagorinsky&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_const_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_CONST_ID</strong></td>
+<td> =</td>
+                <td>1</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_sensor_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SENSOR_ID</strong></td>
+<td> =</td>
+                <td>2</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_smag_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_SMAG_ID</strong></td>
+<td> =</td>
+                <td>3</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rho_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHO_VAL</strong></td>
+<td> =</td>
+                <td>&#34;rho&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhou_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOU_VAL</strong></td>
+<td> =</td>
+                <td>&#34;rhou&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhov_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOV_VAL</strong></td>
+<td> =</td>
+                <td>&#34;rhov&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhow_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOW_VAL</strong></td>
+<td> =</td>
+                <td>&#34;rhow&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhoe_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOE_VAL</strong></td>
+<td> =</td>
+                <td>&#34;rhoe&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_u_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_U_VAL</strong></td>
+<td> =</td>
+                <td>&#34;u&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_v_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_V_VAL</strong></td>
+<td> =</td>
+                <td>&#34;v&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_w_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_W_VAL</strong></td>
+<td> =</td>
+                <td>&#34;w&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_p_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_P_VAL</strong></td>
+<td> =</td>
+                <td>&#34;p&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhop_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOP_VAL</strong></td>
+<td> =</td>
+                <td>&#34;rhop&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rho_grad_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHO_GRAD_VAL</strong></td>
+<td> =</td>
+                <td>&#34;grad rho&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_divv_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_DIVV_VAL</strong></td>
+<td> =</td>
+                <td>&#34;div v&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_divv_p_grad_val"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_DIVV_P_GRAD_VAL</strong></td>
+<td> =</td>
+                <td>&#34;div v + grad p&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rho_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHO_ID</strong></td>
+<td> =</td>
+                <td>1</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhou_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOU_ID</strong></td>
+<td> =</td>
+                <td>2</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhov_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOV_ID</strong></td>
+<td> =</td>
+                <td>3</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhow_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOW_ID</strong></td>
+<td> =</td>
+                <td>4</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhoe_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOE_ID</strong></td>
+<td> =</td>
+                <td>5</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_u_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_U_ID</strong></td>
+<td> =</td>
+                <td>6</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_v_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_V_ID</strong></td>
+<td> =</td>
+                <td>7</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_w_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_W_ID</strong></td>
+<td> =</td>
+                <td>8</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_p_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_P_ID</strong></td>
+<td> =</td>
+                <td>9</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rhop_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHOP_ID</strong></td>
+<td> =</td>
+                <td>10</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_rho_grad_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_RHO_GRAD_ID</strong></td>
+<td> =</td>
+                <td>11</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_divv_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_DIVV_ID</strong></td>
+<td> =</td>
+                <td>12</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_divv_p_grad_id"></span>
+              integer,
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_DIVV_P_GRAD_ID</strong></td>
+<td> =</td>
+                <td>13</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_isolated_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_ISOLATED_KEY</strong></td>
+<td> =</td>
+                <td>&#34;isolated&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-sc_non_isolated_key"></span>
+              character(len=*),
+            </td>
+              <td>public,</td>
+            <td>
+parameter               
+            </td>
+            <td>::</td>
+            <td><strong>SC_NON_ISOLATED_KEY</strong></td>
+<td> =</td>
+                <td>&#34;non-isolated&#34;</td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+        </section>
+        <br>
+
+
+
+
+
+
+
+
+
+    </div>
+  </div>
+
+      <hr>
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col">
+            <p>
+              HORSES3D
+ was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+</p>
+          </div>
+          <div class="col">
+            <p class="text-end">
+              Documentation generated by
+              <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2024-09-17 06:42              </p>
+          </div>
+        </div>
+        <br>
+      </div> <!-- /container -->
+    </footer>
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
+
+    <!-- MathJax JavaScript
+             ================================================== -->
+             <!-- Placed at the end of the document so the pages load faster -->
+        <script type="text/x-mathjax-config">
+          MathJax.Hub.Config({
+          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+          });
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+
+  </body>
+</html>

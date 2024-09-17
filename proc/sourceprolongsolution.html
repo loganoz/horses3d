@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 2.0% of total for procedures.">17 statements</a>
+                 title=" 0.0% of total for procedures.">17 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,12 +127,6 @@
   
   
   
-    <div class="card card-primary">
-      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
-      <div class="list-group">
-        <a class="list-group-item" href="../proc/sourceprolongsolution.html#src">SourceProlongSolution</a>
-      </div>
-    </div>
 
 
   </div>
@@ -173,7 +167,7 @@
         <tr>
             <td>
               <span class="anchor" id="variable-source_zone"></span>
-              class(Zone_t),
+              class(<a href='../type/zone_t.html'>Zone_t</a>),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
@@ -187,7 +181,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~26"></span>
+              <span class="anchor" id="variable-mesh~89"></span>
               class(HexMesh),
             </td>
 <td>intent(inout),</td>
@@ -230,72 +224,6 @@
 
 
     
-    <section>
-    <h2><span class="anchor" id="src"></span>Source Code</h2>
-    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">Subroutine </span><span class="n">SourceProlongSolution</span><span class="p">(</span><span class="n">source_zone</span><span class="p">,</span><span class="w"> </span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">eSides</span><span class="p">)</span>
-
-<span class="c">!     *******************************************************************</span>
-<span class="c">!        This subroutine prolong the solution from the mesh storage to the faces (source).</span>
-<span class="c">!         TODO: use openmp (commented)</span>
-<span class="c">!         TODO: use mpi (see surface integral)</span>
-<span class="c">!     *******************************************************************</span>
-<span class="c">!</span>
-<span class="w">      </span><span class="k">use </span><span class="n">ElementClass</span>
-<span class="w">      </span><span class="k">implicit none</span>
-<span class="k">      class</span><span class="w"> </span><span class="p">(</span><span class="n">Zone_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                           </span><span class="kd">::</span><span class="w"> </span><span class="n">source_zone</span>
-<span class="w">      </span><span class="k">class</span><span class="w"> </span><span class="p">(</span><span class="n">HexMesh</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">inout</span><span class="p">),</span><span class="w"> </span><span class="k">target</span><span class="w">               </span><span class="kd">::</span><span class="w"> </span><span class="n">mesh</span>
-<span class="w">      </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                    </span><span class="kd">::</span><span class="w"> </span><span class="n">eSides</span>
-
-<span class="w">      </span><span class="c">! local variables</span>
-<span class="w">      </span><span class="kt">integer</span><span class="w">                                              </span><span class="kd">::</span><span class="w"> </span><span class="n">zoneFaceID</span><span class="p">,</span><span class="w"> </span><span class="n">meshFaceID</span><span class="p">,</span><span class="w"> </span><span class="n">eID</span>
-<span class="w">      </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w">                                </span><span class="kd">::</span><span class="w"> </span><span class="n">meshFaceIDs</span>
-<span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">Element</span><span class="p">),</span><span class="w"> </span><span class="k">pointer</span><span class="w">                              </span><span class="kd">::</span><span class="w"> </span><span class="n">elements</span><span class="p">(:)</span>
-
-<span class="c">!     *************************</span>
-<span class="c">!     Perform the interpolation</span>
-<span class="c">!     *************************</span>
-<span class="c">!</span>
-<span class="w">      </span><span class="n">elements</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">elements</span>
-<span class="c">!$omp parallel private(meshFaceID,eID,meshFaceIDs) shared(elements,mesh,NodalStorage)</span>
-<span class="c">!!$omp&amp;                                        t)</span>
-<span class="c">!$omp single</span>
-
-<span class="c">!        Loop the zone to get faces and elements</span>
-<span class="c">!        ---------------------------------------</span>
-<span class="w">      </span><span class="k">do </span><span class="n">zoneFaceID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">source_zone</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">no_of_faces</span>
-<span class="w">          </span><span class="n">meshFaceID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">source_zone</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">zoneFaceID</span><span class="p">)</span>
-
-<span class="w">         </span><span class="n">eID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceID</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">elementIDs</span><span class="p">(</span><span class="n">eSides</span><span class="p">(</span><span class="n">zoneFaceID</span><span class="p">))</span>
-<span class="w">         </span><span class="n">meshFaceIDs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">elements</span><span class="p">(</span><span class="n">eID</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faceIDs</span>
-
-<span class="c">!$omp task depend(inout:elements(eID))</span>
-<span class="w">         </span><span class="k">call </span><span class="n">elements</span><span class="p">(</span><span class="n">eID</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">ProlongSolutionToFaces</span><span class="p">(</span><span class="n">NCONS</span><span class="p">,&amp;</span>
-<span class="w">                                                            </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceIDs</span><span class="p">(</span><span class="mi">1</span><span class="p">)),&amp;</span>
-<span class="w">                                                            </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceIDs</span><span class="p">(</span><span class="mi">2</span><span class="p">)),&amp;</span>
-<span class="w">                                                            </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceIDs</span><span class="p">(</span><span class="mi">3</span><span class="p">)),&amp;</span>
-<span class="w">                                                            </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceIDs</span><span class="p">(</span><span class="mi">4</span><span class="p">)),&amp;</span>
-<span class="w">                                                            </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceIDs</span><span class="p">(</span><span class="mi">5</span><span class="p">)),&amp;</span>
-<span class="w">                                                            </span><span class="n">mesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">faces</span><span class="p">(</span><span class="n">meshFaceIDs</span><span class="p">(</span><span class="mi">6</span><span class="p">)),&amp;</span>
-<span class="w">                                                             </span><span class="n">computeQdot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">TRUE</span><span class="p">.)</span>
-
-<span class="w">         </span><span class="c">! if ( computeGradients ) then</span>
-<span class="w">         </span><span class="c">!    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&amp;</span>
-<span class="w">         </span><span class="c">!                                     mesh % faces(meshFaceIDs(2)),&amp;</span>
-<span class="w">         </span><span class="c">!                                     mesh % faces(meshFaceIDs(3)),&amp;</span>
-<span class="w">         </span><span class="c">!                                     mesh % faces(meshFaceIDs(4)),&amp;</span>
-<span class="w">         </span><span class="c">!                                     mesh % faces(meshFaceIDs(5)),&amp;</span>
-<span class="w">         </span><span class="c">!                                     mesh % faces(meshFaceIDs(6)) )</span>
-<span class="w">         </span><span class="c">! end if</span>
-<span class="c">!$omp end task</span>
-<span class="w">      </span><span class="k">end do</span>
-<span class="c">!$omp end single</span>
-<span class="c">!$omp end parallel</span>
-
-<span class="w">   </span><span class="k">End Subroutine </span><span class="n">SourceProlongSolution</span>
-</pre></div>
-
-    </section>
-    <br>
     
     </div>
   </div>
@@ -315,7 +243,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -339,9 +267,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

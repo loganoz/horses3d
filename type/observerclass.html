@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p>10.0% of total for derived types.</p>Including implementation: 256 statements, 10.0% of total for derived types.">21 statements</a>
+                 title="<p> 1.2% of total for derived types.</p>Including implementation: 256 statements,  1.6% of total for derived types.">21 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,8 +115,8 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/observerclass.html#variable-id~7">ID</a>
-            <a class="list-group-item" href="../type/observerclass.html#variable-x~3">x</a>
+            <a class="list-group-item" href="../type/observerclass.html#variable-id~5">ID</a>
+            <a class="list-group-item" href="../type/observerclass.html#variable-x~76">x</a>
             <a class="list-group-item" href="../type/observerclass.html#variable-numberoffaces">numberOfFaces</a>
             <a class="list-group-item" href="../type/observerclass.html#variable-sourcepair">sourcePair</a>
             <a class="list-group-item" href="../type/observerclass.html#variable-pac">Pac</a>
@@ -124,7 +124,7 @@
             <a class="list-group-item" href="../type/observerclass.html#variable-tdelaymax">tDelayMax</a>
             <a class="list-group-item" href="../type/observerclass.html#variable-active~5">active</a>
             <a class="list-group-item" href="../type/observerclass.html#variable-observername">observerName</a>
-            <a class="list-group-item" href="../type/observerclass.html#variable-filename~11">fileName</a>
+            <a class="list-group-item" href="../type/observerclass.html#variable-filename~14">fileName</a>
         </div>
       </div>
     </div>
@@ -151,10 +151,10 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/observerclass.html#boundprocedure-construct~3">construct</a>
-            <a class="list-group-item" href="../type/observerclass.html#boundprocedure-destruct~8">destruct</a>
+            <a class="list-group-item" href="../type/observerclass.html#boundprocedure-construct~11">construct</a>
+            <a class="list-group-item" href="../type/observerclass.html#boundprocedure-destruct~22">destruct</a>
             <a class="list-group-item" href="../type/observerclass.html#boundprocedure-update">update</a>
-            <a class="list-group-item" href="../type/observerclass.html#boundprocedure-writetofile~2">writeToFile</a>
+            <a class="list-group-item" href="../type/observerclass.html#boundprocedure-writetofile">writeToFile</a>
             <a class="list-group-item" href="../type/observerclass.html#boundprocedure-updatetdelay">updateTdelay</a>
             <a class="list-group-item" href="../type/observerclass.html#boundprocedure-interpolatesol">interpolateSol</a>
             <a class="list-group-item" href="../type/observerclass.html#boundprocedure-sumintegrals">sumIntegrals</a>
@@ -165,12 +165,6 @@
 
   
   
-    <div class="card card-primary">
-      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
-      <div class="list-group">
-        <a class="list-group-item" href="../type/observerclass.html#src">ObserverClass</a>
-      </div>
-    </div>
 
 
   </div>
@@ -197,7 +191,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-id~7"></span>
+              <span class="anchor" id="variable-id~5"></span>
               integer,
             </td>
               <td>public</td>
@@ -214,7 +208,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-x~3"></span>
+              <span class="anchor" id="variable-x~76"></span>
               real(kind=RP),
             </td>
               <td>public,</td>
@@ -350,7 +344,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-filename~11"></span>
+              <span class="anchor" id="variable-filename~14"></span>
               character(len=STR_LEN_OBSERVER),
             </td>
               <td>public</td>
@@ -378,7 +372,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-construct~3"></span>
+      <span class="anchor" id="boundprocedure-construct~11"></span>
       <h3>
           procedure, public ::
   <strong>construct</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/observerconstruct.html'>ObserverConstruct</a>
@@ -423,7 +417,7 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              class(Zone_t),
+              class(<a href='zone_t.html'>Zone_t</a>),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
@@ -552,7 +546,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~8"></span>
+      <span class="anchor" id="boundprocedure-destruct~22"></span>
       <h3>
           procedure, public ::
   <strong>destruct</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/observerdestruct.html'>ObserverDestruct</a>
@@ -720,7 +714,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writetofile~2"></span>
+      <span class="anchor" id="boundprocedure-writetofile"></span>
       <h3>
           procedure, public ::
   <strong>writeToFile</strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/observerwritetofile.html'>ObserverWriteToFile</a>
@@ -1199,36 +1193,6 @@
           </div>
       </section>
 
-    <section>
-    <h3><span class="anchor" id="src"></span>Source Code</h3>
-    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">type </span><span class="n">ObserverClass</span>
-
-<span class="w">       </span><span class="kt">integer</span><span class="w">                                                         </span><span class="kd">::</span><span class="w"> </span><span class="n">ID</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">)</span><span class="w">                                  </span><span class="kd">::</span><span class="w"> </span><span class="n">x</span><span class="w">        </span><span class="c">! position of the observer at global coordinates</span>
-<span class="w">       </span><span class="kt">integer</span><span class="w">                                                         </span><span class="kd">::</span><span class="w"> </span><span class="n">numberOfFaces</span>
-<span class="w">       </span><span class="k">class</span><span class="p">(</span><span class="n">ObserverSourcePairClass</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">       </span><span class="kd">::</span><span class="w"> </span><span class="n">sourcePair</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(:,:),</span><span class="w"> </span><span class="k">allocatable</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">Pac</span><span class="w">      </span><span class="c">! acoustic pressure, two components and the total (sum)</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                                   </span><span class="kd">::</span><span class="w"> </span><span class="n">tDelay</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                                   </span><span class="kd">::</span><span class="w"> </span><span class="n">tDelayMax</span>
-<span class="w">       </span><span class="kt">logical</span><span class="w">                                                         </span><span class="kd">::</span><span class="w"> </span><span class="n">active</span>
-<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_OBSERVER</span><span class="p">)</span><span class="w">                                 </span><span class="kd">::</span><span class="w"> </span><span class="n">observerName</span>
-<span class="w">       </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">STR_LEN_OBSERVER</span><span class="p">)</span><span class="w">                                 </span><span class="kd">::</span><span class="w"> </span><span class="n">fileName</span>
-
-<span class="w">       </span><span class="k">contains</span>
-
-<span class="k">           procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">construct</span><span class="w">      </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverConstruct</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">destruct</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverDestruct</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">update</span><span class="w">         </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverUpdate</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">writeToFile</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverWriteToFile</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">updateTdelay</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverUpdateTdelay</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">interpolateSol</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverInterpolateSol</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">sumIntegrals</span><span class="w">   </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverSumIntegrals</span>
-<span class="w">           </span><span class="k">procedure</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">updateOneStep</span><span class="w">  </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ObserverUpdateOneStep</span>
-
-<span class="w">   </span><span class="k">end type </span><span class="n">ObserverClass</span>
-</pre></div>
-
-    </section>
     
     </div>
   </div>
@@ -1248,7 +1212,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -1272,9 +1236,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

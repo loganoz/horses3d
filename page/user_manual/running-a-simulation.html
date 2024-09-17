@@ -17,7 +17,6 @@
     <link href="../../css/pygments.css" rel="stylesheet">
     <link href="../../css/font-awesome.min.css" rel="stylesheet">
     <link href="../../css/local.css" rel="stylesheet">
-      <link  href="../../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -237,7 +237,7 @@
 <h2 id="boundary-conditions">Boundary conditions</h2>
 <p>The boundary conditions are specified as blocks in the control file. The block starts with the keywords <code>#define' and ends with</code>#end'. Inside the block, the options are specified as a pair of keywords and values, just like the normal body of the rest of the file.</p>
 <p>Each boundary condition can be individually defined, or if multiple boundaries are set with the same definition, it could be done in the same block (with the name separated by a double underscore `$_$' sign). The name of each boundary must match with the one specified in the mesh file.</p>
-<p>The block in general can be seen below: </p>
+<p>The block in general can be seen below. </p>
 <div class="codehilite"><pre><span></span><code><span class="gh">#define boundary myBoundary1__myBoundary2__myBoundary3</span>
     type        = typeValue
     parameter 1 = value_1
@@ -245,12 +245,10 @@
 <span class="gh"># end</span>
 </code></pre></div>
 
-<p>The table below shows the values for the type keyword, and the possible values for the parameters depend on the boundary condition.</p>
-<div class="codehilite"><pre><span></span><code><span class="o">|</span><span class="w"> </span><span class="nx">Keyword</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">Description</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">Default</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">|</span>
-<span class="o">|---------|-------------|---------------|</span>
-<span class="o">|</span><span class="w"> </span><span class="k">type</span><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="o">*</span><span class="nx">CHARACTER</span><span class="o">*</span><span class="p">:</span><span class="w"> </span><span class="nx">Type</span><span class="w"> </span><span class="nx">of</span><span class="w"> </span><span class="nx">boundary</span><span class="w"> </span><span class="nx">condition</span><span class="w"> </span><span class="nx">to</span><span class="w"> </span><span class="nx">be</span><span class="w"> </span><span class="nx">applied</span><span class="p">.</span><span class="w"> </span><span class="nx">Options</span><span class="w"> </span><span class="nx">are</span><span class="p">:</span><span class="w"> </span><span class="nx">Inflow</span><span class="p">,</span><span class="w"> </span><span class="nx">Outflow</span><span class="p">,</span><span class="w"> </span><span class="nx">NoSlipWall</span><span class="p">,</span><span class="w"> </span><span class="nx">FreeSlipWall</span><span class="p">,</span><span class="w"> </span><span class="nx">Periodic</span><span class="p">,</span><span class="w"> </span><span class="nx">User</span><span class="o">-</span><span class="nx">defined</span><span class="p">.</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">N</span><span class="o">/</span><span class="nx">A</span><span class="w"> </span><span class="o">|</span>
-</code></pre></div>
-
+<p>The table below shows the values for the type keyword, and the possible values for the parameters depend on the boundary condition.
+| Keyword | Description | Default value |
+|---------|-------------|---------------|
+| type    | <em>CHARACTER</em>: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. | N/A |</p>
 <p>By default, NoSlipWall is adiabatic. Isothermal wall can be activated with the following block:</p>
 <div class="codehilite"><pre><span></span><code><span class="gh">#define boundary myBoundary1__myBoundary2__myBoundary3</span>
     type = NoSlipWall
@@ -380,7 +378,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -404,9 +402,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

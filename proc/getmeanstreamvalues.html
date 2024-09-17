@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 1.7% of total for procedures.">15 statements</a>
+                 title=" 0.0% of total for procedures.">15 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,13 +127,8 @@
   
   
   
-    <div class="card card-primary">
-      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
-      <div class="list-group">
-        <a class="list-group-item" href="../proc/getmeanstreamvalues.html#src">getMeanStreamValues</a>
-      </div>
-    </div>
 
+    <em>None</em>
 
   </div>
 
@@ -148,7 +143,7 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item">fluiddata</li>
+                  <li class="list-inline-item"><a href='../module/fluiddata.html'>FluidData</a></li>
               </ul>
             </li>
         </ul>
@@ -173,41 +168,6 @@
 
 
     
-    <section>
-    <h2><span class="anchor" id="src"></span>Source Code</h2>
-    <div class="hl codehilite"><pre><span></span><span class="w">    </span><span class="k">Subroutine  </span><span class="n">getMeanStreamValues</span><span class="p">()</span>
-
-<span class="w">        </span><span class="k">use </span><span class="n">fluiddata</span>
-
-<span class="w">        </span><span class="c">! local variables</span>
-<span class="w">        </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                       </span><span class="kd">::</span><span class="w"> </span><span class="n">theta</span><span class="p">,</span><span class="w"> </span><span class="n">phi</span><span class="p">,</span><span class="w"> </span><span class="n">U0Magnitud</span>
-
-<span class="w">        </span><span class="n">theta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">refvalues</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">AOAtheta</span><span class="o">*</span><span class="p">(</span><span class="n">pi</span><span class="o">/</span><span class="mi">18</span><span class="mf">0.0_RP</span><span class="p">)</span>
-<span class="w">        </span><span class="n">phi</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">refvalues</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">AOAphi</span><span class="o">*</span><span class="p">(</span><span class="n">pi</span><span class="o">/</span><span class="mi">18</span><span class="mf">0.0_RP</span><span class="p">)</span>
-
-<span class="w">        </span><span class="c">! set 1 by default</span>
-<span class="w">        </span><span class="c">! TODO use values of boundary conditions (inflow if exists or outflow, or set this defaults if not exists)</span>
-<span class="w">        </span><span class="n">U0Magnitud</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0_RP</span>
-<span class="w">        </span><span class="n">rho0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0_RP</span>
-
-<span class="w">        </span><span class="n">U0</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">U0Magnitud</span><span class="o">*</span><span class="nb">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">*</span><span class="nb">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
-<span class="w">        </span><span class="n">U0</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">U0Magnitud</span><span class="o">*</span><span class="nb">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">*</span><span class="nb">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
-<span class="w">        </span><span class="n">U0</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">U0Magnitud</span><span class="o">*</span><span class="nb">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
-
-<span class="w">        </span><span class="n">M0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">U0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">dimensionless</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Mach</span>
-<span class="w">        </span><span class="n">c0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">U0Magnitud</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">dimensionless</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Mach</span>
-<span class="w">        </span><span class="n">fwGamma2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0_RP</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mf">1.0_RP</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">dimensionless</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Mach</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-
-<span class="w">        </span><span class="c">! default initial condition and outflow BC for energy without external pressure</span>
-<span class="w">        </span><span class="c">! TODO include external pressure</span>
-<span class="w">        </span><span class="n">P0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0_RP</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">dimensionless</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">gammaM2</span><span class="p">)</span>
-<span class="w">        </span><span class="c">! rhoe0 = P0 / thermodynamics%gammaMinus1 + 0.5_RP*rho0*(U0Magnitud**2)</span>
-
-<span class="w">    </span><span class="k">End Subroutine </span><span class="n">getMeanStreamValues</span>
-</pre></div>
-
-    </section>
-    <br>
     
     </div>
   </div>
@@ -227,7 +187,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -251,9 +211,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

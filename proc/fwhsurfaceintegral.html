@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 5.1% of total for procedures.">44 statements</a>
+                 title=" 0.0% of total for procedures.">44 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,12 +127,6 @@
   
   
   
-    <div class="card card-primary">
-      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
-      <div class="list-group">
-        <a class="list-group-item" href="../proc/fwhsurfaceintegral.html#src">FWHSurfaceIntegral</a>
-      </div>
-    </div>
 
 
   </div>
@@ -148,9 +142,9 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
+                  <li class="list-inline-item"><a href='../module/fluiddata.html'>FluidData</a></li>
                   <li class="list-inline-item"><a href='../module/fwhdefinitions.html'>FWHDefinitions</a></li>
-                  <li class="list-inline-item">VariableConversion</li>
-                  <li class="list-inline-item">fluiddata</li>
+                  <li class="list-inline-item"><a href='../module/variableconversion.html'>VariableConversion</a></li>
               </ul>
             </li>
         </ul>
@@ -175,7 +169,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~59"></span>
+              <span class="anchor" id="variable-self~241"></span>
               class(<a href='../type/observersourcepairclass.html'>ObserverSourcePairClass</a>)
             </td>
 <td></td>
@@ -190,7 +184,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-f~4"></span>
+              <span class="anchor" id="variable-f~38"></span>
               class(Face),
             </td>
 <td>intent(in)</td>
@@ -205,7 +199,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-issolid~4"></span>
+              <span class="anchor" id="variable-issolid~3"></span>
               logical,
             </td>
 <td>intent(in)</td>
@@ -240,96 +234,6 @@
 
 
     
-    <section>
-    <h2><span class="anchor" id="src"></span>Source Code</h2>
-    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">Function </span><span class="n">FWHSurfaceIntegral</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="n">isSolid</span><span class="p">)</span><span class="w"> </span><span class="k">result</span><span class="p">(</span><span class="n">Pacc</span><span class="p">)</span>
-
-<span class="w">       </span><span class="k">use </span><span class="n">FWHDefinitions</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">rho0</span><span class="p">,</span><span class="w"> </span><span class="n">P0</span><span class="p">,</span><span class="w"> </span><span class="n">c0</span><span class="p">,</span><span class="w"> </span><span class="n">U0</span><span class="p">,</span><span class="w"> </span><span class="n">M0</span>
-<span class="w">       </span><span class="k">use </span><span class="n">VariableConversion</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">Pressure</span><span class="p">,</span><span class="w"> </span><span class="n">PressureDot</span>
-<span class="w">       </span><span class="k">use </span><span class="n">fluiddata</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">dimensionless</span>
-<span class="w">       </span><span class="k">implicit none</span>
-
-<span class="k">       class</span><span class="p">(</span><span class="n">ObserverSourcePairClass</span><span class="p">)</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">self</span>
-<span class="w">       </span><span class="k">class</span><span class="p">(</span><span class="n">Face</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                             </span><span class="kd">::</span><span class="w"> </span><span class="n">f</span>
-<span class="w">       </span><span class="kt">logical</span><span class="p">,</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                                 </span><span class="kd">::</span><span class="w"> </span><span class="n">isSolid</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="k">dimension</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w">                          </span><span class="kd">::</span><span class="w"> </span><span class="n">Pacc</span><span class="w">  </span><span class="c">! acoustic pressure values</span>
-<span class="w">       </span><span class="c">! logical, intent(in)                                 :: isSolid, interpolate</span>
-<span class="w">       </span><span class="c">! integer, intent(in), optional                       :: bufferPosition</span>
-
-<span class="w">       </span><span class="c">! local variables</span>
-<span class="w">       </span><span class="kt">integer</span><span class="w">                                             </span><span class="kd">::</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="w">  </span><span class="c">! face indexes</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">)</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">Qi</span><span class="p">,</span><span class="n">QiDot</span><span class="p">,</span><span class="w"> </span><span class="n">n</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">,</span><span class="n">NDIM</span><span class="p">)</span><span class="w">                 </span><span class="kd">::</span><span class="w"> </span><span class="n">Lij</span><span class="p">,</span><span class="w"> </span><span class="n">LijDot</span>
-<span class="w">       </span><span class="k">type</span><span class="p">(</span><span class="n">NodalStorage_t</span><span class="p">),</span><span class="w"> </span><span class="k">pointer</span><span class="w">                       </span><span class="kd">::</span><span class="w"> </span><span class="n">spAxi</span><span class="p">,</span><span class="w"> </span><span class="n">spAeta</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                       </span><span class="kd">::</span><span class="w"> </span><span class="n">Pt</span><span class="p">,</span><span class="w"> </span><span class="n">Pl</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                       </span><span class="kd">::</span><span class="w"> </span><span class="n">LR</span><span class="p">,</span><span class="w"> </span><span class="n">MR</span><span class="p">,</span><span class="w"> </span><span class="n">UmMr</span><span class="p">,</span><span class="n">LdotR</span><span class="p">,</span><span class="w"> </span><span class="n">LM</span>
-<span class="w">       </span><span class="c">! integer                                             :: storePosition</span>
-
-<span class="w">       </span><span class="c">! Initialization</span>
-<span class="w">       </span><span class="n">Pt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0_RP</span>
-<span class="w">       </span><span class="n">Pl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0_RP</span>
-<span class="w">       </span><span class="n">spAxi</span><span class="w">  </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">NodalStorage</span><span class="p">(</span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Nf</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
-<span class="w">       </span><span class="n">spAeta</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">NodalStorage</span><span class="p">(</span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Nf</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
-
-
-<span class="w">       </span><span class="k">associate</span><span class="p">(</span><span class="w"> </span><span class="n">Q</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">storage</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">elementSide</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Q</span><span class="w"> </span><span class="p">)</span>
-<span class="w">           </span><span class="k">associate</span><span class="p">(</span><span class="w"> </span><span class="n">Qdot</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">storage</span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">elementSide</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Qdot</span><span class="w"> </span><span class="p">)</span>
-
-<span class="w">    </span><span class="c">!           **********************************</span>
-<span class="w">    </span><span class="c">!           Computes the surface integral</span>
-<span class="w">    </span><span class="c">!              I = \int vec{f}·vec{n} * vec{g}·vec{r} dS</span>
-<span class="w">    </span><span class="c">!           **********************************</span>
-<span class="w">    </span><span class="c">!</span>
-<span class="w">                </span><span class="k">do </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Nf</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">;</span><span class="w">    </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Nf</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-<span class="w">                   </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">geom</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">normal</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">normalCorrection</span>
-<span class="w">                   </span><span class="k">call </span><span class="n">calculateFWHVariables</span><span class="p">(</span><span class="n">Q</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">),</span><span class="w"> </span><span class="n">Qdot</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">),</span><span class="w"> </span><span class="n">isSolid</span><span class="p">,</span><span class="w"> </span><span class="n">Qi</span><span class="p">,</span><span class="w"> </span><span class="n">QiDot</span><span class="p">,</span><span class="w"> </span><span class="n">Lij</span><span class="p">,</span><span class="w"> </span><span class="n">LijDot</span><span class="p">)</span>
-
-<span class="w">                   </span><span class="n">LR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="nb">matmul</span><span class="p">(</span><span class="n">Lij</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">(:)),</span><span class="w"> </span><span class="n">self</span><span class="p">%</span><span class="n">reUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span>
-<span class="w">                   </span><span class="n">MR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="n">M0</span><span class="p">(:),</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">reUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span>
-<span class="w">                   </span><span class="n">UmMr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">MR</span>
-<span class="w">                   </span><span class="n">LdotR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="nb">matmul</span><span class="p">(</span><span class="n">LijDot</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">(:)),</span><span class="w"> </span><span class="n">self</span><span class="p">%</span><span class="n">reUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span>
-<span class="w">                   </span><span class="n">LM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="nb">matmul</span><span class="p">(</span><span class="n">Lij</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">(:)),</span><span class="w"> </span><span class="n">M0</span><span class="p">(:))</span>
-
-<span class="w">                   </span><span class="c">! loading term integrals</span>
-<span class="w">                   </span><span class="n">Pl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pl</span><span class="w"> </span><span class="o">+</span><span class="w">  </span><span class="nb">dot_product</span><span class="p">(</span><span class="nb">matmul</span><span class="p">(</span><span class="n">LijDot</span><span class="p">,</span><span class="n">n</span><span class="p">(:)),</span><span class="n">self</span><span class="p">%</span><span class="n">reUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">self</span><span class="p">%</span><span class="n">reStar</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">c0</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">&amp;</span>
-<span class="w">                             </span><span class="n">spAxi</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">spAeta</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">geom</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">jacobian</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span>
-<span class="w">                   </span><span class="n">Pl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pl</span><span class="w"> </span><span class="o">+</span><span class="w">  </span><span class="nb">dot_product</span><span class="p">(</span><span class="nb">matmul</span><span class="p">(</span><span class="n">Lij</span><span class="p">,</span><span class="n">n</span><span class="p">(:)),</span><span class="n">self</span><span class="p">%</span><span class="n">reStarUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">self</span><span class="p">%</span><span class="n">reStar</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">&amp;</span>
-<span class="w">                             </span><span class="n">spAxi</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">spAeta</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">geom</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">jacobian</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span>
-<span class="w">                   </span><span class="c">! Pl = Pl + LdotR / ( c0 * self % re(i,j) * (UmMr**2) ) * &amp;</span>
-<span class="w">                   </span><span class="c">!           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)</span>
-<span class="w">                   </span><span class="c">! Pl = Pl + (LR - LM) / ( (self % re(i,j) * UmMr)**2 ) * &amp;</span>
-<span class="w">                   </span><span class="c">!           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)</span>
-<span class="w">                   </span><span class="c">! Pl = Pl + (LR * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &amp;</span>
-<span class="w">                   </span><span class="c">!           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)</span>
-
-<span class="w">                   </span><span class="c">! thickness term integrals, only for permeable surfaces</span>
-<span class="w">                   </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">isSolid</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
-<span class="k">                       </span><span class="n">Pt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pt</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="n">M0</span><span class="p">(:),</span><span class="n">self</span><span class="p">%</span><span class="n">reUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)))</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="n">QiDot</span><span class="p">(:),</span><span class="n">n</span><span class="p">(:))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">self</span><span class="p">%</span><span class="n">reStar</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">&amp;</span>
-<span class="w">                                 </span><span class="n">spAxi</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">spAeta</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">geom</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">jacobian</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span>
-<span class="w">                       </span><span class="n">Pt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pt</span><span class="w"> </span><span class="o">-</span><span class="w">  </span><span class="nb">dot_product</span><span class="p">(</span><span class="n">U0</span><span class="p">(:),</span><span class="n">self</span><span class="p">%</span><span class="n">reStarUnitVect</span><span class="p">(:,</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">))</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nb">dot_product</span><span class="p">(</span><span class="n">Qi</span><span class="p">(:),</span><span class="n">n</span><span class="p">(:))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">self</span><span class="p">%</span><span class="n">reStar</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">&amp;</span>
-<span class="w">                                 </span><span class="n">spAxi</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">spAeta</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">w</span><span class="p">(</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">geom</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">jacobian</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span>
-<span class="w">                       </span><span class="c">! Pt = Pt + dot_product(QiDot(:),n(:)) / (self%reStar(i,j) * (UmMr**2)) * &amp;</span>
-<span class="w">                       </span><span class="c">!           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)</span>
-<span class="w">                       </span><span class="c">! Pt = Pt + (dot_product(Qi(:), n(:)) * c0 * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &amp;</span>
-<span class="w">                       </span><span class="c">!           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)</span>
-
-<span class="w">                   </span><span class="k">end if  </span>
-<span class="k">                end do</span><span class="w">          </span><span class="p">;</span><span class="w">    </span><span class="k">end do</span>
-<span class="k">           end associate</span>
-<span class="k">       end associate</span>
-
-<span class="k">       </span><span class="n">Pt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pt</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mf">4.0_RP</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">PI</span><span class="p">)</span>
-<span class="w">       </span><span class="n">Pl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pl</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mf">4.0_RP</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">PI</span><span class="p">)</span>
-
-<span class="w">      </span><span class="c">! get total acoustic pressure as the sum of the two components (the quadrapol terms are being ignored)</span>
-<span class="w">       </span><span class="n">Pacc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">/</span><span class="n">Pt</span><span class="p">,</span><span class="w"> </span><span class="n">Pl</span><span class="p">,</span><span class="w"> </span><span class="n">Pt</span><span class="o">+</span><span class="n">Pl</span><span class="o">/</span><span class="p">)</span>
-
-<span class="w">   </span><span class="k">End Function </span><span class="n">FWHSurfaceIntegral</span><span class="w"> </span>
-</pre></div>
-
-    </section>
-    <br>
     
     </div>
   </div>
@@ -349,7 +253,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -373,9 +277,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

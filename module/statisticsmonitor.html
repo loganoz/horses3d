@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 9.4% of total for modules and submodules.">378 statements</a>
+                 title=" 0.7% of total for modules and submodules.">344 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -116,9 +116,9 @@
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../module/statisticsmonitor.html#variable-no_of_variables">NO_OF_VARIABLES</a>
             <a class="list-group-item" href="../module/statisticsmonitor.html#variable-no_of_variables_sij">NO_OF_VARIABLES_Sij</a>
-            <a class="list-group-item" href="../module/statisticsmonitor.html#variable-u~2">U</a>
-            <a class="list-group-item" href="../module/statisticsmonitor.html#variable-v">V</a>
-            <a class="list-group-item" href="../module/statisticsmonitor.html#variable-w">W</a>
+            <a class="list-group-item" href="../module/statisticsmonitor.html#variable-u~3">U</a>
+            <a class="list-group-item" href="../module/statisticsmonitor.html#variable-v~3">V</a>
+            <a class="list-group-item" href="../module/statisticsmonitor.html#variable-w~2">W</a>
             <a class="list-group-item" href="../module/statisticsmonitor.html#variable-uu">UU</a>
             <a class="list-group-item" href="../module/statisticsmonitor.html#variable-vv">VV</a>
             <a class="list-group-item" href="../module/statisticsmonitor.html#variable-ww">WW</a>
@@ -172,11 +172,11 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item">StorageClass</li>
                   <li class="list-inline-item">Utilities</li>
                   <li class="list-inline-item">HexMeshClass</li>
                   <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
-                  <li class="list-inline-item">SMConstants</li>
+                  <li class="list-inline-item">StorageClass</li>
+                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
               </ul>
             </li>
         </ul>
@@ -235,7 +235,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-u~2"></span>
+              <span class="anchor" id="variable-u~3"></span>
               integer,
             </td>
               <td>public,</td>
@@ -252,7 +252,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-v"></span>
+              <span class="anchor" id="variable-v~3"></span>
               integer,
             </td>
               <td>public,</td>
@@ -269,7 +269,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-w"></span>
+              <span class="anchor" id="variable-w~2"></span>
               integer,
             </td>
               <td>public,</td>
@@ -422,7 +422,7 @@ parameter
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-state"></span>
+              <span class="anchor" id="variable-state~3"></span>
               integer,
             </td>
               <td>public</td>
@@ -541,7 +541,7 @@ parameter
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-savegradients"></span>
+              <span class="anchor" id="variable-savegradients~2"></span>
               logical,
             </td>
               <td>public</td>
@@ -567,12 +567,12 @@ parameter
           <tbody>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/statisticsmonitor_t.html#boundprocedure-construct'>Construct</a></strong> => StatisticsMonitor_Construct</td>
+  <strong><a href='../type/statisticsmonitor_t.html#boundprocedure-construct~3'>Construct</a></strong> => StatisticsMonitor_Construct</td>
                 <td></td>
               </tr>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/statisticsmonitor_t.html#boundprocedure-update~4'>Update</a></strong> => StatisticsMonitor_Update</td>
+  <strong><a href='../type/statisticsmonitor_t.html#boundprocedure-update~2'>Update</a></strong> => StatisticsMonitor_Update</td>
                 <td></td>
               </tr>
               <tr>
@@ -587,7 +587,7 @@ parameter
               </tr>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/statisticsmonitor_t.html#boundprocedure-writelabel~4'>WriteLabel</a></strong> => StatisticsMonitor_WriteLabel</td>
+  <strong><a href='../type/statisticsmonitor_t.html#boundprocedure-writelabel~2'>WriteLabel</a></strong> => StatisticsMonitor_WriteLabel</td>
                 <td></td>
               </tr>
               <tr>
@@ -630,7 +630,7 @@ parameter
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -654,9 +654,6 @@ parameter
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>

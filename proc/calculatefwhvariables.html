@@ -17,7 +17,6 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-      <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="../js/svg-pan-zoom.min.js"></script>
@@ -48,14 +47,15 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
+                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
+                </li>
+                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="../lists/programs.html">Programs</a>
+                </li>
             </ul>
-              <div class="d-flex align-items-end flex-grow-1">
-                <form action="../search.html" role="search" class="ms-auto">
-                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
-                </form>
-              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 4.5% of total for procedures.">39 statements</a>
+                 title=" 0.0% of total for procedures.">39 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -127,12 +127,6 @@
   
   
   
-    <div class="card card-primary">
-      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
-      <div class="list-group">
-        <a class="list-group-item" href="../proc/calculatefwhvariables.html#src">calculateFWHVariables</a>
-      </div>
-    </div>
 
 
   </div>
@@ -149,8 +143,8 @@
             <li class="list-group-item">
               <ul class="list-inline">
                   <li class="list-inline-item"><a href='../module/fwhdefinitions.html'>FWHDefinitions</a></li>
-                  <li class="list-inline-item">VariableConversion</li>
                   <li class="list-inline-item">Utilities</li>
+                  <li class="list-inline-item"><a href='../module/variableconversion.html'>VariableConversion</a></li>
               </ul>
             </li>
         </ul>
@@ -173,7 +167,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-q~3"></span>
+              <span class="anchor" id="variable-q~42"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -188,7 +182,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-qdot"></span>
+              <span class="anchor" id="variable-qdot~3"></span>
               real(kind=RP),
             </td>
 <td>intent(in),</td>
@@ -203,7 +197,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-issolid~5"></span>
+              <span class="anchor" id="variable-issolid~4"></span>
               logical,
             </td>
 <td>intent(in)</td>
@@ -218,7 +212,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-qi~4"></span>
+              <span class="anchor" id="variable-qi~2"></span>
               real(kind=RP),
             </td>
 <td>intent(out),</td>
@@ -291,74 +285,6 @@
 
 
     
-    <section>
-    <h2><span class="anchor" id="src"></span>Source Code</h2>
-    <div class="hl codehilite"><pre><span></span><span class="w">   </span><span class="k">Subroutine </span><span class="n">calculateFWHVariables</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">Qdot</span><span class="p">,</span><span class="w"> </span><span class="n">isSolid</span><span class="p">,</span><span class="w"> </span><span class="n">Qi</span><span class="p">,</span><span class="w"> </span><span class="n">QiDot</span><span class="p">,</span><span class="w"> </span><span class="n">Lij</span><span class="p">,</span><span class="w"> </span><span class="n">LijDot</span><span class="p">)</span>
-
-<span class="w">       </span><span class="k">use </span><span class="n">VariableConversion</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">Pressure</span><span class="p">,</span><span class="w"> </span><span class="n">PressureDot</span>
-<span class="w">       </span><span class="k">use </span><span class="n">FWHDefinitions</span><span class="p">,</span><span class="w">     </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">rho0</span><span class="p">,</span><span class="w"> </span><span class="n">P0</span><span class="p">,</span><span class="w"> </span><span class="n">c0</span><span class="p">,</span><span class="w"> </span><span class="n">U0</span><span class="p">,</span><span class="w"> </span><span class="n">M0</span>
-<span class="w">       </span><span class="k">use </span><span class="n">Utilities</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">AlmostEqual</span>
-<span class="w">       </span><span class="k">implicit none</span>
-
-<span class="k">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NCONS</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">         </span><span class="kd">::</span><span class="w"> </span><span class="n">Q</span><span class="w">        </span><span class="c">! horses variables array</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NCONS</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">         </span><span class="kd">::</span><span class="w"> </span><span class="n">Qdot</span><span class="w">     </span><span class="c">! horses time derivatives array</span>
-<span class="w">       </span><span class="kt">logical</span><span class="p">,</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">                                 </span><span class="kd">::</span><span class="w"> </span><span class="n">isSolid</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="w">         </span><span class="kd">::</span><span class="w"> </span><span class="n">Qi</span><span class="w">       </span><span class="c">! fwh Qi array, related with the acoustic pressure thickness</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="w">         </span><span class="kd">::</span><span class="w"> </span><span class="n">Qidot</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">,</span><span class="n">NDIM</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">Lij</span><span class="w">      </span><span class="c">! fwh Lij tensor: related with the acoustic pressure loading</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">,</span><span class="n">NDIM</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">LijDot</span>
-
-<span class="w">       </span><span class="c">!local variables</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                                       </span><span class="kd">::</span><span class="w"> </span><span class="n">P</span><span class="p">,</span><span class="w"> </span><span class="n">pDot</span>
-<span class="w">       </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">),</span><span class="w"> </span><span class="k">dimension</span><span class="p">(</span><span class="n">NDIM</span><span class="p">,</span><span class="n">NDIM</span><span class="p">)</span><span class="w">                 </span><span class="kd">::</span><span class="w"> </span><span class="n">Pij</span><span class="w">      </span><span class="c">! fwh perturbation stress tensor</span>
-<span class="w">       </span><span class="c">! real(kind=RP), dimension(NDIM:NDIM)                 :: tau</span>
-<span class="w">       </span><span class="kt">integer</span><span class="w">                                             </span><span class="kd">::</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">ii</span><span class="p">,</span><span class="w"> </span><span class="n">jj</span>
-
-<span class="w">       </span><span class="n">P</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pressure</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
-<span class="w">       </span><span class="n">pDot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PressureDot</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span><span class="n">Qdot</span><span class="p">)</span>
-
-<span class="w">       </span><span class="n">Pij</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0_RP</span>
-<span class="w">       </span><span class="n">LijDot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0_RP</span>
-<span class="w">       </span><span class="k">do </span><span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">NDIM</span>
-<span class="w">           </span><span class="n">Pij</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">P</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">P0</span>
-<span class="w">           </span><span class="c">!pressure derivative of LijDot</span>
-<span class="w">           </span><span class="n">LijDot</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pDot</span>
-<span class="w">       </span><span class="k">end do</span>
-
-<span class="w">       </span><span class="c">!TODO use the stress tensor and the time derivative for Lij and LijDot respectively</span>
-<span class="w">       </span><span class="c">! call getStressTensor(Q, U_x, U_y, U_z, tau)</span>
-<span class="w">       </span><span class="c">! Pij = Pij - tau</span>
-<span class="w">       </span><span class="c">! LijDot = LijDot - tauDot</span>
-
-<span class="w">       </span><span class="c">! set values for solid (impermeable) surface</span>
-<span class="w">       </span><span class="n">Qi</span><span class="p">(:)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">rho0</span><span class="o">*</span><span class="n">U0</span><span class="p">(:)</span>
-<span class="w">       </span><span class="n">Qidot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0_RP</span>
-<span class="w">       </span><span class="n">Lij</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Pij</span>
-<span class="w">       </span><span class="c">! Lij = 0.0_RP</span>
-
-<span class="w">       </span><span class="c">!calculate terms for permeable surface</span>
-<span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">isSolid</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
-<span class="k">           </span><span class="n">Qi</span><span class="p">(:)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Qi</span><span class="p">(:)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Q</span><span class="p">(</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">)</span>
-<span class="w">           </span><span class="c">! convert to complete velocity instead of perturbation velocity</span>
-<span class="w">           </span><span class="n">QiDot</span><span class="p">(:)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">QiDot</span><span class="p">(:)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Qdot</span><span class="p">(</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">)</span>
-
-<span class="w">           </span><span class="k">do </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">NDIM</span>
-<span class="w">               </span><span class="n">jj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">               </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">NDIM</span>
-<span class="w">                   </span><span class="c">! one index is added since rhoV1 = Q(2), rhoV2 = Q(3) ...</span>
-<span class="w">                   </span><span class="n">ii</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">                   </span><span class="n">Lij</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Lij</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">Q</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Q</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">U0</span><span class="p">(</span><span class="n">i</span><span class="p">))</span><span class="o">*</span><span class="p">(</span><span class="n">Q</span><span class="p">(</span><span class="n">jj</span><span class="p">)</span><span class="o">/</span><span class="n">Q</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
-<span class="w">                   </span><span class="n">LijDot</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LijDot</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">Qdot</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Q</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span><span class="o">/</span><span class="n">Q</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">Qdot</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="o">/</span><span class="n">Q</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Q</span><span class="p">(</span><span class="n">jj</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">&amp;</span>
-<span class="w">                                               </span><span class="p">(</span><span class="n">Q</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span><span class="o">/</span><span class="n">Q</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">U0</span><span class="p">(</span><span class="n">i</span><span class="p">))</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Qdot</span><span class="p">(</span><span class="n">jj</span><span class="p">)</span>
-<span class="w">               </span><span class="k">end do  </span>
-<span class="k">           end do  </span>
-<span class="k">       end if</span>
-
-<span class="k">   End Subroutine </span><span class="n">calculateFWHVariables</span>
-</pre></div>
-
-    </section>
-    <br>
     
     </div>
   </div>
@@ -378,7 +304,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-07-14 09:02              </p>
+ on 2024-09-17 06:42              </p>
           </div>
         </div>
         <br>
@@ -402,9 +328,6 @@
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
-          <script src="../tipuesearch/tipuesearch_content.js"></script>
-          <script src="../tipuesearch/tipuesearch_set.js"></script>
-          <script src="../tipuesearch/tipuesearch.js"></script>
 
   </body>
 </html>
