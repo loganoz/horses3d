@@ -4,12 +4,11 @@ module InflowBCClass
    use PhysicsStorage
    use VariableConversion, only: GetGradientValues_f
    use FileReaders,            only: controlFileName
-   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine, CheckIfBoundaryNameIsContained
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
    use Utilities, only: toLower, almostEqual
    use GenericBoundaryConditionClass
    use FluidData
-   use HexMeshClass
    implicit none
 !
 !  *****************************
@@ -70,7 +69,6 @@ module InflowBCClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure         :: FlowState         => InflowBC_FlowState
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
-         procedure         :: CreateDeviceData  => InflowBC_CreateDeviceData
 #endif
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => InflowBC_PhaseFieldState
@@ -343,92 +341,69 @@ module InflowBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES)
-
-      subroutine InflowBC_CreateDeviceData(self)
-         implicit none 
-         class(InflowBC_t), intent(in)    :: self
-
-         !$acc enter data copyin(self)
-         !$acc enter data copyin(self % AoAPhi)
-         !$acc enter data copyin(self % AoATheta)
-         !$acc enter data copyin(self % v)
-         !$acc enter data copyin(self % rho)
-         !$acc enter data copyin(self % p)
-         !$acc enter data copyin(self % TurbIntensity)
-         !$acc enter data copyin(self % eddy_theta)
-
-      end subroutine InflowBC_CreateDeviceData
-
-      subroutine InflowBC_FlowState(self, mesh, zoneID)
+      subroutine InflowBC_FlowState(self, x, t, nHat, Q)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP) :: qq, u, v, w
-         real(kind=RP) :: Q(NCONS)
-         integer       :: i,j
-         integer       :: fID
-         integer       :: zonefID
-      
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces) private(fID) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID =  mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,qq,u,v,w)  
-            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+         real(kind=RP) :: u_prime, v_prime, w_prime
 
-               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+         associate ( gammaM2 => dimensionless % gammaM2, &
+                     gamma => thermodynamics % gamma )
+!        MAX Turb intensity = u_prime/u, isotropic turb. at inlet & random fluctuations with max turb
+                     !call random_seed (Gonzalo: this was giving problems for a particular problem)
+                     call random_number(u_prime)
+                     call random_number(v_prime)
+                     call random_number(w_prime)
+         qq = self % v
+         u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
+         v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)
+         w  = qq*SIN(self % AoAphi)
+         u_prime = (2.0_RP*u_prime - 1.0_RP)*self % TurbIntensity * u
+         v_prime = (2.0_RP*v_prime - 1.0_RP)*self % TurbIntensity * v
+         w_prime = (2.0_RP*w_prime - 1.0_RP)*self % TurbIntensity * w
+         u  = u+u_prime
+         v  = v+v_prime
+         w  = w+w_prime
 
-               qq = self % v
-               u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
-               v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)
-               w  = qq*SIN(self % AoAphi)
-
-               Q(1) = self % rho
-               Q(2) = Q(1)*u
-               Q(3) = Q(1)*v
-               Q(4) = Q(1)*w
-               Q(5) = self % p/(thermodynamics % gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+         Q(1) = self % rho
+         Q(2) = Q(1)*u
+         Q(3) = Q(1)*v
+         Q(4) = Q(1)*w
+         Q(5) = self % p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 #if defined(SPALARTALMARAS)
-               Q(6) = Q(1) * 3.0_RP*self % eddy_theta
+         Q(6) = Q(1) * 3.0_RP*self % eddy_theta
 #endif
-               mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
-            enddo 
-          enddo
-         enddo
-         !$acc end parallel loop
+         end associate
 
       end subroutine InflowBC_FlowState
 
-      subroutine InflowBC_FlowNeumann(self, mesh, zoneID)
-         implicit none
-         class(InflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
-         integer,             intent(in)    :: zoneID 
+      subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
 !
 !        *******************************************
 !        Cancel out the viscous flux at the inlet
 !        *******************************************
 !
-         real(kind=RP)  :: flux(NCONS)
-         integer       :: i,j
-         integer       :: fID
-         integer       :: zonefID
-         
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) async(zoneID) private(fID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID =  mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(flux)  
-            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
-               mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
-            enddo 
-          enddo
-         enddo
-         !$acc end parallel loop
+         implicit none
+         class(InflowBC_t),   intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
+
+         flux = 0.0_RP
 
       end subroutine InflowBC_FlowNeumann
 #endif

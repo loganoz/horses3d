@@ -3,13 +3,12 @@ module OutflowBCClass
    use SMConstants
    use PhysicsStorage
    use FileReaders,            only: controlFileName
-   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine, CheckIfBoundaryNameIsContained
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
    use Utilities, only: toLower, almostEqual
    use GenericBoundaryConditionClass
    use FluidData
    use VariableConversion
-   use HexMeshClass
    implicit none
 !
 !  *****************************
@@ -47,7 +46,6 @@ module OutflowBCClass
          procedure         :: Describe          => OutflowBC_Describe
 #ifdef FLOW
          procedure         :: FlowState         => OutflowBC_FlowState
-         procedure         :: CreateDeviceData  => OutflowBC_CreateDeviceData
          procedure         :: FlowNeumann       => OutflowBC_FlowNeumann
 #endif
 #if defined(CAHNHILLIARD)
@@ -186,6 +184,7 @@ module OutflowBCClass
 
          close(fid)
          call bcdict % Destruct
+   
       end function ConstructOutflowBC
 
       subroutine OutflowBC_Describe(self)
@@ -224,22 +223,13 @@ module OutflowBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES)
-
-      subroutine OutflowBC_CreateDeviceData(self)
-         implicit none 
-         class(OutflowBC_t), intent(in)    :: self
-         
-         !$acc enter data copyin(self)
-         !$acc enter data copyin(self % pExt)
-
-      end subroutine OutflowBC_CreateDeviceData
-
-      subroutine OutflowBC_FlowState(self, mesh, zoneID)
-         use HexMeshClass
+      subroutine OutflowBC_FlowState(self, x, t, nHat, Q)
          implicit none
-         class(OutflowBC_t),      intent(in)    :: self
-         type(HexMesh),           intent(in)    :: mesh
-         integer,                 intent(in)    :: zoneID  
+         class(OutflowBC_t),   intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
 !   
 !        ---------------
 !        Local Variables
@@ -247,96 +237,70 @@ module OutflowBCClass
 !   
          REAL(KIND=RP) :: qDotN, qTanx, qTany, qTanz, p, a, a2, eddy_theta
          REAL(KIND=RP) :: rPlus, entropyConstant, u, v, w, rho, normalMachNo
-         real(kind=RP) :: nHat(NDIM)
-         real(kind=RP) :: Q(NCONS)
-         integer       :: i,j
-         integer       :: fID
-         integer       :: zonefID
-
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) private(fID) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, nHat)  
-            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
-
-               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
-               nHat = mesh %faces(fID) % geom % normal(:,i,j)
-
-               qDotN = (nHat(1)*Q(2) + nHat(2)*Q(3) + nHat(3)*Q(4))/Q(1)
-               qTanx = Q(2)/Q(1) - qDotN*nHat(1)
-               qTany = Q(3)/Q(1) - qDotN*nHat(2)
-               qTanz = Q(4)/Q(1) - qDotN*nHat(3)
+!         
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
+                     gamma => thermodynamics % gamma )
          
-               p            = thermodynamics % gammaMinus1*( Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1) )
-               a2           = thermodynamics % gamma*p/Q(1)
-               a            = SQRT(a2)
-               normalMachNo = ABS(qDotN/a)
+         qDotN = (nHat(1)*Q(2) + nHat(2)*Q(3) + nHat(3)*Q(4))/Q(1)
+         qTanx = Q(2)/Q(1) - qDotN*nHat(1)
+         qTany = Q(3)/Q(1) - qDotN*nHat(2)
+         qTanz = Q(4)/Q(1) - qDotN*nHat(3)
          
-               IF ( normalMachNo <= 1.0_RP )     THEN
+         p            = gammaMinus1*( Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1) )
+         a2           = gamma*p/Q(1)
+         a            = SQRT(a2)
+         normalMachNo = ABS(qDotN/a)
+         
+         IF ( normalMachNo <= 1.0_RP )     THEN
 !   
 !           -------------------------------
 !           Quantities coming from upstream
 !           -------------------------------
 !   
-                  rPlus           = qDotN + 2.0_RP*a/thermodynamics % gammaMinus1
-                  entropyConstant = p - a2*Q(1)
+            rPlus           = qDotN + 2.0_RP*a/gammaMinus1
+            entropyConstant = p - a2*Q(1)
 !   
 !           ----------------
 !           Resolve solution
 !           ----------------
 !   
-                  rho   = -(entropyConstant - self % pExt)/a2
-                  a     = SQRT(thermodynamics % gamma*self % pExt/rho)
-                  qDotN = rPlus - 2.0_RP*a/thermodynamics % gammaMinus1
-                  u     = qTanx + qDotN*nHat(1)
-                  v     = qTany + qDotN*nHat(2)
-                  w     = qTanz + qDotN*nHat(3)
+            rho   = -(entropyConstant - self % pExt)/a2
+            a     = SQRT(gamma*self % pExt/rho)
+            qDotN = rPlus - 2.0_RP*a/gammaMinus1
+            u     = qTanx + qDotN*nHat(1)
+            v     = qTany + qDotN*nHat(2)
+            w     = qTanz + qDotN*nHat(3)
 #if defined(SPALARTALMARAS)
-                  eddy_theta = Q(6)/Q(1)
+            eddy_theta = Q(6)/Q(1)
 #endif
-                  Q(1) = rho
-                  Q(2) = rho*u
-                  Q(3) = rho*v
-                  Q(4) = rho*w
-                  Q(5) = (self % pExt)/thermodynamics % gammaMinus1 + 0.5_RP*rho*(u*u + v*v + w*w)
+            Q(1) = rho
+            Q(2) = rho*u
+            Q(3) = rho*v
+            Q(4) = rho*w
+            Q(5) = (self % pExt)/gammaMinus1 + 0.5_RP*rho*(u*u + v*v + w*w)
 #if defined(SPALARTALMARAS)
-                  Q(6) = eddy_theta * rho 
+            Q(6) = eddy_theta * rho 
 #endif
-               END IF
+         END IF
+   
+      end associate
 
-               mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
-            enddo ; enddo
-         enddo
-         !$acc end parallel loop
-         
       end subroutine OutflowBC_FlowState
 
-      subroutine OutflowBC_FlowNeumann(self, mesh, zoneID)
+      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
-         class(OutflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
-         integer,             intent(in)    :: zoneID 
-!
-!        *******************************************
-!        Cancel out the viscous flux at the inlet
-!        *******************************************
-!
-         real(kind=RP)  :: flux(NCONS)
-         integer       :: i,j
-         integer       :: fID
-         integer       :: zonefID
-         
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) private(fID) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID =  mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(flux)  
-            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
-               mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
-            enddo 
-          enddo
-         enddo
-         !$acc end parallel loop
+         class(OutflowBC_t),   intent(in)   :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
 
+         flux = 0.0_RP
+         
       end subroutine OutflowBC_FlowNeumann
 #endif
 !

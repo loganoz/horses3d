@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 0.6% of total for derived types.</p>Including implementation: 168 statements,  1.0% of total for derived types.">10 statements</a>
+                 title="<p> 0.6% of total for derived types.</p>Including implementation: 169 statements,  1.0% of total for derived types.">10 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -116,7 +116,7 @@
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../type/periodicbc_t.html#variable-constructed">constructed</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#variable-bname~4">bname</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#variable-bname">bname</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#variable-bctype">BCType</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#variable-currenteqn">currentEqn</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#variable-associatedbname">associatedbname</a>
@@ -157,19 +157,18 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-flowstate~2">FlowState</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-createdevicedata~2">CreateDeviceData</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-flowstate">FlowState</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-flowgradvars">FlowGradVars</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-flowneumann~2">FlowNeumann</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-phasefieldstate~2">PhaseFieldState</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-phasefieldneumann~2">PhaseFieldNeumann</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-chempotstate~2">ChemPotState</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-chempotneumann~2">ChemPotNeumann</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-flowneumann">FlowNeumann</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-phasefieldstate">PhaseFieldState</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-phasefieldneumann">PhaseFieldNeumann</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-chempotstate">ChemPotState</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-chempotneumann">ChemPotNeumann</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-stateforeqn">StateForEqn</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-gradvarsforeqn">GradVarsForEqn</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-neumannforeqn">NeumannForEqn</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-destruct~10">Destruct</a>
-            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-describe~15">Describe</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-destruct~7">Destruct</a>
+            <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-describe~5">Describe</a>
             <a class="list-group-item" href="../type/periodicbc_t.html#boundprocedure-getperiodicpair~2">GetPeriodicPair</a>
         </div>
       </div>
@@ -220,7 +219,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-bname~4"></span>
+              <span class="anchor" id="variable-bname"></span>
               character(len=LINE_LENGTH),
             </td>
               <td>public</td>
@@ -321,7 +320,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-bname~8"></span>
+              <span class="anchor" id="variable-bname~6"></span>
               character(len=*),
             </td>
 <td>intent(in)</td>
@@ -356,7 +355,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-flowstate~2"></span>
+      <span class="anchor" id="boundprocedure-flowstate"></span>
       <h3>
           procedure, public ::
   <strong>FlowState</strong> => GenericBC_FlowState
@@ -366,7 +365,7 @@
     <ul class="list-group">
         <li class="list-group-item">
                   <h3>
-    private  subroutine GenericBC_FlowState(self, mesh, zoneID)  
+    private  subroutine GenericBC_FlowState(self, x, t, nHat, Q)  
 </h3>
 
   
@@ -400,14 +399,14 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              type(HexMesh),
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>mesh</strong></td>
+            <td><strong>x</strong>(NDIM)</td>
             <td>
                 
             </td>
@@ -415,67 +414,44 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              integer,
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>zoneID</strong></td>
+            <td><strong>t</strong></td>
             <td>
                 
             </td>
         </tr>
-    </tbody>
-  </table>
-
-
-        </li>
-    </ul>
-  </div>
-
-          </div>
-          <div class="row">
-              <div class="card mt-3">
-    <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-createdevicedata~2"></span>
-      <h3>
-          procedure, public ::
-  <strong>CreateDeviceData</strong> => GenericBC_CreateDeviceData
-        
-      </h3>
-    </div>
-    <ul class="list-group">
-        <li class="list-group-item">
-                  <h3>
-    private  subroutine GenericBC_CreateDeviceData(self)  
-</h3>
-
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
         <tr>
             <td>
               <span class="anchor" ></span>
-              class(<a href='genericbc_t.html'>GenericBC_t</a>),
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>self</strong></td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
             <td>
                 
             </td>
@@ -502,7 +478,7 @@
     <ul class="list-group">
         <li class="list-group-item">
                   <h3>
-    private  subroutine GenericBC_FlowGradVars(self, mesh, zoneID)  
+    private  subroutine GenericBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)  
 </h3>
 
   
@@ -536,14 +512,14 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              type(HexMesh),
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>mesh</strong></td>
+            <td><strong>x</strong>(NDIM)</td>
             <td>
                 
             </td>
@@ -551,14 +527,74 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              integer,
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>zoneID</strong></td>
+            <td><strong>t</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              procedure(<a href='../interface/getgradientvalues_f.html'>GetGradientValues_f</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>GetGradients</strong></td>
             <td>
                 
             </td>
@@ -575,7 +611,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-flowneumann~2"></span>
+      <span class="anchor" id="boundprocedure-flowneumann"></span>
       <h3>
           procedure, public ::
   <strong>FlowNeumann</strong> => GenericBC_FlowNeumann
@@ -585,7 +621,7 @@
     <ul class="list-group">
         <li class="list-group-item">
                   <h3>
-    private  subroutine GenericBC_FlowNeumann(self, mesh, zoneID)  
+    private  subroutine GenericBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)  
 </h3>
 
   
@@ -619,14 +655,14 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              type(HexMesh),
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>mesh</strong></td>
+            <td><strong>x</strong>(NDIM)</td>
             <td>
                 
             </td>
@@ -634,14 +670,104 @@
         <tr>
             <td>
               <span class="anchor" ></span>
-              integer,
+              real(kind=RP),
             </td>
 <td>intent(in)</td>
               <td></td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>zoneID</strong></td>
+            <td><strong>t</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U_x</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U_y</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U_z</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>flux</strong>(NCONS)</td>
             <td>
                 
             </td>
@@ -658,7 +784,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-phasefieldstate~2"></span>
+      <span class="anchor" id="boundprocedure-phasefieldstate"></span>
       <h3>
           procedure, public ::
   <strong>PhaseFieldState</strong> => GenericBC_PhaseFieldState
@@ -771,7 +897,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-phasefieldneumann~2"></span>
+      <span class="anchor" id="boundprocedure-phasefieldneumann"></span>
       <h3>
           procedure, public ::
   <strong>PhaseFieldNeumann</strong> => GenericBC_PhaseFieldNeumann
@@ -944,7 +1070,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-chempotstate~2"></span>
+      <span class="anchor" id="boundprocedure-chempotstate"></span>
       <h3>
           procedure, public ::
   <strong>ChemPotState</strong> => GenericBC_ChemPotState
@@ -1057,7 +1183,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-chempotneumann~2"></span>
+      <span class="anchor" id="boundprocedure-chempotneumann"></span>
       <h3>
           procedure, public ::
   <strong>ChemPotNeumann</strong> => GenericBC_ChemPotNeumann
@@ -1734,7 +1860,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~10"></span>
+      <span class="anchor" id="boundprocedure-destruct~7"></span>
       <h3>
           procedure, public ::
   <strong>Destruct</strong> => PeriodicBC_Destruct
@@ -1787,7 +1913,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-describe~15"></span>
+      <span class="anchor" id="boundprocedure-describe~5"></span>
       <h3>
           procedure, public ::
   <strong>Describe</strong> => PeriodicBC_Describe
@@ -1926,7 +2052,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

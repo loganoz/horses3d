@@ -10,7 +10,7 @@ module ActuatorLine
     implicit none
 
 private
-public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForces
+public farm
 !
 !  ******************************
 !  DEFINE TURBINE, BLADE, AIRFOIL
@@ -88,17 +88,17 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     integer                        :: number_iterations
     integer                        :: save_iterations
 
-   ! contains
-   !      procedure   :: ConstructFarm
-   !      procedure   :: DestructFarm
-   !      procedure   :: UpdateFarm
-   !      procedure   :: ForcesFarm             
-   !      procedure   :: WriteFarmForces
-   !      ! procedure   :: ReadOpertionFile
-   !      procedure   :: GaussianInterpolation
-   !      procedure   :: FarmUpdateLocalForces
-   !      procedure   :: FarmUpdateBladeForces
-   !      procedure   :: FindActuatorPointElement
+   contains
+        procedure   :: ConstructFarm
+        procedure   :: DestructFarm
+        procedure   :: UpdateFarm
+        procedure   :: ForcesFarm             
+        procedure   :: WriteFarmForces
+        ! procedure   :: ReadOpertionFile
+        procedure   :: GaussianInterpolation
+        procedure   :: FarmUpdateLocalForces
+        procedure   :: FarmUpdateBladeForces
+        procedure   :: FindActuatorPointElement
     end type
 
    Abstract Interface

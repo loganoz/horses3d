@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.3% of total for modules and submodules.">150 statements</a>
+                 title=" 0.4% of total for modules and submodules.">167 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -120,7 +120,18 @@
       </div>
     </div>
 
-  
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#enums-0"
+         aria-expanded="false" aria-controls="enums-0">
+         <h4 class="card-header bg-primary text-white">Enumerations</h4>
+      </a>
+      <div id="enums-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/boundaryconditions.html#enum-__unnamed__~6"><em>unnamed</em></a>
+        </div>
+      </div>
+    </div>
+
   
   
   
@@ -140,7 +151,6 @@
             <a class="list-group-item" href="../module/boundaryconditions.html#proc-constructboundaryconditions">ConstructBoundaryConditions</a>
             <a class="list-group-item" href="../module/boundaryconditions.html#proc-setboundaryconditionseqn">SetBoundaryConditionsEqn</a>
             <a class="list-group-item" href="../module/boundaryconditions.html#proc-destructboundaryconditions">DestructBoundaryConditions</a>
-            <a class="list-group-item" href="../module/boundaryconditions.html#proc-describeboundaryconditions">DescribeBoundaryConditions</a>
         </div>
       </div>
     </div>
@@ -166,42 +176,25 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
-                  <li class="list-inline-item"><a href='sharedbcmodule.html'>SharedBCModule</a></li>
-                  <li class="list-inline-item"><a href='freeslipwallbcclass.html'>FreeSlipWallBCClass</a></li>
-                  <li class="list-inline-item"><a href='outflowbcclass.html'>OutflowBCClass</a></li>
-                  <li class="list-inline-item"><a href='filereadingutilities.html'>FileReadingUtilities</a></li>
-                  <li class="list-inline-item"><a href='inflowbcclass.html'>InflowBCClass</a></li>
                   <li class="list-inline-item"><a href='ftvaluedictionaryclass.html'>FTValueDictionaryClass</a></li>
-                  <li class="list-inline-item"><a href='userdefinedbcclass.html'>UserDefinedBCClass</a></li>
                   <li class="list-inline-item">FileReaders</li>
-                  <li class="list-inline-item"><a href='zoneclass.html'>ZoneClass</a></li>
-                  <li class="list-inline-item"><a href='noslipwallbcclass.html'>NoSlipWallBCClass</a></li>
                   <li class="list-inline-item">Utilities</li>
-                  <li class="list-inline-item">HexMeshClass</li>
+                  <li class="list-inline-item"><a href='userdefinedbcclass.html'>UserDefinedBCClass</a></li>
+                  <li class="list-inline-item"><a href='outflowbcclass.html'>OutflowBCClass</a></li>
+                  <li class="list-inline-item"><a href='freeslipwallbcclass.html'>FreeSlipWallBCClass</a></li>
                   <li class="list-inline-item"><a href='periodicbcclass.html'>PeriodicBCClass</a></li>
                   <li class="list-inline-item"><a href='genericboundaryconditionclass.html'>GenericBoundaryConditionClass</a></li>
-                  <li class="list-inline-item"><a href='mpi_process_info.html'>MPI_Process_Info</a></li>
+                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
+                  <li class="list-inline-item"><a href='filereadingutilities.html'>FileReadingUtilities</a></li>
+                  <li class="list-inline-item"><a href='inflowbcclass.html'>InflowBCClass</a></li>
+                  <li class="list-inline-item"><a href='noslipwallbcclass.html'>NoSlipWallBCClass</a></li>
               </ul>
             </li>
         </ul>
       </div>
     </div>
 
-          <div class="card">
-      <h3 class="card-header card-title bg-light">Used by</h3>
-      <div class="card-body">
-        <ul class="list-group list-group-flush">
-            <li class="list-group-item">
-              <ul class="list-inline">
-                <li class="list-inline-item"><h5>Descendants:</h5></li>
-                  <li class="list-inline-item"><a href='constructbcs.html'>constructbcs</a></li>
-              </ul>
-            </li>
-        </ul>
-      </div>
-    </div>
-
+      
       <br>
 
 
@@ -257,6 +250,45 @@
         </section>
         <br>
 
+        <section>
+          <h2>Enumerations</h2>
+              <div class="card">
+    <div class="card-header codesum"><span class="anchor" id="enum-__unnamed__~6"></span><h3>enum, bind(c)</h3></div>
+    <div class="card-body">
+      <h4>Enumerators</h4>
+      <table class="table table-striped varlist">
+        <tbody>
+            <tr>
+              <td>enumerator</td><td>::</td>
+              <td><strong>INFLOW_BC</strong></td><td> = </td><td>1</td><td></td>
+            </tr>
+            <tr>
+              <td>enumerator</td><td>::</td>
+              <td><strong>OUTFLOW_BC</strong></td><td> = </td><td>2</td><td></td>
+            </tr>
+            <tr>
+              <td>enumerator</td><td>::</td>
+              <td><strong>NOSLIPWALL_BC</strong></td><td> = </td><td>3</td><td></td>
+            </tr>
+            <tr>
+              <td>enumerator</td><td>::</td>
+              <td><strong>FREESLIPWALL_BC</strong></td><td> = </td><td>4</td><td></td>
+            </tr>
+            <tr>
+              <td>enumerator</td><td>::</td>
+              <td><strong>PERIODIC_BC</strong></td><td> = </td><td>5</td><td></td>
+            </tr>
+            <tr>
+              <td>enumerator</td><td>::</td>
+              <td><strong>USERDEFINED_BC</strong></td><td> = </td><td>6</td><td></td>
+            </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+        </section>
+        <br>
 
 
 
@@ -265,14 +297,56 @@
         <section>
           <h2>Subroutines</h2>
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-constructboundaryconditions"></span> <h3>public  subroutine <a href='../proc/constructboundaryconditions.html'>ConstructBoundaryConditions</a>()  
+    <div class="card-header codesum"><span class="anchor" id="proc-constructboundaryconditions"></span> <h3>public  subroutine <a href='../proc/constructboundaryconditions.html'>ConstructBoundaryConditions</a>(no_of_zones, zoneNames)  
 </h3></div>
     <div class="card-body">
           
   
 
   <h4>Arguments</h4>
-    <em>None</em>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-no_of_zones"></span>
+              integer,
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>no_of_zones</strong></td>
+            <td>
+
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-zonenames"></span>
+              character(len=*),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>zoneNames</strong>(no_of_zones)</td>
+            <td>
+
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
 
     </div>
   </div>
@@ -330,46 +404,6 @@
     </div>
   </div>
 
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-describeboundaryconditions"></span> <h3>public  subroutine <a href='../proc/describeboundaryconditions.html'>DescribeBoundaryConditions</a>(mesh)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-mesh~112"></span>
-              class(HexMesh)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>mesh</strong></td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
         </section>
         <br>
 
@@ -393,7 +427,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

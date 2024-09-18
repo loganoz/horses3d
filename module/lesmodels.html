@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.7% of total for modules and submodules.">342 statements</a>
+                 title=" 0.7% of total for modules and submodules.">334 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -114,7 +114,7 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../module/lesmodels.html#variable-lesmodel~2">LESModel</a>
+            <a class="list-group-item" href="../module/lesmodels.html#variable-lesmodel">LESModel</a>
         </div>
       </div>
     </div>
@@ -148,7 +148,6 @@
       <div id="subs-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../module/lesmodels.html#proc-initializelesmodel">InitializeLESModel</a>
-            <a class="list-group-item" href="../module/lesmodels.html#proc-lesmodel_selector">LESModel_Selector</a>
         </div>
       </div>
     </div>
@@ -174,15 +173,15 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
-                  <li class="list-inline-item"><a href='headers.html'>Headers</a></li>
+                  <li class="list-inline-item"><a href='ftvaluedictionaryclass.html'>FTValueDictionaryClass</a></li>
+                  <li class="list-inline-item"><a href='variableconversion_ns.html'>VariableConversion_NS</a></li>
                   <li class="list-inline-item"><a href='physicsstorage_ns.html'>PhysicsStorage_NS</a></li>
                   <li class="list-inline-item"><a href='physics_nskeywordsmodule.html'>Physics_NSKeywordsModule</a></li>
-                  <li class="list-inline-item"><a href='ftvaluedictionaryclass.html'>FTValueDictionaryClass</a></li>
-                  <li class="list-inline-item">Utilities</li>
                   <li class="list-inline-item"><a href='fluiddata_ns.html'>FluidData_NS</a></li>
-                  <li class="list-inline-item"><a href='variableconversion_ns.html'>VariableConversion_NS</a></li>
+                  <li class="list-inline-item"><a href='headers.html'>Headers</a></li>
+                  <li class="list-inline-item">Utilities</li>
                   <li class="list-inline-item"><a href='mpi_process_info.html'>MPI_Process_Info</a></li>
+                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
               </ul>
             </li>
         </ul>
@@ -207,7 +206,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-lesmodel~2"></span>
+              <span class="anchor" id="variable-lesmodel"></span>
               class(LESModel_t),
             </td>
               <td>public,</td>
@@ -258,7 +257,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-active"></span>
+              <span class="anchor" id="variable-active~7"></span>
               logical,
             </td>
               <td>public</td>
@@ -309,24 +308,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-lesmodel"></span>
-              integer,
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>LESModel</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-c"></span>
+              <span class="anchor" id="variable-cs"></span>
               real(kind=RP),
             </td>
               <td>public</td>
@@ -334,7 +316,7 @@
               
             </td>
             <td>::</td>
-            <td><strong>C</strong></td>
+            <td><strong>CS</strong></td>
                 <td></td>
                 <td></td>
             <td>
@@ -357,7 +339,12 @@
               </tr>
               <tr>
                 <td>  procedure, public ::
-  <strong><a href='../type/smagorinsky_t.html#boundprocedure-describe~4'>Describe</a></strong> => Smagorinsky_Describe</td>
+  <strong><a href='../type/smagorinsky_t.html#boundprocedure-describe~11'>Describe</a></strong> => Smagorinsky_Describe</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>  procedure, public ::
+  <strong><a href='../type/smagorinsky_t.html#boundprocedure-computeviscosity~2'>ComputeViscosity</a></strong> => Smagorinsky_ComputeViscosity</td>
                 <td></td>
               </tr>
           </tbody>
@@ -406,7 +393,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-controlvariables~8"></span>
+              <span class="anchor" id="variable-controlvariables~35"></span>
               class(<a href='../type/ftvaluedictionary.html'>FTValueDictionary</a>),
             </td>
 <td>intent(in)</td>
@@ -415,151 +402,6 @@
             </td>
             <td>::</td>
             <td><strong>controlVariables</strong></td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-lesmodel_selector"></span> <h3>public  subroutine <a href='../proc/lesmodel_selector.html'>LESModel_Selector</a>(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-this~4"></span>
-              class(LESModel_t),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>this</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-delta~4"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>delta</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-dwall~2"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>dWall</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-q~2"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Q</strong>(NCONS)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-q_x~2"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Q_x</strong>(NGRAD)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-q_y~2"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Q_y</strong>(NGRAD)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-q_z~2"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Q_z</strong>(NGRAD)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-mu~9"></span>
-              real(kind=RP),
-            </td>
-<td>intent(out)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>mu</strong></td>
             <td>
 
             </td>
@@ -594,7 +436,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

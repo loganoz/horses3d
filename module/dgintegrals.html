@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 1.1% of total for modules and submodules.">510 statements</a>
+                 title=" 1.2% of total for modules and submodules.">551 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -144,20 +144,7 @@
     </div>
 
   
-      <div class="card mb-4">
-      <a data-bs-toggle="collapse" href="#subs-0"
-         aria-expanded="false" aria-controls="subs-0">
-         <h4 class="card-header bg-primary text-white">Subroutines</h4>
-      </a>
-      <div id="subs-0" class="collapse">
-        <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../module/dgintegrals.html#proc-scalarweakintegrals_stdvolumegreen">ScalarWeakIntegrals_StdVolumeGreen</a>
-            <a class="list-group-item" href="../module/dgintegrals.html#proc-scalarweakintegrals_stdface">ScalarWeakIntegrals_StdFace</a>
-            <a class="list-group-item" href="../module/dgintegrals.html#proc-vectorweakintegrals_stdface">VectorWeakIntegrals_StdFace</a>
-        </div>
-      </div>
-    </div>
-
+  
   
   
   
@@ -179,11 +166,11 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
-                  <li class="list-inline-item">ElementClass</li>
-                  <li class="list-inline-item">NodalStorageClass</li>
-                  <li class="list-inline-item">MeshTypes</li>
                   <li class="list-inline-item"><a href='physicsstorage.html'>PhysicsStorage</a></li>
+                  <li class="list-inline-item">MeshTypes</li>
+                  <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
+                  <li class="list-inline-item">NodalStorageClass</li>
+                  <li class="list-inline-item">ElementClass</li>
               </ul>
             </li>
         </ul>
@@ -288,12 +275,12 @@
           <tbody>
               <tr>
                 <td>  procedure, public, nopass ::
-  <strong><a href='../type/scalarweakintegrals_t.html#boundprocedure-stdvolumegreen'>StdVolumeGreen</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/scalarweakintegrals_stdvolumegreen.html'>ScalarWeakIntegrals_StdVolumeGreen</a></td>
+  <strong><a href='../type/scalarweakintegrals_t.html#boundprocedure-stdvolumegreen'>StdVolumeGreen</a></strong> => ScalarWeakIntegrals_StdVolumeGreen</td>
                 <td></td>
               </tr>
               <tr>
                 <td>  procedure, public, nopass ::
-  <strong><a href='../type/scalarweakintegrals_t.html#boundprocedure-stdface'>StdFace</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/scalarweakintegrals_stdface.html'>ScalarWeakIntegrals_StdFace</a></td>
+  <strong><a href='../type/scalarweakintegrals_t.html#boundprocedure-stdface'>StdFace</a></strong> => ScalarWeakIntegrals_StdFace</td>
                 <td></td>
               </tr>
               <tr>
@@ -336,7 +323,7 @@
               </tr>
               <tr>
                 <td>  procedure, public, nopass ::
-  <strong><a href='../type/vectorweakintegrals_t.html#boundprocedure-stdface~2'>StdFace</a></strong> => <a href='/home/runner/work/horses3d/horses3d/doc/doc_output/proc/vectorweakintegrals_stdface.html'>VectorWeakIntegrals_StdFace</a></td>
+  <strong><a href='../type/vectorweakintegrals_t.html#boundprocedure-stdface~2'>StdFace</a></strong> => VectorWeakIntegrals_StdFace</td>
                 <td></td>
               </tr>
           </tbody>
@@ -386,475 +373,6 @@
         <br>
 
 
-        <section>
-          <h2>Subroutines</h2>
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-scalarweakintegrals_stdvolumegreen"></span> <h3>public  subroutine <a href='../proc/scalarweakintegrals_stdvolumegreen.html'>ScalarWeakIntegrals_StdVolumeGreen</a>(Nxyz, NEQ, Fx, Fy, Fz, volInt)  
-</h3></div>
-    <div class="card-body">
-          
-  <p>Weak integrals with scalar test function</p>
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-nxyz~8"></span>
-              integer,
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Nxyz</strong>(3)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-neq"></span>
-              integer,
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>NEQ</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-fx"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Fx</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-fy"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Fy</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-fz"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Fz</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-volint"></span>
-              real(kind=RP),
-            </td>
-<td>intent(inout)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>volInt</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-scalarweakintegrals_stdface"></span> <h3>public  subroutine <a href='../proc/scalarweakintegrals_stdface.html'>ScalarWeakIntegrals_StdFace</a>(NEQ, Nxyz, F_FR, F_BK, F_BOT, F_R, F_T, F_L, intFace)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-neq~2"></span>
-              integer,
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>NEQ</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-nxyz~9"></span>
-              integer,
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>Nxyz</strong>(3)</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-f_fr"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>F_FR</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-f_bk"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>F_BK</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-f_bot"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>F_BOT</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-f_r"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>F_R</strong>(1:NEQ,0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-f_t"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>F_T</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-f_l"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>F_L</strong>(1:NEQ,0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-intface"></span>
-              real(kind=RP),
-            </td>
-<td>intent(inout)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>intFace</strong>(1:NEQ,0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-vectorweakintegrals_stdface"></span> <h3>public  subroutine <a href='../proc/vectorweakintegrals_stdface.html'>VectorWeakIntegrals_StdFace</a>(e, NEQ, HF, HBK, HBO, HR, HT, HL, faceInt_x, faceInt_y, faceInt_z)  
-</h3></div>
-    <div class="card-body">
-          
-  <p>Xi-contributions</p><a href="../proc/vectorweakintegrals_stdface.html" class="pull-right"><emph>Read more&hellip;</emph></a>
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-e~36"></span>
-              type(Element),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>e</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-neq~4"></span>
-              integer,
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>NEQ</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-hf"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>HF</strong>(NEQ,NDIM,0:e%Nxyz(1),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-hbk"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>HBK</strong>(NEQ,NDIM,0:e%Nxyz(1),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-hbo"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>HBO</strong>(NEQ,NDIM,0:e%Nxyz(1),0:e%Nxyz(2))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-hr~3"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>HR</strong>(NEQ,NDIM,0:e%Nxyz(2),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-ht"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>HT</strong>(NEQ,NDIM,0:e%Nxyz(1),0:e%Nxyz(2))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-hl~3"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>HL</strong>(NEQ,NDIM,0:e%Nxyz(2),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-faceint_x~3"></span>
-              real(kind=RP),
-            </td>
-<td>intent(inout)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>faceInt_x</strong>(NEQ,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-faceint_y~3"></span>
-              real(kind=RP),
-            </td>
-<td>intent(inout)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>faceInt_y</strong>(NEQ,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-faceint_z~3"></span>
-              real(kind=RP),
-            </td>
-<td>intent(inout)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>faceInt_z</strong>(NEQ,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))</td>
-            <td>
-
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-        </section>
-        <br>
 
 
 
@@ -876,7 +394,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

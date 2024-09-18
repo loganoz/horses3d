@@ -1,17 +1,15 @@
 #include "Includes.h"
 module NoSlipWallBCClass
    use SMConstants
-   use VariableConversion
    use PhysicsStorage
    use FileReaders,            only: controlFileName
-   use FileReadingUtilities,   only: GetKeyword, GetValueAsString ,PreprocessInputLine, CheckIfBoundaryNameIsContained
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString ,PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
    use GenericBoundaryConditionClass
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
    use Utilities, only: toLower, almostEqual
    use VariableConversion, only: GetGradientValues_f
-   use HexMeshClass
    implicit none
 !
 !  *****************************
@@ -59,7 +57,6 @@ module NoSlipWallBCClass
          procedure         :: Describe          => NoSlipWallBC_Describe
 #ifdef FLOW
          procedure         :: FlowState         => NoSlipWallBC_FlowState
-         procedure         :: CreateDeviceData  => NoSlipWallBC_CreateDeviceData
          procedure         :: FlowGradVars      => NoSlipWallBC_FlowGradVars
          procedure         :: FlowNeumann       => NoSlipWallBC_FlowNeumann
 #endif
@@ -214,7 +211,7 @@ module NoSlipWallBCClass
 
          close(fid)
          call bcdict % Destruct
-
+   
       end function ConstructNoSlipWallBC
 
       subroutine NoSlipWallBC_Describe(self)
@@ -265,75 +262,40 @@ module NoSlipWallBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES)
+      subroutine NoSlipWallBC_FlowState(self, x, t, nHat, Q)
+!
+!        *************************************************************
+!           Compute the state variables for a general wall
+!
+!           · SHOULD BE: Cancel out normal velocity
+!           · It cancels the whole velocity because otherwise the IP won't work
+!              I need to update the IP (and the analytical Jacobian) to this new
+!              whole BC approach.
+!        *************************************************************
+!
+         implicit none
+         class(NoSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(inout) :: Q(NCONS)
 
-      subroutine NoSlipWallBC_CreateDeviceData(self)
-         implicit none 
-         class(NoSlipWallBC_t), intent(in)    :: self
-         
-         !$acc enter data copyin(self)
-         !$acc enter data copyin(self % isAdiabatic)
-         !$acc enter data copyin(self % ewall)
-         !$acc enter data copyin(self % Twall)
-         !$acc enter data copyin(self % invTwall)
-         !$acc enter data copyin(self % wallType)
-         !$acc enter data copyin(self % vWall)
-
-      end subroutine NoSlipWallBC_CreateDeviceData
-
-      subroutine NoSlipWallBC_FlowState(self, mesh, zoneID)
-   !
-   !        *************************************************************
-   !           Compute the state variables for a general wall
-   !
-   !           · SHOULD BE: Cancel out normal velocity
-   !           · It cancels the whole velocity because otherwise the IP won't work
-   !              I need to update the IP (and the analytical Jacobian) to this new
-   !              whole BC approach.
-   !        *************************************************************
-   !
-            use HexMeshClass
-            implicit none
-            class(NoSlipWallBC_t), intent(in)    :: self
-            type(HexMesh),           intent(in)    :: mesh
-            integer,                 intent(in)    :: zoneID   
-   !
-   !        ---------------
-   !        Local variables
-   !        ---------------
-   !
-            real(kind=RP) :: qNorm, pressure_aux
-            real(kind=RP) :: Q(NCONS)
-            integer       :: i,j,zonefID,fID
-   
-   
-            !$acc parallel loop gang present(mesh, self) async(zoneID)
-            do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-               fID = mesh % zones(zoneID) % faces(zonefID)
-               !$acc loop vector private(Q)            
-               do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
-                  
-                  Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
-   
 #if defined (SPALARTALMARAS)
-                  Q(IRHOTHETA)   = -Q(IRHOTHETA)
+         Q(IRHOTHETA)   = -Q(IRHOTHETA)
 #endif
-                  Q(IRHOU:IRHOW) = 2.0_RP * Q(IRHO)*self % vWall - Q(IRHOU:IRHOW)
-         !        This boundary condition should be
-         !        ---------------------------------
-                  !Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
-         
-                  !Isothermal BC
-                  Q(IRHOE) = Q(IRHOE) + self % wallType * (Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2 * thermodynamics % gammaMinus1) - Q(IRHOE))
-   
-                  mesh % faces(fID) % storage(2) % Q(:,i,j) = Q
-   
-               enddo ; enddo
-            enddo
-            !$acc end parallel loop
-   
+         Q(IRHOU:IRHOW) = 2.0_RP * Q(IRHO)*self % vWall - Q(IRHOU:IRHOW)
+!        This boundary condition should be
+!        ---------------------------------
+         !Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
+
+
+         !Isothermal BC
+         Q(IRHOE) = Q(IRHOE) + self % wallType * (Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2 * thermodynamics % gammaMinus1) - Q(IRHOE))
+
+
       end subroutine NoSlipWallBC_FlowState
 
-      subroutine NoSlipWallBC_FlowGradVars(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
 !
 !        **************************************************************
 !              Computes the set of gradient variables U* at the wall
@@ -341,96 +303,71 @@ module NoSlipWallBCClass
 !
          implicit none
          class(NoSlipWallBC_t),  intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: Q_aux(NCONS),Q(NCONS)
-         real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
-         real(kind=RP)  :: e_int, U1
+         real(kind=RP)  :: Q_aux(NCONS), U1
+         real(kind=RP)  :: e_int
          real(kind=RP)  :: invRho
-         integer        :: i,j,zonefID,fID
-   
-   
-         !$acc parallel loop gang present(mesh, self) 
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int)            
-            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
-               
-               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
 
-               call NSGradientVariables_STATE(NCONS, NGRAD, Q, u_int)
-
-               invRho = 1.0_RP / Q(IRHO)
-               e_int = invRho*(Q(IRHOE) - 0.5_RP*invRho*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW))))
+         invRho = 1.0_RP / Q(IRHO)
+         e_int = invRho*(Q(IRHOE) - 0.5_RP*invRho*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW))))
       
-               Q_aux(IRHO) = Q(IRHO)
-               Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
-               Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
+         Q_aux(IRHO) = Q(IRHO)
+         Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
+         Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
 #if defined (SPALARTALMARAS)
-               Q_aux(IRHOTHETA) = 0.0_RP
+         Q_aux(IRHOTHETA) = 0.0_RP
 #endif
 
-               call NSGradientVariables_STATE(NCONS, NGRAD, Q_aux, u_star)
+         U1 = U(IRHO)
 
-               u_star(IRHO) = u_int(IRHO)
-               
-               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(1,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
-               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(2,i,j) * mesh % faces(fID) % geom % jacobian(i,j)    
-               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(3,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+         call GetGradients(NCONS, NGRAD, Q_aux, U)
 
-            enddo ; enddo
-         enddo
-         !$acc end parallel loop
+         U(IRHO) = U1
+
       end subroutine NoSlipWallBC_FlowGradVars
 
-      subroutine NoSlipWallBC_FlowNeumann(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
 !
 !        ***********************************************************
 !           Cancel out the temperature flux for adiabatic BCs
 !        ***********************************************************
 !
          implicit none
-         class(NoSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(in)            :: mesh
-         integer,                 intent(in)  :: zoneID 
+         class(NoSlipWallBC_t),   intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer        :: i,j,zonefID,fID
          real(kind=RP)  :: viscWork, heatFlux, invRho, u, v, w
-         real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !$acc parallel loop gang present(mesh, self) private(fID) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, flux)     
-            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+         invRho = 1.0_RP / Q(IRHO)
+         u      = invRho * Q(IRHOU)
+         v      = invRho * Q(IRHOV)
+         w      = invRho * Q(IRHOW)
+         viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
+         heatFlux = flux(IRHOE) - viscWork
 
-               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
-               flux = mesh % faces(fID) % storage(2) % FStar(:,i,j)
-               
-               invRho = 1.0_RP / Q(IRHO)
-               u      = invRho * Q(IRHOU)
-               v      = invRho * Q(IRHOV)
-               w      = invRho * Q(IRHOW)
-               viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
-               heatFlux = flux(IRHOE) - viscWork
-
-               flux(IRHO)  = 0.0_RP
-               flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
-               
-               mesh % faces(fID) % storage(2) % FStar(:,i,j) = flux(:)
-
-            enddo ; enddo
-         enddo
-         !$acc end parallel loop 
+         flux(IRHO)  = 0.0_RP
+         flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
 
       end subroutine NoSlipWallBC_FlowNeumann
 #endif

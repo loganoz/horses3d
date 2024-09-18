@@ -73,22 +73,18 @@
 !
      logical, protected :: flowIsNavierStokes = .true.
      logical, protected :: computeGradients   = .true.
-     !$acc declare copyin(flowIsNavierStokes, computeGradients)
 !
 !    --------------------------
 !!   The sizes of the NS system
 !    --------------------------
 !
      INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
-     !$acc declare copyin(NCONS, NGRAD)
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
-     !$acc declare copyin(IRHO,IRHOU,IRHOV,IRHOW,IRHOE)
-
 !
 !    ----------------------------------------
 !!   The positions of the primitive variables
@@ -96,14 +92,11 @@
 !
      INTEGER, PARAMETER       :: NPRIM = 7
      INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
-     !$acc declare copyin(NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2)
-
-     !
+!
      real(kind=RP), protected :: TRef_Sutherland   ! Sutherland's reference temperature
      real(kind=RP), protected :: S_Sutherland      ! Sutherland's temperature
      real(kind=RP), protected :: TemperatureReNormalization_Sutherland ! TRef/SutherlandsTRef
      real(kind=RP), protected :: S_div_Tref_Sutherland
-     !$acc declare create(S_Sutherland, TRef_Sutherland, S_div_TRef_Sutherland, TemperatureReNormalization_Sutherland)
 !
 !    --------------------------------
 !    Choice of the gradient variables
@@ -425,7 +418,6 @@
 
       S_div_TRef_Sutherland = S_Sutherland / TRef_Sutherland
       TemperatureReNormalization_Sutherland = refValues_ % T / TRef_Sutherland
-      !$acc update device(S_Sutherland, TRef_Sutherland, S_div_TRef_Sutherland,TemperatureReNormalization_Sutherland)
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues

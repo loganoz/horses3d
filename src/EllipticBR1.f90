@@ -15,12 +15,13 @@ module EllipticBR1
 !
 !
    private
-   public   BassiRebay1_t, BR1_RiemannSolver_acc
+   public   BassiRebay1_t
 
    type, extends(EllipticDiscretization_t)   :: BassiRebay1_t
       contains
          procedure      :: ComputeGradient           => BR1_ComputeGradient
          procedure      :: LiftGradients             => BR1_LiftGradients
+         procedure      :: LiftGradientsHO           => BR1_LiftGradientsHO
          procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BR1_RiemannSolver
          procedure      :: Describe => BR1_Describe
@@ -67,18 +68,17 @@ module EllipticBR1
 
       end subroutine BR1_Describe
 
-      subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients)
+      subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use ElementClass
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          integer,              intent(in) :: nEqn, nGradEqn
-         type(HexMesh),        intent(in) :: mesh
+         class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
-         integer                          :: Nx, Ny, Nz
+         logical, intent(in), optional    :: HO_Elements
 !
 !        ---------------
 !        Local variables
@@ -87,6 +87,13 @@ module EllipticBR1
          integer                :: i, j, k
          integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
          logical                :: set_mu
+         logical                :: HOElements
+
+         if (present(HO_Elements)) then
+            HOElements = HO_Elements
+         else
+            HOElements = .false.
+         end if
 !
 !        ************
 !        Volume loops
@@ -102,19 +109,24 @@ module EllipticBR1
 #else
          set_mu = .false.
 #endif
-      
 
-!$omp do schedule(runtime)
-         !$acc parallel loop gang present(mesh, mesh % elements) 
-         do eID = 1 , size(mesh % elements)
-!            call HexElement_ComputeLocalGradient(mesh % elements(eID), NCONS, NGRAD)
+      if (HOElements) then
+!$omp do schedule(runtime) private(eID)
+         do i = 1 , size(mesh % HO_Elements)
+            eID = mesh % HO_Elements(i)
+            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
          end do
-         !$acc end parallel loop
 !$omp end do nowait
-         print*, "I am in BR1 line 112"
-         call self % LiftGradients(NCONS, NGRAD, mesh, time, GetGradients)
-         print*, "I am in BR1 line 114"
-
+         call self % LiftGradientsHO(nEqn, nGradEqn, mesh, time, GetGradients)
+      else
+!$omp do schedule(runtime)
+         do eID = 1 , size(mesh % elements)
+            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+         end do
+!$omp end do nowait
+         call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients)
+      end if
+   
       end subroutine BR1_ComputeGradient
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,121 +141,86 @@ module EllipticBR1
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use ElementClass
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          integer,              intent(in) :: nEqn, nGradEqn
-         type(HexMesh),        intent(in) :: mesh
+         class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
-         integer                          :: Nx, Ny, Nz
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer                :: i, j, k
-         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl, nZones, zoneID
+         integer                :: i, j, k, m
+         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
 !
 !        *******************************************
 !        Compute Riemann solvers of non-shared faces
 !        *******************************************
 !
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh) copyin(self)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
-            call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), NCONS, NGRAD)
+
+            if (mesh % faces(fID) % IsMortar==1) then 
+               associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                  unStar=0.0_RP
+               end associate
+               associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                  unStar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                   call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do 
+            elseif (mesh % faces(fID) % IsMortar==0) then
+               call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
          end do
-         !$acc end parallel loop
 !$omp end do nowait
 
-         print*, "I am in BR1 line 159"
-
 !$omp do schedule(runtime) private(fID)
-         nZones = size(mesh % zones)
-         do zoneID=1, nZones
-            CALL BCs(zoneID) % bc % FlowGradVars(mesh, zoneID) 
-         enddo
+         do iFace = 1, size(mesh % faces_boundary)
+            fID = mesh % faces_boundary(iFace)
+            call BR1_ComputeBoundaryFlux(self, mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         end do
 !$omp end do 
 !
-         print*, "I am in BR1 line 168"
-
-
 !$omp do schedule(runtime) private(eID)
-         !$acc parallel loop gang vector_length(64) present(mesh, mesh % elements, mesh % faces, mesh % elements_sequential) copyin(self)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
+            associate(e => mesh % elements(eID))
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , NGRAD, mesh % elements(eID), mesh)
-         end do
-         !$acc end parallel loop
+            call BR1_GradientFaceLoop( self , nGradEqn, e, mesh)
 !
 !           Prolong gradients
 !           -----------------
-         !$acc parallel loop gang present(mesh, mesh % elements, mesh % faces, mesh % elements_sequential) private(fIDs)
-         do iEl = 1, size(mesh % elements_sequential)
-            eID = mesh % elements_sequential(iEl)
-            fIDs = mesh % elements(eID) % faceIDs
+            fIDs = e % faceIDs
+            if (.not.mesh%nonconforming) then 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)))
+            else 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+            end if 
 
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_x, 1)
-
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_y, 2)
-                                                    
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_z, 3)
+            end associate
          end do
-         !$acc end parallel loop
 !$omp end do
-
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % Q)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % Q)
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % U_x)
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % U_y)
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % U_z)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_x)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_y)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_z)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_x)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_y)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_z)
-         !$acc wait
-
-         print*,"The sol is", mesh % elements(mesh % elements_sequential(1145)) % storage % Q(:,1,1,1)
-         print*,"The face sol is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % Q(:,1,1)
-         print*,"The x grad is", mesh % elements(mesh % elements_sequential(1145)) % storage % U_x(:,1,1,1)
-         print*,"The y grad is", mesh % elements(mesh % elements_sequential(1145)) % storage % U_y(:,1,1,1)
-         print*,"The z grad is", mesh % elements(mesh % elements_sequential(1145)) % storage % U_z(:,1,1,1)
-         print*,"The face x grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_x(:,1,1)
-         print*,"The face y grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_y(:,1,1)
-         print*,"The face z grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_z(:,1,1)
-         print*,"The face x grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_x(:,1,1)
-         print*,"The face y grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_y(:,1,1)
-         print*,"The face z grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_z(:,1,1)
-
-         print*, "I am in BR1 line 195"
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -255,9 +232,35 @@ module EllipticBR1
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
+            if (mesh% faces(fID)%IsMortar==1) then 
+               associate(unstar=>mesh% faces(fID)%storage(1)%unStar)
+                  unstar=0.0_RP
+               end associate
+               do m=1, 4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do
+            end if 
+            if (mesh% faces(fID)%IsMortar .ne. 1) then 
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
          end do
 !$omp end do 
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(nGradEqn)
+         end if
+   !$omp end single
+   
+   
+   !$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(nGradEqn)
+         end if
+   !$omp end single
 !
 !$omp do schedule(runtime) private(eID) 
          do iEl = 1, size(mesh % elements_mpi)
@@ -271,65 +274,216 @@ module EllipticBR1
 !           Prolong gradients
 !           -----------------
             fIDs = e % faceIDs
+            if ( .not.mesh % nonconforming ) then
             call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+            else
+               call e % ProlongGradientsToFaces(nGradEqn,fFR=mesh % faces(fIDs(1)),&
+               fBK=mesh % faces(fIDs(2)),&
+               fBOT=mesh % faces(fIDs(3)),&
+               fR=mesh % faces(fIDs(4)),&
+               fT=mesh % faces(fIDs(5)),&
+               fL=mesh % faces(fIDs(6)), faces=mesh%faces)
+            end if 
+ 
             end associate
          end do
 !$omp end do
 #endif
 
       end subroutine BR1_LiftGradients
+
+      subroutine BR1_LiftGradientsHO(self, nEqn, nGradEqn, mesh, time, GetGradients)
+         use HexMeshClass
+         use PhysicsStorage
+         use Physics
+         implicit none
+         class(BassiRebay1_t), intent(in) :: self
+         integer,              intent(in) :: nEqn, nGradEqn
+         class(HexMesh)                   :: mesh
+         real(kind=RP),        intent(in) :: time
+         procedure(GetGradientValues_f)   :: GetGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                :: i, j, k, m 
+         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
+!
+!        *******************************************
+!        Compute Riemann solvers of non-shared faces
+!        *******************************************
+!
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % HO_FacesInterior)
+            fID = mesh % HO_FacesInterior(iFace)
+            call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
+!$omp end do nowait
+
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % HO_FacesBoundary)
+            fID = mesh % HO_FacesBoundary(iFace)
+            call BR1_ComputeBoundaryFlux(self, mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         end do
+!$omp end do 
+!
+!$omp do schedule(runtime) private(eID)
+         do iEl = 1, size(mesh % HO_ElementsSequential)
+            eID = mesh % HO_ElementsSequential(iEl)
+            associate(e => mesh % elements(eID))
+!
+!           Add the surface integrals
+!           -------------------------
+            call BR1_GradientFaceLoop( self , nGradEqn, e, mesh)
+!
+!           Prolong gradients
+!           -----------------
+            fIDs = e % faceIDs
+            if (.not.mesh%nonconforming) then
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)))
+            else 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+            end if 
+
+            end associate
+         end do
+!$omp end do
+
+#ifdef _HAS_MPI_
+!$omp single
+         if ( MPI_Process % doMPIAction ) then 
+            call mesh % GatherMPIFacesSolution(nEqn)
+         end if
+!$omp end single
+
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_mpi)
+            fID = mesh % faces_mpi(iFace)
+            if (mesh% faces(fID)%IsMortar==1) then 
+               associate(unstar=>mesh% faces(fID)%storage(1)%unStar)
+                  unstar=0.0_RP
+               end associate
+               do m=1, 4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do
+            end if 
+            if (mesh% faces(fID)%IsMortar .ne. 1) then 
+            call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
+         end do
+!$omp end do 
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(nGradEqn)
+         end if
+   !$omp end single
+   
+   
+   !$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(nGradEqn)
+         end if
+   !$omp end single
+!
+!$omp do schedule(runtime) private(eID) 
+         do iEl = 1, size(mesh % HO_ElementsMPI)
+            eID = mesh % HO_ElementsMPI(iEl)
+            associate(e => mesh % elements(eID))
+!
+!           Add the surface integrals
+!           -------------------------
+            call BR1_GradientFaceLoop(self, nGradEqn, e, mesh)
+!
+!           Prolong gradients
+!           -----------------
+            fIDs = e % faceIDs
+            if ( .not.mesh % nonconforming ) then
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)))
+            else
+               call e % ProlongGradientsToFaces(nGradEqn,fFR=mesh % faces(fIDs(1)),&
+               fBK=mesh % faces(fIDs(2)),&
+               fBOT=mesh % faces(fIDs(3)),&
+               fR=mesh % faces(fIDs(4)),&
+               fT=mesh % faces(fIDs(5)),&
+               fL=mesh % faces(fIDs(6)), faces=mesh%faces)
+            end if 
+ 
+            end associate
+         end do
+!$omp end do
+#endif
+
+      end subroutine BR1_LiftGradientsHO
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine BR1_GradientFaceLoop( self, nGradEqn, e, mesh )
-         !$acc routine vector
          use ElementClass
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use DGIntegrals
          implicit none
-         type(BassiRebay1_t),   intent(in)  :: self
+         class(BassiRebay1_t),   intent(in)  :: self
          integer,                intent(in)  :: nGradEqn
-         type(Element)                      :: e
-         type(HexMesh)                      :: mesh
+         class(Element)                      :: e
+         class(HexMesh)                      :: mesh
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: i,j,k,eq
+         real(kind=RP)        :: faceInt_x(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_y(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_z(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         integer  :: i,j,k
 
-         call  VectorWeakIntegrals_StdFace(e, NGRAD, &
+         call VectorWeakIntegrals % StdFace(e, nGradEqn, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
                mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % unStar, &
                mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % unStar, &
                mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % unStar, &
-               e % storage % U_x, e % storage % U_y, e % storage % U_z )
+               faceInt_x, faceInt_y, faceInt_z )
 !
 !        Add the integrals weighted with the Jacobian
 !        --------------------------------------------
-         !$acc loop vector collapse(3)
          do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               e % storage % U_x(eq,i,j,k) = e % storage % U_x(eq,i,j,k)  * e % geom % InvJacobian(i,j,k)
-               e % storage % U_y(eq,i,j,k) = e % storage % U_y(eq,i,j,k)  * e % geom % InvJacobian(i,j,k)
-               e % storage % U_z(eq,i,j,k) = e % storage % U_z(eq,i,j,k)  * e % geom % InvJacobian(i,j,k)
-            enddo
+            e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) + faceInt_x(:,i,j,k) * e % geom % InvJacobian(i,j,k)
+            e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) + faceInt_y(:,i,j,k) * e % geom % InvJacobian(i,j,k)
+            e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) + faceInt_z(:,i,j,k) * e % geom % InvJacobian(i,j,k)
          end do                  ; end do                   ; end do
 
       end subroutine BR1_GradientFaceLoop
 !
-      subroutine BR1_ComputeElementInterfaceAverage(self, f, nEqn, nGradEqn)
-         !$acc routine vector
+      subroutine BR1_ComputeElementInterfaceAverage(self, f, nEqn, nGradEqn, GetGradients,fma)
          use Physics  
          use ElementClass
          use FaceClass
@@ -339,31 +493,32 @@ module EllipticBR1
 !        Arguments
 !        ---------
 !
-         type(BassiRebay1_t),   intent(in)  :: self
+         class(BassiRebay1_t),   intent(in)  :: self
          type(Face)                       :: f
          integer,    intent(in)           :: nEqn, nGradEqn
+         procedure(GetGradientValues_f)   :: GetGradients
+         type(Face), optional             :: fma
+
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         !real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
-         !real(kind=RP) :: uStar(nGradEqn)
-         real(kind=RP) :: uStar
-         !real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: uStar(nGradEqn)
+         real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
+ 
 
-         integer       :: i,j,eq
+         integer       :: i,j, lm
          integer       :: Sidearray(2)
 
-
-         !$acc loop vector collapse(2)
-         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+           do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 #else
-            !call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            !call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 #endif
 
 #ifdef MULTIPHASE
@@ -376,25 +531,28 @@ module EllipticBR1
                UR(IGMU) = f % storage(2) % mu(1,i,j)
             end select
 #endif
-            !$acc loop seq
-            do eq =1, NCONS
-               uStar = 0.5_RP * (f % storage(2) % Q(eq,i,j) - f % storage(1) % Q(eq,i,j)) * f % geom % jacobian(i,j)
-               
-               !uStar(eq) = 0.5_RP * (UR(eq) - UL(eq)) * f % geom % jacobian(i,j)
-               
-               f % storage(1) % unStar(eq,IX,i,j) = uStar * f % geom % normal(IX,i,j)
-               f % storage(1) % unStar(eq,IY,i,j) = uStar * f % geom % normal(IY,i,j)
-               f % storage(1) % unStar(eq,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
-            enddo
-         end do               ; end do
-         
-         !Sidearray = (/1,2/)
-         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 1,1)
-         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 2,1)
 
+   
+            uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
+            uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
+            uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
+            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
+           end do               ; end do
+         
+           if (f % IsMortar==0) then 
+           Sidearray = (/1,2/)
+           call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
+           end if 
+           if (f % IsMortar==2 .and. present(fma)) then 
+            Sidearray = (/1,0/)
+             call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, Hflux=uStar_n,whichElements=Sidearray,factor=1) 
+             Sidearray = (/0,2/)
+             call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
+           end if 
+         
       end subroutine BR1_ComputeElementInterfaceAverage   
 
-      subroutine BR1_ComputeMPIFaceAverage(self, f, nEqn, nGradEqn)
+      subroutine BR1_ComputeMPIFaceAverage(self, f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -407,6 +565,7 @@ module EllipticBR1
          class(BassiRebay1_t),   intent(in)  :: self
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
+         procedure(GetGradientValues_f)   :: GetGradients
 !
 !        ---------------
 !        Local variables
@@ -417,14 +576,14 @@ module EllipticBR1
          real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
          integer       :: i,j
          integer       :: Sidearray(2)
-
+         
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 #else
-            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 #endif
 
 #ifdef MULTIPHASE
@@ -446,9 +605,68 @@ module EllipticBR1
          end do               ; end do
 
          Sidearray = (/maxloc(f % elementIDs, dim = 1), HMESH_NONE/)
-         !call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
+         call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
+
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2biggrad(nGradEqn, uStar_n)
+            
+         end if 
+         
          
       end subroutine BR1_ComputeMPIFaceAverage   
+
+      subroutine BR1_ComputeBoundaryFlux(self, f, nEqn, nGradEqn, time, GetGradients)
+         use Physics
+         use FaceClass
+         implicit none
+         class(BassiRebay1_t),   intent(in)  :: self
+         type(Face)                       :: f
+         integer, intent(in)              :: nEqn, nGradEqn
+         real(kind=RP), intent(in)        :: time
+         procedure(GetGradientValues_f)   :: GetGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: i, j, bcID
+         real(kind=RP) :: u_int(nGradEqn), u_star(nGradEqn)
+
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+
+#ifdef MULTIPHASE
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), u_int, f % storage(1) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), u_int)
+#endif
+
+#ifdef MULTIPHASE
+            select case (self % eqName)
+            case (ELLIPTIC_MU)
+!
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+               u_int(IGMU) = f % storage(1) % mu(1,i,j)
+            end select
+#endif
+   
+            u_star = u_int
+            call BCs(f % zone) % bc % GradVarsForEqn( nEqn,&
+                                nGradEqn,                  &
+                                f % geom % x(:,i,j),       &
+                                time               ,       &
+                                f % geom % normal(:,i,j),  &
+                                f % storage(1) % Q(:,i,j), &
+                                u_star, GetGradients           )
+
+            f % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * f % geom % normal(1,i,j) * f % geom % jacobian(i,j)
+            f % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)    
+            f % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * f % geom % normal(3,i,j) * f % geom % jacobian(i,j)
+
+         end do ; end do   
+
+      end subroutine BR1_ComputeBoundaryFlux
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -580,37 +798,4 @@ flux )
 #endif
 
       end subroutine BR1_RiemannSolver
-
-      subroutine BR1_RiemannSolver_acc ( face, nEqn, nGradEqn, flux)
-         !$acc routine vector
-         use SMConstants
-         use PhysicsStorage
-         use Physics
-         use FaceClass
-         implicit none
-         type(Face),   intent(in)       :: face
-         integer,       intent(in)      :: nEqn
-         integer,       intent(in)      :: nGradEqn
-         real(kind=RP), intent(out)     :: flux(1:nEqn,0:face % Nf(1),0:face % Nf(2))
-         !
-         !        ---------------
-         !        Local variables
-         !        ---------------
-         !
-         !real(kind=RP)     :: flux_vec(nEqn,NDIM)
-         integer :: fID, i, j, eq
-         
-         !$acc loop vector collapse(2)
-         do j = 0, face % Nf(2) ;  do i = 0, face % Nf(1)
-               !$acc loop seq
-               do eq = 1, NCONS
-               flux (eq,i,j) = 0.5_RP * (face % storage(1) % unStar(eq,IX,i,j) + face % storage(2) % unStar(eq,IX,i,j)) * face % geom % normal(IX,i,j) + &
-                               0.5_RP * (face % storage(1) % unStar(eq,IY,i,j) + face % storage(2) % unStar(eq,IY,i,j)) * face % geom % normal(IY,i,j) + &
-                               0.5_RP * (face % storage(1) % unStar(eq,IZ,i,j) + face % storage(2) % unStar(eq,IZ,i,j)) * face % geom % normal(IZ,i,j)
-               enddo
-                  
-         enddo ; enddo
-         
-      end subroutine BR1_RiemannSolver_acc
-
 end module EllipticBR1

@@ -3,7 +3,7 @@ module PeriodicBCClass
    use SMConstants
    use PhysicsStorage
    use FileReaders,            only: controlFileName
-   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine, CheckIfBoundaryNameIsContained
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
    use GenericBoundaryConditionClass
    use Utilities, only: toLower, almostEqual

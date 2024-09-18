@@ -448,7 +448,7 @@ Module SpongeClass  !
         refs(V_REF)     = refValues      % V
         refs(T_REF)     = refValues      % T
         refs(MACH_REF)  = dimensionless  % Mach
-!        refs(RE_REF)    = dimensionless  % Re
+        refs(RE_REF)    = dimensionless  % Re
 
 !       Create new file
 !       ---------------

@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.6% of total for modules and submodules.">265 statements</a>
+                 title=" 0.7% of total for modules and submodules.">347 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -138,7 +138,6 @@
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../module/mpi_face_class.html#proc-constructmpifaces">ConstructMPIFaces</a>
             <a class="list-group-item" href="../module/mpi_face_class.html#proc-constructmpifacesstorage">ConstructMPIFacesStorage</a>
-            <a class="list-group-item" href="../module/mpi_face_class.html#proc-mpifaces_creatempifacesstorage">MPIFaces_CreateMPIFacesStorage</a>
             <a class="list-group-item" href="../module/mpi_face_class.html#proc-destructmpifaces">DestructMPIFaces</a>
         </div>
       </div>
@@ -165,8 +164,8 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
                   <li class="list-inline-item"><a href='smconstants.html'>SMConstants</a></li>
+                  <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
                   <li class="list-inline-item"><a href='mpi_process_info.html'>MPI_Process_Info</a></li>
               </ul>
             </li>
@@ -226,7 +225,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-faces~9"></span>
+              <span class="anchor" id="variable-faces~8"></span>
               type(MPI_Face_t),
             </td>
               <td>public,</td>
@@ -297,7 +296,7 @@
   </div>
 
               <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-constructmpifacesstorage"></span> <h3>public  subroutine <a href='../proc/constructmpifacesstorage.html'>ConstructMPIFacesStorage</a>(facesSet, NCONS, NGRAD, NDOFS)  
+    <div class="card-header codesum"><span class="anchor" id="proc-constructmpifacesstorage"></span> <h3>public  subroutine <a href='../proc/constructmpifacesstorage.html'>ConstructMPIFacesStorage</a>(facesSet, NCONS, NGRAD, NDOFS, NMDOFS)  
 </h3></div>
     <div class="card-body">
           
@@ -331,7 +330,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-ncons~14"></span>
+              <span class="anchor" id="variable-ncons~13"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -346,7 +345,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-ngrad~14"></span>
+              <span class="anchor" id="variable-ngrad~13"></span>
               integer,
             </td>
 <td>intent(in)</td>
@@ -374,57 +373,17 @@
 
             </td>
         </tr>
-    </tbody>
-  </table>
-
-
-    </div>
-  </div>
-
-              <div class="card">
-    <div class="card-header codesum"><span class="anchor" id="proc-mpifaces_creatempifacesstorage"></span> <h3>public  subroutine <a href='../proc/mpifaces_creatempifacesstorage.html'>MPIFaces_CreateMPIFacesStorage</a>(facesSet, NDOFS)  
-</h3></div>
-    <div class="card-body">
-          
-  
-
-  <h4>Arguments</h4>
-      <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-facesset~3"></span>
-              type(<a href='../type/mpi_facesset_t.html'>MPI_FacesSet_t</a>)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>facesSet</strong></td>
-            <td>
-
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-ndofs~2"></span>
+              <span class="anchor" id="variable-nmdofs"></span>
               integer,
             </td>
-<td>intent(in)</td>
-              <td></td>            <td>
+<td>intent(in),</td>
+              <td>optional</td>            <td>
               
             </td>
             <td>::</td>
-            <td><strong>NDOFS</strong>(MPI_Process%nProcs)</td>
+            <td><strong>NMDOFS</strong>(MPI_Process%nProcs)</td>
             <td>
 
             </td>
@@ -456,7 +415,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-facesset~4"></span>
+              <span class="anchor" id="variable-facesset~3"></span>
               type(<a href='../type/mpi_facesset_t.html'>MPI_FacesSet_t</a>)
             </td>
 <td></td>
@@ -499,7 +458,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

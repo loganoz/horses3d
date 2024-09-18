@@ -764,12 +764,12 @@ contains
 
       call ComputeEigenStructure( CovMat, EigenVal, EigenVec1, EigenVec2, EigenVec3 )
 
-      !if( any(isNan(EigenVec1)) .or. any(isNan(EigenVec2)) .or. any(isNan(EigenVec3))  ) then 
-      !   EigenVec1 = (/ 1.0_RP, 0.0_RP, 0.0_RP /)
-      !   EigenVec2 = (/ 0.0_RP, 1.0_RP, 0.0_RP /)
-      !   EigenVec3 = (/ 0.0_RP, 0.0_RP, 1.0_RP /)
-      !   OBB% AAB = .true.
-      !end if
+      if( any(isNan(EigenVec1)) .or. any(isNan(EigenVec2)) .or. any(isNan(EigenVec3))  ) then 
+         EigenVec1 = (/ 1.0_RP, 0.0_RP, 0.0_RP /)
+         EigenVec2 = (/ 0.0_RP, 1.0_RP, 0.0_RP /)
+         EigenVec3 = (/ 0.0_RP, 0.0_RP, 1.0_RP /)
+         OBB% AAB = .true.
+      end if
 
    
    end subroutine PointsCloudDiagonalization

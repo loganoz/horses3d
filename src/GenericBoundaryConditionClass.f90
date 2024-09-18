@@ -3,9 +3,8 @@ module GenericBoundaryConditionClass
    use SMConstants
    use PhysicsStorage
    use FTValueDictionaryClass, only: FTValueDictionary
-   use VariableConversion
+   use VariableConversion, only: GetGradientValues_f
    use FluidData
-   use HexMeshClass
    implicit none
 !
 !  *****************************
@@ -24,7 +23,7 @@ module GenericBoundaryConditionClass
 !  Public definitions
 !  ******************
 !
-   public GenericBC_t, GetValueWithDefault
+   public GenericBC_t, GetValueWithDefault, CheckIfBoundaryNameIsContained
 !
 !  ****************************
 !  Static variables definitions
@@ -51,7 +50,6 @@ module GenericBoundaryConditionClass
          procedure         :: GetPeriodicPair   => GenericBC_GetPeriodicPair
 #ifdef FLOW
          procedure         :: FlowState         => GenericBC_FlowState
-         procedure         :: CreateDeviceData  => GenericBC_CreateDeviceData
          procedure         :: FlowGradVars      => GenericBC_FlowGradVars
          procedure         :: FlowNeumann       => GenericBC_FlowNeumann
 #endif
@@ -139,13 +137,13 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: Q(nEqn)
 
 #ifndef CAHNHILLIARD
-!        call self % FlowState(x, t, nHat, Q)
+         call self % FlowState(x, t, nHat, Q)
 
 #else
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
-!            call self % FlowState(x, t, nHat, Q)
+            call self % FlowState(x, t, nHat, Q)
 #endif
          case(C_BC)
             call self % PhaseFieldState(x, t, nHat, Q)
@@ -171,7 +169,7 @@ module GenericBoundaryConditionClass
          procedure(GetGradientValues_f)     :: GetGradients
 
 #ifndef CAHNHILLIARD
-!         call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
+         call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
 
 #else
          select case(self % currentEqn)
@@ -233,99 +231,63 @@ module GenericBoundaryConditionClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #ifdef FLOW
-
-      subroutine GenericBC_CreateDeviceData(self)
-         implicit none 
-         class(GenericBC_t), intent(in)    :: self
-      
-      end subroutine GenericBC_CreateDeviceData
-
-      subroutine GenericBC_FlowState(self, mesh, zoneID)
+      subroutine GenericBC_FlowState(self, x, t, nHat, Q)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
       end subroutine GenericBC_FlowState
 
-      subroutine GenericBC_FlowGradVars(self, mesh, zoneID)
-!
-!        **************************************************************
-!              Computes the set of gradient variables U* at the wall
-!        **************************************************************
-!
+      subroutine GenericBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)     :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: Q_aux(NCONS),Q(NCONS)
-         real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
-         real(kind=RP)  :: e_int, U1
-         real(kind=RP)  :: invRho
-         integer        :: i,j,zonefID,fID
-   
-   
-         !$acc parallel loop gang present(mesh, self)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int)            
-            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
-               
-               Q     = mesh % faces(fID) % storage(1) % Q(:,i,j)
-               Q_aux = mesh % faces(fID) % storage(2) % Q(:,i,j)
+         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD), rho
 
-               call NSGradientVariables_STATE(NCONS, NGRAD, Q    , u_int)
-               call NSGradientVariables_STATE(NCONS, NGRAD, Q_aux, u_star)
+         Q_aux = Q
+         U_aux = U
 
-               u_star = 0.5_RP* (u_star + u_int)
-               
-               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(1,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
-               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(2,i,j) * mesh % faces(fID) % geom % jacobian(i,j)    
-               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(3,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+         call self % FlowState(x,t,nHat,Q_aux)
 
-            enddo ; enddo
-
-         enddo
-         !$acc end parallel loop
-      end subroutine GenericBC_FlowGradVars
-
-!      subroutine GenericBC_FlowGradVars(self, mesh, zoneID)
-!         implicit none
-!         class(GenericBC_t),  intent(in)    :: self
-!         type(HexMesh),       intent(in)    :: mesh
-!         integer,             intent(in)    :: zoneID 
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-!         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD), rho
-!         Q_aux = Q
-!         U_aux = U
-!         call self % FlowState(x,t,nHat,Q_aux)
-!#ifdef MULTIPHASE
+#ifdef MULTIPHASE
 !
 !        Set the chemical potential to the interior
 !        ------------------------------------------
-!         rho = dimensionless % rho(1) * Q_aux(IMC) + dimensionless % rho(2) * (1.0_RP-Q_aux(IMC))
-!         rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
-!         call GetGradients(NCONS,NGRAD,Q_aux, U_aux, rho)
-!         U_aux(IGMU) = U(IGMU)
-!#else
-!         call GetGradients(NCONS,NGRAD,Q_aux, U_aux)
-!#endif
-!         U = 0.5_RP * (U_aux + U)
-!      end subroutine GenericBC_FlowGradVars
+         rho = dimensionless % rho(1) * Q_aux(IMC) + dimensionless % rho(2) * (1.0_RP-Q_aux(IMC))
+         rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
+         call GetGradients(NCONS,NGRAD,Q_aux, U_aux, rho)
+         U_aux(IGMU) = U(IGMU)
+#else
+         call GetGradients(NCONS,NGRAD,Q_aux, U_aux)
+#endif
 
-      subroutine GenericBC_FlowNeumann(self, mesh, zoneID)
+         U = 0.5_RP * (U_aux + U)
+
+      end subroutine GenericBC_FlowGradVars
+
+      subroutine GenericBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
       end subroutine GenericBC_FlowNeumann
 #endif
 !
@@ -425,6 +387,74 @@ module GenericBoundaryConditionClass
    
       end subroutine GetValueWithDefault
 
+      logical function CheckIfBoundaryNameIsContained(line, bname)
+!
+!        **********************************************************************
+!        We will allow several boundary names defined within a single region.
+!           They should be separated by two underscores (e.g. bname1__bname2)
+!        **********************************************************************
+!
+         implicit none
+         character(len=*), intent(in)  :: line
+         character(len=*), intent(in)  :: bname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos1, pos2
+         character(len=LINE_LENGTH) :: str, curName
+         logical     :: found
+         
 
+         str = "#define boundary"
+!
+!        Exit if not a #define boundary sentinel
+!        ---------------------------------------
+         if ( line(1:len_trim(str)) .ne. trim(str) ) then
+            CheckIfBoundaryNameIsContained = .false.
+            return
+         end if
+!
+!        Get only the boundary names
+!        ---------------------------
+         str = adjustl(line(len_trim(str)+1:len_trim(line)))
+!
+!        Exit if empty
+!        -------------
+         if (len_trim(str) .eq. 0) then
+            CheckIfBoundaryNameIsContained = .false.
+            return
+         end if
+!
+!        Check the entries
+!        -----------------
+         pos1 = 1
+         pos2 = len_trim(str)
+         found = .false.
+         do while(pos2 .ne. 0)
+            pos2 = index(str(pos1:len_trim(str)),"__") + pos1 - 1
+            if ( pos2 .eq. pos1-1 ) then
+!
+!              Last iteration
+!              --------------
+               curName = str(pos1:len_trim(str))
+               pos2 = 0
+            else
+               curName = str(pos1:pos2-1)
+            end if
+
+            if ( trim(curName) .eq. trim(bname) ) then
+               found = .true.
+               CheckIfBoundaryNameIsContained = .true.
+               return      
+            else
+               pos1 = pos2+2
+            end if
+         end do
+
+         CheckIfBoundarynameIsContained = .false.
+
+      end function CheckIfBoundaryNameIsContained
 
 end module GenericBoundaryConditionClass

@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 0.3% of total for derived types.</p>Including implementation: 31 statements,  0.2% of total for derived types.">5 statements</a>
+                 title="<p> 0.4% of total for derived types.</p>Including implementation: 61 statements,  0.4% of total for derived types.">7 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,11 +115,10 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/smagorinsky_t.html#variable-active">active</a>
+            <a class="list-group-item" href="../type/smagorinsky_t.html#variable-active~7">active</a>
             <a class="list-group-item" href="../type/smagorinsky_t.html#variable-requireswalldistances">requiresWallDistances</a>
             <a class="list-group-item" href="../type/smagorinsky_t.html#variable-wallmodel">WallModel</a>
-            <a class="list-group-item" href="../type/smagorinsky_t.html#variable-lesmodel">LESModel</a>
-            <a class="list-group-item" href="../type/smagorinsky_t.html#variable-c">C</a>
+            <a class="list-group-item" href="../type/smagorinsky_t.html#variable-cs">CS</a>
         </div>
       </div>
     </div>
@@ -147,7 +146,8 @@
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../type/smagorinsky_t.html#boundprocedure-initialize~2">Initialize</a>
-            <a class="list-group-item" href="../type/smagorinsky_t.html#boundprocedure-describe~4">Describe</a>
+            <a class="list-group-item" href="../type/smagorinsky_t.html#boundprocedure-describe~11">Describe</a>
+            <a class="list-group-item" href="../type/smagorinsky_t.html#boundprocedure-computeviscosity~2">ComputeViscosity</a>
         </div>
       </div>
     </div>
@@ -180,7 +180,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-active"></span>
+              <span class="anchor" id="variable-active~7"></span>
               logical,
             </td>
               <td>public</td>
@@ -231,24 +231,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-lesmodel"></span>
-              integer,
-            </td>
-              <td>public</td>
-            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>LESModel</strong></td>
-                <td></td>
-                <td></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-c"></span>
+              <span class="anchor" id="variable-cs"></span>
               real(kind=RP),
             </td>
               <td>public</td>
@@ -256,7 +239,7 @@
               
             </td>
             <td>::</td>
-            <td><strong>C</strong></td>
+            <td><strong>CS</strong></td>
                 <td></td>
                 <td></td>
             <td>
@@ -344,7 +327,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-describe~4"></span>
+      <span class="anchor" id="boundprocedure-describe~11"></span>
       <h3>
           procedure, public ::
   <strong>Describe</strong> => Smagorinsky_Describe
@@ -394,6 +377,164 @@
   </div>
 
           </div>
+          <div class="row">
+              <div class="card mt-3">
+    <div class="card-header codesum">
+      <span class="anchor" id="boundprocedure-computeviscosity~2"></span>
+      <h3>
+          procedure, public ::
+  <strong>ComputeViscosity</strong> => Smagorinsky_ComputeViscosity
+        
+      </h3>
+    </div>
+    <ul class="list-group">
+        <li class="list-group-item">
+                  <h3>
+    private pure subroutine Smagorinsky_ComputeViscosity(this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)  
+</h3>
+
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              class(<a href='smagorinsky_t.html'>Smagorinsky_t</a>),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>this</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>delta</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>dWall</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q_x</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q_y</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q_z</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(out)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>mu</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+        </li>
+    </ul>
+  </div>
+
+          </div>
       </section>
 
     
@@ -415,7 +556,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

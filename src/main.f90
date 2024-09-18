@@ -36,7 +36,7 @@
       LOGICAL                             :: success, saveGradients, saveSensor, saveLES
       integer                             :: initial_iteration
       INTEGER                             :: ierr
-      real(kind=RP)                       :: initial_time, t_elaps
+      real(kind=RP)                       :: initial_time
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
@@ -120,8 +120,6 @@
       if ( sem % particles % active ) then
             call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
       endif
-
-      call sem % mesh % CreateDeviceData()
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -133,14 +131,8 @@
 !     Integrate in time
 !     -----------------
 !
-      call Stopwatch % CreateNewEvent("solvingtime")
-      call Stopwatch % Start("solvingtime")
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-      call Stopwatch % Pause("solvingtime")
-!      
-      t_elaps = Stopwatch % ElapsedTime("solvingtime")
-
-      write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->", "Simulation time GPU: ",t_elaps," seconds."
+!
 !     ------------------------------------------
 !     Finish measuring the total simulation time
 !     ------------------------------------------

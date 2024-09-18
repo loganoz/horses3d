@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 1.6% of total for source files.">772 statements</a>
+                 title=" 1.6% of total for source files.">778 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -918,15 +918,15 @@
 <a id="ln-764" name="ln-764" href="#ln-764"></a>
 <a id="ln-765" name="ln-765" href="#ln-765"></a><span class="w">      </span><span class="k">call </span><span class="n">ComputeEigenStructure</span><span class="p">(</span><span class="w"> </span><span class="n">CovMat</span><span class="p">,</span><span class="w"> </span><span class="n">EigenVal</span><span class="p">,</span><span class="w"> </span><span class="n">EigenVec1</span><span class="p">,</span><span class="w"> </span><span class="n">EigenVec2</span><span class="p">,</span><span class="w"> </span><span class="n">EigenVec3</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-766" name="ln-766" href="#ln-766"></a>
-<a id="ln-767" name="ln-767" href="#ln-767"></a><span class="w">      </span><span class="c">!if( any(isNan(EigenVec1)) .or. any(isNan(EigenVec2)) .or. any(isNan(EigenVec3))  ) then </span>
-<a id="ln-768" name="ln-768" href="#ln-768"></a><span class="w">      </span><span class="c">!   EigenVec1 = (/ 1.0_RP, 0.0_RP, 0.0_RP /)</span>
-<a id="ln-769" name="ln-769" href="#ln-769"></a><span class="w">      </span><span class="c">!   EigenVec2 = (/ 0.0_RP, 1.0_RP, 0.0_RP /)</span>
-<a id="ln-770" name="ln-770" href="#ln-770"></a><span class="w">      </span><span class="c">!   EigenVec3 = (/ 0.0_RP, 0.0_RP, 1.0_RP /)</span>
-<a id="ln-771" name="ln-771" href="#ln-771"></a><span class="w">      </span><span class="c">!   OBB% AAB = .true.</span>
-<a id="ln-772" name="ln-772" href="#ln-772"></a><span class="w">      </span><span class="c">!end if</span>
+<a id="ln-767" name="ln-767" href="#ln-767"></a><span class="w">      </span><span class="k">if</span><span class="p">(</span><span class="w"> </span><span class="nb">any</span><span class="p">(</span><span class="n">isNan</span><span class="p">(</span><span class="n">EigenVec1</span><span class="p">))</span><span class="w"> </span><span class="p">.</span><span class="nb">or</span><span class="p">.</span><span class="w"> </span><span class="nb">any</span><span class="p">(</span><span class="n">isNan</span><span class="p">(</span><span class="n">EigenVec2</span><span class="p">))</span><span class="w"> </span><span class="p">.</span><span class="nb">or</span><span class="p">.</span><span class="w"> </span><span class="nb">any</span><span class="p">(</span><span class="n">isNan</span><span class="p">(</span><span class="n">EigenVec3</span><span class="p">))</span><span class="w">  </span><span class="p">)</span><span class="w"> </span><span class="k">then </span>
+<a id="ln-768" name="ln-768" href="#ln-768"></a><span class="k">         </span><span class="n">EigenVec1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">/</span><span class="w"> </span><span class="mf">1.0_RP</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0_RP</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0_RP</span><span class="w"> </span><span class="o">/</span><span class="p">)</span>
+<a id="ln-769" name="ln-769" href="#ln-769"></a><span class="w">         </span><span class="n">EigenVec2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">/</span><span class="w"> </span><span class="mf">0.0_RP</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0_RP</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0_RP</span><span class="w"> </span><span class="o">/</span><span class="p">)</span>
+<a id="ln-770" name="ln-770" href="#ln-770"></a><span class="w">         </span><span class="n">EigenVec3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">/</span><span class="w"> </span><span class="mf">0.0_RP</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0_RP</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0_RP</span><span class="w"> </span><span class="o">/</span><span class="p">)</span>
+<a id="ln-771" name="ln-771" href="#ln-771"></a><span class="w">         </span><span class="n">OBB</span><span class="p">%</span><span class="w"> </span><span class="n">AAB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">true</span><span class="p">.</span>
+<a id="ln-772" name="ln-772" href="#ln-772"></a><span class="w">      </span><span class="k">end if</span>
 <a id="ln-773" name="ln-773" href="#ln-773"></a>
-<a id="ln-774" name="ln-774" href="#ln-774"></a><span class="w">   </span>
-<a id="ln-775" name="ln-775" href="#ln-775"></a><span class="w">   </span><span class="k">end subroutine </span><span class="n">PointsCloudDiagonalization</span>
+<a id="ln-774" name="ln-774" href="#ln-774"></a><span class="k">   </span>
+<a id="ln-775" name="ln-775" href="#ln-775"></a><span class="k">   end subroutine </span><span class="n">PointsCloudDiagonalization</span>
 <a id="ln-776" name="ln-776" href="#ln-776"></a><span class="c">!</span>
 <a id="ln-777" name="ln-777" href="#ln-777"></a><span class="c">!/////////////////////////////////////////////////////////////////////////////////////////////</span>
 <a id="ln-778" name="ln-778" href="#ln-778"></a><span class="c">!  </span>
@@ -1632,7 +1632,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:19              </p>
+ on 2024-09-18 08:51              </p>
           </div>
         </div>
         <br>

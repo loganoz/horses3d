@@ -3,7 +3,6 @@ module BoundaryConditions
    use SMConstants
    use FTValueDictionaryClass,        only: FTValueDictionary
    use FileReaders,                   only: controlFileName
-   use SharedBCModule,                only: zoneNameDictionary
    use FileReadingUtilities,          only: GetKeyword, GetValueAsString, PreprocessInputLine
    use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, CheckIfBoundaryNameIsContained
    use InflowBCClass,                 only: InflowBC_t
@@ -13,14 +12,27 @@ module BoundaryConditions
    use PeriodicBCClass,               only: PeriodicBC_t
    use UserDefinedBCClass,            only: UserDefinedBC_t
    use Utilities, only: toLower, almostEqual
-   use ZoneClass, only: GetZoneType
-   use MPI_Process_Info
-   use HexMeshClass
    implicit none
 
    private
-   public   BCs, ConstructBoundaryConditions, DestructBoundaryConditions, SetBoundaryConditionsEqn, DescribeBoundaryConditions
+   public   BCs, ConstructBoundaryConditions, DestructBoundaryConditions, SetBoundaryConditionsEqn
    public   NS_BC, C_BC, MU_BC
+
+   enum, bind(C)
+      enumerator :: INFLOW_BC = 1 , OUTFLOW_BC
+      enumerator :: NOSLIPWALL_BC , FREESLIPWALL_BC
+      enumerator :: PERIODIC_BC   , USERDEFINED_BC
+   end enum
+
+   character(len=BC_STRING_LENGTH), dimension(8)  :: implementedBCNames = [&
+                "inflow              ",  &
+                "outflow             ",  &
+                "noslipwall          ",  &
+                "freeslipwall        ",  &
+                "periodic            ",  &
+                "user-defined        ",  &
+                "manufacturedsol     ",  &
+                "msoutflowspecifyp   "]
 
    type BCSet_t
       class(GenericBC_t), allocatable :: bc
@@ -30,29 +42,18 @@ module BoundaryConditions
    integer                       :: no_of_BCs
    integer, protected            :: no_of_constructions = 0
 
-   integer, parameter      :: STR_LEN_ZONE = BC_STRING_LENGTH
-
    contains
-      subroutine ConstructBoundaryConditions()
+      subroutine ConstructBoundaryConditions(no_of_zones, zoneNames)
          implicit none
+         integer, intent(in)  :: no_of_zones
+         character(len=*), intent(in)  :: zoneNames(no_of_zones)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer  :: zID, zType
-         integer                                  :: no_of_zones
-         character(len=STR_LEN_ZONE), pointer     :: zoneNames(:)
-!
-!        Get the number of markers from the Boundary Conditions dictionary
-!        -----------------------------------------------------------------         
-         no_of_zones = zoneNameDictionary % COUNT() 
-         if ( no_of_zones .le. 0 ) return
-!
-!        Gather the zone names
-!        ---------------------
-         zoneNames => zoneNameDictionary % allKeys()
-         
+
          no_of_constructions = no_of_constructions + 1
          if ( allocated(BCs) ) then
             print*, "*** WARNING!: Boundary conditions were previously allocated"
@@ -112,8 +113,6 @@ module BoundaryConditions
                errorMessage(STD_OUT)
                error stop 99
             end select
-
-            call BCs(zID) % bc % CreateDeviceData()
              
          end do
 
@@ -163,67 +162,100 @@ module BoundaryConditions
          end if
 
       end subroutine DestructBoundaryConditions
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Auxiliary subroutines
+!        --------------------         
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+      integer function GetZoneType(bname)
+         implicit none
+         character(len=*), intent(in)  :: bname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: fid, io, bctype
+         character(len=LINE_LENGTH) :: currentLine, loweredBname
+         character(len=LINE_LENGTH) :: keyword, keyval
+         logical                    :: inside
+         type(FTValueDIctionary)    :: bcdict
 
-      subroutine DescribeBoundaryConditions(mesh)
-         USE Headers
-         IMPLICIT NONE
-         !-arguments------------------------------------------
-         CLASS(HexMesh)      :: mesh
-         !-local-variables------------------------------------
-         integer           :: ierr
-         integer           :: zoneID
-         integer           :: no_of_bdry_faces
-         integer           :: no_of_faces
-         integer, allocatable :: facesPerZone(:)
-         character(len=LINE_LENGTH) :: str
-         !----------------------------------------------------
-   
-         allocate ( facesPerZone(size(mesh % zones)) )
-   
-   !     Gather information
-   !     ------------------
-   
-         if (  MPI_Process % doMPIAction ) then
-   #ifdef _HAS_MPI_
-            do zoneID = 1, size(mesh % zones)
-               call mpi_reduce ( mesh % zones(zoneID) % no_of_faces, facesPerZone(zoneID) , 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr )
-            end do
-   
-            no_of_bdry_faces = sum(facesPerZone)
-            no_of_faces      = (6*mesh % no_of_allElements + no_of_bdry_faces)/2
-   #endif
-         else
-            do zoneID = 1, size(mesh % zones)
-               facesPerZone(zoneID) = mesh % zones(zoneID) % no_of_faces
-            end do
-   
-            no_of_bdry_faces = sum(facesPerZone)
-            no_of_faces = size ( mesh % faces )
-         end if
-   
-   
-   !     Describe the mesh
-   !     -----------------
-   
-         if ( .not. MPI_Process % isRoot ) return
-   
-   !     Describe the zones
-   !     ------------------
-         write(STD_OUT,'(/)')
-         call Section_Header("Creating zones")
-         write(STD_OUT,'(/)')
-   
-         do zoneID = 1, size(mesh % zones)
-            write(str,'(A,I0,A,A)') "Zone ", zoneID, " for boundary: ",trim(mesh % zones(zoneID) % Name)
-            call SubSection_Header(trim(str))
-            write(STD_OUT,'(30X,A,A28,I0)') "->", ' Number of faces: ', facesPerZone(zoneID)
-            call BCs(zoneID) % bc % Describe
-            write(STD_OUT,'(/)')
+         loweredbName = bname
+         call toLower(loweredbName)
+         call bcdict % initWithSize(16)
+
+         open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
+!
+!        Navigate until the "#define boundary bname" sentinel is found
+!        -------------------------------------------------------------
+         inside = .false.
+         do 
+            read(fid, '(A)', iostat=io) currentLine
+
+            IF(io .ne. 0 ) EXIT
+
+            call PreprocessInputLine(currentLine)
+            call toLower(currentLine)
+
+            if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+               inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(loweredbname)) 
+            end if
+         
+         
+!
+!           Get all keywords inside the zone
+!           --------------------------------
+            if ( inside ) then
+               if ( trim(currentLine) .eq. "#end" ) exit
+
+               keyword  = ADJUSTL(GetKeyword(currentLine))
+               keyval   = ADJUSTL(GetValueAsString(currentLine))
+               call ToLower(keyword)
+      
+               call bcdict % AddValueForKey(keyval, trim(keyword))
+
+            end if
+
          end do
-   
-   !     Finish up
-   !     ---------
-         deallocate ( facesPerZone )
 
-      end subroutine DescribeBoundaryConditions
+         if ( .not. bcdict % ContainsKey("type") ) then
+            print*, "Missing boundary condition type for boundary ", trim(bname)
+            errorMessage(STD_OUT)
+            call exit(99)
+         end if
+
+         keyval = bcdict % StringValueForKey("type", LINE_LENGTH)
+
+         call tolower(keyval)
+
+         
+         GetZoneType = -1
+         do bctype = 1, size(implementedBCnames)
+            if ( trim(keyval) .eq. trim(implementedBCnames(bctype)) ) then
+               GetZoneType = bctype
+            end if
+         end do
+
+         if ( GetZoneType .eq. -1 ) then
+            print*, "Boundary type " ,trim(keyval), " not recognized."
+            print*, "Options available are:"
+            print*, "   * Inflow"
+            print*, "   * Outflow"
+            print*, "   * NoSlipWall"
+            print*, "   * FreeSlipWall"
+            print*, "   * Periodic"
+            print*, "   * User-defined"
+            errorMessage(STD_OUT)
+            error stop
+         end if
+
+         call bcdict % Destruct
+         close(fid)
+
+      end function GetZoneType
+
 end module BoundaryConditions
