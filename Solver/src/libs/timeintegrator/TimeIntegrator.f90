@@ -407,7 +407,7 @@
 #if defined(NAVIERSTOKES)
       use ShockCapturing
       use TripForceClass, only: randomTrip
-      use ActuatorLine, only: farm
+      use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
       use SpongeClass, only: sponge
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
@@ -477,8 +477,10 @@
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
-          call farm % ConstructFarm(controlVariables, t)
-          call farm % UpdateFarm(t, sem % mesh)
+          ! call farm % ConstructFarm(controlVariables, t)
+          call ConstructFarm(farm, controlVariables, t)
+          ! call farm % UpdateFarm(t, sem % mesh)
+          call UpdateFarm(farm, t, sem % mesh)
       end if
       call sponge % construct(sem % mesh,controlVariables)
 #endif
@@ -623,7 +625,8 @@
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
-         if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
+         ! if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
+         if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 !
 !        Perform time step
@@ -653,7 +656,8 @@
          END SELECT
 
 #if defined(NAVIERSTOKES)
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
+         ! if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm,t,k)
          call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
 !
@@ -768,7 +772,12 @@
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t, k, last=.true.)
+         if(ActuatorLineFlag) then
+             ! call farm % UpdateFarm(t, sem % mesh)
+             call UpdateFarm(farm, t, sem % mesh)
+             ! call farm % WriteFarmForces(t, k, last=.true.)
+             call WriteFarmForces(farm, t, k, last=.true.)
+         end if
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if
@@ -798,7 +807,8 @@
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
-         if(ActuatorLineFlag) call farm % DestructFarm
+         ! if(ActuatorLineFlag) call farm % DestructFarm
+         if(ActuatorLineFlag) call DestructFarm(farm)
          call sponge % destruct()
 #endif
       if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)

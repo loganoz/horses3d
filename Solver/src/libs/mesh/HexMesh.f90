@@ -891,7 +891,7 @@ slavecoord:             DO l = 1, 4
          integer  :: fIDs(6)
          integer  :: eID
 
-!$omp do schedule(runtime)
+!!$omp do schedule(runtime)
          !!$acc parallel loop gang present(self) private(fIDs)
          !do eID = 1, size(self % elements)
          !   fIDs = self % elements(eID) % faceIDs
@@ -904,7 +904,7 @@ slavecoord:             DO l = 1, 4
             !                                        self % faces(fIDs(6)) )
          !end do
          !!$acc end parallel loop
-!$omp end do
+!!$omp end do
 
       end subroutine HexMesh_ProlongSolutionToFaces
 
