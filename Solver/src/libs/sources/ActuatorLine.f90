@@ -88,17 +88,6 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     integer                        :: number_iterations
     integer                        :: save_iterations
 
-   ! contains
-   !      procedure   :: ConstructFarm
-   !      procedure   :: DestructFarm
-   !      procedure   :: UpdateFarm
-   !      procedure   :: ForcesFarm             
-   !      procedure   :: WriteFarmForces
-   !      ! procedure   :: ReadOpertionFile
-   !      procedure   :: GaussianInterpolation
-   !      procedure   :: FarmUpdateLocalForces
-   !      procedure   :: FarmUpdateBladeForces
-   !      procedure   :: FindActuatorPointElement
     end type
 
    Abstract Interface
@@ -626,7 +615,7 @@ contains
 !
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
            ! found = mesh % FindPointWithCoords(x, eID, xi)
-           call self % FindActuatorPointElement(mesh, x, kk, tolerance(kk), eID, xi, found)
+           call FindActuatorPointElement(self, mesh, x, kk, tolerance(kk), eID, xi, found)
            if (found) then
              ! averaged state values of the cell
              Qtemp = element_averageQ(mesh,eID,xi)
@@ -845,7 +834,7 @@ enddo
    if ( .not. MPI_Process % isRoot ) return
 
    ! save in memory the time step forces for each element blade and the whole blades
-   if (.not. isLast) call self % FarmUpdateBladeForces()
+   if (.not. isLast) call FarmUpdateBladeForces(self)
    ! if (.not. self%calculate_with_projection .and. .not. isLast) call self % FarmUpdateBladeForces()
 
 !write output torque thrust to file

@@ -615,7 +615,6 @@ module SpatialDiscretization
 
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  ! call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                   call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
@@ -735,7 +734,7 @@ module SpatialDiscretization
    subroutine TimeDerivative_ComputeQDotHO( mesh , particles, t)
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -932,7 +931,7 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
+                  call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -1163,7 +1162,6 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  ! call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                   call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
@@ -1309,13 +1307,13 @@ module SpatialDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_VolumetricContribution(element)
+      subroutine TimeDerivative_VolumetricContribution(e)
          !$acc routine vector
          use HexMeshClass
          use ElementClass
          use DGIntegrals
          implicit none
-         type(Element), intent (inout)           :: element
+         type(Element), intent (inout)           :: e
 !
 !        ---------------
 !        Local variables
@@ -1336,67 +1334,67 @@ module SpatialDiscretization
 !        -----------------------------------
          
          !$acc loop vector collapse(3) private(inviscidFlux, viscousFlux)
-         do k = 0, element % Nxyz(3) ; do j = 0, element % Nxyz(2) ; do i = 0, element % Nxyz(1)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   
-            call EulerFlux(element % storage % Q(:,i,j,k), inviscidFlux, element % storage % rho(i,j,k))
+            call EulerFlux(e % storage % Q(:,i,j,k), inviscidFlux, e % storage % rho(i,j,k))
 
-            mu = element % storage % mu_ns(1,i,j,k)
-            kappa = element % storage % mu_ns(2,i,j,k)
+            mu = e % storage % mu_ns(1,i,j,k)
+            kappa = e % storage % mu_ns(2,i,j,k)
             beta  = 0.0_RP
 
-            call ViscousFlux_STATE( NCONS, NGRAD, element % storage % Q(:,i,j,k) , element % storage % U_x(:,i,j,k) , & 
-                                    element % storage % U_y(:,i,j,k) , element % storage % U_z(:,i,j,k), mu, beta, kappa, viscousFlux)
+            call ViscousFlux_STATE( NCONS, NGRAD, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , & 
+                                    e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), mu, beta, kappa, viscousFlux)
                   
             inviscidFlux = inviscidFlux - viscousFlux
                   
-            element % storage % FluxF(:,i,j,k) = inviscidFlux(:,IX) * element % geom % jGradXi(IX,i,j,k)  &
-                                               + inviscidFlux(:,IY) * element % geom % jGradXi(IY,i,j,k)  &
-                                               + inviscidFlux(:,IZ) * element % geom % jGradXi(IZ,i,j,k)
+            e % storage % FluxF(:,i,j,k) = inviscidFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                               + inviscidFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                               + inviscidFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
-            element % storage % FluxG(:,i,j,k) = inviscidFlux(:,IX) * element % geom % jGradEta(IX,i,j,k)  &
-                                               + inviscidFlux(:,IY) * element % geom % jGradEta(IY,i,j,k)  &
-                                               + inviscidFlux(:,IZ) * element % geom % jGradEta(IZ,i,j,k)
+            e % storage % FluxG(:,i,j,k) = inviscidFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                               + inviscidFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                               + inviscidFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
                   
-            element % storage % FluxH(:,i,j,k) = inviscidFlux(:,IX) * element % geom % jGradZeta(IX,i,j,k)  &
-                                               + inviscidFlux(:,IY) * element % geom % jGradZeta(IY,i,j,k)  &
-                                               + inviscidFlux(:,IZ) * element % geom % jGradZeta(IZ,i,j,k)
+            e % storage % FluxH(:,i,j,k) = inviscidFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                               + inviscidFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                               + inviscidFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
          end do               ; end do                ; end do
 
-         call ScalarWeakIntegrals_StdVolumeGreen( element % Nxyz, NCONS,&
-                                                  element % storage % FluxF, &
-                                                  element % storage % FluxG, & 
-                                                  element % storage % FluxH, & 
-                                                  element % storage % QDot)
+         call ScalarWeakIntegrals_StdVolumeGreen( e % Nxyz, NCONS,&
+                                                  e % storage % FluxF, &
+                                                  e % storage % FluxG, & 
+                                                  e % storage % FluxH, & 
+                                                  e % storage % QDot)
 
       end subroutine TimeDerivative_VolumetricContribution
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_FacesContribution( element , t , mesh)
+      subroutine TimeDerivative_FacesContribution( e , t , mesh)
          !$acc routine vector
          use HexMeshClass
          implicit none
-         type(Element)           :: element
+         type(Element)           :: e
          real(kind=RP)           :: t
          type(HexMesh)           :: mesh
 
          integer                 :: i,j,k,eID,eq
 
-         call ScalarWeakIntegrals_StdFace( NCONS, element % Nxyz, &
-                      mesh % faces(element % faceIDs(EFRONT))  % storage(element % faceSide(EFRONT))  % fStar, &
-                      mesh % faces(element % faceIDs(EBACK))   % storage(element % faceSide(EBACK))   % fStar, &
-                      mesh % faces(element % faceIDs(EBOTTOM)) % storage(element % faceSide(EBOTTOM)) % fStar, &
-                      mesh % faces(element % faceIDs(ERIGHT))  % storage(element % faceSide(ERIGHT))  % fStar, &
-                      mesh % faces(element % faceIDs(ETOP))    % storage(element % faceSide(ETOP))    % fStar, &
-                      mesh % faces(element % faceIDs(ELEFT))   % storage(element % faceSide(ELEFT))   % fStar, &
-                      element % storage % QDot )
+         call ScalarWeakIntegrals_StdFace( NCONS, e % Nxyz, &
+                      mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % fStar, &
+                      mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % fStar, &
+                      mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % fStar, &
+                      mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % fStar, &
+                      mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % fStar, &
+                      mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % fStar, &
+                      e % storage % QDot )
 
          !$acc loop vector collapse(3)
-         do k = 0, element % Nxyz(3) ; do j = 0, element % Nxyz(2) ; do i = 0, element % Nxyz(1)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             !$acc loop seq
             do eq = 1,NCONS
-            element % storage % QDot(eq,i,j,k) = element % storage % QDot(eq,i,j,k)  / element % geom % jacobian(i,j,k)
+            e % storage % QDot(eq,i,j,k) = e % storage % QDot(eq,i,j,k)  / e % geom % jacobian(i,j,k)
             enddo
          end do         ; end do          ; end do
          
@@ -1577,7 +1575,7 @@ module SpatialDiscretization
 !     ---------
 !
       REAL(KIND=RP)                :: time
-      type(HexMesh), intent(in)    :: mesh
+      type(HexMesh), intent(inout)    :: mesh
 !
 !     ---------------
 !     Local variables
