@@ -194,7 +194,7 @@ module EllipticIP
          implicit none
          class(InteriorPenalty_t), intent(in) :: self
          integer,                  intent(in) :: nEqn, nGradEqn
-         class(HexMesh)                       :: mesh
+         type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in)     :: time
          procedure(GetGradientValues_f)       :: GetGradients 
 !

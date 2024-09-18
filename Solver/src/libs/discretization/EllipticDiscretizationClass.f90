@@ -132,7 +132,7 @@ module EllipticDiscretizationClass
          implicit none
          class(EllipticDiscretization_t), intent(in) :: self
          integer,             intent(in)  :: nEqn, nGradEqn
-         class(HexMesh)                   :: mesh
+         type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
 !
@@ -174,7 +174,7 @@ module EllipticDiscretizationClass
          implicit none
          class(EllipticDiscretization_t), intent(in) :: self
          integer,             intent(in)  :: nEqn, nGradEqn
-         class(HexMesh)                   :: mesh
+         type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
 

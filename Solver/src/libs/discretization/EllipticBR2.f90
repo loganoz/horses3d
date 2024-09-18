@@ -128,7 +128,7 @@ module EllipticBR2
          class(BassiRebay2_t), intent(in) :: self
          integer,              intent(in) :: nEqn
          integer,              intent(in) :: nGradEqn
-         class(HexMesh)                   :: mesh
+         type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
 !
@@ -253,7 +253,7 @@ module EllipticBR2
          class(BassiRebay2_t),   intent(in) :: self
          integer,                intent(in) :: nGradEqn
          class(Element)                     :: e
-         class(HexMesh)                     :: mesh
+         type(HexMesh),        intent(inout) :: mesh
 !
 !        ---------------
 !        Local variables

@@ -2,7 +2,7 @@
 #	Foundation Makefile 		#
 #################################################
 INSTALL_DIR?=./
-FFLAGS?=-cpp
+PFLAGS?=-cpp
 AR?=ar
 ARFLAGS?=cr
 RANLIB?=ranlib
@@ -37,42 +37,42 @@ all: lib$(LIB)_ns$(LIBSUFFIX) lib$(LIB)_nssa$(LIBSUFFIX) lib$(LIB)_ins$(LIBSUFFI
 ./build_ns/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) -cpp -Mfree -Mbackslash $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ns
+	$(FC) $(PFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ns
 
 ./build_nssa/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_nssa
+	$(FC) $(PFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_nssa
 
 ./build_ch/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ch
+	$(FC) $(PFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ch
 
 ./build_mu/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_mu
+	$(FC) $(PFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_mu
 
 ./build_ins/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ins
+	$(FC) $(PFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include_ins
 
 ./build_ns/ProblemFile.o: ./ProblemFile.f90
-	$(FC) -fPIC -shared -DNAVIERSTOKES -cpp -Mfree -Mbackslash $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include_ns -c $< -o $@
+	$(FC) -fPIC -shared -DNAVIERSTOKES $(PFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include_ns -c $< -o $@
 
 ./build_nssa/ProblemFile.o: ./ProblemFile.f90
-	$(FC) -fPIC -shared -DNAVIERSTOKES -DSPALARTALMARAS -cpp -Mfree -Mbackslash $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nssa $(MOD_FLAG)./include_nssa -c $< -o $@
+	$(FC) -fPIC -shared -DNAVIERSTOKES -DSPALARTALMARAS $(PFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nssa $(MOD_FLAG)./include_nssa -c $< -o $@
 
 ./build_ins/ProblemFile.o: ./ProblemFile.f90
 	$(FC) -fPIC -shared -DINCNS -cpp -Mfree -Mbackslash $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ins $(MOD_FLAG)./include_ins -c $< -o $@
 
 ./build_ch/ProblemFile.o: ./ProblemFile.f90
-	$(FC) -fPIC -shared -DCAHNHILLIARD -cpp -Mfree -Mbackslash $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch $(MOD_FLAG)./include_ch -c $< -o $@
+	$(FC) -fPIC -shared -DCAHNHILLIARD $(PFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch $(MOD_FLAG)./include_ch -c $< -o $@
 
 ./build_mu/ProblemFile.o: ./ProblemFile.f90
-	$(FC) -fPIC -shared -DMULTIPHASE -DCAHNHILLIARD -cpp -Mfree -Mbackslash $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu $(MOD_FLAG)./include_mu -c $< -o $@
+	$(FC) -fPIC -shared -DMULTIPHASE -DCAHNHILLIARD $(PFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu $(MOD_FLAG)./include_mu -c $< -o $@
 
 lib$(LIB)_ns$(LIBSUFFIX): header mkdirs ./build_ns/ProblemFile.o
 	@echo

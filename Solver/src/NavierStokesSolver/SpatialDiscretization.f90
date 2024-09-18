@@ -780,7 +780,7 @@ module SpatialDiscretization
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t

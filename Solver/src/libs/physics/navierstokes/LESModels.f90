@@ -12,7 +12,7 @@ module LESModels
    implicit none
 
    private
-   public LESModel, InitializeLESModel, Smagorinsky_t, LESModel_Selector
+   public LESModel, InitializeLESModel, Smagorinsky_t, LESModel_Selector, Smagorinsky_ComputeViscosity
    
 !  Keywords
 !  --------

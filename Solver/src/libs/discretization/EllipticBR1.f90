@@ -75,7 +75,7 @@ module EllipticBR1
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          integer,              intent(in) :: nEqn, nGradEqn
-         type(HexMesh),        intent(in) :: mesh
+         type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
          integer                          :: Nx, Ny, Nz
@@ -133,7 +133,7 @@ module EllipticBR1
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          integer,              intent(in) :: nEqn, nGradEqn
-         type(HexMesh),        intent(in) :: mesh
+         type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
          integer                          :: Nx, Ny, Nz
@@ -160,8 +160,8 @@ module EllipticBR1
 
          print*, "I am in BR1 line 159"
 
-!$omp do schedule(runtime) private(fID)
          nZones = size(mesh % zones)
+!$omp do schedule(runtime) private(zoneID)
          do zoneID=1, nZones
             CALL BCs(zoneID) % bc % FlowGradVars(mesh, zoneID) 
          enddo
@@ -179,11 +179,13 @@ module EllipticBR1
 !           -------------------------
             call BR1_GradientFaceLoop( self , NGRAD, mesh % elements(eID), mesh)
          end do
+!$omp end do
          !$acc end parallel loop
 !
 !           Prolong gradients
 !           -----------------
          !$acc parallel loop gang present(mesh, mesh % elements, mesh % faces, mesh % elements_sequential) private(fIDs)
+!$omp do schedule(runtime) private(eID)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
             fIDs = mesh % elements(eID) % faceIDs
@@ -581,17 +583,17 @@ flux )
 
       end subroutine BR1_RiemannSolver
 
-      subroutine BR1_RiemannSolver_acc ( face, nEqn, nGradEqn, flux)
+      subroutine BR1_RiemannSolver_acc ( f, nEqn, nGradEqn, flux)
          !$acc routine vector
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
          implicit none
-         type(Face),   intent(in)       :: face
+         type(Face),   intent(in)       :: f
          integer,       intent(in)      :: nEqn
          integer,       intent(in)      :: nGradEqn
-         real(kind=RP), intent(out)     :: flux(1:nEqn,0:face % Nf(1),0:face % Nf(2))
+         real(kind=RP), intent(out)     :: flux(1:nEqn,0:f% Nf(1),0:f% Nf(2))
          !
          !        ---------------
          !        Local variables
@@ -599,16 +601,16 @@ flux )
          !
          !real(kind=RP)     :: flux_vec(nEqn,NDIM)
          integer :: fID, i, j, eq
-         
+          
          !$acc loop vector collapse(2)
-         do j = 0, face % Nf(2) ;  do i = 0, face % Nf(1)
+         do j = 0, f % Nf(2) ;  do i = 0, f % Nf(1)
                !$acc loop seq
                do eq = 1, NCONS
-               flux (eq,i,j) = 0.5_RP * (face % storage(1) % unStar(eq,IX,i,j) + face % storage(2) % unStar(eq,IX,i,j)) * face % geom % normal(IX,i,j) + &
-                               0.5_RP * (face % storage(1) % unStar(eq,IY,i,j) + face % storage(2) % unStar(eq,IY,i,j)) * face % geom % normal(IY,i,j) + &
-                               0.5_RP * (face % storage(1) % unStar(eq,IZ,i,j) + face % storage(2) % unStar(eq,IZ,i,j)) * face % geom % normal(IZ,i,j)
+               flux (eq,i,j) = 0.5_RP * (f % storage(1) % unStar(eq,IX,i,j) + f % storage(2) % unStar(eq,IX,i,j)) * f % geom % normal(IX,i,j) + &
+                               0.5_RP * (f % storage(1) % unStar(eq,IY,i,j) + f % storage(2) % unStar(eq,IY,i,j)) * f % geom % normal(IY,i,j) + &
+                               0.5_RP * (f % storage(1) % unStar(eq,IZ,i,j) + f % storage(2) % unStar(eq,IZ,i,j)) * f % geom % normal(IZ,i,j)
                enddo
-                  
+                   
          enddo ; enddo
          
       end subroutine BR1_RiemannSolver_acc

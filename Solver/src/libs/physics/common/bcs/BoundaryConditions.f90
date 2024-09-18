@@ -5,7 +5,8 @@ module BoundaryConditions
    use FileReaders,                   only: controlFileName
    use SharedBCModule,                only: zoneNameDictionary
    use FileReadingUtilities,          only: GetKeyword, GetValueAsString, PreprocessInputLine
-   use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, CheckIfBoundaryNameIsContained
+   ! use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, CheckIfBoundaryNameIsContained
+   use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC
    use InflowBCClass,                 only: InflowBC_t
    use OutflowBCClass,                only: OutflowBC_t
    use NoSlipWallBCClass,             only: NoSlipWallBC_t
@@ -184,14 +185,14 @@ module BoundaryConditions
    !     ------------------
    
          if (  MPI_Process % doMPIAction ) then
-   #ifdef _HAS_MPI_
+#ifdef _HAS_MPI_
             do zoneID = 1, size(mesh % zones)
                call mpi_reduce ( mesh % zones(zoneID) % no_of_faces, facesPerZone(zoneID) , 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr )
             end do
    
             no_of_bdry_faces = sum(facesPerZone)
             no_of_faces      = (6*mesh % no_of_allElements + no_of_bdry_faces)/2
-   #endif
+#endif
          else
             do zoneID = 1, size(mesh % zones)
                facesPerZone(zoneID) = mesh % zones(zoneID) % no_of_faces

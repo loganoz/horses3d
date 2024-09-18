@@ -9,7 +9,7 @@ module ShockCapturing
    use HexMeshClass,               only: HexMesh
    use ElementClass,               only: Element
 #if !defined(SPALARTALMARAS)
-   use LESModels,                  only: Smagorinsky_t
+   use LESModels,                  only: Smagorinsky_t, Smagorinsky_ComputeViscosity
 #endif
    use SpectralVanishingViscosity, only: SVV, InitializeSVV
    use DGIntegrals,                only: ScalarWeakIntegrals, ScalarStrongIntegrals
@@ -489,7 +489,7 @@ module ShockCapturing
                self % Smagorinsky % active = .true.
                self % Smagorinsky % requiresWallDistances = .false.
                self % Smagorinsky % WallModel = 0  ! No wall model
-               self % Smagorinsky % CS = self % mu1
+               self % Smagorinsky % C = self % mu1
 #endif
 
             case default
@@ -685,12 +685,14 @@ module ShockCapturing
 
             delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               call self % Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
-                                                          e % storage % Q(:,i,j,k),       &
-                                                          e % storage % U_x(:,i,j,k),     &
-                                                          e % storage % U_y(:,i,j,k),     &
-                                                          e % storage % U_z(:,i,j,k),     &
-                                                          mu(i,j,k))
+               call Smagorinsky_ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                 e % storage % Q(:,i,j,k),       &
+                                                 e % storage % U_x(:,i,j,k),     &
+                                                 e % storage % U_y(:,i,j,k),     &
+                                                 e % storage % U_z(:,i,j,k),     &
+                                                 mu(i,j,k),                      &
+                                                 self % smagorinsky % C,            &
+                                                 self % smagorinsky % WallModel)
             end do                ; end do                ; end do
 #endif
 
@@ -770,7 +772,7 @@ module ShockCapturing
 
       if (self % updateMethod == SC_SMAG_ID) then
 #if !defined (SPALARTALMARAS)
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % C
 #endif
       else
          if (self % region == 1) then
@@ -916,12 +918,14 @@ module ShockCapturing
 
             delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               call self % Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
-                                                          e % storage % Q(:,i,j,k),       &
-                                                          e % storage % U_x(:,i,j,k),     &
-                                                          e % storage % U_y(:,i,j,k),     &
-                                                          e % storage % U_z(:,i,j,k),     &
-                                                          sqrt_mu(i,j,k))
+               call Smagorinsky_ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                 e % storage % Q(:,i,j,k),       &
+                                                 e % storage % U_x(:,i,j,k),     &
+                                                 e % storage % U_y(:,i,j,k),     &
+                                                 e % storage % U_z(:,i,j,k),     &
+                                                 sqrt_mu(i,j,k),                 &
+                                                 self % smagorinsky % C,         &
+                                                 self % smagorinsky % WallModel)
                sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
             end do                ; end do                ; end do
 #endif
@@ -984,7 +988,7 @@ module ShockCapturing
 
       if (self % updateMethod == SC_SMAG_ID) then
 #if !defined (SPALARTALMARAS)
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % C
 #endif
       else
          if (self % region == 1) then
