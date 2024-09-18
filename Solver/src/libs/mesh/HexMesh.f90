@@ -105,6 +105,13 @@ MODULE HexMeshClass
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
+#if defined(ACOUSTIC)
+            procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
+            ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+            procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
+            procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
+            procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
+#endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
@@ -127,7 +134,7 @@ MODULE HexMeshClass
 #endif
             procedure :: MarkSlidingElements            => HexMesh_MarkSlidingElements
             procedure :: RotateNodes                   => HexMesh_RotateNodes
-            procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
+            !procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -1430,6 +1437,69 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesAviscFlux
+
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      #if defined(ACOUSTIC)
+      subroutine HexMesh_UpdateMPIFacesBaseSolution(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Qbase(:,i,j)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesBaseSolution
+#endif
 !
       !////////////////////////////////////////////////////////////////////////
 !
@@ -1729,6 +1799,53 @@ slavecoord:             DO l = 1, 4
       end subroutine HexMesh_GatherMPIFacesAviscflux
 !
       !////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+      subroutine HexMesh_GatherMPIFacesBaseSolution(self, nEqn)
+         implicit none
+         class(HexMesh)    :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForSolution
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  f % storage(otherSide(thisSide)) % Qbase(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesBaseSolution
+#endif
+!
+!////////////////////////////////////////////////////////////////////////
 !
       subroutine HexMesh_GatherMPIFacesMortarFlux(self, nEqn)
          implicit none
@@ -4135,6 +4252,57 @@ if (.not.self % nonconforming) then
          if (present(with_gradients) ) with_gradients = gradients
 
       END SUBROUTINE HexMesh_LoadSolution
+
+
+#if defined(ACOUSTIC)
+      Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
+          Implicit None
+           CLASS(HexMesh)                  :: self
+           real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
+  !
+  !        ---------------
+  !        Local variables
+  !        ---------------
+           INTEGER                        :: eID, eq
+  
+           do eID = 1, size(self % elements)
+              do eq = 1,NCONS
+                  self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
+              end do
+           end do
+  !
+      End Subroutine HexMesh_SetUniformBaseFlow
+  !
+  !////////////////////////////////////////////////////////////////////////
+  !
+        subroutine HexMesh_ProlongBaseSolutionToFaces(self, nEqn)
+           implicit none
+           class(HexMesh),    intent(inout) :: self
+           integer,           intent(in)    :: nEqn
+  !
+  !        ---------------
+  !        Local variables
+  !        ---------------
+  !
+           integer  :: fIDs(6)
+           integer  :: eID, i
+  
+  !$omp do schedule(runtime) private(fIDs)
+           do eID = 1, size(self % elements)
+              fIDs = self % elements(eID) % faceIDs
+              call self % elements(eID) % ProlongBaseSolutionToFaces(nEqn, &
+                                                                     self % faces(fIDs(1)),&
+                                                                     self % faces(fIDs(2)),&
+                                                                     self % faces(fIDs(3)),&
+                                                                     self % faces(fIDs(4)),&
+                                                                     self % faces(fIDs(5)),&
+                                                                     self % faces(fIDs(6)) )
+           end do
+  !$omp end do
+  
+        end subroutine HexMesh_ProlongBaseSolutionToFaces
+  #endif
+  !
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -5238,6 +5406,104 @@ end subroutine HexMesh_pAdapt_MPI
 
 
    end subroutine HexMesh_Assign
+   subroutine HexMesh_UpdateHOArrays(self)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), target  , intent(inout)   :: self
+      !-local-variables-----------------------------------
+      type(IntegerDataLinkedList_t)         :: HO_elementList
+      type(IntegerDataLinkedList_t)         :: LO_elementList
+      type(IntegerDataLinkedList_t)         :: faceInteriorList
+      type(IntegerDataLinkedList_t)         :: faceBoundaryList
+      type(IntegerDataLinkedList_t)         :: elementMPIList
+      type(IntegerDataLinkedList_t)         :: elementSequentialList
+      integer                               :: eID, fID, face, i
+      !--------------------------------------------------
+      
+      HO_elementList            = IntegerDataLinkedList_t(.FALSE.)
+      LO_elementList            = IntegerDataLinkedList_t(.FALSE.)
+      faceInteriorList          = IntegerDataLinkedList_t(.FALSE.)
+      faceBoundaryList          = IntegerDataLinkedList_t(.FALSE.)
+      elementMPIList            = IntegerDataLinkedList_t(.FALSE.)
+      elementSequentialList     = IntegerDataLinkedList_t(.FALSE.)
+
+      if( allocated(self % HO_Elements) ) then
+         deallocate(self % HO_Elements)
+      endif
+
+      if ( allocated(self % LO_Elements)) then
+         deallocate(self % LO_Elements)
+      endif
+
+      if( allocated(self % HO_FacesInterior) ) then
+         deallocate(self % HO_FacesInterior)
+      endif
+
+      if( allocated(self % HO_FacesBoundary) ) then
+         deallocate(self % HO_FacesBoundary)
+      endif
+
+      if( allocated(self % HO_ElementsSequential) ) then
+         deallocate(self % HO_ElementsSequential)
+      endif
+
+      ! All elements and faces
+      do eID=1, self % no_of_elements
+         if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+            call HO_elementList % add(eID)
+            do fID=1, 6
+               face = self % elements(eID) % faceIDs(fID)
+               if (self % faces(face) % FaceType  /= HMESH_BOUNDARY) then
+                  call faceInteriorList % add (face)
+               else
+                  call faceBoundaryList % add (face)
+               end if
+            end do
+         else
+            call LO_elementList % add(eID)
+         endif
+      end do
+
+      ! Sequential elements
+      do i=1, size(self % elements_sequential)
+         eID = self % elements_sequential(i)
+         if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+            call elementSequentialList % add(eID)
+         endif
+      end do
+
+
+      call HO_elementList        % ExportToArray(self % HO_Elements, .TRUE.)
+      call LO_elementList        % ExportToArray(self % LO_Elements, .TRUE.)
+      call faceInteriorList      % ExportToArray(self % HO_FacesInterior, .TRUE.)
+      call faceBoundaryList      % ExportToArray(self % HO_FacesBoundary, .TRUE.)
+      call elementSequentialList % ExportToArray(self % HO_ElementsSequential, .TRUE.)
+
+      call HO_elementList        % destruct
+      call LO_elementList        % destruct
+      call faceInteriorList      % destruct
+      call faceBoundaryList      % destruct
+      call elementSequentialList % destruct
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         if( allocated(self % HO_ElementsMPI) ) then
+            deallocate(self % HO_ElementsMPI)
+         endif
+
+         do i=1, size(self % elements_mpi)
+            eID = self % elements_mpi(i)
+            if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+               call elementMPIList % add(eID)
+            endif
+         end do
+
+         call elementMPIList % ExportToArray(self % HO_ElementsMPI, .TRUE.)
+      end if
+#endif
+call elementMPIList % destruct 
+
+   end subroutine HexMesh_UpdateHOArrays
 
    subroutine HexMesh_MarkSlidingElements (self, new_nNodes, ner)
       IMPLICIT NONE 
@@ -5540,76 +5806,76 @@ end subroutine HexMesh_pAdapt_MPI
 
 end subroutine HexMesh_RotateNodes
 
-subroutine HexMesh_ConstructSlidingMortars(self, n, array1, array2, o, s)
-   type(HeMesh), intent(inout) :: self
-   integer, intent(in)         :: n
-   integer, intent(in)         :: array1(n), array2(n)
-   real(kind=RP) :: s(2), o(2)
-
-   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2
-    
-   ALLOCATE (self % mortar_faces(2*n))
-   l=1
-   i=1
-   do while (i .LE. n)
-       eID1=self % elements(array2(i)) 
-       DO j = 1, 4
-           faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
-       END DO
-
-       fID=self %elements(eID1) % faceIDs(1)
-       allocate(self % faces(fID) % Mortar(2)) 
-
-       do m=1, 2
-           CALL self % mortar_faces(l) % Construct(ID  = l, &
-           nodeIDs = faceNodeIDs, &
-           elementID = eID1,       &
-           side = faceNumber)
-
-           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
-
-           self % fmortar_faces(l) % boundaryName = &
-                   self % elements(eID) % boundaryName(faceNumber)
-
-
-           if (m==1)  self % faces(fID) % Mortar(1)=l
-           if (m==2)  self % faces(fID) % Mortar(2)=l
-           if (m==1) eID2= self % elements(array1(i))   
-           if (m==2) eID2= self % elements(array1(i+1))      
-           self % mortar_faces(l) % elementIDs(2)  = eID2
-           self % mortar_faces(l) % elementSide(2) = faceNumber
-           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
-           self % mortar_faces(l) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
-                                                                       slaveNodeIDs  = faceNodeIDs)
-           
-           fID=self %elements(eID2) % faceIDs(2)
-           if (.not.allocated(self % faces % Mortar)) allocate(self % faces(fID) % Mortar(2)) 
-           if (m==1) then 
-               self % mortar_faces(l)%offset= o(1)
-               self % mortar_faces(l)%scale= s(1)
-               self % faces(fID) % Mortar(2)=l
-           else if (m==2) 
-               self % mortar_faces(l)%offset= o(2)
-               self % mortar_faces(l)%scale= s(2)
-               self % faces(fID) % Mortar(1)=l
-           end if  
-           l=l+1
-       end do     
-       self % elements(array2(i))% MortarFaces(1)=3 
-       self % elements(array1(i))% MortarFaces(2)=3                                                        
-        i=i+1
-   end do
-
-   do i=1, size(self%mortar_faces)
-       associate(f => self % mortar_faces(i))
-           associate(eL => self % elements(f % elementIDs(1)))
-
-            call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
-                                      NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
-                                      eL % geom, eL % hexMap, f % elementSide(1), &
-                                      f % projectionType(1), 1, 0 )
-            end associate
-       end associate
-   end do 
-end subroutine HexMesh_ConstructSlidingMortars 
+!subroutine HexMesh_ConstructSlidingMortars(self, n, array1, array2, o, s)
+ !  type(HeMesh), intent(inout) :: self
+!   integer, intent(in)         :: n
+!   integer, intent(in)         :: array1(n), array2(n)
+!   real(kind=RP) :: s(2), o(2)
+!
+!   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2
+!    
+!   ALLOCATE (self % mortar_faces(2*n))
+!   l=1
+!   i=1
+!   do while (i .LE. n)
+!       eID1=self % elements(array2(i)) 
+!       DO j = 1, 4
+!           faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+!       END DO
+!
+!       fID=self %elements(eID1) % faceIDs(1)
+!       allocate(self % faces(fID) % Mortar(2)) 
+!
+!       do m=1, 2
+!           CALL self % mortar_faces(l) % Construct(ID  = l, &
+!           nodeIDs = faceNodeIDs, &
+!           elementID = eID1,       &
+!           side = faceNumber)
+!!
+!           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+!
+!           self % fmortar_faces(l) % boundaryName = &
+!                   self % elements(eID) % boundaryName(faceNumber)
+!
+!
+!           if (m==1)  self % faces(fID) % Mortar(1)=l
+!!           if (m==2)  self % faces(fID) % Mortar(2)=l
+!           if (m==1) eID2= self % elements(array1(i))   
+!           if (m==2) eID2= self % elements(array1(i+1))      
+!           self % mortar_faces(l) % elementIDs(2)  = eID2
+!           self % mortar_faces(l) % elementSide(2) = faceNumber
+!           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+!           self % mortar_faces(l) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
+!                                                                       slaveNodeIDs  = faceNodeIDs)
+!           
+!           fID=self %elements(eID2) % faceIDs(2)
+!           if (.not.allocated(self % faces % Mortar)) allocate(self % faces(fID) % Mortar(2)) 
+!           if (m==1) then 
+!               self % mortar_faces(l)%offset= o(1)
+!               self % mortar_faces(l)%scale= s(1)
+ !              self % faces(fID) % Mortar(2)=l
+!           else if (m==2) 
+!               self % mortar_faces(l)%offset= o(2)
+!               self % mortar_faces(l)%scale= s(2)
+!               self % faces(fID) % Mortar(1)=l
+!           end if  
+!           l=l+1
+!       end do     
+!       self % elements(array2(i))% MortarFaces(1)=3 
+!       self % elements(array1(i))% MortarFaces(2)=3                                                        
+!        i=i+1
+!   end do
+!
+!   do i=1, size(self%mortar_faces)
+!       associate(f => self % mortar_faces(i))
+!           associate(eL => self % elements(f % elementIDs(1)))
+!
+!            call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+!                                      NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
+!                                      eL % geom, eL % hexMap, f % elementSide(1), &
+!                                      f % projectionType(1), 1, 0 )
+!            end associate
+!       end associate
+!   end do 
+!end subroutine HexMesh_ConstructSlidingMortars 
 END MODULE HexMeshClass
