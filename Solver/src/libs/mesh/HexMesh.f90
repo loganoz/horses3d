@@ -74,6 +74,12 @@ MODULE HexMeshClass
          integer                                   :: dir2D_ctrl  = 0               ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
+         integer,                     allocatable  :: HO_Elements(:)           !List of elements with polynomial order greater than 1
+         integer,                     allocatable  :: LO_Elements(:)           !List of elements with polynomial order less or equal than 1
+         integer,                     allocatable  :: HO_FacesInterior(:)      !List of interior faces with polynomial order greater than 1
+         integer,                     allocatable  :: HO_FacesBoundary(:)      !List of boundary faces with polynomial order greater than 1
+         integer,                     allocatable  :: HO_ElementsMPI(:)        !List of MPI elements with polynomial order greater than 1
+         integer,                     allocatable  :: HO_ElementsSequential(:) !List of sequential elements with polynomial order greater than 1
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -96,13 +102,21 @@ MODULE HexMeshClass
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
-#if defined(NAVIERSTOKES)
+            procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
+#if defined(NAVIERSTOKES) || defined(INCNS)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
+#if defined(ACOUSTIC)
+            procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
+            ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+            procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
+            procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
+            procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
+#endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
@@ -198,6 +212,13 @@ MODULE HexMeshClass
          safedeallocate(self % faces_interior)
          safedeallocate(self % faces_mpi)
          safedeallocate(self % faces_boundary)
+
+         safedeallocate(self % HO_Elements)
+         safedeallocate(self % LO_Elements)
+         safedeallocate(self % HO_FacesInterior)
+         safedeallocate(self % HO_FacesBoundary)
+         safedeallocate(self % HO_ElementsMPI)
+         safedeallocate(self % HO_ElementsSequential)
 
 !
 !        ----------------
@@ -879,33 +900,54 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn)
+      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn, HO_Elements)
          implicit none
-         class(HexMesh),   intent(inout)  :: self
-         integer,          intent(in)     :: nEqn
+         class(HexMesh),    intent(inout) :: self
+         integer,           intent(in)    :: nEqn
+         logical, optional, intent(in)    :: HO_Elements
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer  :: fIDs(6)
-         integer  :: eID
+         integer  :: eID, i
+         logical :: HOElements
 
-!$omp do schedule(runtime)
-         !!$acc parallel loop gang present(self) private(fIDs)
-         !do eID = 1, size(self % elements)
-         !   fIDs = self % elements(eID) % faceIDs
-            !call HexElement_ProlongSolToFaces (self % elements(eID) ,NCONS, &
-            !                                        self % faces(fIDs(1)),&
-            !                                        self % faces(fIDs(2)),&
-            !                                        self % faces(fIDs(3)),&
-            !                                        self % faces(fIDs(4)),&
-            !                                        self % faces(fIDs(5)),&
-            !                                        self % faces(fIDs(6)) )
-         !end do
-         !!$acc end parallel loop
+         if (present(HO_Elements)) then
+            HOElements = HO_Elements
+         else
+            HOElements = .false.
+         end if
+
+         if (HOElements) then
+!$omp do schedule(runtime) private(eID, fIDs)
+            do i = 1, size(self % HO_Elements)
+               eID = self % HO_Elements(i)
+               fIDs = self % elements(eID) % faceIDs
+            !   call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+            !                                                      self % faces(fIDs(1)),&
+            !                                                      self % faces(fIDs(2)),&
+            !                                                      self % faces(fIDs(3)),&
+            !                                                      self % faces(fIDs(4)),&
+            !                                                      self % faces(fIDs(5)),&
+            !                                                      self % faces(fIDs(6)) )
+            end do
 !$omp end do
-
+         else
+!$omp do schedule(runtime) private(fIDs)
+            do eID = 1, size(self % elements)
+               fIDs = self % elements(eID) % faceIDs
+            !   call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+            !                                                      self % faces(fIDs(1)),&
+            !                                                      self % faces(fIDs(2)),&
+            !                                                      self % faces(fIDs(3)),&
+            !                                                      self % faces(fIDs(4)),&
+            !                                                      self % faces(fIDs(5)),&
+            !                                                      self % faces(fIDs(6)) )
+            end do
+!$omp end do
+         end if
       end subroutine HexMesh_ProlongSolutionToFaces
 
       subroutine HexMesh_ProlongSolToFaces(self, nEqn)
@@ -1227,6 +1269,68 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#if defined(ACOUSTIC)
+      subroutine HexMesh_UpdateMPIFacesBaseSolution(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Qbase(:,i,j)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesBaseSolution
+#endif
+!
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
          class(HexMesh)    :: self
@@ -1377,6 +1481,53 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_GatherMPIFacesAviscflux
+!
+!////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+      subroutine HexMesh_GatherMPIFacesBaseSolution(self, nEqn)
+         implicit none
+         class(HexMesh)    :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForSolution
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  f % storage(otherSide(thisSide)) % Qbase(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesBaseSolution
+#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -1536,6 +1687,8 @@ slavecoord:             DO l = 1, 4
       integer           :: no_of_facesP(MPI_Process % nProcs)
       integer           :: no_of_bfacesP(MPI_Process % nProcs)
       integer           :: no_of_mpifacesP(MPI_Process % nProcs)
+	  integer           :: no_of_mpiSuggest(2)
+	  real(KIND=RP)     :: maxRatio_mpifacesShared
       character(len=64) :: partitionID
 
       if ( .not. MPI_Process % doMPIAction ) return
@@ -1585,6 +1738,22 @@ slavecoord:             DO l = 1, 4
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of mpi faces: " , no_of_mpifacesP(rank)
 
       end do
+	  
+	  maxRatio_mpifacesShared = maxval(REAL(no_of_mpifacesP)/REAL(no_of_facesP))
+	  no_of_mpiSuggest(1) = FLOOR(0.4*MPI_Process % nProcs/(maxRatio_mpifacesShared))
+	  no_of_mpiSuggest(2) = CEILING(0.6*MPI_Process % nProcs/(maxRatio_mpifacesShared))
+	  
+	  write(STD_OUT,'(/)')
+	  call SubSection_Header("MPI Suggestion: ")
+	  
+	  if (self % NDOF.gt.5000000) then
+		  write(STD_OUT,'(30X,A,A28,F4.2)') "->" , "Max mpi faces ratio: " ,maxRatio_mpifacesShared
+		  write(STD_OUT,'(30X,A,A28,A10)')  "->" , "Optimum mpi faces ratio: " ,"0.4-0.6"
+		  write(STD_OUT,'(30X,A,A28,I4,A3,I4)')"->" , "Suggested number of mpi: ",no_of_mpiSuggest(1)," - ", no_of_mpiSuggest(2)
+      else 
+	      write(STD_OUT,'(30X,A,A28,A28)') "->" , "NDOF < 5000000 : " ,"Maximize number of OpenMP"
+	  end if 
+	  
 #endif
 
       END SUBROUTINE DescribeMeshPartition
@@ -2114,6 +2283,8 @@ slavecoord:             DO l = 1, 4
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
+#elif defined(ACOUSTIC)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #endif
             call MPIFaces_CreateMPIFacesStorage(self % MPIfaces, MPI_NDOFS)
 #endif
@@ -2940,7 +3111,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
          logical                          :: saveSensor, saveLES
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES) || !defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
 !
@@ -2960,6 +3131,13 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = 0.0_RP
          refs(MACH_REF)  = 0.0_RP
+#elif defined(ACOUSTIC)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
 #else
          refs = 0.0_RP
 #endif
@@ -3016,7 +3194,7 @@ slavecoord:             DO l = 1, 4
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
 
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO * SIZEOF_RP
             if (saveSensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             call writeArray(fid, Q, position=pos)
 
@@ -3116,7 +3294,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_of_stats_variables*e % offsetIO*SIZEOF_RP
             no_stat_s = 9
             call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
@@ -3146,6 +3324,82 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveStatistics
+
+#endif
+
+#if defined(INCNS) 
+      subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer                          :: no_stat_s
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities (//# I COPIED THESE VERBATIM. Do I reaaly need these?)
+!        ---------------------------
+
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
+            no_stat_s = 9
+            call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+         !    ! write(fid) e%storage%stats%data(7:,:,:,:)
+             Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
+             write(fid) Q
+             deallocate(Q)
+            if ( saveGradients .and. computeGradients ) then
+               allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               ! UX
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
+               write(fid) Q
+               ! UY
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
+               write(fid) Q
+               ! UZ
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:,:,:,:)
+               write(fid) Q
+               deallocate(Q)
+            end if
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SaveStatistics
+
+#endif
+
+#if defined(NAVIERSTOKES) || defined(INCNS)
 
       subroutine HexMesh_ResetStatistics(self)
          implicit none
@@ -3412,7 +3666,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInReadDataMode(trim(fileName))
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO*SIZEOF_RP
             if (has_sensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             read(fID, pos=pos) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
@@ -3489,6 +3743,57 @@ slavecoord:             DO l = 1, 4
          if (present(with_gradients) ) with_gradients = gradients
 
       END SUBROUTINE HexMesh_LoadSolution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+    Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
+        Implicit None
+         CLASS(HexMesh)                  :: self
+         real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         INTEGER                        :: eID, eq
+
+         do eID = 1, size(self % elements)
+            do eq = 1,NCONS
+                self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
+            end do
+         end do
+!
+    End Subroutine HexMesh_SetUniformBaseFlow
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_ProlongBaseSolutionToFaces(self, nEqn)
+         implicit none
+         class(HexMesh),    intent(inout) :: self
+         integer,           intent(in)    :: nEqn
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fIDs(6)
+         integer  :: eID, i
+
+!$omp do schedule(runtime) private(fIDs)
+         do eID = 1, size(self % elements)
+            fIDs = self % elements(eID) % faceIDs
+            call self % elements(eID) % ProlongBaseSolutionToFaces(nEqn, &
+                                                                   self % faces(fIDs(1)),&
+                                                                   self % faces(fIDs(2)),&
+                                                                   self % faces(fIDs(3)),&
+                                                                   self % faces(fIDs(4)),&
+                                                                   self % faces(fIDs(5)),&
+                                                                   self % faces(fIDs(6)) )
+         end do
+!$omp end do
+
+      end subroutine HexMesh_ProlongBaseSolutionToFaces
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -4102,12 +4407,13 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu, nssa
+      integer  :: off, ns, c, mu, nssa, caa
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu, nssa)
+      call GetStorageEquations(off, ns, c, mu, nssa, caa)
 
-      if ( which .eq. ns ) then
+
+      if ( which .eq. ns .or. which .eq. nssa .or. which .eq. caa) then
 #ifdef FLOW
          self % storage % Q => self % storage % QNS
          self % storage % QDot => self % storage % QDotNS
@@ -4122,24 +4428,7 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(2) % SetStorageToNS
          end do
 
-      elseif ( which .eq. nssa ) then
-
-         self % storage % Q => self % storage % QNS
-         self % storage % QDot => self % storage % QDotNS
-         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
-
-         do eID = 1, self % no_of_elements
-            call self % elements(eID) % storage % SetStorageToNS
-         end do
-
-         do fID = 1, size(self % faces)
-            call self % faces(fID) % storage(1) % SetStorageToNS
-            call self % faces(fID) % storage(2) % SetStorageToNS
-         end do
-
-
 #endif
-
 
       elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)
@@ -4294,8 +4583,9 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    logical :: analyticalJac   ! Do we need analytical Jacobian storage?
    type(Element)   , pointer :: e
    type(Face)      , pointer :: f
+   real(kind=RP)             :: sensor_value
 
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES) || !defined(INCNS))
    logical, parameter            :: computeGradients = .true.
 #endif
    !---------------------------------------------------
@@ -4335,7 +4625,9 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
       if ( all( e % Nxyz == NNew(:,eID)) ) then
          cycle
       else
+         sensor_value = e % storage % sensor
          call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
+         e % storage % sensor = sensor_value
 !$omp critical
          self % Nx(eID) = NNew(1,eID)
          self % Ny(eID) = NNew(2,eID)
@@ -4457,7 +4749,7 @@ end subroutine HexMesh_pAdapt_MPI
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
       type(Face)      , pointer :: f
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES) || !(defined(INCNS)))
       logical, parameter            :: computeGradients = .true.
 #endif
       !---------------------------------------------------
@@ -4712,4 +5004,103 @@ end subroutine HexMesh_pAdapt_MPI
 
 
    end subroutine HexMesh_Assign
+
+   subroutine HexMesh_UpdateHOArrays(self)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), target  , intent(inout)   :: self
+      !-local-variables-----------------------------------
+      type(IntegerDataLinkedList_t)         :: HO_elementList
+      type(IntegerDataLinkedList_t)         :: LO_elementList
+      type(IntegerDataLinkedList_t)         :: faceInteriorList
+      type(IntegerDataLinkedList_t)         :: faceBoundaryList
+      type(IntegerDataLinkedList_t)         :: elementMPIList
+      type(IntegerDataLinkedList_t)         :: elementSequentialList
+      integer                               :: eID, fID, face, i
+      !--------------------------------------------------
+      
+      HO_elementList            = IntegerDataLinkedList_t(.FALSE.)
+      LO_elementList            = IntegerDataLinkedList_t(.FALSE.)
+      faceInteriorList          = IntegerDataLinkedList_t(.FALSE.)
+      faceBoundaryList          = IntegerDataLinkedList_t(.FALSE.)
+      elementMPIList            = IntegerDataLinkedList_t(.FALSE.)
+      elementSequentialList     = IntegerDataLinkedList_t(.FALSE.)
+
+      if( allocated(self % HO_Elements) ) then
+         deallocate(self % HO_Elements)
+      endif
+
+      if ( allocated(self % LO_Elements)) then
+         deallocate(self % LO_Elements)
+      endif
+
+      if( allocated(self % HO_FacesInterior) ) then
+         deallocate(self % HO_FacesInterior)
+      endif
+
+      if( allocated(self % HO_FacesBoundary) ) then
+         deallocate(self % HO_FacesBoundary)
+      endif
+
+      if( allocated(self % HO_ElementsSequential) ) then
+         deallocate(self % HO_ElementsSequential)
+      endif
+
+      ! All elements and faces
+      do eID=1, self % no_of_elements
+         if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+            call HO_elementList % add(eID)
+            do fID=1, 6
+               face = self % elements(eID) % faceIDs(fID)
+               if (self % faces(face) % FaceType  /= HMESH_BOUNDARY) then
+                  call faceInteriorList % add (face)
+               else
+                  call faceBoundaryList % add (face)
+               end if
+            end do
+         else
+            call LO_elementList % add(eID)
+         endif
+      end do
+
+      ! Sequential elements
+      do i=1, size(self % elements_sequential)
+         eID = self % elements_sequential(i)
+         if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+            call elementSequentialList % add(eID)
+         endif
+      end do
+
+
+      call HO_elementList        % ExportToArray(self % HO_Elements, .TRUE.)
+      call LO_elementList        % ExportToArray(self % LO_Elements, .TRUE.)
+      call faceInteriorList      % ExportToArray(self % HO_FacesInterior, .TRUE.)
+      call faceBoundaryList      % ExportToArray(self % HO_FacesBoundary, .TRUE.)
+      call elementSequentialList % ExportToArray(self % HO_ElementsSequential, .TRUE.)
+
+      call HO_elementList        % destruct
+      call LO_elementList        % destruct
+      call faceInteriorList      % destruct
+      call faceBoundaryList      % destruct
+      call elementSequentialList % destruct
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         if( allocated(self % HO_ElementsMPI) ) then
+            deallocate(self % HO_ElementsMPI)
+         endif
+
+         do i=1, size(self % elements_mpi)
+            eID = self % elements_mpi(i)
+            if ( maxval( self % elements(eID) % Nxyz) > 1 ) then
+               call elementMPIList % add(eID)
+            endif
+         end do
+
+         call elementMPIList % ExportToArray(self % HO_ElementsMPI, .TRUE.)
+      end if
+#endif
+call elementMPIList % destruct 
+
+   end subroutine HexMesh_UpdateHOArrays
 END MODULE HexMeshClass

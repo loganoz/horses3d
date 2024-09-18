@@ -7,6 +7,8 @@ module Physics
    use Physics_iNS
 #elif defined(MULTIPHASE)
    use Physics_MU
+#elif defined(ACOUSTIC)
+   use Physics_CAA
 #endif
 #if defined(CAHNHILLIARD)
    use Physics_CH

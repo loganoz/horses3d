@@ -69,7 +69,7 @@ A keyword preceded by @ is used in real-time to signalize the solver what it mus
 After reading the keyword, the solver performs the desired action and marks it with a star, e.g. @start*.
 
 @note 
-Real-time keywords may not work in parallel MPI computations. I depends on how the system is configured.
+Real-time keywords may not work in parallel MPI computations. It depends on how the system is configured.
 @endnote
 
 ## Probes

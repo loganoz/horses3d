@@ -43,7 +43,7 @@ The boundary conditions are specified as blocks in the control file. The block s
 
 Each boundary condition can be individually defined, or if multiple boundaries are set with the same definition, it could be done in the same block (with the name separated by a double underscore `$\_$' sign). The name of each boundary must match with the one specified in the mesh file.
 
-The block in general can be seen below. 
+The block in general can be seen below: 
 
 ```markdown
 #define boundary myBoundary1__myBoundary2__myBoundary3
@@ -52,11 +52,13 @@ The block in general can be seen below.
     parameter 2 = value_2
 # end
 ```
+
 The table below shows the values for the type keyword, and the possible values for the parameters depend on the boundary condition.
+```
 | Keyword | Description | Default value |
 |---------|-------------|---------------|
 | type    | *CHARACTER*: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. | N/A |
-
+```
 
 By default, NoSlipWall is adiabatic. Isothermal wall can be activated with the following block:
 

@@ -10,6 +10,8 @@
 
 module ReinforcementLearning
 
+    use SMConstants
+
     implicit none
 
     private 
@@ -26,60 +28,74 @@ module ReinforcementLearning
             generic :: load  => MatrixND_Load
             procedure(MatrixND_GetDataInterface), deferred :: MatrixND_GetData
             generic :: getData  => MatrixND_GetData
+            procedure(MatrixND_GetErrorInterface), deferred :: MatrixND_GetError
+            generic :: getError  => MatrixND_GetError
     end type MatrixND_t
 
     type, extends(MatrixND_t) :: Matrix2D_t
         integer(kind=1), allocatable :: data(:,:)
+        real(KIND=4)   , allocatable :: error(:,:)
         contains
             procedure :: MatrixND_Construct => Matrix2D_Construct
             procedure :: MatrixND_Destruct  => Matrix2D_Destruct
             procedure :: MatrixND_Load      => Matrix2D_Load
             procedure :: MatrixND_GetData   => Matrix2D_GetData
+            procedure :: MatrixND_GetError  => Matrix2D_GetError
     end type Matrix2D_t
 
     type, extends(MatrixND_t) :: Matrix3D_t
         integer(kind=1), allocatable :: data(:,:,:)
+        real(KIND=4)   , allocatable :: error(:,:,:)
         contains
             procedure :: MatrixND_Construct => Matrix3D_Construct
             procedure :: MatrixND_Destruct  => Matrix3D_Destruct
             procedure :: MatrixND_Load      => Matrix3D_Load
             procedure :: MatrixND_GetData   => Matrix3D_GetData
+            procedure :: MatrixND_GetError  => Matrix3D_GetError
     end type Matrix3D_t
 
     type, extends(MatrixND_t) :: Matrix4D_t
         integer(kind=1), allocatable :: data(:,:,:,:)
+        real(KIND=4)   , allocatable :: error(:,:,:,:)
         contains
             procedure :: MatrixND_Construct => Matrix4D_Construct
             procedure :: MatrixND_Destruct  => Matrix4D_Destruct
             procedure :: MatrixND_Load      => Matrix4D_Load
             procedure :: MatrixND_GetData   => Matrix4D_GetData
+            procedure :: MatrixND_GetError  => Matrix4D_GetError
     end type Matrix4D_t
 
     type, extends(MatrixND_t) :: Matrix5D_t
         integer(kind=1), allocatable :: data(:,:,:,:,:)
+        real(KIND=4)   , allocatable :: error(:,:,:,:,:)
         contains
             procedure :: MatrixND_Construct => Matrix5D_Construct
             procedure :: MatrixND_Destruct  => Matrix5D_Destruct
             procedure :: MatrixND_Load      => Matrix5D_Load
             procedure :: MatrixND_GetData   => Matrix5D_GetData
+            procedure :: MatrixND_GetError  => Matrix5D_GetError
     end type Matrix5D_t
 
     type, extends(MatrixND_t) :: Matrix6D_t
         integer(kind=1), allocatable :: data(:,:,:,:,:,:)
+        real(KIND=4)   , allocatable :: error(:,:,:,:,:,:)
         contains
             procedure :: MatrixND_Construct => Matrix6D_Construct
             procedure :: MatrixND_Destruct  => Matrix6D_Destruct
             procedure :: MatrixND_Load      => Matrix6D_Load
             procedure :: MatrixND_GetData   => Matrix6D_GetData
+            procedure :: MatrixND_GetError  => Matrix6D_GetError
     end type Matrix6D_t
 
     type, extends(MatrixND_t) :: Matrix7D_t
         integer(kind=1), allocatable :: data(:,:,:,:,:,:,:)
+        real(KIND=4)   , allocatable :: error(:,:,:,:,:,:,:)
         contains
             procedure :: MatrixND_Construct => Matrix7D_Construct
             procedure :: MatrixND_Destruct  => Matrix7D_Destruct
             procedure :: MatrixND_Load      => Matrix7D_Load
             procedure :: MatrixND_GetData   => Matrix7D_GetData
+            procedure :: MatrixND_GetError  => Matrix7D_GetError
     end type Matrix7D_t
 
     type :: adaptiveArray_t
@@ -152,6 +168,22 @@ module ReinforcementLearning
    end function MatrixND_GetDataInterface
    end interface
 
+!  -------------------------------------------------------
+!  Interface for retrieving the error from a MatrixND class
+!  -------------------------------------------------------
+   interface
+   function MatrixND_GetErrorInterface(self, indices) result(val)
+      import MatrixND_t
+      import RP
+      !--------------------------------------
+      implicit none
+      !--------------------------------------
+      class(MatrixND_t)     , intent(in)    :: self
+      integer               , intent(in)    :: indices(:)
+      real(KIND=4)                          :: val
+   end function MatrixND_GetErrorInterface
+   end interface
+
     !========
     contains
     !========
@@ -168,6 +200,7 @@ module ReinforcementLearning
         integer          , intent(in)    :: Npoints
         !----------------------------------------------------
         allocate(self % data(Npoints,Npoints))
+        allocate(self % error(Npoints,Npoints))
     end subroutine Matrix2D_Construct
 
     subroutine Matrix3D_Construct(self, Npoints)
@@ -177,6 +210,7 @@ module ReinforcementLearning
         integer          , intent(in)    :: Npoints
         !----------------------------------------------------
         allocate(self % data(Npoints,Npoints,Npoints))
+        allocate(self % error(Npoints,Npoints,Npoints))
     end subroutine Matrix3D_Construct
 
     subroutine Matrix4D_Construct(self, Npoints)
@@ -186,6 +220,7 @@ module ReinforcementLearning
         integer          , intent(in)    :: Npoints
         !----------------------------------------------------
         allocate(self % data(Npoints,Npoints,Npoints,Npoints))
+        allocate(self % error(Npoints,Npoints,Npoints,Npoints))
     end subroutine Matrix4D_Construct
 
     subroutine Matrix5D_Construct(self, Npoints)
@@ -195,6 +230,7 @@ module ReinforcementLearning
         integer          , intent(in)    :: Npoints
         !----------------------------------------------------
         allocate(self % data(Npoints,Npoints,Npoints,Npoints,Npoints))
+        allocate(self % error(Npoints,Npoints,Npoints,Npoints,Npoints))
     end subroutine Matrix5D_Construct
 
     subroutine Matrix6D_Construct(self, Npoints)
@@ -204,6 +240,7 @@ module ReinforcementLearning
         integer          , intent(in)    :: Npoints
         !----------------------------------------------------
         allocate(self % data(Npoints,Npoints,Npoints,Npoints,Npoints,Npoints))
+        allocate(self % error(Npoints,Npoints,Npoints,Npoints,Npoints,Npoints))
     end subroutine Matrix6D_Construct
 
     subroutine Matrix7D_Construct(self, Npoints)
@@ -213,6 +250,7 @@ module ReinforcementLearning
         integer          , intent(in)    :: Npoints
         !----------------------------------------------------
         allocate(self % data(Npoints,Npoints,Npoints,Npoints,Npoints,Npoints,Npoints))
+        allocate(self % error(Npoints,Npoints,Npoints,Npoints,Npoints,Npoints,Npoints))
     end subroutine Matrix7D_Construct
     !
     !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -226,6 +264,7 @@ module ReinforcementLearning
         class(Matrix2D_t), intent(inout) :: self
         !----------------------------------------------------
         deallocate(self % data)
+        deallocate(self % error)
     end subroutine Matrix2D_Destruct
 
     subroutine Matrix3D_Destruct(self)
@@ -234,6 +273,7 @@ module ReinforcementLearning
         class(Matrix3D_t), intent(inout) :: self
         !----------------------------------------------------
         deallocate(self % data)
+        deallocate(self % error)
     end subroutine Matrix3D_Destruct
 
     subroutine Matrix4D_Destruct(self)
@@ -242,6 +282,7 @@ module ReinforcementLearning
         class(Matrix4D_t), intent(inout) :: self
         !----------------------------------------------------
         deallocate(self % data)
+        deallocate(self % error)
     end subroutine Matrix4D_Destruct
 
     subroutine Matrix5D_Destruct(self)
@@ -250,6 +291,7 @@ module ReinforcementLearning
         class(Matrix5D_t), intent(inout) :: self
         !----------------------------------------------------
         deallocate(self % data)
+        deallocate(self % error)
     end subroutine Matrix5D_Destruct
 
     subroutine Matrix6D_Destruct(self)
@@ -258,6 +300,7 @@ module ReinforcementLearning
         class(Matrix6D_t), intent(inout) :: self
         !----------------------------------------------------
         deallocate(self % data)
+        deallocate(self % error)
     end subroutine Matrix6D_Destruct
 
     subroutine Matrix7D_Destruct(self)
@@ -266,6 +309,7 @@ module ReinforcementLearning
         class(Matrix7D_t), intent(inout) :: self
         !----------------------------------------------------
         deallocate(self % data)
+        deallocate(self % error)
     end subroutine Matrix7D_Destruct
     !
     !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -284,6 +328,9 @@ module ReinforcementLearning
         open(newunit = fd, FILE = agentFile//"_p1.bin", form="unformatted", action="read", status="old", access='stream') 
         read(fd) self % data
         close(UNIT=fd)
+        open(newunit = fd, FILE = agentFile//"_error_p1.bin", form="unformatted", action="read", status="old", access='stream') 
+        read(fd) self % error
+        close(UNIT=fd)
     end subroutine Matrix2D_Load
 
     subroutine Matrix3D_Load(self, agentFile)
@@ -296,6 +343,9 @@ module ReinforcementLearning
         !----------------------------------------------------
         open(newunit = fd, FILE = agentFile//"_p2.bin", form="unformatted", action="read", status="old", access='stream') 
         read(fd) self % data
+        close(UNIT=fd)
+        open(newunit = fd, FILE = agentFile//"_error_p2.bin", form="unformatted", action="read", status="old", access='stream')
+        read(fd) self % error
         close(UNIT=fd)
     end subroutine Matrix3D_Load
 
@@ -310,6 +360,9 @@ module ReinforcementLearning
         open(newunit = fd, FILE = agentFile//"_p3.bin", form="unformatted", action="read", status="old", access='stream') 
         read(fd) self % data
         close(UNIT=fd)
+        open(newunit = fd, FILE = agentFile//"_error_p3.bin", form="unformatted", action="read", status="old", access='stream')
+        read(fd) self % error
+        close(UNIT=fd)
     end subroutine Matrix4D_Load
 
     subroutine Matrix5D_Load(self, agentFile)
@@ -322,6 +375,9 @@ module ReinforcementLearning
         !----------------------------------------------------
         open(newunit = fd, FILE = agentFile//"_p4.bin", form="unformatted", action="read", status="old", access='stream') 
         read(fd) self % data
+        close(UNIT=fd)
+        open(newunit = fd, FILE = agentFile//"_error_p4.bin", form="unformatted", action="read", status="old", access='stream')
+        read(fd) self % error
         close(UNIT=fd)
     end subroutine Matrix5D_Load
 
@@ -336,6 +392,9 @@ module ReinforcementLearning
         open(newunit = fd, FILE = agentFile//"_p5.bin", form="unformatted", action="read", status="old", access='stream') 
         read(fd) self % data
         close(UNIT=fd)
+        open(newunit = fd, FILE = agentFile//"_error_p5.bin", form="unformatted", action="read", status="old", access='stream')
+        read(fd) self % error
+        close(UNIT=fd)
     end subroutine Matrix6D_Load
 
     subroutine Matrix7D_Load(self, agentFile)
@@ -348,6 +407,9 @@ module ReinforcementLearning
         !----------------------------------------------------
         open(newunit = fd, FILE = agentFile//"_p6.bin", form="unformatted", action="read", status="old", access='stream') 
         read(fd) self % data
+        close(UNIT=fd)
+        open(newunit = fd, FILE = agentFile//"_error_p6.bin", form="unformatted", action="read", status="old", access='stream')
+        read(fd) self % error
         close(UNIT=fd)
     end subroutine Matrix7D_Load
     !
@@ -421,6 +483,77 @@ module ReinforcementLearning
         !--------------------------------------
         val = self % data(indices(1), indices(2), indices(3), indices(4), indices(5), indices(6), indices(7))
     end function Matrix7D_GetData
+    !
+    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    !
+    !  -------------------------------------------------------
+    !  Routine for retrieving the error from the MatrixNd class
+    !  -------------------------------------------------------
+    function Matrix2D_GetError(self, indices) result(val)
+        !--------------------------------------
+        implicit none
+        !--------------------------------------
+        class(Matrix2D_t)     , intent(in)    :: self
+        integer               , intent(in)    :: indices(:)
+        real(kind=4)                          :: val
+        !--------------------------------------
+        val = self % error(indices(1), indices(2))
+    end function Matrix2D_GetError
+
+    function Matrix3D_GetError(self, indices) result(val)
+        !--------------------------------------
+        implicit none
+        !--------------------------------------
+        class(Matrix3D_t)     , intent(in)    :: self
+        integer               , intent(in)    :: indices(:)
+        real(kind=4)                          :: val
+        !--------------------------------------
+        val = self % error(indices(1), indices(2), indices(3))
+    end function Matrix3D_GetError
+
+    function Matrix4D_GetError(self, indices) result(val)
+        !--------------------------------------
+        implicit none
+        !--------------------------------------
+        class(Matrix4D_t)     , intent(in)    :: self
+        integer               , intent(in)    :: indices(:)
+        real(kind=4)                          :: val
+        !--------------------------------------
+        val = self % error(indices(1), indices(2), indices(3), indices(4))
+    end function Matrix4D_GetError
+
+    function Matrix5D_GetError(self, indices) result(val)
+        !--------------------------------------
+        implicit none
+        !--------------------------------------
+        class(Matrix5D_t)     , intent(in)    :: self
+        integer               , intent(in)    :: indices(:)
+        real(kind=4)                          :: val
+        !--------------------------------------
+        val = self % error(indices(1), indices(2), indices(3), indices(4), indices(5))
+    end function Matrix5D_GetError
+
+    function Matrix6D_GetError(self, indices) result(val)
+        !--------------------------------------
+        implicit none
+        !--------------------------------------
+        class(Matrix6D_t)     , intent(in)    :: self
+        integer               , intent(in)    :: indices(:)
+        real(kind=4)                          :: val
+        !--------------------------------------
+        val = self % error(indices(1), indices(2), indices(3), indices(4), indices(5), indices(6))
+    end function Matrix6D_GetError
+
+    function Matrix7D_GetError(self, indices) result(val)
+        !--------------------------------------
+        implicit none
+        !--------------------------------------
+        class(Matrix7D_t)     , intent(in)    :: self
+        integer               , intent(in)    :: indices(:)
+        real(kind=4)                          :: val
+        !--------------------------------------
+        val = self % error(indices(1), indices(2), indices(3), indices(4), indices(5), indices(6), indices(7))
+    end function Matrix7D_GetError
 
     !
     !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -435,7 +568,7 @@ module ReinforcementLearning
         class(pAdaptationAgent_t), intent(inout) :: self
         character(len=*)         , intent(in)    :: agentFile
         !-local variables-------------------------------------
-        integer          :: fd, NPoints, policySize, i, j, k, p, header, indices3(3), indices2(2)
+        integer          :: fd, NPoints, policySize, i, j, k, p, header
         !----------------------------------------------------
         open(newunit = fd, FILE = agentFile//".bin", form="unformatted", action="read", status="old", access='stream')   
             READ(fd) NPoints, header
