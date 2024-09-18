@@ -799,9 +799,6 @@ module SpatialDiscretization
       end if 
  !end if 
 
-
-       if (f % IsMortar==1) call computeElementInterfaceFluxM_iNS(f)
-
       END SUBROUTINE computeElementInterfaceFlux_iNS
 
       SUBROUTINE computeMPIFaceFlux_iNS(f)
