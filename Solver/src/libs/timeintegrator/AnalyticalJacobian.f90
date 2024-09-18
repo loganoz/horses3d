@@ -19,7 +19,9 @@ module AnalyticalJacobian
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use StopWatchClass
    use MeshTypes
+#ifndef ACOUSTIC
    use EllipticDiscretizations
+#endif
    use MPI_Process_Info                , only: MPI_Process
    use ElementConnectivityDefinitions  , only: axisMap, normalAxis
    use BoundaryConditions              , only: BCs

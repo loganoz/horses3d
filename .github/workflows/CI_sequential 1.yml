@@ -37,6 +37,9 @@ jobs:
           mkl: 'YES'          
         - compiler: ifort
           mkl: 'NO'          
+    env:
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
+
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -348,5 +351,23 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns BoxAroundCircle_pAdapted.control
+        if: '!cancelled()'
+
+#
+# 9) Cylinder with RL-based p-adaptation and error estimation
+# -----------------------------------------------------------
+
+      - name: Build Cylinder_ErrorEstimation_pAdaptationRL
+        working-directory: ./Solver/test/Euler/Cylinder_ErrorEstimation_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_ErrorEstimation_pAdaptationRL
+        working-directory: ./Solver/test/Euler/Cylinder_ErrorEstimation_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_ErrorEstimation_pAdaptationRL.control
         if: '!cancelled()'
 

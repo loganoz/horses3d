@@ -1,6 +1,6 @@
 #include "Includes.h"
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
 module HyperbolicDiscretizationClass
    use SMConstants
 #if defined(SPALARTALMARAS)
@@ -11,6 +11,8 @@ module HyperbolicDiscretizationClass
    use RiemannSolvers_iNS
 #elif defined(MULTIPHASE)
    use RiemannSolvers_MU
+#elif defined(ACOUSTIC)
+   use RiemannSolvers_CAA
 #endif
    implicit none
 
@@ -27,13 +29,14 @@ module HyperbolicDiscretizationClass
    end type HyperbolicDiscretization_t
 
    abstract interface
-      pure subroutine HyperbolicFlux0D_f(Q, F, rho_)
+      pure subroutine HyperbolicFlux0D_f(Q, F, rho_, Qbase)
          use SMConstants
          use PhysicsStorage
          implicit none
          real(kind=RP), intent(in)           :: Q(1:NCONS     )
          real(kind=RP), intent(out)          :: F(1:NCONS, 1:NDIM)
          real(kind=RP), intent(in), optional :: rho_
+         real(kind=RP), intent(in), optional :: Qbase(1:NCONS)
       end subroutine HyperbolicFlux0D_f
    end interface
 !
@@ -73,7 +76,7 @@ module HyperbolicDiscretizationClass
 
       end subroutine BaseClass_Initialize
 
-      subroutine BaseClass_ComputeInnerFluxes( self , e , HyperbolicFlux, contravariantFlux )
+      subroutine BaseClass_ComputeInnerFluxes( self , e , HyperbolicFlux, contravariantFlux,  useBaseFlow_)
          use ElementClass
          use Physics
          use PhysicsStorage
@@ -82,6 +85,7 @@ module HyperbolicDiscretizationClass
          type(Element),           intent(in)  :: e
          procedure(HyperbolicFlux0D_f)        :: HyperbolicFlux
          real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         logical, intent(in), optional        :: useBaseFlow_
 !
 !        ---------------
 !        Local variables
@@ -89,26 +93,57 @@ module HyperbolicDiscretizationClass
 !
          integer            :: i, j, k
          real(kind=RP)      :: cartesianFlux(1:NCONS, 1:NDIM)
+         logical            :: useBaseFlow
+
+         if (present(useBaseFlow_)) then
+            useBaseFlow = useBaseFlow_
+         else
+            useBaseFlow = .false.
+         end if
+
+         if (useBaseFlow) then
+
+#if defined(ACOUSTIC)
+             do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+                call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), Qbase = e % storage % Qbase(:,i,j,k) )
+
+                contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                                 + cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                                 + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-            call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), e % storage % rho(i,j,k))
-
-            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             + cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+                contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                                 + cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                                 + cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             + cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             + cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+                contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                                 + cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                                 + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+             end do               ; end do                ; end do
+
+#endif
+         else
+
+             do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+                call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), rho_ = e % storage % rho(i,j,k))
+
+                contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                                 + cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                                 + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             + cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+                contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                                 + cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                                 + cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
-         end do               ; end do                ; end do
+
+                contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                                 + cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                                 + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+
+             end do               ; end do                ; end do
+         end if
 
       end subroutine BaseClass_ComputeInnerFluxes
 !

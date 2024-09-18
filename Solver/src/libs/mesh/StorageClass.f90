@@ -18,7 +18,7 @@ module StorageClass
    public   GetStorageEquations
 
    enum, bind(C)
-      enumerator :: OFF = 0, NS, C, MU, NSSA
+      enumerator :: OFF = 0, NS, C, MU, NSSA, CAA
    end enum
 
    type Statistics_t
@@ -80,8 +80,10 @@ module StorageClass
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliary storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
+#ifndef ACOUSTIC
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: mu_turb_NS(:,:,:)    ! mu of LES
+#endif
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
       real(kind=RP)                        :: artificialDiss
@@ -89,6 +91,9 @@ module StorageClass
 #ifdef SPALARTALMARAS
       real(kind=RP),           allocatable ::  S_SA(:,:,:,:)
       real(kind=RP),           allocatable :: mu_SA(:,:,:,:)         ! EddyViscocityVector, EddyetaVector
+#endif
+#ifdef ACOUSTIC
+      real(kind=RP),           allocatable :: Qbase(:,:,:,:)         ! Base flow State vector
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -186,7 +191,10 @@ module StorageClass
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
       real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
-      real(kind=RP), dimension(:,:),     allocatable :: wallNodeDistance ! for BC walls, distance to the first fluid node
+      real(kind=RP), dimension(:,:),       allocatable :: wallNodeDistance ! for BC walls, distance to the first fluid node
+#ifdef ACOUSTIC
+      real(kind=RP), dimension(:,:,:),     allocatable :: Qbase ! Base flow State vector
+#endif
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -537,7 +545,7 @@ module StorageClass
 
          ! Temporary only checking first element!
          select case (self % elements(1) % currentlyLoaded)
-            case (NS,NSSA)
+            case (NS,NSSA,CAA)
 #ifdef FLOW
                nEqn = NCONS
 #endif
@@ -571,7 +579,7 @@ module StorageClass
 
          ! Temporary only checking first element!
          select case (self % elements(1) % currentlyLoaded)
-            case (NS,NSSA)
+            case (NS,NSSA,CAA)
 #ifdef FLOW
                nEqn = NCONS
 #endif
@@ -618,7 +626,7 @@ module StorageClass
                self % Qdot  => NULL()
                self % PrevQ => NULL()
 #ifdef FLOW
-            case (NS,NSSA)
+            case (NS,NSSA,CAA)
                self % Q     => self % QNS
                self % Qdot  => self % QdotNS
                self % PrevQ => self % PrevQNS
@@ -800,14 +808,19 @@ module StorageClass
 #if defined (SPALARTALMARAS)
          ALLOCATE( self % S_SA  (NCONS,0:Nx,0:Ny,0:Nz) )
 #endif
+#if defined (ACOUSTIC)
+         ALLOCATE( self % Qbase  (NCONS,0:Nx,0:Ny,0:Nz) )
+#endif
          if (computeGradients) then
             ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          end if
 
+#ifndef ACOUSTIC
          allocate( self % mu_NS(1:3,0:Nx,0:Ny,0:Nz) )
          allocate( self % mu_turb_NS(0:Nx,0:Ny,0:Nz) )
+#endif
 
          if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
 
@@ -866,10 +879,15 @@ module StorageClass
          self % FluxG    = 0.0_RP
          self % FluxH    = 0.0_RP
          self % rho    = 0.0_RP
+#ifndef ACOUSTIC
          self % mu_NS  = 0.0_RP
          self % mu_turb_NS  = 0.0_RP
+#endif
 #if defined (SPALARTALMARAS)
          self % S_SA   = 0.0_RP
+#endif
+#if defined (ACOUSTIC)
+         self % Qbase  = 0.0_RP
 #endif
          if (computeGradients) then
             self % U_xNS = 0.0_RP
@@ -975,9 +993,14 @@ module StorageClass
 #if defined (SPALARTALMARAS)
          to % S_SA   = from % S_SA
 #endif
+#if defined (ACOUSTIC)
+         to % Qbase   = from % Qbase
+#endif
 
+#ifndef ACOUSTIC
          to % mu_NS     = from % mu_NS
          to % mu_turb_NS     = from % mu_turb_NS
+#endif
          to % stats     = from % stats
 
          if (to % anJacobian) then
@@ -1016,7 +1039,7 @@ module StorageClass
                self % U_z  => NULL()
                self % QDot => NULL()
 #ifdef FLOW
-            case (NS,NSSA)
+            case (NS,NSSA,CAA)
                call self % SetStorageToNS
 #endif
 #ifdef CAHNHILLIARD
@@ -1067,14 +1090,19 @@ module StorageClass
 #if defined (SPALARTALMARAS)
          safedeallocate(self % S_SA)
 #endif
+#if defined (ACOUSTIC)
+         safedeallocate(self % Qbase)
+#endif
 
          if (self % computeGradients) then
             safedeallocate(self % U_xNS)
             safedeallocate(self % U_yNS)
             safedeallocate(self % U_zNS)
          end if
+#ifndef ACOUSTIC
          safedeallocate(self % mu_NS)
          safedeallocate(self % mu_turb_NS)
+#endif
          safedeallocate(self % rho)
 
          !if (self % anJacobian) then ! Not needed since there's only one variable (= one if)
@@ -1125,6 +1153,8 @@ module StorageClass
 
 #ifndef SPALARTALMARAS
          self % currentlyLoaded = NS
+#elif defined(ACOUSTIC)
+         self % currentlyLoaded = CAA
 #else
          self % currentlyLoaded = NSSA
 #endif
@@ -1327,14 +1357,19 @@ module StorageClass
          if (computeQdot) then
              ALLOCATE( self % QdotNS   (NCONS,0:Nf(1),0:Nf(2)) )
          end if
+#if defined (ACOUSTIC)
+         ALLOCATE( self % Qbase (NCONS,0:Nf(1),0:Nf(2)) )
+#endif
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
 
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
+#ifndef ACOUSTIC
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
          allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
          allocate( self % wallNodeDistance  (0:Nf(1),0:Nf(2)) )
+#endif
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
@@ -1383,11 +1418,17 @@ module StorageClass
          if (computeQdot) then
             self % QdotNS = 0.0_RP
          end if
+#if defined (ACOUSTIC)
+         self % Qbase    = 0.0_RP
+#endif
 
          self % rho    = 0.0_RP
+#ifndef ACOUSTIC
          self % mu_NS  = 0.0_RP
          self % u_tau_NS = 0.0_RP
          self % wallNodeDistance = 0.0_RP
+#endif
+
          self % flux = 0.0_RP
 #endif
 
@@ -1472,6 +1513,9 @@ module StorageClass
          safedeallocate(self % u_tau_NS)
          safedeallocate(self % wallNodeDistance)
          safedeallocate(self % rho )
+#if defined (ACOUSTIC)
+         safedeallocate(self % Qbase )
+#endif
 
          self % anJacobian      = .FALSE.
 
@@ -1514,6 +1558,8 @@ module StorageClass
          class(FaceStorage_t), intent(inout), target    :: self
 #ifndef SPALARTALMARAS
          self % currentlyLoaded = NS
+#elif defined(ACOUSTIC)
+         self % currentlyLoaded = CAA
 #else
          self % currentlyLoaded = NSSA
 #endif
@@ -1594,7 +1640,7 @@ module StorageClass
                self % FStar  => NULL()
                self % unStar => NULL()
 #ifdef FLOW
-            case (NS,NSSA)
+            case (NS,NSSA,CAA)
                call self % SetStorageToNS
 #endif
 #ifdef CAHNHILLIARD
@@ -1628,6 +1674,9 @@ module StorageClass
 
 #ifdef FLOW
          to % QNS = from % QNS
+#if defined (ACOUSTIC)
+         to % Qbase = from % Qbase
+#endif
          to % Q_aux = from % Q_aux
          if (to % computeGradients) then
             to % U_xNS = from % U_xNS
@@ -1636,9 +1685,11 @@ module StorageClass
          end if
          if (to % computeQdot) to % QdotNS = from % QdotNS
          to % rho = from % rho
+#ifndef ACOUSTIC
          to % mu_NS  = from % mu_NS
          to % u_tau_NS  = from % u_tau_NS
          to % wallNodeDistance  = from % wallNodeDistance
+#endif
 
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF
@@ -1692,15 +1743,16 @@ module StorageClass
 
       end subroutine Statistics_Destruct
 
-      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_)
+      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_, caa_)
          implicit none
-         integer, intent(out) :: off_, ns_, c_, mu_, nssa_
+         integer, intent(out) :: off_, ns_, c_, mu_, nssa_, caa_
 
          off_ = OFF
          ns_  = NS
          c_   = C
          mu_  = MU
          nssa_= NSSA
+         caa_ = CAA
 
       end subroutine GetStorageEquations
 

@@ -190,7 +190,7 @@ The modified entropy-stable version approximates:
 c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
 \label{eq:governing:cahn--hilliard}
 \end{equation}
-%
+
 \begin{equation}
 \sqrt{\rho}\left(\sqrt{\rho}\vec{u}\right)_t+\vec{\nabla}\cdot\left(\frac{1}{2}\rho \vec{u}\vec{u}\right) 
 +\frac{1}{2}\rho\vec{u}\cdot\vec{\nabla}\vec{u}+c\vec{\nabla}\mu
@@ -198,12 +198,12 @@ c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
 \vec{\nabla}\vec{u}^{T}\right)\right)+\rho\vec{g},
 \label{eq:governing:momentum-skewsymmetric-sqrtRho}
 \end{equation}
-%
+
 \begin{equation}
   p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
   \label{eq:governing:ACM}
 \end{equation}
-%
+
 where \(c\) is the phase field parameter, \(M_0\) is the mobility, \(\mu\) is the chemical potential, 
 \(\eta\) is the viscosity and \(c_0\) is the artificial speed of sound. The factor \(\rho_0\) is computed as \(max(\rho_1/\rho_1,\rho_2/\rho_1)\).
 Mobility \(M_0\) is computed from the control file parameters chemical characteristic time \(t_{CH}\), interface width \(\epsilon\) and interface tension \(\sigma\) with the formula 

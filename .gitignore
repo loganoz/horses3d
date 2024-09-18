@@ -8,6 +8,7 @@ tecplot.phy
 bin/HORSES3D
 make.inc
 *.hmesh
+*.bmesh
 *.hsol
 RESULTS
 

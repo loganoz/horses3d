@@ -39,6 +39,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/UniformFlow \
             ./Euler/JFNK \
             ./Euler/TaylorGreenKEPEC \
+            ./Euler/Cylinder_ErrorEstimation_pAdaptationRL \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
@@ -72,11 +73,14 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/Cylinder_pAdaptationRL \
             ./NavierStokes/IBM_Cylinder_pAdaptationRL \
             ./NavierStokes/Cylinder_Overenriching_pAdaptationRL \
+            ./NavierStokes/EulerRK3_pAdaptationRL \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
+            ./IncompressibleNS/Cylinder \
+            ./IncompressibleNS/CylinderVreman \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \

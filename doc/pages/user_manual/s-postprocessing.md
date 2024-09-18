@@ -19,7 +19,7 @@ The options comprise following flags:
 | Flag                | Description                                                                                                      | Default value |
 |---------------------|------------------------------------------------------------------------------------------------------------------|---------------|
 | --output-order=    | *INTEGER*: Output order nodes. The solution is interpolated into the desired number of points.                  | Not Present   |
-| --output-basis=    | *CHARACTER*: Either *Homogeneous* (for equispaced nodes, or *Gauss*.                                            | *Gauss*       |
+| --output-basis=    | *CHARACTER*: Either *Homogeneous* (for equispaced nodes, or *Gauss*.)                                            | *Gauss*       |
 | --output-mode=     | *CHARACTER*: Either *multizone* or *FE*. The option *multizone* generates a Tecplot zone for each element. The option *FE* generates only one Tecplot zone for the fluid and one for each boundary (if *--boundary-file* is defined). Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot. | *multizone*   |
 | --output-variables=| *CHARACTER*: Output variables separated by commas. A complete description can be found in Section 2.             | Q             |
 | --dimensionless    | Specifies that the output quantities must be dimensionless.                                                     | Not Present   |

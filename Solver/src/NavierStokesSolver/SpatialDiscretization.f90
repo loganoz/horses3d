@@ -224,7 +224,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements)
          IMPLICIT NONE
 !
 !        ---------
@@ -235,12 +235,20 @@ module SpatialDiscretization
          type(Particles_t)               :: particles
          REAL(KIND=RP)                   :: time
          integer, intent(in)             :: mode
+         logical, intent(in), optional   :: HO_Elements
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          INTEGER :: k, nZones, zoneID, eID
+         logical :: HOElements
+
+         if (present(HO_Elements)) then
+            HOElements = HO_Elements
+         else
+            HOElements = .false.
+         end if
 
          call SetBoundaryConditionsEqn(NS_BC)
 
@@ -254,6 +262,8 @@ module SpatialDiscretization
          call HexMesh_ProlongSolToFaces(mesh, NCONS)
 
          print*, "I am in Spatial Discretization line 255"
+         ! call mesh % ProlongSolutionToFaces(NCONS, HO_Elements) need to fix for HO elements
+
 
 !        ----------------
 !        Update MPI Faces
@@ -297,7 +307,7 @@ module SpatialDiscretization
          !$acc wait
 
          if ( computeGradients ) then
-            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh, time, GetGradients)
+            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh, time, GetGradients, HO_Elements)
          end if
 
 #ifdef _HAS_MPI_
@@ -315,12 +325,18 @@ module SpatialDiscretization
 !
          print*, "I am in Spatial Discretization line 307"
 
-         call TimeDerivative_ComputeQDot(mesh = mesh , &
-                                         particles = particles, &
-                                         t    = time)
+         if (HOElements) then
+            call TimeDerivative_ComputeQDotHO(mesh = mesh , &
+                                          particles = particles, &
+                                          t    = time)
+         else 
+            call TimeDerivative_ComputeQDot(mesh = mesh , &
+                                          particles = particles, &
+                                          t    = time)
          
          print*, "I am in Spatial Discretization line 313"
 
+         end if
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -330,7 +346,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements)
          use EllipticDiscretizationClass
          IMPLICIT NONE
 !
@@ -338,10 +354,11 @@ module SpatialDiscretization
 !        Arguments
 !        ---------
 !
-         TYPE(HexMesh), target      :: mesh
-         type(Particles_t)          :: particles
-         REAL(KIND=RP)              :: time
+         TYPE(HexMesh), target            :: mesh
+         type(Particles_t)                :: particles
+         REAL(KIND=RP)                    :: time
          integer,             intent(in)  :: mode
+         logical,   intent(in), optional  :: HO_Elements
 !
 !        ---------------
 !        Local variables
@@ -709,8 +726,326 @@ module SpatialDiscretization
             end if 
          end if
 
-
       end subroutine TimeDerivative_ComputeQDot
+
+!*******************************************************************************
+!     Computes the Q-dot only for the High-Order elements (p>1)
+!     Required for the hybrid Euler RK3 temporal scheme
+!*******************************************************************************
+   subroutine TimeDerivative_ComputeQDotHO( mesh , particles, t)
+      use WallFunctionConnectivity
+         use TripForceClass, only: randomTrip
+         use ActuatorLine, only: farm
+         implicit none
+         type(HexMesh)              :: mesh
+         type(Particles_t)          :: particles
+         real(kind=RP)              :: t
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n 
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
+         real(kind=RP), allocatable :: Source_HO(:,:,:,:)
+         integer,       allocatable :: i_(:), j_(:), k_(:)
+!
+!        ***********************************************
+!        Compute the viscosity at the elements and faces
+!        ***********************************************
+!
+         if (flowIsNavierStokes) then
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, size(mesh % HO_Elements)
+               associate(e => mesh % elements(mesh % HO_Elements(eID)))
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  call get_laminar_mu_kappa(e % storage % Q(:,i,j,k), e % storage % mu_NS(1,i,j,k), e % storage % mu_NS(2,i,j,k))
+               end do                ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+         end if
+
+         print*, "I am in Spatial Discretization line 421"
+
+
+         if ( LESModel % active) then
+            !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
+                        !$acc parallel loop gang present(mesh, LESModel)
+                        do eID = 1, size(mesh % elements)
+                           delta = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+                           !$acc loop vector collapse(3)
+                           do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                              call LESModel_Selector(LESModel, delta, mesh % elements(eID) % geom % dWall(i,j,k), &
+                                                                      mesh % elements(eID) % storage % Q(:,i,j,k),   &
+                                                                      mesh % elements(eID) % storage % U_x(:,i,j,k), &
+                                                                      mesh % elements(eID) % storage % U_y(:,i,j,k), &
+                                                                      mesh % elements(eID) % storage % U_z(:,i,j,k), &
+                                                                      mesh % elements(eID) % storage % mu_turb_NS(i,j,k) )
+                                                                                               ! mu_smag)
+                              ! e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
+                              ! e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+                              mesh % elements(eID) % storage % mu_NS(1,i,j,k) = mesh % elements(eID) % storage % mu_NS(1,i,j,k) + &
+                                                                                mesh % elements(eID) % storage % mu_turb_NS(i,j,k)
+                              mesh % elements(eID) % storage % mu_NS(2,i,j,k) = mesh % elements(eID) % storage % mu_NS(2,i,j,k) + &
+                                                                                mesh % elements(eID) % storage % mu_turb_NS(i,j,k) * dimensionless % mu_to_kappa
+                           end do                ; end do                ; end do
+                        end do
+                        !$acc end parallel loop
+            !$omp end do
+         end if
+!
+!        Compute viscosity at interior and boundary faces
+!        ------------------------------------------------
+      call compute_viscosity_at_faces(size(mesh % HO_FacesInterior), 2, mesh % HO_FacesInterior, mesh)
+      call compute_viscosity_at_faces(size(mesh % faces_boundary), 1, mesh % faces_boundary, mesh)
+
+!
+!        ****************
+!        Volume integrals
+!        ****************
+!
+!$omp do schedule(runtime) private(eID)
+      do iEl = 1 , size(mesh % HO_Elements)
+         eID = mesh % HO_Elements(iEl)
+         call TimeDerivative_VolumetricContribution(mesh % elements(eID))         
+      end do
+!$omp end do
+
+#if defined(_HAS_MPI_)
+!$omp single
+         if (ShockCapturingDriver % isActive) then
+            call mesh % UpdateMPIFacesAviscflux(NCONS)
+         end if
+!$omp end single
+#endif
+!
+!        ******************************************
+!        Compute Riemann solver of non-shared faces
+!        ******************************************
+!
+!$omp do schedule(runtime) private(fID)
+      do iFace = 1, size(mesh % HO_FacesInterior)
+         fID = mesh % HO_FacesInterior(iFace)
+         call computeElementInterfaceFlux(mesh % faces(fID))
+      end do
+!$omp end do nowait
+
+         call computeBoundaryFlux(mesh, t)
+!
+!        ***************************************************************
+!        Surface integrals and scaling of elements with non-shared faces
+!        ***************************************************************
+!
+!$omp do schedule(runtime) private(i,j,k,eID)
+      do iEl = 1, size(mesh % HO_ElementsSequential)
+         eID = mesh % HO_ElementsSequential(iEl)
+         associate(e => mesh % elements(eID))
+         call TimeDerivative_FacesContribution(e, t, mesh)
+
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+         end do         ; end do          ; end do
+         end associate
+      end do
+!$omp end do
+!
+!        ****************************
+!        Wait until messages are sent
+!        ****************************
+!
+#ifdef _HAS_MPI_
+         if ( MPI_Process % doMPIAction ) then
+!$omp single
+            if ( flowIsNavierStokes ) then
+               call mesh % GatherMPIFacesGradients(NGRAD)
+            else
+               call mesh % GatherMPIFacesSolution(NCONS)
+            end if
+!$omp end single
+!
+!           Compute viscosity at MPI faces
+!           ------------------------------
+            call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
+
+!$omp single
+            if ( flowIsNavierStokes ) then
+               if ( ShockCapturingDriver % isActive ) then
+                  call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
+                  call mesh % GatherMPIFacesAviscflux(NCONS)
+               end if
+            end if
+!$omp end single
+!
+!           **************************************
+!           Compute Riemann solver of shared faces
+!           **************************************
+!
+!$omp do schedule(runtime) private(fID)
+            do iFace = 1, size(mesh % faces_mpi)
+               fID = mesh % faces_mpi(iFace)
+               call computeMPIFaceFlux(mesh % faces(fID))
+            end do
+!$omp end do
+!
+!           ***********************************************************
+!           Surface integrals and scaling of elements with shared faces
+!           ***********************************************************
+!
+!$omp do schedule(runtime) private(i,j,k,eID)
+            do iEl = 1, size(mesh % HO_ElementsMPI)
+               eID = mesh % HO_ElementsMPI(iEl)
+               associate(e => mesh % elements(eID))
+               call TimeDerivative_FacesContribution(e, t, mesh)
+
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               end do         ; end do          ; end do
+               end associate
+            end do
+!$omp end do
+!
+!           Add an MPI Barrier
+!           ------------------
+!$omp single
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+         end if
+#endif
+!
+!        *****************************************************************************************************************************
+!        Compute contributions to source term
+!        ATTENTION: This is deactivated for child multigrid meshes since they have specially tailored source terms (already computed).
+!                   If you are going to add contributions to the source term, do it adding to e % storage % S_NS inside the condition!
+!        *****************************************************************************************************************************
+         if (.not. mesh % child) then
+!
+!           Add physical source term
+!           ************************
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, size(mesh % HO_Elements)
+               associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
+               ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
+               ! different contributions and not accumulate each call
+               e % storage % S_NS = 0.0_RP
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
+                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+!
+!           Add Particles source
+!           ********************
+            if ( particles % active ) then
+!$omp do schedule(runtime)
+               do eID = 1, size(mesh % HO_Elements)
+                  associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
+                     e % storage % S_NSP = 0.0_RP
+                  end associate
+               enddo
+!$omp end do
+
+!$omp do schedule(runtime)
+               do i = 1, particles % injection % injected + 1
+                  if (particles % particle(i) % active) then
+
+                     associate ( eID => particles % particle(i) % eID )
+
+                     call particles % AddSource(i, mesh % elements( eID ), &
+                        t, thermodynamics, dimensionless, refValues)
+
+                     ! If this is uncommented, private(j) should be added to openmp.
+                        !this commented section permits the computation of source term in neighbor elements
+                     !do j = 1, 6
+                     !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then
+                     !      call particles % AddSource(i, &
+                     !      mesh % elements( particles % particle(i) % mesh%elements( eID )%Connection(j)%ElementIDs(1)  ), &
+                     !      t, thermodynamics, dimensionless, refValues)
+                     !   else
+                     !      !
+                     !   end if
+                     !end do
+                     end associate
+                  endif
+               end do
+!$omp end do
+
+!$omp do schedule(runtime)
+               do eID = 1, size(mesh % HO_Elements)
+                  associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
+                     e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
+                  end associate
+               enddo
+!$omp end do
+            end if ! end particles
+         end if !(.not. mesh % child)
+!
+!        ***********************
+!        Now add the source term
+!        ***********************
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, size(mesh % HO_Elements)
+            associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target)
+               do eID = 1, size(mesh % HO_Elements)
+                  
+                  associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
+
+                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     if( e% isInsideBody(i,j,k) ) then
+                        if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
+                           Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
+                        else 
+                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                        end if 
+                        e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                     end if
+                  end do                  ; end do                ; end do
+                  end associate
+               end do
+!$omp end do       
+
+               if( mesh% IBM% Wallfunction ) then
+!$omp single
+                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+!$omp end single
+
+!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
+                  do iP = 1, mesh% IBM% NumOfForcingPoints
+                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index), &
+                                 e_in => mesh% elements(mesh% IBM% ImagePoints(iP)% element_in)     )
+                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
+                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
+                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
+                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
+                                                               e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
+                                                               e% STL(i,j,k), TurbulentSource                      )             
+                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                     end associate
+                  end do
+!$omp end do
+               end if 
+            end if 
+         end if
+
+      end subroutine TimeDerivative_ComputeQDotHO
 
       subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)
          implicit none

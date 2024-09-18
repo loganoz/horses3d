@@ -18,7 +18,7 @@ module EllipticDiscretizationClass
       integer                                        :: eqName
       real(kind=RP)                                  :: sigma = 1.0_RP
       contains
-         procedure      :: Construct                => BaseClass_Construct
+         procedure      :: Construct                 => BaseClass_Construct
          procedure      :: ComputeGradient           => BaseClass_ComputeGradient
          procedure      :: ComputeLocalGradients     => BaseClass_ComputeGradient
          procedure      :: LiftGradients             => BaseClass_LiftGradients
@@ -119,7 +119,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_Describe
 
-      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients)
+      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -135,6 +135,7 @@ module EllipticDiscretizationClass
          type(HexMesh),        intent(inout) :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
+         logical, intent(in), optional    :: HO_Elements
 !
 !        ---------------
 !        Local variables
