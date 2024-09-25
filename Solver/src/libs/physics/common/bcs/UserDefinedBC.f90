@@ -211,7 +211,7 @@ module UserDefinedBCClass
       subroutine UserDefinedBC_FlowState(self, mesh, zoneID)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(inout)              :: mesh
          integer,                 intent(in)    :: zoneID  
 
 !         real(kind=RP),       intent(in)    :: x(NDIM)
@@ -251,7 +251,7 @@ module UserDefinedBCClass
       subroutine UserDefinedBC_FlowGradVars(self, mesh, zoneID)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(inout)              :: mesh
          integer,                 intent(in)    :: zoneID 
 
 !         class(UserDefinedBC_t),   intent(in) :: self
@@ -297,7 +297,7 @@ module UserDefinedBCClass
       subroutine UserDefinedBC_FlowNeumann(self, mesh, zoneID)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(INOUT)              :: mesh
          integer,                 intent(in)    :: zoneID 
 
 !         interface

@@ -482,7 +482,7 @@ module SpatialDiscretization
          end do
          !$acc end parallel loop 
 !$omp end do
-
+         
          print*, "I am in Spatial Discretization line 465"
 
 #if defined(_HAS_MPI_)
@@ -519,6 +519,7 @@ module SpatialDiscretization
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
 !
+
 !$omp do schedule(runtime) private(i,j,k,eID)
          !$acc parallel loop gang present(mesh, mesh % elements, mesh % elements_sequential) copyin(t)
          do iEl = 1, size(mesh % elements_sequential)
@@ -527,9 +528,8 @@ module SpatialDiscretization
          end do
          !$acc end parallel loop 
 !$omp end do
-!
-         print*, "I am in Spatial Discretization line 510"
 
+         !
 !        ****************************
 !        Wait until messages are sent
 !        ****************************
@@ -767,7 +767,6 @@ module SpatialDiscretization
          end if
 
          print*, "I am in Spatial Discretization line 421"
-
 
          if ( LESModel % active) then
             !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
@@ -1366,6 +1365,8 @@ module SpatialDiscretization
                                                   e % storage % FluxH, & 
                                                   e % storage % QDot)
 
+
+                                       
       end subroutine TimeDerivative_VolumetricContribution
 
 !
@@ -1389,6 +1390,8 @@ module SpatialDiscretization
                       mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % fStar, &
                       mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % fStar, &
                       e % storage % QDot )
+
+         
 
          !$acc loop vector collapse(3)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -1446,7 +1449,7 @@ module SpatialDiscretization
                                      fc % geom % t1, &
                                      fc % geom % t2, &
                                      fc % storage(1) % FStar )
-        
+
 !        ------------------------
 !        Multiply by the Jacobian
 !        ------------------------
@@ -1617,6 +1620,7 @@ module SpatialDiscretization
                                                                  + mesh % faces(fID) % storage(1) % unStar(eq,IZ,i,j)* mesh % faces(fID) % geom % normal(IZ,i,j)
                enddo
             enddo ; enddo
+
          enddo
          !$acc end parallel loop 
 
@@ -1650,14 +1654,12 @@ module SpatialDiscretization
                                                                     mesh % faces(fID) % geom % jacobian(i,j)
                enddo
             end do ;  end do
-            
 !
 !           ---------------------------
 !           Return the flux to elements
 !           ---------------------------
 !
             call Face_ProjectFluxToElements(mesh % faces(fID), NCONS, mesh % faces(fID) % storage(1) % FStar, 1)
-            
          enddo
          !$acc end parallel loop 
       enddo
@@ -1681,7 +1683,7 @@ module SpatialDiscretization
          real(kind=RP), intent(in)       :: U_y(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
          real(kind=RP), intent(in)       :: U_z(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
          real(kind=RP), intent(in)       :: mu(1:3, 0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(out)    :: flux_cart(1:nEqn, 1:NDIM, 0:Nx, 0:Ny, 0:Nz)
+         real(kind=RP), intent(out)      :: flux_cart(1:nEqn, 1:NDIM, 0:Nx, 0:Ny, 0:Nz)
 !
 !        ---------------
 !        Local variables
@@ -1696,7 +1698,7 @@ module SpatialDiscretization
                do j = 0, Ny
                   do i = 0, Nx
                      call ViscousFlux_STATE(nEqn, nGradEqn, Q(:,i,j,k),  U_x(:,i,j,k), U_y(:,i,j,k), U_z(:,i,j,k), &
-                                            mu(1,i,j,k), 0.0_RP, mu(3,i,j,k), flux_cart(:,:,i,j,k))
+                                            mu(1,i,j,k), 0.0_RP, mu(2,i,j,k), flux_cart(:,:,i,j,k))
                   enddo
                enddo
             enddo

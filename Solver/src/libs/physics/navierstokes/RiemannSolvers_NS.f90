@@ -116,7 +116,7 @@ module RiemannSolvers_NS
    integer :: whichAverage = -1
    !$acc declare create(whichAverage)
    real(RP)           :: lambdaStab = 1.0_RP
-   !$acc declare create(lambdaStab)
+   !$acc declare copyin(lambdaStab)
 !
 !  ========
    contains
@@ -1412,7 +1412,7 @@ module RiemannSolvers_NS
          real(kind=RP), intent(in)       :: QLeft(1:NCONS, 0:Nx, 0:Ny)
          real(kind=RP), intent(in)       :: QRight(1:NCONS, 0:Nx, 0:Ny)
          real(kind=RP), intent(in)       :: nHat(1:NDIM, 0:Nx, 0:Ny), t1(1:NDIM, 0:Nx, 0:Ny), t2(1:NDIM, 0:Nx, 0:Ny)
-         real(kind=RP), intent(inout)      :: flux(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(inout)    :: flux(1:NCONS, 0:Nx, 0:Ny)
 !
 !        ---------------
 !        Local Variables
@@ -1421,47 +1421,47 @@ module RiemannSolvers_NS
 !
          real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L
          real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R
-         real(kind=RP)  :: QLRot(5), QRRot(5)
+         real(kind=RP)  :: QLRot(5), QRRot(5), flux_rot(5)
          real(kind=RP)  :: invRhoL, invRhoR
          real(kind=RP)  :: lambda, stab(5)
          integer :: i,j
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
-         !$acc loop vector collapse(2) private(QLRot, QRRot, stab)
+         !$acc loop vector collapse(2) private(QLRot, QRRot, flux_rot, stab)
          do j = 0, Ny
          do i = 0, Nx    
 
-         rhoL = QLeft(1,i,j)              
-         rhoR = QRight(1,i,j)
-         invRhoL = 1.0_RP/ rhoL           
-         invRhoR = 1.0_RP / rhoR
+            rhoL = QLeft(1,i,j)              
+            rhoR = QRight(1,i,j)
+            invRhoL = 1.0_RP/ rhoL           
+            invRhoR = 1.0_RP/ rhoR
 
-         rhouL = QLeft(2,i,j)  * nHat(1,i,j) + QLeft(3,i,j)  * nHat(2,i,j) + QLeft(4,i,j)  * nHat(3,i,j)
-         rhouR = QRight(2,i,j) * nHat(1,i,j) + QRight(3,i,j) * nHat(2,i,j) + QRight(4,i,j) * nHat(3,i,j)
+            rhouL = QLeft(2,i,j)  * nHat(1,i,j) + QLeft(3,i,j)  * nHat(2,i,j) + QLeft(4,i,j)  * nHat(3,i,j)
+            rhouR = QRight(2,i,j) * nHat(1,i,j) + QRight(3,i,j) * nHat(2,i,j) + QRight(4,i,j) * nHat(3,i,j)
 
-         rhovL = QLeft(2,i,j)  * t1(1,i,j) + QLeft(3,i,j)  * t1(2,i,j) + QLeft(4,i,j)  * t1(3,i,j)
-         rhovR = QRight(2,i,j) * t1(1,i,j) + QRight(3,i,j) * t1(2,i,j) + QRight(4,i,j) * t1(3,i,j)
+            rhovL = QLeft(2,i,j)  * t1(1,i,j) + QLeft(3,i,j)  * t1(2,i,j) + QLeft(4,i,j)  * t1(3,i,j)
+            rhovR = QRight(2,i,j) * t1(1,i,j) + QRight(3,i,j) * t1(2,i,j) + QRight(4,i,j) * t1(3,i,j)
 
-         rhowL = QLeft(2,i,j)  * t2(1,i,j) + QLeft(3,i,j)  * t2(2,i,j) + QLeft(4,i,j)  * t2(3,i,j)
-         rhowR = QRight(2,i,j) * t2(1,i,j) + QRight(3,i,j) * t2(2,i,j) + QRight(4,i,j) * t2(3,i,j)
+            rhowL = QLeft(2,i,j)  * t2(1,i,j) + QLeft(3,i,j)  * t2(2,i,j) + QLeft(4,i,j)  * t2(3,i,j)
+            rhowR = QRight(2,i,j) * t2(1,i,j) + QRight(3,i,j) * t2(2,i,j) + QRight(4,i,j) * t2(3,i,j)
 
-         rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
-         rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
+            rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
+            rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
 
-         rhoeL = QLeft(5,i,j) 
-         rhoeR = QRight(5,i,j)
+            rhoeL = QLeft(5,i,j) 
+            rhoeR = QRight(5,i,j)
 
-         pL = thermodynamics % gammaMinus1 * (rhoeL - 0.5_RP * rhoV2L)
-         pR = thermodynamics % gammaMinus1 * (rhoeR - 0.5_RP * rhoV2R)
+            pL = thermodynamics % gammaMinus1 * (rhoeL - 0.5_RP * rhoV2L)
+            pR = thermodynamics % gammaMinus1 * (rhoeR - 0.5_RP * rhoV2R)
 
-         aL = sqrt(thermodynamics % gamma * pL * invRhoL)
-         aR = sqrt(thermodynamics % gamma * pR * invRhoR)
+            aL = sqrt(thermodynamics % gamma * pL * invRhoL)
+            aR = sqrt(thermodynamics % gamma * pR * invRhoR)
 !
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
-     !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
-         lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
+            !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
+            lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
 !
 !        ****************
 !        Compute the flux
@@ -1469,25 +1469,28 @@ module RiemannSolvers_NS
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
-         call AveragedState_Selector(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux(:,i,j))
+            QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
+            QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+            call AveragedState_Selector(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux_rot)
 !
 !        Compute the Lax-Friedrichs stabilization
 !        ----------------------------------------
-         stab = 0.5_RP * lambda * (QRRot - QLRot)
+            stab = 0.5_RP * lambda * (QRRot - QLRot)
 !
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------
-         flux(:,i,j) = flux(:,i,j) !- lambdaStab * stab
+            flux_rot = flux_rot - lambdaStab * stab
 !
 !        ************************************************
 !        Return momentum equations to the cartesian frame
 !        ************************************************
 !
-         flux(2,i,j) = nHat(1,i,j)*flux(2,i,j) + t1(1,i,j)*flux(3,i,j) + t2(1,i,j)*flux(4,i,j)
-         flux(3,i,j) = nHat(2,i,j)*flux(2,i,j) + t1(2,i,j)*flux(3,i,j) + t2(2,i,j)*flux(4,i,j)
-         flux(4,i,j) = nHat(3,i,j)*flux(2,i,j) + t1(3,i,j)*flux(3,i,j) + t2(3,i,j)*flux(4,i,j)
+            flux(1,i,j) = flux_rot(1)
+            flux(5,i,j) = flux_rot(5)
+
+            flux(2,i,j) = nHat(1,i,j)*flux_rot(2) + t1(1,i,j)*flux_rot(3) + t2(1,i,j)*flux_rot(4)
+            flux(3,i,j) = nHat(2,i,j)*flux_rot(2) + t1(2,i,j)*flux_rot(3) + t2(2,i,j)*flux_rot(4)
+            flux(4,i,j) = nHat(3,i,j)*flux_rot(2) + t1(3,i,j)*flux_rot(3) + t2(3,i,j)*flux_rot(4)  
 
          enddo
          enddo 
@@ -1743,8 +1746,6 @@ module RiemannSolvers_NS
          REAL(KIND=RP)                   :: ds = 1.0_RP
          integer :: i,j
 
-         associate ( gamma => thermodynamics % gamma )
-
          !$acc loop vector collapse(2)
          do j = 0, Ny
          do i = 0, Nx  
@@ -1764,21 +1765,21 @@ module RiemannSolvers_NS
          ul = rhou/rho
          vl = rhov/rho
          wl = rhow/rho
-         pleft = (gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
+         pleft = (thermodynamics % gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
         &                           (rhou**2 + rhov**2 + rhow**2 ))
 !
          ur = rhoun/rhon
          vr = rhovn/rhon
          wr = rhown/rhon
-         pright = (gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
+         pright = (thermodynamics % gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
         &                           (rhoun**2 + rhovn**2+ rhown**2))
 !
          ql = nHat(1,i,j)*ul + nHat(2,i,j)*vl + nHat(3,i,j)*wl
          qr = nHat(1,i,j)*ur + nHat(2,i,j)*vr + nHat(3,i,j)*wr
          hl = 0.5_RP*(ul*ul + vl*vl + wl*wl) +                               &
-        &                 gamma/(gamma-1._RP)*pleft/rho
+        &                 thermodynamics % gamma/(thermodynamics % gamma-1._RP)*pleft/rho
          hr = 0.5_RP*(ur*ur + vr*vr + wr*wr) +                               &
-        &                  gamma/(gamma-1._RP)*pright/rhon
+        &                  thermodynamics % gamma/(thermodynamics % gamma-1._RP)*pright/rhon
 !
 !        ---------------------
 !        Square root averaging
@@ -1791,7 +1792,7 @@ module RiemannSolvers_NS
          vtd = betal*vl + betar*vr
          wtd = betal*wl + betar*wr
          htd = betal*hl + betar*hr
-         atd2 = (gamma-1._RP)*(htd - 0.5_RP*(utd*utd + vtd*vtd + wtd*wtd))
+         atd2 = (thermodynamics % gamma -1._RP)*(htd - 0.5_RP*(utd*utd + vtd*vtd + wtd*wtd))
          atd = sqrt(atd2)
          qtd = utd*nHat(1,i,j) + vtd*nHat(2,i,j)  + wtd*nHat(3,i,j)
 !
@@ -1800,7 +1801,7 @@ module RiemannSolvers_NS
             dw1 = 0.5_RP*((pright - pleft)/atd2 - (qr - ql)*rtd/atd)
             sp1 = qtd - atd
             sp1m = min(sp1,0.0_RP)
-            hd1m = ((gamma+1._RP)/4._RP*atd/rtd)*dw1
+            hd1m = ((thermodynamics % gamma+1._RP)/4._RP*atd/rtd)*dw1
             eta1 = max(-abs(sp1) - hd1m,0.0_RP)
             udw1 = dw1*(sp1m - 0.5_RP*eta1)
             rql = rho*ql
@@ -1815,7 +1816,7 @@ module RiemannSolvers_NS
             dw4 = 0.5_RP*((pright - pleft)/atd2 + (qr - ql)*rtd/atd)
             sp4 = qtd + atd
             sp4p = max(sp4,0.0_RP)
-            hd4 = ((gamma+1._RP)/4._RP*atd/rtd)*dw4
+            hd4 = ((thermodynamics % gamma+1._RP)/4._RP*atd/rtd)*dw4
             eta4 = max(-abs(sp4) + hd4,0.0_RP)
             udw4 = dw4*(sp4p + 0.5_RP*eta4)
             rqr = rhon*qr
@@ -1828,8 +1829,6 @@ module RiemannSolvers_NS
 
          enddo
          enddo
-
-         end associate
 
       END SUBROUTINE RoeRiemannSolver
 

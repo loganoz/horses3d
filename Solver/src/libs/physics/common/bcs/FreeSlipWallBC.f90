@@ -280,7 +280,7 @@ module FreeSlipWallBCClass
          use HexMeshClass
          implicit none
          class(FreeSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(inout)              :: mesh
          integer,                 intent(in)    :: zoneID                              
 !
 !        ---------------
@@ -326,7 +326,7 @@ module FreeSlipWallBCClass
 !
          implicit none
          class(FreeSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(inout)              :: mesh
          integer,                 intent(in)    :: zoneID 
 !
 !        ---------------
@@ -373,7 +373,7 @@ module FreeSlipWallBCClass
 !
          implicit none
          class(FreeSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(inout)              :: mesh
          integer,                 intent(in)    :: zoneID 
 !
 !        ---------------

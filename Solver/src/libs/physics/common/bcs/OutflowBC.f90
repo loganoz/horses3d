@@ -238,7 +238,7 @@ module OutflowBCClass
          use HexMeshClass
          implicit none
          class(OutflowBC_t),      intent(in)    :: self
-         type(HexMesh),           intent(in)    :: mesh
+         type(HexMesh),           intent(inout)    :: mesh
          integer,                 intent(in)    :: zoneID  
 !   
 !        ---------------
@@ -314,7 +314,7 @@ module OutflowBCClass
       subroutine OutflowBC_FlowNeumann(self, mesh, zoneID)
          implicit none
          class(OutflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
+         type(HexMesh),       intent(inout)    :: mesh
          integer,             intent(in)    :: zoneID 
 !
 !        *******************************************

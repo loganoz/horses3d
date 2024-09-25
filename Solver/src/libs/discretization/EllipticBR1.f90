@@ -236,31 +236,6 @@ module EllipticBR1
          !$acc end parallel loop
 !$omp end do
 
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % Q)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % Q)
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % U_x)
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % U_y)
-         !$acc update self(mesh % elements(mesh % elements_sequential(1145)) % storage % U_z)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_x)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_y)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_z)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_x)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_y)
-         !$acc update self(mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_z)
-         !$acc wait
-
-         print*,"The sol is", mesh % elements(mesh % elements_sequential(1145)) % storage % Q(:,1,1,1)
-         print*,"The face sol is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % Q(:,1,1)
-         print*,"The x grad is", mesh % elements(mesh % elements_sequential(1145)) % storage % U_x(:,1,1,1)
-         print*,"The y grad is", mesh % elements(mesh % elements_sequential(1145)) % storage % U_y(:,1,1,1)
-         print*,"The z grad is", mesh % elements(mesh % elements_sequential(1145)) % storage % U_z(:,1,1,1)
-         print*,"The face x grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_x(:,1,1)
-         print*,"The face y grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_y(:,1,1)
-         print*,"The face z grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(1) % U_z(:,1,1)
-         print*,"The face x grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_x(:,1,1)
-         print*,"The face y grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_y(:,1,1)
-         print*,"The face z grad is", mesh % faces(mesh % elements(mesh % elements_sequential(1145)) % faceIDs(2)) % storage(2) % U_z(:,1,1)
-
          print*, "I am in BR1 line 195"
 
 #ifdef _HAS_MPI_
@@ -711,7 +686,7 @@ flux )
          type(Face),   intent(in)       :: f
          integer,       intent(in)      :: nEqn
          integer,       intent(in)      :: nGradEqn
-         real(kind=RP), intent(out)     :: flux(1:nEqn,0:f% Nf(1),0:f% Nf(2))
+         real(kind=RP), intent(inout)     :: flux(1:nEqn,0:f% Nf(1),0:f% Nf(2))
          !
          !        ---------------
          !        Local variables
