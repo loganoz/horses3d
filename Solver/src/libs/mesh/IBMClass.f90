@@ -597,7 +597,7 @@ module IBMClass
 
       do fID = 1, size(faces)
          associate( f => faces(fID) )
-         if (f% FaceType .eq. HMESH_INTERIOR .or. f% FaceType .eq. HMESH_MPI) cycle
+         if( f% FaceType .eq. HMESH_INTERIOR .or. f% FaceType .eq. HMESH_MPI ) cycle
          if( trim(this% STLfilename(STLNum)) .eq. trim(f% boundaryName) ) then 
             f% HO_IBM = .true.
             allocate(f% stencil(0:f% Nf(1),0:f% Nf(2)))
@@ -1028,48 +1028,6 @@ module IBMClass
       close(funit)
 
    end subroutine PlotStencil
-
-   subroutine PlotMPIFaces( IBM, faces, STLNum )
-      use MPI_Process_Info
-      use Meshtypes
-      implicit none
-
-      type(IBM_type), intent(in) :: IBM
-      type(face),     intent(in) :: faces(:)
-      integer,        intent(in) :: STLNum
-
-      integer :: NumOfObjs, i, j, fID, funit
-      character(len=LINE_LENGTH) :: rank, filename
-
-      NumOfObjs = 0 
-
-      write(rank,'(I0)') MPI_Process% rank + 1
-
-      do fID = 1, size(faces)
-         associate( f => faces(fID) )
-         if( f% HO_IBM .and. f% STLNum .eq. STLNum ) then !.and. f% faceType .eq. HMESH_MPI ) then 
-            NumOfObjs = NumOfObjs + (f% Nf(1) +1) * (f% Nf(2) + 1)
-         end if 
-         end associate
-      end do 
-
-      if( NumOfObjs .eq. 0 ) return 
-
-      write(filename,'(A)') trim(IBM% STLfilename(STLNum))//'_'//trim(rank)
-
-      call TecFileHeader( 'IBM/MPIFacePoints_'//trim(filename), 'Mask Points', NumOfObjs, funit )
-
-      do fID = 1, size(faces)
-         associate( f => faces(fID) )
-         if( f% HO_IBM .and. f% STLNum .eq. STLNum  ) then !.and. f% faceType .eq. HMESH_MPI ) then 
-            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
-               write(funit,'(3E13.5)')  f% geom% x(IX,i,j), f% geom% x(IY,i,j), f% geom% x(IZ,i,j)
-            end do; end do  
-         end if
-         end associate
-      end do
-
-   end subroutine PlotMPIFaces
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1114,9 +1072,9 @@ module IBMClass
       use MPI_Process_Info
       implicit none
 
-      class(IBM_type), intent(inout) :: this
-      type(element),   intent(inout) :: elements(:)
-      type(face),      intent(inout) :: faces(:)
+      class(IBM_type),              intent(inout) :: this
+      type(element),                intent(inout) :: elements(:)
+      type(face),                   intent(inout) :: faces(:)
 
       integer :: STLNum
 
@@ -1131,7 +1089,6 @@ module IBMClass
       do STLNum = 1, this% NumOfSTL
          call PlotSurface( this, STLNum, this% iter )
          call PlotStencil( this, STLNum, this% iter )
-         call PlotMPIFaces( this, faces, STLNum )
       end do
     
       call IBM_HO_findElements( this% IBMStencilPoints, elements, this% NumOfSTL, this% clipAxis )
@@ -1537,7 +1494,7 @@ module IBMClass
 
       this% dt = t - this% t 
 
-      if( any(this% stl(:)% move) )  this% MPIfixed = .false.
+      if( any(this% stl(:)% move) ) this% MPIfixed = .false.
       
       do STLNum = 1, this% NumOfSTL
 

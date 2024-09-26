@@ -444,7 +444,7 @@ module EllipticBR1
                                     f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
                                     f% geom% normal(:,i,j),                     &
                                     f% STLNum, UR, UL, GetGradients             )
-               u_star = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
+               u_star = 0.5_RP * (UR - UL)
                u_int  = 0.0_RP 
             end if 
 

@@ -99,6 +99,7 @@ module VariableConversion_NSSA
       end subroutine GetNSViscosity
 
       pure subroutine GetNSKinematicViscosity(mu, rho, niu)
+
          implicit none
          real(kind=RP), intent(in)   :: mu
          real(kind=RP), intent(in)   :: rho
@@ -150,7 +151,7 @@ module VariableConversion_NSSA
       END FUNCTION SutherlandsLaw
 
       pure subroutine ComputeVorticity(U_x, U_y, U_z, vorticity)
-         
+
          real(kind=RP), intent(in)  :: U_x(NDIM)
          real(kind=RP), intent(in)  :: U_y(NDIM)
          real(kind=RP), intent(in)  :: U_z(NDIM)
@@ -347,6 +348,7 @@ module VariableConversion_NSSA
 !     --------------------------------------
 !
       pure subroutine getVelocityGradients_State(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+
          implicit none
          !-arguments---------------------------------------------------
          real(kind=RP), intent(in)  :: Q(NCONS)
@@ -572,6 +574,7 @@ module VariableConversion_NSSA
       end subroutine set_getVelocityGradients
 
       subroutine geteddyviscositygradients(Q, Q_x, Q_y, Q_z , theta_x, theta_y, theta_z)
+
          implicit none
          real(kind=RP), intent(in)  :: Q   (1:NCONS)
          real(kind=RP), intent(in)  :: Q_x (1:NCONS)

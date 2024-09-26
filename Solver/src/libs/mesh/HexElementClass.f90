@@ -75,8 +75,8 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
-         logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint, forcingPointIndex ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
-         integer, dimension(:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. (IB)
+         logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
+         integer, dimension(:,:,:), allocatable :: STL, forcingPointIndex !STL file the DoFbelongs to if isInsideBody = .true. (IB)
          integer                                :: IP_index 
          logical                                :: MaskCorners(8) = .false.
          logical                                :: HO_IBM = .false., IBMConstruct = .false., moving = .false.

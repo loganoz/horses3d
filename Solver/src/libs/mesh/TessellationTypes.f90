@@ -111,7 +111,7 @@ module TessellationTypes
                                                       read = .false.,                  &
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
-   
+      
        contains
          procedure :: ReadTessellation
          procedure :: Clip                   => STL_Clip
@@ -1561,7 +1561,8 @@ module TessellationTypes
 
       pos = index(zoneinfo, 'K=')
       if (pos > 0) then
-          read(zoneinfo(pos+2:), '(I)', iostat=ios) NumOfObjs
+          !read(zoneinfo(pos+2:), '(I)', iostat=ios) NumOfObjs
+          read(zoneinfo(pos+2:), *, iostat=ios) NumOfObjs
           if (ios /= 0) stop 'Error reading number of objects'
       else
           stop 'Error: number of objects not found in zone info'
