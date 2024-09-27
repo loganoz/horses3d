@@ -1789,7 +1789,7 @@ module IBMClass
 
             faces(fID)% stencil(i,j)% dist = this% IBMmask(domain)% dist(n)
             if( this% zoneMask(STLNum) ) then 
-               faces(fID)% stencil(i,j)% normal = sign_*this% IBMmask(domain)% normal(n,:)
+               faces(fID)% stencil(i,j)% normal = -sign_*this% IBMmask(domain)% normal(n,:)
             else 
                faces(fID)% stencil(i,j)% normal = -this% IBMmask(domain)% normal(n,:)
             end if 
@@ -1869,7 +1869,8 @@ module IBMClass
                call f% stencil(i,j)% build( x0, normal, L, M )
 
                f% stencil(i,j)% x_s(:,0) = f% stencil(i,j)% x + dist * normal
-
+               if( this% zoneMask(f% STLNum) ) f% stencil(i,j)% x_s(:,0) = f% stencil(i,j)% x - dist * normal
+               
                f% stencil(i,j)% d  = dist
                f% stencil(i,j)% L  = L
                f% stencil(i,j)% dl = dl
