@@ -774,11 +774,11 @@ module Clustering
       nullify(self % g % covinv)
       nullify(self % g % logdet)
 
-      ! Required for gfortran?
+      ! Required for gfortran? gfortran-13 has segffault with this one
       if (self % initialized) then
-         if (associated(self % g % storage)) deallocate(self % g % storage)
-         if (allocated(self % g % tcov))     deallocate(self % g % tcov)
-         if (allocated(self % prob))         deallocate(self % prob)
+      !   if (associated(self % g % storage)) deallocate(self % g % storage)
+      !   if (allocated(self % g % tcov))     deallocate(self % g % tcov)
+      !   if (allocated(self % prob))         deallocate(self % prob)
       end if
 
       call kMeans_final(self % kmeans)
