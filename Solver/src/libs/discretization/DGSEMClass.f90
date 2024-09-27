@@ -352,7 +352,6 @@ Module DGSEMClass
             self% mesh% HO_IBM = .true.
             call self% mesh% IBM% buildHOfaces( self% mesh% elements, self% mesh% faces )
          end if 
-         call self% mesh % IBM % setUpBoundaries( self% mesh% elements, self% mesh% faces )
       end if
 
 !

@@ -602,7 +602,7 @@ module IBMClass
             f% HO_IBM = .true.
             allocate(f% stencil(0:f% Nf(1),0:f% Nf(2)))
             f% HOSIDE = minloc(f% elementIDs,dim=1)
-            f% STLNum = STLNum
+             f% STLNum = STLNum
             do j = 0, f% Nf(2); do i = 0, f% Nf(1)
                f% stencil(i,j)% x  = f% geom% x(:,i,j)
                this% NumOfMaskObjs = this% NumOfMaskObjs + 1
@@ -1504,14 +1504,14 @@ module IBMClass
          do i = 1, this% stl(STLNum)% NumOfObjs
             do j = 1, NumOfVertices
 #if defined(NAVIERSTOKES)
-               call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords, this% dt, cL, cD )
+               call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords, t, this% dt, cL, cD )
 #endif 
             end do 
             call this% stl(STLNum)% updateNormals( this% stl(STLNum)% ObjectsList(i) )
             if( this% ComputeBandRegion ) then 
                do j = 1, NumOfIntegrationVertices
 #if defined(NAVIERSTOKES)
-                  call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, this% dt, cL, cD )
+                  call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, t, this% dt, cL, cD )
 #endif
                end do 
             end if 
@@ -1789,7 +1789,7 @@ module IBMClass
 
             faces(fID)% stencil(i,j)% dist = this% IBMmask(domain)% dist(n)
             if( this% zoneMask(STLNum) ) then 
-               faces(fID)% stencil(i,j)% normal = -sign_*this% IBMmask(domain)% normal(n,:)
+               faces(fID)% stencil(i,j)% normal = sign_*this% IBMmask(domain)% normal(n,:)
             else 
                faces(fID)% stencil(i,j)% normal = -this% IBMmask(domain)% normal(n,:)
             end if 
@@ -2054,7 +2054,7 @@ module IBMClass
 #endif 
       epsilon = h**(1._RP/3._RP) 
       
-      call this% SourceTerm( nEqn, eID, x, dt, Q, STLNum, Source )
+      !call this% SourceTerm( nEqn, eID, x, dt, Q, STLNum, Source )
 
       Source = 0.5_RP*(1.0_RP + tanh(dist/epsilon)) * Source 
 
@@ -2065,14 +2065,14 @@ module IBMClass
 !  -------------------------------------------------
 !  Source terms for the immersed boundary
 !  ------------------------------------------------
-   subroutine IBM_SourceTerm( this, nEqn, eID, x, dt, Q, STLNum, Source )
+   subroutine IBM_SourceTerm( this, nEqn, eID, x, t, dt, Q, STLNum, Source )
       use PhysicsStorage
       implicit none
       !-arguments--------------------------------------------
       class(IBM_type),           intent(inout) :: this
       integer,                   intent(in)    :: eID, STLNum, nEqn
       real(kind=rp),             intent(inout) :: x(NDIM)
-      real(kind=rp),             intent(in)    :: dt
+      real(kind=rp),             intent(in)    :: t, dt
       real(kind=rp),             intent(in)    :: Q(nEqn)
       real(kind=rp),             intent(inout) :: Source(nEqn)
 
@@ -2081,7 +2081,7 @@ module IBMClass
       Source = 0.0_RP
 #if defined(NAVIERSTOKES)
       if( this% stl(STLNum)% move ) then 
-         call BCsIBM(STLNum)% bc% FlowStateMoving_IBM( Q, x, dt, cL, cD, Qsb )
+         call BCsIBM(STLNum)% bc% FlowStateMoving_IBM( Q, x, t, dt, cL, cD, Qsb )
       else
          call BCsIBM(STLNum)% bc% FlowState_VPIBM( Q, x, Qsb ) 
       end if 
@@ -2305,7 +2305,7 @@ module IBMClass
 
       call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ )
 
-      call this% SourceTerm( nEqn, eID, x, dt, Q, STLNum, Source )
+      call this% SourceTerm( nEqn, eID, x, t, dt, Q, STLNum, Source )
 
       Q = matmul(invdS_dQ, Q + dt*( Source - matmul(dS_dQ,Q) ))
 

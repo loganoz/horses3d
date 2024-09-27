@@ -631,13 +631,7 @@ module SpatialDiscretization
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      Source = 0.0_RP 
                      if( e% isInsideBody(i,j,k) ) then 
-                        
-                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
-                     elseif(e% isForcingPoint(i,j,k)) then
-                        call mesh% IBM% TurbulentSourceTerm( NCONS, eID, mesh% IBM% ImagePoints(e% STL(i,j,k))% IBMmask(1)% x(e% forcingPointIndex(i,j,k)), &
-                                                             e% geom% normal(:,i,j,k), e % storage % Q(:,i,j,k), e% STL(i,j,k), Source                      )  
-                     else 
-                        call mesh% IBM% RelaxingSourceTerm( NCONS,  e% geom% x(:,i,j,k), mesh% IBM% dt, e % storage % Q(:,i,j,k), e% geom% Volume, eID, e% STL(i,j,k), Source )
+                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
                      end if 
                      e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                   end do                  ; end do                ; end do
@@ -787,10 +781,7 @@ module SpatialDiscretization
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      Source = 0.0_RP 
                      if( e% isInsideBody(i,j,k) ) then 
-                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
-                     elseif(e% isForcingPoint(i,j,k)) then
-                        call mesh% IBM% TurbulentSourceTerm( NCONS, eID, mesh% IBM% ImagePoints(e% STL(i,j,k))% IBMmask(1)% x(e% forcingPointIndex(i,j,k)), &
-                                                             e% geom% normal(:,i,j,k), e % storage % Q(:,i,j,k), e% STL(i,j,k), Source                      )  
+                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
                      end if 
                      e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                   end do                  ; end do                ; end do

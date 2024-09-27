@@ -168,13 +168,13 @@ module ProblemFileFunctions
 #endif
 
 #ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, dt, refValues_, GetVelocity, UpdatePosition )
+      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, GetVelocity, UpdatePosition )
          use SMConstants
          use FluidData
          use PhysicsStorage
          IMPLICIT NONE
          real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: t, dt
          real(kind=RP),           intent(in)    :: cL, cD 
          type(RefValues_t),       intent(in)    :: refValues_
          logical,                 intent(in)    :: GetVelocity, UpdatePosition
@@ -497,13 +497,13 @@ end module ProblemFileFunctions
 #endif
 
 #ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, dt, refValues_, GetVelocity, UpdatePosition )
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, GetVelocity, UpdatePosition )
          use SMConstants
          use FluidData
          use PhysicsStorage
          IMPLICIT NONE
          real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: t, dt
          real(kind=RP),           intent(in)    :: cL, cD 
          type(RefValues_t),       intent(in)    :: refValues_
          logical,                 intent(in)    :: GetVelocity, UpdatePosition

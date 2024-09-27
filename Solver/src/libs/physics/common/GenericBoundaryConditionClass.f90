@@ -305,21 +305,21 @@ module GenericBoundaryConditionClass
          real(kind=RP),         intent(inout) :: Qsb(NCONS)  
       end subroutine GenericBC_FlowState_VPIBM
 
-      subroutine GenericBC_FlowStateMoving_IBM( self, Q, x, dt, cL, cD, Qsb )  
+      subroutine GenericBC_FlowStateMoving_IBM( self, Q, x, t, dt, cL, cD, Qsb )  
          implicit none 
          class(GenericBC_t),       intent(in)    :: self
          real(kind=RP),            intent(in)    :: Q(NCONS)
          real(kind=RP),            intent(inout) :: x(NDIM)
-         real(kind=RP),            intent(in)    :: dt
+         real(kind=RP),            intent(in)    :: t, dt
          real(kind=RP),            intent(in)    :: cL, cD 
          real(kind=RP),            intent(inout) :: Qsb(NCONS)
       end subroutine GenericBC_FlowStateMoving_IBM
 
-      subroutine GenericBC_PositionMoving_IBM( self, x, dt, cL, cD )  
+      subroutine GenericBC_PositionMoving_IBM( self, x, t, dt, cL, cD )  
          implicit none 
          class(GenericBC_t),      intent(in)    :: self
          real(kind=RP),           intent(inout) :: x(NDIM)
-         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: t, dt
          real(kind=RP),           intent(in)    :: cL, cD 
       end subroutine GenericBC_PositionMoving_IBM
 

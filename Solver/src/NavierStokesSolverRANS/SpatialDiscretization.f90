@@ -675,7 +675,7 @@ module SpatialDiscretization
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      Source = 0.0_RP 
                      if( e% isInsideBody(i,j,k) ) then
-                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
+                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
                      end if 
                      e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                   end do                  ; end do                ; end do
@@ -820,7 +820,7 @@ module SpatialDiscretization
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      Source = 0.0_RP 
                      if( e% isInsideBody(i,j,k) ) then 
-                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
+                        call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
                      end if 
                      e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                   end do                  ; end do                ; end do

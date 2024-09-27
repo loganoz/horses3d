@@ -339,25 +339,25 @@ module UserDefinedBCClass
 
       end subroutine UserDefinedBC_FlowNeumann
 
-      subroutine UserDefinedBC_FlowStateMoving_IBM( self, Q, x, dt, cL, cD, Qsb )  
+      subroutine UserDefinedBC_FlowStateMoving_IBM( self, Q, x, t, dt, cL, cD, Qsb )  
          implicit none 
          class(UserDefinedBC_t),   intent(in)    :: self
          real(kind=RP),            intent(in)    :: Q(NCONS)
          real(kind=RP),            intent(inout) :: x(NDIM)
-         real(kind=RP),            intent(in)    :: dt
+         real(kind=RP),            intent(in)    :: t, dt
          real(kind=RP),            intent(in)    :: cL, cD 
          real(kind=RP),            intent(inout) :: Qsb(NCONS)
 
          logical       :: updatePosition, GetVelocity
          real(kind=RP) :: V(NDIM), P 
          interface
-            subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, dt, refValues_, updatePosition, GetVelocity )
+            subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, updatePosition, GetVelocity )
                use SMConstants
                use FluidData
                use PhysicsStorage
                IMPLICIT NONE
                real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
-               real(kind=RP),           intent(in)    :: dt
+               real(kind=RP),           intent(in)    :: t, dt
                real(kind=RP),           intent(in)    :: cL, cD 
                type(RefValues_t),       intent(in)    :: refValues_
                logical,                 intent(in)    :: GetVelocity, UpdatePosition
@@ -366,7 +366,7 @@ module UserDefinedBCClass
 #if defined(NAVIERSTOKES)
          associate(gammaMinus1 => thermodynamics% gammaMinus1 )
          
-         call UserDefinedIBMKinematicsNS( x=x, V=V, cL=cL, cD=cD, dt=dt, refValues_=refValues, updatePosition=.false., GetVelocity=.true. )
+         call UserDefinedIBMKinematicsNS( x=x, V=V, cL=cL, cD=cD, t=t, dt=dt, refValues_=refValues, updatePosition=.false., GetVelocity=.true. )
 
          P                = pressure(Q)
          Qsb(IRHO)        = Q(IRHO) 
@@ -377,30 +377,30 @@ module UserDefinedBCClass
 #endif
       end subroutine UserDefinedBC_FlowStateMoving_IBM
 
-      subroutine UserDefinedBC_PositionMoving_IBM( self, x, dt, cL, cD )  
+      subroutine UserDefinedBC_PositionMoving_IBM( self, x, t, dt, cL, cD )  
          implicit none 
          class(UserDefinedBC_t),  intent(in)    :: self
          real(kind=RP),           intent(inout) :: x(NDIM)
-         real(kind=RP),           intent(in)    :: dt
+         real(kind=RP),           intent(in)    :: t, dt
          real(kind=RP),           intent(in)    :: cL, cD 
 
          logical       :: updatePosition, GetVelocity
          real(kind=RP) :: V(NDIM)
          interface
-            subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, dt, refValues_, updatePosition, GetVelocity )
+            subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, updatePosition, GetVelocity )
                use SMConstants
                use FluidData
                use PhysicsStorage
                IMPLICIT NONE
                real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
-               real(kind=RP),           intent(in)    :: dt
+               real(kind=RP),           intent(in)    :: t, dt
                real(kind=RP), optional, intent(in)    :: cL, cD 
                type(RefValues_t),       intent(in)    :: refValues_
                logical,                 intent(in)    :: GetVelocity, UpdatePosition
             end subroutine UserDefinedIBMKinematicsNS
          end interface
          
-         call UserDefinedIBMKinematicsNS( x=x, V=V, cL=cL, cD=cD, dt=dt, refValues_=refValues, updatePosition=.true., GetVelocity=.false. )
+         call UserDefinedIBMKinematicsNS( x=x, V=V, cL=cL, cD=cD, t=t, dt=dt, refValues_=refValues, updatePosition=.true., GetVelocity=.false. )
 
       end subroutine UserDefinedBC_PositionMoving_IBM
 
