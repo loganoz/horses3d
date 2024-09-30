@@ -49,6 +49,7 @@ module SpatialDiscretization
          use Headers
          use MPI_Process_Info
          use WallFunctionConnectivity
+         use ERSensor, only: initializeERFilters
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(DGSem)                           :: sem
@@ -213,6 +214,8 @@ module SpatialDiscretization
             
             call ViscousRegionDetectionDriver % Describe
 
+            call initializeERFilters(sem, controlVariables)
+
          end if
 
       end subroutine Initialize_SpaceAndTimeMethods
@@ -233,6 +236,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode)
+         use ERSensor, only: getER, filterSolutions
          IMPLICIT NONE
 !
 !        ---------
@@ -294,6 +298,10 @@ module SpatialDiscretization
                                          particles = particles, &
                                          t    = time)
 !$omp end parallel
+
+
+         call filterSolutions(mesh)
+         call getER(mesh)
 !
       END SUBROUTINE ComputeTimeDerivative
 !
