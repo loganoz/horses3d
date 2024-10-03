@@ -36,8 +36,6 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     type(airfoil_t), allocatable    :: airfoil_t(:)  ! airfoil data AoA-Cl-Cd
     real(KIND=RP), allocatable      :: local_velocity(:)  ! local flow speed at blade section, im m/s
     real(KIND=RP), allocatable      :: local_angle(:)  ! local flow angle at blade section, in rad
-    real(KIND=RP), allocatable      :: local_lift(:)  ! blade sectional Lift
-    real(KIND=RP), allocatable      :: local_drag(:)  ! blade sectional Lift
     real(KIND=RP), allocatable      :: point_xyz_loc(:,:) ! x,y location of blade points
     real(KIND=RP), allocatable      :: local_torque(:)  ! N.m
     real(KIND=RP), allocatable      :: local_thrust(:)  ! N
@@ -90,28 +88,12 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
 
     end type
 
-   Abstract Interface
-    Function element_averageQ_f(mesh,eID,xi)
-       use HexMeshClass
-       use PhysicsStorage
-       use NodalStorageClass
-       use SMConstants
-       implicit none
-
-       type(HexMesh), intent(in)    :: mesh
-       integer, intent(in)          :: eID 
-       integer                      :: k, j, i
-       real(kind=RP), dimension(NDIM), intent(in) :: xi
-
-       real(kind=RP), dimension(NCONS)   :: element_averageQ_f
-    End Function element_averageQ_f
-   End Interface
-
-    type(Farm_t)                  :: farm
+    type(Farm_t)                   :: farm
 
     ! max 10 airfoils file names per section
-    integer, parameter           :: MAX_AIRFOIL_FILES = 10
-    procedure(element_averageQ_f), pointer :: element_averageQ
+    integer, parameter             :: MAX_AIRFOIL_FILES = 10
+    integer, dimension(:), allocatable         :: numElementsPerTurbine, elementsActuated, turbineOfElement
+    !$acc declare create(elementsActuated, turbineOfElement)
 
 !  ========
 contains
@@ -119,17 +101,19 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ConstructFarm(self, controlVariables, t0)
+   subroutine ConstructFarm(self, controlVariables, t0, mesh)
        use FTValueDictionaryClass
        use mainKeywordsModule, only: solutionFileNameKey, restartFileNameKey
        use FileReadingUtilities      , only: getFileName
        use PhysicsStorage
+       use HexMeshClass
        use fluiddata
        use MPI_Process_Info
        implicit none
        class(farm_t) , intent(inout)                :: self
        TYPE(FTValueDictionary), intent(in)          :: controlVariables
        real(kind=RP), intent(in)                    :: t0
+       type(HexMesh), intent(in)                    :: mesh
 !        ---------------
 !        Local variables
 !        ---------------
@@ -141,6 +125,8 @@ contains
          real(kind=RP), dimension(:), allocatable   :: initial_azimutal
          character(len=STRING_CONSTANT_LENGTH)  :: restart_name, restart_operations_name
          logical                    :: fileExists
+         integer        :: nelem, eID, eIndex
+         real(kind=RP)  :: tolerance, r_square
 
     if (.not. controlVariables % logicalValueForKey("use actuatorline")) return
 
@@ -154,12 +140,6 @@ contains
     self % verbose = controlVariables % getValueOrDefault("actuator verbose", .false.)
     self % averageSubElement = controlVariables % getValueOrDefault("actuator average subelement", .true.)
     self % tolerance_factor = controlVariables % getValueOrDefault("actuator tolerance", 0.2_RP)
-
-    if (self % averageSubElement) then
-        element_averageQ => semi_element_averageQ
-    else
-        element_averageQ => full_element_averageQ
-    end if 
 
     restart_name = controlVariables % stringValueForKey( restartFileNameKey, requestedLength = STRING_CONSTANT_LENGTH )
     restart_name = trim(getFileName(restart_name))
@@ -238,7 +218,6 @@ contains
          self%turbine_t(k)%blade_t(j)%num_airfoils(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%airfoil_files(num_blade_sections,MAX_AIRFOIL_FILES),self%turbine_t(k)%blade_t(j)%airfoil_t(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%local_velocity(num_blade_sections), self%turbine_t(k)%blade_t(j)%local_angle(num_blade_sections), &
-         self%turbine_t(k)%blade_t(j)%local_lift(num_blade_sections), self%turbine_t(k)%blade_t(j)%local_drag(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%point_xyz_loc(num_blade_sections,3),self%turbine_t(k)%blade_t(j)%local_torque(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%local_thrust(num_blade_sections),self%turbine_t(k)%blade_t(j)%local_root_bending(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%local_rotor_force(num_blade_sections),self%turbine_t(k)%blade_t(j)%local_gaussian_sum(num_blade_sections), &
@@ -437,6 +416,62 @@ contains
     solution_file = trim(getFileName(solution_file))
     self % file_name = trim(solution_file)
 !
+!   Get the elements that are relevant
+!   ----------------------------------
+    allocate(numElementsPerTurbine(self%num_turbines))
+    numElementsPerTurbine = 0
+    element_loop:do eID = 1, mesh%no_of_elements
+        do k=1, self%num_turbines
+            tolerance = self%tolerance_factor*self%turbine_t(k)%radius
+            r_square = POW2(minval(mesh%elements(eID)%geom%x(2,:,:,:))-self%turbine_t(k)%hub_cood_y) + POW2(minval(mesh%elements(eID)%geom%x(3,:,:,:))-self%turbine_t(k)%hub_cood_z)
+            if( r_square <= POW2(self%turbine_t(k)%radius+tolerance) &
+                .and. minval(mesh%elements(eID)%geom%x(1,:,:,:)) < self%turbine_t(k)%hub_cood_x+tolerance &
+                .and. maxval(mesh%elements(eID)%geom%x(1,:,:,:)) >self%turbine_t(k)%hub_cood_x-tolerance) then
+                numElementsPerTurbine(k) = numElementsPerTurbine(k) + 1
+                cycle element_loop
+            end if
+        end do
+    end do element_loop
+    print *, "numElementsPerTurbine: ", numElementsPerTurbine
+    nelem = sum(numElementsPerTurbine)
+    allocate(elementsActuated(nelem),turbineOfElement(nelem))
+    eIndex = 0
+    element_loop2:do eID = 1, mesh%no_of_elements
+        do k=1, self%num_turbines
+            tolerance = self%tolerance_factor*self%turbine_t(k)%radius
+            r_square = POW2(minval(mesh%elements(eID)%geom%x(2,:,:,:))-self%turbine_t(k)%hub_cood_y) + POW2(minval(mesh%elements(eID)%geom%x(3,:,:,:))-self%turbine_t(k)%hub_cood_z)
+            if( r_square <= POW2(self%turbine_t(k)%radius+tolerance) &
+                .and. minval(mesh%elements(eID)%geom%x(1,:,:,:)) < self%turbine_t(k)%hub_cood_x+tolerance &
+                .and. maxval(mesh%elements(eID)%geom%x(1,:,:,:)) >self%turbine_t(k)%hub_cood_x-tolerance) then
+                eIndex = eIndex + 1
+                elementsActuated(eIndex) = eID
+                turbineOfElement(eIndex) = k
+                cycle element_loop2
+            end if
+        end do
+    end do element_loop2
+
+    ! print *, "elementsActuated: ", elementsActuated
+    ! print *, "turbineOfElement: ", turbineOfElement
+
+
+    print*, "I allocate the AL device data"
+!$acc update device(elementsActuated)
+!$acc update device(turbineOfElement)
+!$acc enter data copyin(self)
+!$acc enter data copyin(self%turbine_t)
+    do k=1, self % num_turbines
+        !$acc enter data copyin(self%turbine_t(k)%blade_t)
+        do j=1, self % turbine_t(k) % num_blades
+            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%chord)
+            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%azimuth_angle)
+            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%point_xyz_loc)
+            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%gauss_epsil_delta)
+            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%local_thrust)
+            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%local_rotor_force)
+        end do
+    end do
+!
 !   Create output files
 !   -------------------
     if (MPI_Process % isRoot) then
@@ -486,7 +521,6 @@ contains
    !                  self%turbine_t(i)%blade_t(j)%twist, &
    !                  self%turbine_t(i)%blade_t(j)%local_velocity, &
    !                  self%turbine_t(i)%blade_t(j)%local_angle, &
-   !                  self%turbine_t(i)%blade_t(j)%local_lift, &
    !                  self%turbine_t(i)%blade_t(j)%point_xyz_loc, &
    !                  self%turbine_t(i)%blade_t(j)%local_torque, &
    !                  self%turbine_t(i)%blade_t(j)%local_thrust, &
@@ -524,7 +558,6 @@ contains
    !local variables
    integer                           :: ii, jj, i, j, k, kk
    real(kind=RP)                     :: dt, interp, delta_temp
-   real(kind=RP), dimension(:), allocatable :: tolerance
    logical                           :: found, allfound
    integer                           :: eID, ierr
    real(kind=RP), dimension(NDIM)    :: x, xi
@@ -536,7 +569,6 @@ contains
    dt = time - self % time
    self % time = time
 
-   allocate ( tolerance(self%num_turbines) )
    dt = dt * Lref / refValues%V
    ! only for constant rot_speed
    ! theta = self%turbine_t(1)%rot_speed * t
@@ -552,14 +584,12 @@ contains
 !
 !$omp do schedule(runtime)private(ii,jj,kk)
    do kk = 1, self%num_turbines
-      tolerance(kk) = self%tolerance_factor*self%turbine_t(kk)%radius
       do jj = 1, self%turbine_t(kk)%num_blades
 
          self%turbine_t(kk)%blade_t(jj)%azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle + self%turbine_t(kk)%rot_speed*dt
 
-         self%turbine_t(kk)%blade_t(jj)%local_lift(:) = 0.0_RP
-         self%turbine_t(kk)%blade_t(jj)%local_drag(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
+         ! move temps to ForcesFarm
          self%turbine_t(kk)%blade_t(jj)%local_rotor_force_temp(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_velocity_temp(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_angle_temp(:) = 0.0_RP
@@ -592,13 +622,10 @@ contains
 !
 !$omp do schedule(runtime)private(ii,jj,kk,eID,Q,Qtemp,delta_temp,xi,found)
     do kk = 1, self%num_turbines
-      tolerance(kk) = self%tolerance_factor*self%turbine_t(kk)%radius
       do jj = 1, self%turbine_t(kk)%num_blades
 
          self%turbine_t(kk)%blade_t(jj)%azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle + self%turbine_t(kk)%rot_speed*dt
 
-         self%turbine_t(kk)%blade_t(jj)%local_lift(:) = 0.0_RP
-         self%turbine_t(kk)%blade_t(jj)%local_drag(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_thrust(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_torque(:) = 0.0_RP
@@ -614,11 +641,10 @@ contains
 !          -----------------------------------
 !
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
-           ! found = mesh % FindPointWithCoords(x, eID, xi)
-           call FindActuatorPointElement(self, mesh, x, kk, tolerance(kk), eID, xi, found)
+           call FindActuatorPointElement(self, mesh, x, kk, eID, xi, found)
            if (found) then
              ! averaged state values of the cell
-             Qtemp = element_averageQ(mesh,eID,xi)
+             Qtemp = element_averageQ(mesh,eID,xi,self % averageSubElement)
              delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
            else
              Qtemp = 0.0_RP
@@ -638,11 +664,23 @@ contains
              print*, "Actuator line point not found in mesh, x: ", x
              call exit(99)
            end if
-           call FarmUpdateLocalForces(self, ii, jj, kk, Q, interp)
+           call FarmGetLocalForces(self, ii, jj, kk, Q, interp, self%turbine_t(kk)%blade_t(jj)%local_angle(ii), self%turbine_t(kk)%blade_t(jj)%local_velocity(ii), & 
+                                   self%turbine_t(kk)%blade_t(jj)%local_Re(ii), self%turbine_t(kk)%blade_t(jj)%local_thrust(ii), self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii))
+           ! send local forces arrays and angle to device
          end do
       enddo
     enddo
+
 !$omp end do
+    do kk=1, self % num_turbines
+        do jj=1, self % turbine_t(kk) % num_blades
+            !$acc update device(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
+            !$acc update device(self%turbine_t(kk)%blade_t(jj)%point_xyz_loc)
+            !$acc update device(self%turbine_t(kk)%blade_t(jj)%local_thrust)
+            !$acc update device(self%turbine_t(kk)%blade_t(jj)%local_rotor_force)
+            !$acc update device(self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta)
+        end do
+    end do
 
    end if projection_cond
 !
@@ -650,90 +688,159 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ForcesFarm(self, x, Q, NS, time)
+   subroutine ForcesFarm(self, mesh, time)
    use PhysicsStorage
+   use HexMeshClass
    use fluiddata
    implicit none
 
    class(Farm_t) , intent(inout)     :: self
-   real(kind=RP),intent(in)          :: x(NDIM)
-   real(kind=RP),intent(in)          :: Q(NCONS)
-   real(kind=RP),intent(inout)       :: NS(NCONS)
+   type(HexMesh), intent(in)         :: mesh
    real(kind=RP),intent(in)          :: time
 
 ! local vars
-   real(kind=RP)                     :: tolerance, Non_dimensional, t, interp, local_gaussian
+   real(kind=RP)                     :: Non_dimensional, t, interp
    integer                           :: ii,jj, kk
+   integer                           :: i,j, k
+   integer                           :: eID, eIndex
    real(kind=RP), dimension(NDIM)    :: actuator_source
+   real(kind=RP)                     :: local_angle
+   real(kind=RP)                     :: local_velocity
+   real(kind=RP)                     :: local_Re
+   real(kind=RP)                     :: local_thrust
+   real(kind=RP)                     :: local_rotor_force
 
     if (.not. self % active) return
+
+    print *, "start ForcesFarm"
 
     Non_dimensional = POW2(refValues % V) * refValues % rho / Lref
     t = time * Lref / refValues % V
 
-do kk = 1, self%num_turbines
-    ! 20% of the radius for max of the rotor thickness
-      tolerance = self%tolerance_factor*self%turbine_t(kk)%radius
-        ! turbine is pointing backwards as x positive
-    if( POW2(x(2)-self%turbine_t(kk)%hub_cood_y)+POW2(x(3)-self%turbine_t(kk)%hub_cood_z) <= POW2(self%turbine_t(kk)%radius+tolerance) &
-    .and. (x(1) < self%turbine_t(kk)%hub_cood_x+tolerance .and. x(1)>self%turbine_t(kk)%hub_cood_x-tolerance)) then
+    if (self % calculate_with_projection) then
+        do eIndex = 1, size(elementsActuated)
+            eID = elementsActuated(eIndex)
+            kk = turbineOfElement(eIndex)
 
-      ! theta = self%turbine_t(1)%rot_speed * t
+            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                actuator_source(:) = 0.0_RP
 
-      actuator_source(:) = 0.0_RP
-      local_gaussian=0.0_RP
+                do jj = 1, self % turbine_t(kk) % num_blades
+                    do ii = 1, self % turbine_t(kk) % num_blade_sections
+                        ! interp = GaussianInterpolation(self, ii, jj, kk, mesh % elements(eID) % geom % x(:,i,j,k))
+                        interp = GaussianInterpolation(self%epsilon_type, mesh % elements(eID) % geom % x(:,i,j,k), self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,:), &
+                                                       self%turbine_t(kk)%blade_t(jj)%chord(ii), self%gauss_epsil,self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta(ii))
+                        call FarmGetLocalForces(self, ii, jj, kk, mesh%elements(eID)%storage%Q(:,i,j,k), interp, local_angle, local_velocity, local_Re, local_thrust, local_rotor_force)
+                        ! set scalar values as private
+                        ! reduce accumulated arrays
 
- if (self%calculate_with_projection) then
+                        ! minus account action-reaction effect, is the force on the fliud
+                        actuator_source(1) = actuator_source(1) - local_thrust
+                        actuator_source(2) = actuator_source(2) - (-local_rotor_force*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) )
+                        actuator_source(3) = actuator_source(3) - local_rotor_force*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) 
 
- 
-   do jj = 1, self%turbine_t(kk)%num_blades
-      do ii = 1, self%turbine_t(kk)%num_blade_sections
-          interp = GaussianInterpolation(self, ii, jj, kk, x)
-          call FarmUpdateLocalForces(self, ii, jj, kk,  Q, interp)
 
-          ! minus account action-reaction effect, is the force on the fliud
-          actuator_source(1) = actuator_source(1) - self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) 
-          actuator_source(2) = actuator_source(2) - (-self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) )
-          actuator_source(3) = actuator_source(3) - self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) 
+                        ! if (eID .eq. 23868) then
+                        if (eID .eq. 23868 .and. k .eq. 0 .and. j .eq. 0) then
+                            print *, "i: ", i
+                            print *, "j: ", j
+                            print *, "k: ", k
+                            print *, "jj: ", jj
+                            print *, "ii: ", ii
+                            print *, "Q: ", mesh%elements(eID)%storage%Q(:,i,j,k)
+                            print *, "local_velocity: ", local_velocity
+                            print *, "local_angle: ", local_angle
+                            print *, "local_thrust: ", local_thrust
+                            print *, "local_rotor_force: ", local_rotor_force
+                            print *, "actuator_source: ", actuator_source
+                        end if 
 
-          !acumulate in temporal variables, for each time step as the non temp are recalculated for each element
-          self%turbine_t(kk)%blade_t(jj)%local_thrust_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_thrust_temp(ii)+self%turbine_t(kk)%blade_t(jj)%local_thrust(ii)
-          self%turbine_t(kk)%blade_t(jj)%local_rotor_force_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_rotor_force_temp(ii)+self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)
-          self%turbine_t(kk)%blade_t(jj)%local_velocity_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_velocity_temp(ii)+self%turbine_t(kk)%blade_t(jj)%local_velocity(ii)*interp
-          self%turbine_t(kk)%blade_t(jj)%local_angle_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_angle_temp(ii)+self%turbine_t(kk)%blade_t(jj)%local_angle(ii)*interp
-          self%turbine_t(kk)%blade_t(jj)%local_Re_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_Re_temp(ii)+self%turbine_t(kk)%blade_t(jj)%local_Re(ii)*interp
+                        !acumulate in temporal variables, for each time step as the non temp are recalculated for each element
+                        self%turbine_t(kk)%blade_t(jj)%local_thrust_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_thrust_temp(ii)+local_thrust
+                        self%turbine_t(kk)%blade_t(jj)%local_rotor_force_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_rotor_force_temp(ii)+local_rotor_force
+                        self%turbine_t(kk)%blade_t(jj)%local_velocity_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_velocity_temp(ii)+local_velocity*interp
+                        self%turbine_t(kk)%blade_t(jj)%local_angle_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_angle_temp(ii)+local_angle*interp
+                        self%turbine_t(kk)%blade_t(jj)%local_Re_temp(ii)=self%turbine_t(kk)%blade_t(jj)%local_Re_temp(ii)+local_Re*interp
 
-         self%turbine_t(kk)%blade_t(jj)%local_gaussian_sum(ii)=self%turbine_t(kk)%blade_t(jj)%local_gaussian_sum(ii)+interp
-     
-         local_gaussian=local_gaussian+interp
+                        self%turbine_t(kk)%blade_t(jj)%local_gaussian_sum(ii)=self%turbine_t(kk)%blade_t(jj)%local_gaussian_sum(ii)+interp
 
-      enddo
-  enddo
+                    enddo
+                enddo
+                ! NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
+                actuator_source = actuator_source/ Non_dimensional
+                mesh % elements(eID) % storage % S_NS(IRHOU,i,j,k) = actuator_source(1)
+                mesh % elements(eID) % storage % S_NS(IRHOV,i,j,k) = actuator_source(2)
+                mesh % elements(eID) % storage % S_NS(IRHOW,i,j,k) = actuator_source(3)
+            end do                  ; end do                ; end do
+        end do
     
-    NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
+eID = 23868
+         print *, "s: ", mesh % elements(eID) % storage % S_NS
 
     else ! no projection
 
-       do jj = 1, self%turbine_t(kk)%num_blades
-          
-          do ii = 1, self%turbine_t(kk)%num_blade_sections
+        print *, "start loop "
+!$acc parallel loop gang present(self,mesh) private(actuator_source) async(eIndex)
+!$omp do schedule(runtime) private(i,j,k,ii,jj,kk)
+        do eIndex = 1, size(elementsActuated)
+        ! print *, "eIndex: ", eIndex
+            eID = elementsActuated(eIndex)
+            ! print *, "eID: ", eID
+            ! only one turbine is associated for one element
+            kk = turbineOfElement(eIndex)
 
-            interp = GaussianInterpolation(self, ii, jj, kk, x)
-    
-            ! minus account action-reaction effect, is the force on the fliud
-            actuator_source(1) = actuator_source(1) - self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) * interp
-            actuator_source(2) = actuator_source(2) - (-self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) )
-            actuator_source(3) = actuator_source(3) - self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) 
+!$acc loop vector collapse(3)
+            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                actuator_source(:) = 0.0_RP
 
-         enddo
-     enddo
-     
-       NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
+!$acc loop seq
+                do jj = 1, self % turbine_t(kk) % num_blades
+                    do ii = 1, self % turbine_t(kk) % num_blade_sections
+                        ! interp = GaussianInterpolation(self, mesh % elements(eID) % geom % x(:,i,j,k))
+                        interp = GaussianInterpolation(self%epsilon_type, mesh % elements(eID) % geom % x(:,i,j,k), self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,:), &
+                                                       self%turbine_t(kk)%blade_t(jj)%chord(ii), self%gauss_epsil,self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta(ii))
+                        ! print *, "interp: ", interp, "eid: ", eID, "ij ",ii,jj
+        
+                        ! minus account action-reaction effect, is the force on the fliud
+                        actuator_source(1) = actuator_source(1) - self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) * interp
+                        actuator_source(2) = actuator_source(2) - (-self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)  * interp)
+                        actuator_source(3) = actuator_source(3) - self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) * interp 
+
+                        if (eID .eq. 23868 .and. k .eq. 0 .and. j .eq. 0) then
+                            print *, "i: ", i
+                            print *, "j: ", j
+                            print *, "k: ", k
+                            print *, "jj: ", jj
+                            print *, "ii: ", ii
+                            print *, "Q: ", mesh%elements(eID)%storage%Q(:,i,j,k)
+                            print *, "local_velocity: ", self%turbine_t(kk)%blade_t(jj)%local_velocity(ii)
+                            print *, "local_angle: ", self%turbine_t(kk)%blade_t(jj)%local_angle(ii)
+                            print *, "local_thrust: ",self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) 
+                            print *, "local_rotor_force: ", self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)
+                            print *, "actuator_source: ", actuator_source
+                        end if 
+                    enddo
+                enddo
+                ! NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
+                actuator_source = actuator_source/ Non_dimensional
+                mesh % elements(eID) % storage % S_NS(IRHOU,i,j,k) = actuator_source(1)
+                mesh % elements(eID) % storage % S_NS(IRHOV,i,j,k) = actuator_source(2)
+                mesh % elements(eID) % storage % S_NS(IRHOW,i,j,k) = actuator_source(3)
+            end do                  ; end do                ; end do
+        end do
+!$omp end do
+!$acc end parallel loop
+
+
+print *, "end loop"
+         !$acc update self(mesh % elements(23868) % storage % S_NS)
+print *, "end source update"
+eID = 23868
+         print *, "s: ", mesh % elements(eID) % storage % S_NS
 
     endif
-    
-  endif
-enddo
+
+    print *, "finish ForcesFarm"
 
    end subroutine  ForcesFarm
 !
@@ -886,7 +993,7 @@ end subroutine WriteFarmForces
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-    Subroutine FarmUpdateLocalForces(self, ii, jj, kk, Q, interp)
+    Subroutine FarmGetLocalForces(self, ii, jj, kk, Q, interp, local_angle, local_velocity, local_Re, local_thrust, local_rotor_force)
         use PhysicsStorage
         use fluiddata
         use VariableConversion, only: Temperature, SutherlandsLaw
@@ -895,6 +1002,11 @@ end subroutine WriteFarmForces
         integer, intent(in)                           :: ii, jj, kk
         real(kind=RP), dimension(NCONS), intent(in)   :: Q
         real(kind=RP), intent(in)                     :: interp
+        real(kind=RP), intent(out)                    :: local_angle
+        real(kind=RP), intent(out)                    :: local_velocity
+        real(kind=RP), intent(out)                    :: local_Re
+        real(kind=RP), intent(out)                    :: local_thrust
+        real(kind=RP), intent(out)                    :: local_rotor_force
 
         !local variables
         real(kind=RP)                                 :: density, Cl, Cd, aoa, g1_func, tip_correct, angle_temp
@@ -906,12 +1018,7 @@ end subroutine WriteFarmForces
 !       get airfoil related variables
 !       -----------------------------
 !
-        ! option 1, not recommended, ignore LES velocity directions, just use U0 in x-direction
-        ! wind_speed_axial =  refValues % V ! wind goes in the x-direction
-        ! wind_speed_axial = sqrt( POW2(Q(IRHOU)) + POW2(Q(IRHOV)) ) / Q(IRHO) * refValues_%V ! wind goes in the x-direction
-        ! wind_speed_rot = 0.0_RP
-
-        ! option 2, project [v.w] in the rotational direction (theta in cylindrical coordinates)
+        ! project [v.w] in the rotational direction (theta in cylindrical coordinates)
         wind_speed_axial = (Q(IRHOU)/Q(IRHO)) * refValues % V ! our x is the z in cylindrical
         wind_speed_rot = ( -Q(IRHOV)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) + Q(IRHOW)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) ) / Q(IRHO) * refValues % V
 
@@ -923,20 +1030,19 @@ end subroutine WriteFarmForces
          T     = Temperature(Q)
          muL = SutherlandsLaw(T) * refValues % mu
 
-        self%turbine_t(kk)%blade_t(jj)%local_velocity(ii) = sqrt( POW2(self%turbine_t(kk)%rot_speed*self%turbine_t(kk)%blade_t(jj)%r_R(ii) - wind_speed_rot) + &
-                                                                 POW2(wind_speed_axial) )
-        self%turbine_t(kk)%blade_t(jj)%local_angle(ii) = atan( wind_speed_axial / (self%turbine_t(kk)%rot_speed*self%turbine_t(kk)%blade_t(jj)%r_R(ii) - wind_speed_rot) ) 
+        local_velocity = sqrt( POW2(self % turbine_t(kk) % rot_speed*self % turbine_t(kk) % blade_t(jj) % r_R(ii) - wind_speed_rot) + POW2(wind_speed_axial) )
+        local_angle = atan( wind_speed_axial / (self % turbine_t(kk) % rot_speed*self % turbine_t(kk) % blade_t(jj) % r_R(ii) - wind_speed_rot) ) 
 
         ! alpha = phi - gamma, gamma = blade pitch + airfoil local twist
-        aoa = self%turbine_t(kk)%blade_t(jj)%local_angle(ii) - (self%turbine_t(kk)%blade_t(jj)%twist(ii) + self%turbine_t(kk)%blade_pitch) 
-        self%turbine_t(kk)%blade_t(jj)%local_Re(ii) = self%turbine_t(kk)%blade_t(jj)%local_velocity(ii) * self%turbine_t(kk)%blade_t(jj)%chord(ii) * density / muL
-        call Get_Cl_Cl_from_airfoil_data(self%turbine_t(kk)%blade_t(jj)%airfoil_t(ii), aoa, self%turbine_t(kk)%blade_t(jj)%local_Re(ii), Cl, Cd)
+        aoa = local_angle - (self % turbine_t(kk) % blade_t(jj) % twist(ii) + self % turbine_t(kk) % blade_pitch) 
+        local_Re = local_velocity * self % turbine_t(kk) % blade_t(jj) % chord(ii) * density / muL
+        call Get_Cl_Cl_from_airfoil_data(self % turbine_t(kk) % blade_t(jj) % airfoil_t(ii), aoa, local_Re, Cl, Cd)
 !
 !       ---------------
 !       tip correction
 !       ---------------
 !
-        g1_func=exp(-self%turbine_t(kk)%blade_t(jj)%tip_c1*(self%turbine_t(kk)%num_blades*self%turbine_t(kk)%rot_speed*self%turbine_t(kk)%radius/refValues%V-self%turbine_t(kk)%blade_t(jj)%tip_c2))+0.1
+        g1_func=exp(-self % turbine_t(kk) % blade_t(jj) % tip_c1*(self % turbine_t(kk) % num_blades*self % turbine_t(kk) % rot_speed*self % turbine_t(kk) % radius/refValues % V-self % turbine_t(kk) % blade_t(jj) % tip_c2))+0.1
         ! in this it should be the local_angle at the tip
 
         ! without perturbation
@@ -949,7 +1055,7 @@ end subroutine WriteFarmForces
                       ! (2.0_RP*self%turbine_t(1)%radius*sin(angle_temp))) ))
 
         ! 2 possibility: use the local radius and angle
-        tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(kk)%num_blades*(self%turbine_t(kk)%radius-self%turbine_t(kk)%blade_t(jj)%r_R(ii)) / abs(2.0_RP*self%turbine_t(kk)%blade_t(jj)%r_R(ii)*sin(self%turbine_t(kk)%blade_t(jj)%local_angle(ii)))) ))
+        tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(kk)%num_blades*(self%turbine_t(kk)%radius-self%turbine_t(kk)%blade_t(jj)%r_R(ii)) / abs(2.0_RP*self%turbine_t(kk)%blade_t(jj)%r_R(ii)*sin(local_angle))) ))
 !
 !       --------------------------------
 !       Save forces on the blade segment
@@ -958,23 +1064,18 @@ end subroutine WriteFarmForces
          ! lift=Cl*1/2.rho*v_local^2*Surface ; and surface=section area of the blade S=length*chord
          ! lift and drag are multiply by the gaussian interp for the case of each mesh node contributing to the force (for local only is 1)
 
-         lift_force = 0.5_RP * density * Cl * tip_correct * POW2(self%turbine_t(kk)%blade_t(jj)%local_velocity(ii)) &
-                      * self%turbine_t(kk)%blade_t(jj)%chord(ii) * (self%turbine_t(kk)%blade_t(jj)%r_R(ii) - self%turbine_t(kk)%blade_t(jj)%r_R(ii-1)) * interp
+         lift_force = 0.5_RP * density * Cl * tip_correct * POW2(local_velocity) * self%turbine_t(kk)%blade_t(jj)%chord(ii) &
+                      * (self%turbine_t(kk)%blade_t(jj)%r_R(ii) - self%turbine_t(kk)%blade_t(jj)%r_R(ii-1)) * interp
 
-        drag_force = 0.5_RP * density * Cd * tip_correct * POW2(self%turbine_t(kk)%blade_t(jj)%local_velocity(ii)) &
-                      * self%turbine_t(kk)%blade_t(jj)%chord(ii) * (self%turbine_t(kk)%blade_t(jj)%r_R(ii) - self%turbine_t(kk)%blade_t(jj)%r_R(ii-1)) * interp
+        drag_force = 0.5_RP * density * Cd * tip_correct * POW2(local_velocity) * self%turbine_t(kk)%blade_t(jj)%chord(ii) &
+                      * (self%turbine_t(kk)%blade_t(jj)%r_R(ii) - self%turbine_t(kk)%blade_t(jj)%r_R(ii-1)) * interp
 
-        self%turbine_t(kk)%blade_t(jj)%local_lift(ii) =  lift_force
-        self%turbine_t(kk)%blade_t(jj)%local_drag(ii) =  drag_force
-
-        self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii) = lift_force * sin(self%turbine_t(kk)%blade_t(jj)%local_angle(ii)) &
-                                                              - drag_force * cos(self%turbine_t(kk)%blade_t(jj)%local_angle(ii))
+        local_rotor_force = lift_force * sin(local_angle) - drag_force * cos(local_angle)
                                   
-        self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) = lift_force * cos(self%turbine_t(kk)%blade_t(jj)%local_angle(ii)) & 
-                                                         + drag_force * sin(self%turbine_t(kk)%blade_t(jj)%local_angle(ii))
+        local_thrust = lift_force * cos(local_angle) + drag_force * sin(local_angle)
                                                      !
 
-    End Subroutine FarmUpdateLocalForces
+    End Subroutine FarmGetLocalForces
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1053,45 +1154,47 @@ end subroutine WriteFarmForces
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-    Function GaussianInterpolation(self, ii, jj, kk, x, Cd)
+    Function GaussianInterpolation(epsilon_type, x, x_point, chord, gauss_epsil, delta, Cd)
         implicit none
-        class(Farm_t), intent(in)               :: self
-        integer, intent(in)                     :: ii, jj, kk
+        integer, intent(in)                     :: epsilon_type
         real(kind=RP), intent(in)               :: x(NDIM)
+        real(kind=RP), intent(in)               :: x_point(NDIM)
+        real(kind=RP), intent(in)               :: chord
+        real(kind=RP), intent(in)               :: gauss_epsil
+        real(kind=RP), intent(in)               :: delta
         real(kind=RP), intent(in), optional     :: Cd
         real(kind=RP)                           :: GaussianInterpolation
 
         !local variables
         real(kind=RP)                           :: epsil
 
-        select case (self % epsilon_type)
+        select case (epsilon_type)
         case (0)
 ! EPSILON - option 1 (from file)
-            epsil = self % gauss_epsil
+            epsil = gauss_epsil
         case (1)
 ! EPSILON - option 2
             if (present(Cd)) then
-                epsil = max(self%turbine_t(kk)%blade_t(jj)%chord(ii)/4.0_RP,self%turbine_t(kk)%blade_t(jj)%chord(ii)*Cd/2.0_RP)
+                epsil = max(chord/4.0_RP,chord*Cd/2.0_RP)
             else
-                epsil = self % gauss_epsil
+                epsil = gauss_epsil
             end if
         case (2)
 ! EPSILON - option 3 (k is from file)
 ! eps = k*delta; k is in gauss_epsil, gauss_epsil_delta is obtained in UpdateFarm
-            epsil = self % gauss_epsil * self % turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii)
+            epsil = gauss_epsil * delta
         case default
-            epsil = self % gauss_epsil
+            epsil = gauss_epsil
         end select
 
-        GaussianInterpolation = exp( -(POW2(x(1) - self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1)) + &
-                  POW2(x(2) - self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2)) + POW2(x(3) - self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3))) / POW2(epsil) ) / ( POW3(epsil) * pi**(3.0_RP/2.0_RP) )
+        GaussianInterpolation = exp( -(POW2(x(1) - x_point(1)) + POW2(x(2) - x_point(2)) + POW2(x(3) - x_point(3))) / POW2(epsil) ) / ( POW3(epsil) * pi**(3.0_RP/2.0_RP) )
 
     End Function GaussianInterpolation
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-! based on HexMesh_FindPointWithCoords, without curvature and with tolerance
-    Subroutine FindActuatorPointElement(self, mesh, x, kk, tolerance, eID, xi, success)
+! based on HexMesh_FindPointWithCoords, without curvature only in the precalculated list
+    Subroutine FindActuatorPointElement(self, mesh, x, kk, eID, xi, success)
        use HexMeshClass
        Implicit None
 
@@ -1099,22 +1202,20 @@ end subroutine WriteFarmForces
        type(HexMesh), intent(in)                     :: mesh
        real(kind=RP), dimension(NDIM), intent(in)    :: x       ! physical space
        integer, intent(in)                           :: kk 
-       real(kind=RP), intent(in)                     :: tolerance
        integer, intent(out)                          :: eID 
        real(kind=RP), dimension(NDIM), intent(out)   :: xi      ! computational space
        logical, intent(out)                          :: success
        !
        logical                                       :: found
+       integer                                       :: eIndex
 
        success = .false.
 
-       if( POW2(x(2)-self%turbine_t(kk)%hub_cood_y)+POW2(x(3)-self%turbine_t(kk)%hub_cood_z) > POW2(self%turbine_t(kk)%radius+tolerance) &
-            .or. (x(1) > self%turbine_t(kk)%hub_cood_x+tolerance .or. x(1) < self%turbine_t(kk)%hub_cood_x-tolerance)) return
-!
 !      Search in linear (not curved) mesh (faster and safer)
 !      For AL the mesh is expected to be linear
 !      -----------------------------------------------------
-       do eID = 1, mesh % no_of_elements
+       do eIndex = 1, size(elementsActuated)
+          eID = elementsActuated(eIndex)
           found = mesh % elements(eID) % FindPointInLinElement(x, mesh % nodes)
           if ( found ) exit
        end do
@@ -1265,6 +1366,24 @@ Function semi_element_averageQ(mesh,eID,xi)
    semi_element_averageQ(:) = Qsum(:) / real(total_points,RP)
 
 End Function semi_element_averageQ
+
+Function element_averageQ(mesh,eID,xi,averageSubElement) result(Qe)
+   use HexMeshClass
+   use PhysicsStorage
+   Implicit None
+   type(HexMesh), intent(in)    :: mesh
+   integer, intent(in)          :: eID 
+   logical, intent(in)          :: averageSubElement
+   real(kind=RP), dimension(NDIM), intent(in) :: xi
+   real(kind=RP), dimension(NCONS)   :: Qe
+
+    !$acc update self(mesh%elements(eID)%Storage%Q)
+    if (averageSubElement) then
+        Qe = semi_element_averageQ(mesh, eid, xi)
+    else
+        Qe = full_element_averageQ(mesh, eid, xi)
+    end if 
+End Function element_averageQ
 
 #endif
 end module 

@@ -411,7 +411,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n 
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, eq
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
          real(kind=RP), allocatable :: Source_HO(:,:,:,:)
          integer,       allocatable :: i_(:), j_(:), k_(:)
@@ -603,25 +603,25 @@ module SpatialDiscretization
 !
 !           Add physical source term
 !           ************************
-!!! $acc parallel loop gang 
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
                ! different contributions and not accumulate each call
                e % storage % S_NS = 0.0_RP
-!!!$acc loop vector collapse(3)
                do k = 0, e % Nxyz(1)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
+                  ! call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
+         print *, "Q prev: ", mesh % elements(23868) % storage % Q
             call sponge % addSource(mesh)
+            call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
 !           ********************
@@ -671,15 +671,18 @@ module SpatialDiscretization
 !        ***********************
 !        Now add the source term
 !        ***********************
+         !$acc parallel loop gang present(mesh, mesh % elements)
 !$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
-            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+         do eID = 1 , size(mesh % elements)
+         !$acc loop vector collapse(3)
+            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                do eq = 1, NCONS
+                    mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) + mesh % elements(eID) % storage % S_NS(eq,i,j,k)
+                end do
             end do                  ; end do                ; end do
-            end associate
          end do
 !$omp end do
+         !$acc end parallel loop 
 !
 !        *********************
 !        Add IBM source term
@@ -931,11 +934,13 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
+                  ! call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
+
+            call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
 !           ********************
@@ -1162,11 +1167,12 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
+                  ! call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
+            call ForcesFarm(farm, mesh, t)
          end if
 
 !$omp do schedule(runtime) private(i,j,k)
@@ -1374,6 +1380,7 @@ module SpatialDiscretization
       subroutine TimeDerivative_FacesContribution( e , t , mesh)
          !$acc routine vector
          use HexMeshClass
+         use DGIntegrals, only: ScalarWeakIntegrals_StdFace
          implicit none
          type(Element)           :: e
          real(kind=RP)           :: t

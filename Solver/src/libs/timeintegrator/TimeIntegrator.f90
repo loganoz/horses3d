@@ -489,9 +489,7 @@
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
-          ! call farm % ConstructFarm(controlVariables, t)
-          call ConstructFarm(farm, controlVariables, t)
-          ! call farm % UpdateFarm(t, sem % mesh)
+          call ConstructFarm(farm, controlVariables, t, sem % mesh)
           call UpdateFarm(farm, t, sem % mesh)
       end if
       call sponge % construct(sem % mesh,controlVariables)
