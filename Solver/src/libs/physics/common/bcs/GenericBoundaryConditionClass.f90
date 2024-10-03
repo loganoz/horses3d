@@ -243,7 +243,7 @@ module GenericBoundaryConditionClass
       subroutine GenericBC_FlowState(self, mesh, zoneID)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
+         type(HexMesh),       intent(inout)    :: mesh
          integer,             intent(in)    :: zoneID 
       end subroutine GenericBC_FlowState
 
@@ -255,7 +255,7 @@ module GenericBoundaryConditionClass
 !
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
+         type(HexMesh), intent(inout)              :: mesh
          integer,                 intent(in)    :: zoneID 
 !
 !        ---------------
@@ -324,7 +324,7 @@ module GenericBoundaryConditionClass
       subroutine GenericBC_FlowNeumann(self, mesh, zoneID)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
+         type(HexMesh),       intent(inout)    :: mesh
          integer,             intent(in)    :: zoneID 
       end subroutine GenericBC_FlowNeumann
 #endif

@@ -381,7 +381,7 @@ module InflowBCClass
       subroutine InflowBC_FlowState(self, mesh, zoneID)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
+         type(HexMesh),       intent(inout)    :: mesh
          integer,             intent(in)    :: zoneID 
 !
 !        ---------------
@@ -426,7 +426,7 @@ module InflowBCClass
       subroutine InflowBC_FlowNeumann(self, mesh, zoneID)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(in)    :: mesh
+         type(HexMesh),       intent(inout)    :: mesh
          integer,             intent(in)    :: zoneID 
 !
 !        *******************************************

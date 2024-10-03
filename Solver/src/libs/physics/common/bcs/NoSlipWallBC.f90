@@ -293,8 +293,8 @@ module NoSlipWallBCClass
    !
             use HexMeshClass
             implicit none
-            class(NoSlipWallBC_t), intent(in)    :: self
-            type(HexMesh),           intent(in)    :: mesh
+            class(NoSlipWallBC_t),   intent(in)    :: self
+            type(HexMesh),           intent(inout) :: mesh
             integer,                 intent(in)    :: zoneID   
    !
    !        ---------------
@@ -341,8 +341,8 @@ module NoSlipWallBCClass
 !
          implicit none
          class(NoSlipWallBC_t),  intent(in)    :: self
-         type(HexMesh), intent(in)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         type(HexMesh),          intent(inout) :: mesh
+         integer,                intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -394,10 +394,10 @@ module NoSlipWallBCClass
 !           Cancel out the temperature flux for adiabatic BCs
 !        ***********************************************************
 !
-         implicit none
-         class(NoSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(in)            :: mesh
-         integer,                 intent(in)  :: zoneID 
+         implicit none 
+         class(NoSlipWallBC_t), intent(in)     :: self
+         type(HexMesh),          intent(inout) :: mesh
+         integer,                 intent(in)   :: zoneID 
 !
 !        ---------------
 !        Local variables
