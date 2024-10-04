@@ -492,6 +492,9 @@ module SpatialDiscretization
             end do
 !$omp end do
 
+! for the sponge, loops are in the internal subroutine as values are precalculated
+            call sponge % addSource(mesh)
+
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
@@ -501,8 +504,7 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-            ! for the sponge, loops are in the internal subroutine as values are precalculated
-            call sponge % addSource(mesh)
+
 !
 !           ********************
 !           Add Particles source

@@ -219,7 +219,7 @@ module SpatialDiscretization
 !        ---------------
 !
          INTEGER                 :: k, eID, fID, i, j
-         real(kind=RP)           :: sqrtRho
+         real(kind=RP)           :: sqrtRho, invMa2
          class(Element), pointer :: e
 
 
@@ -461,11 +461,12 @@ module SpatialDiscretization
 !        Add the Non-Conservative term to QDot
 !        -------------------------------------
 !
-!$omp do schedule(runtime) private(i,j,k,e,sqrtRho)
+!$omp do schedule(runtime) private(i,j,k,e,sqrtRho,invMa2)
          do eID = 1, size(mesh % elements)
             associate(e => mesh % elements(eID))
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                sqrtRho = sqrt(e % storage % rho(i,j,k))
+               invMa2 = dimensionless % invMa2(1) * min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP)) 
                e % storage % QDot(IMC,i,j,k)      = 0.0_RP
                e % storage % QDot(IMSQRHOU,i,j,k) = -0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGU,i,j,k) & 
                                                                      + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGU,i,j,k) &   
@@ -482,9 +483,10 @@ module SpatialDiscretization
                                                                      + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGW,i,j,k) ) &
                                                     - e % storage % Q(IMC,i,j,k)*e % storage % U_z(IGMU,i,j,k)
    
-               e % storage % QDot(IMP,i,j,k) = -dimensionless % invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
-                                                                          + e % storage % U_z(IGW,i,j,k))  
-
+               ! e % storage % QDot(IMP,i,j,k) = -dimensionless % invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
+               !                                                            + e % storage % U_z(IGW,i,j,k))    
+                e % storage % QDot(IMP,i,j,k) = - invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
+                                                                           + e % storage % U_z(IGW,i,j,k))                                                                                                                
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do                ; end do                ; end do
             end associate
@@ -583,6 +585,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , t )
+         use SpongeClass, only: sponge
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -657,6 +660,26 @@ module SpatialDiscretization
             end associate 
          end do
 !$omp end do
+
+! Sponges
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
+            end associate
+         enddo
+!$omp end do
+!for the sponge, loops are in the internal subroutine as values are precalculated
+         call sponge % addSource(mesh)
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do  
 !
 !        ******************************************
 !        Do the same for elements with shared faces
