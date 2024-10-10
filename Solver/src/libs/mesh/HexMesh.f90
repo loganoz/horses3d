@@ -4308,12 +4308,12 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % elements(eID) % storage % FluxF)
          !$acc enter data copyin(self % elements(eID) % storage % FluxG)
          !$acc enter data copyin(self % elements(eID) % storage % FluxH)
+         !$acc enter data copyin(self % elements(eID) % storage % contravariantFlux)
          !$acc enter data copyin(self % elements(eID) % storage % U_x)
          !$acc enter data copyin(self % elements(eID) % storage % U_y)
          !$acc enter data copyin(self % elements(eID) % storage % U_z)
          !$acc enter data copyin(self % elements(eID) % storage % mu_ns)
          !$acc enter data copyin(self % elements(eID) % storage % mu_turb_NS)
-
          !$acc enter data copyin(self % elements(eID) % geom)
          !$acc enter data copyin(self % elements(eID) % geom % jGradXi)
          !$acc enter data copyin(self % elements(eID) % geom % jGradEta)

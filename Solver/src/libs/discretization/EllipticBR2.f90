@@ -89,7 +89,7 @@ module EllipticBR2
             self % eta = 2.0_RP
 
          end if
-            
+
       end subroutine BR2_Construct
    
       subroutine BR2_Describe(self)
@@ -172,25 +172,44 @@ module EllipticBR2
             end do
 !$omp end do    
          else
-!$omp do schedule(runtime)
-            do eID = 1, size(mesh % elements)
-               associate( e => mesh % elements(eID) )
-               !call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
-   !
-   !           Prolong to faces
-   !           ----------------
-               fIDs = e % faceIDs
-               !call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
-               !                                 mesh % faces(fIDs(2)),&
-               !                                 mesh % faces(fIDs(3)),&
-               !                                 mesh % faces(fIDs(4)),&
-               !                                 mesh % faces(fIDs(5)),&
-               !                                 mesh % faces(fIDs(6)) )
-
-               end associate
-            end do
-!$omp end do  
+!$acc parallel loop gang present(mesh) private(fIDs)
+!$omp do schedule(runtime) private(eID)
+                  do eID = 1, size(mesh % elements)
+                     fIDs = mesh % elements(eID) % faceIDs
+         
+                     call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
+                                                             mesh % faces(fIDs(1)),&
+                                                             mesh % faces(fIDs(2)),&
+                                                             mesh % faces(fIDs(3)),&
+                                                             mesh % faces(fIDs(4)),&
+                                                             mesh % faces(fIDs(5)),&
+                                                             mesh % faces(fIDs(6)),&
+                                                             mesh % elements(eID) % storage % U_x, 1)
+         
+                     call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
+                                                             mesh % faces(fIDs(1)),&
+                                                             mesh % faces(fIDs(2)),&
+                                                             mesh % faces(fIDs(3)),&
+                                                             mesh % faces(fIDs(4)),&
+                                                             mesh % faces(fIDs(5)),&
+                                                             mesh % faces(fIDs(6)),&
+                                                             mesh % elements(eID) % storage % U_y, 2)
+                                                             
+                     call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
+                                                             mesh % faces(fIDs(1)),&
+                                                             mesh % faces(fIDs(2)),&
+                                                             mesh % faces(fIDs(3)),&
+                                                             mesh % faces(fIDs(4)),&
+                                                             mesh % faces(fIDs(5)),&
+                                                             mesh % faces(fIDs(6)),&
+                                                             mesh % elements(eID) % storage % U_z, 3)
+                  end do
+!$acc end parallel loop
+!$omp end do
          end if
+         !$acc wait
+         print*, "I am in BR2 line 211"
+
 !
 !        **********************************************
 !        Compute interface solution of non-shared faces
@@ -200,33 +219,42 @@ module EllipticBR2
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesInterior)
                fID = mesh % HO_FacesInterior(iFace)
-               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn)
             end do
 !$omp end do nowait
          else
 !$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
             do iFace = 1, size(mesh % faces_interior)
                fID = mesh % faces_interior(iFace)
-               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn)
             end do
+!$acc end parallel loop
 !$omp end do nowait
          end if
-
+         !$acc wait
+         print*, "I am in BR2 line 232"
+         
          if (HOElements) then
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesBoundary)
                fID = mesh % HO_FacesBoundary(iFace)
-               call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+               call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time)
             end do
 !$omp end do 
          else
 !$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
             do iFace = 1, size(mesh % faces_boundary)
                fID = mesh % faces_boundary(iFace)
-               call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+               call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time)
             end do
+!$acc end parallel loop
 !$omp end do 
          end if
+         !$acc wait
+         print*, "I am in BR2 line 254"
+
 !
 !        **********************
 !        Compute face integrals
@@ -241,12 +269,17 @@ module EllipticBR2
 !$omp end do
          else
 !$omp do schedule(runtime) private(eID) 
+!$acc parallel loop gang present(mesh, self) copyin(self)
             do iEl = 1, size(mesh % elements_sequential)
                eID = mesh % elements_sequential(iEl)
                call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
             end do
+!$acc end parallel loop
 !$omp end do
          end if
+         !$acc wait
+         print*, "I am in BR2 line 278"
+
 !
 !        ******************
 !        Wait for MPI faces
@@ -296,6 +329,7 @@ module EllipticBR2
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine BR2_ComputeGradientFaceIntegrals( self, nGradEqn, e, mesh)
+         !$acc routine vector
 !
 !        *******************************************************
 !              The surface integrals in the BR2 method considers
@@ -315,53 +349,48 @@ module EllipticBR2
          use DGIntegrals
          use NodalStorageClass, only: NodalStorage
          implicit none
-         class(BassiRebay2_t),   intent(in) :: self
-         integer,                intent(in) :: nGradEqn
-         class(Element)                     :: e
+         type(BassiRebay2_t),   intent(in)  :: self
+         integer,                intent(in)  :: nGradEqn
+         type(Element)                       :: e
          type(HexMesh),        intent(inout) :: mesh
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer       :: i, j, k
-         real(kind=RP) :: invjac(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP) :: faceInt_x(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP) :: faceInt_y(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP) :: faceInt_z(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         integer       :: i, j, k, eq
          real(kind=RP) :: bv_x(0:e % Nxyz(1),2)
          real(kind=RP) :: bv_y(0:e % Nxyz(2),2)
          real(kind=RP) :: bv_z(0:e % Nxyz(3),2)
-
-         call VectorWeakIntegrals % StdFace(e, nGradEqn, &
+         
+         call  VectorWeakIntegrals_StdFace(e, NGRAD, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
                mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % unStar, &
                mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % unStar, &
                mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % unStar, &
-               faceInt_x, faceInt_y, faceInt_z )
+               -e % storage % U_x, -e % storage % U_y, -e % storage % U_z )
 !
 !        Add the integrals weighted with the Jacobian
 !        --------------------------------------------
+         !$acc loop vector collapse(3)
          do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-            invjac(i,j,k) = 1.0_RP / e % geom % jacobian(i,j,k)
-            e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) - faceInt_x(:,i,j,k) * invjac(i,j,k)
-            e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) - faceInt_y(:,i,j,k) * invjac(i,j,k)
-            e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) - faceInt_z(:,i,j,k) * invjac(i,j,k)
+            !$acc loop seq
+            do eq = 1, NCONS
+               e % storage % U_x(eq,i,j,k) = -e % storage % U_x(eq,i,j,k) * e % geom % InvJacobian(i,j,k)
+               e % storage % U_y(eq,i,j,k) = -e % storage % U_y(eq,i,j,k) * e % geom % InvJacobian(i,j,k)
+               e % storage % U_z(eq,i,j,k) = -e % storage % U_z(eq,i,j,k) * e % geom % InvJacobian(i,j,k)
+            enddo
          end do                  ; end do                   ; end do
 !
 !        ******************************************
 !        Perform the interface gradients correction
 !        ******************************************
 !
-         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
-                   spAeta  => NodalStorage(e % Nxyz(2)), &
-                   spAzeta => NodalStorage(e % Nxyz(3)) )
-         bv_x = spAxi % b * spAxi % v
-         bv_y = spAeta % b * spAeta % v
-         bv_z = spAzeta % b * spAzeta % v
-         end associate
+         bv_x = NodalStorage(e % Nxyz(1)) % b * NodalStorage(e % Nxyz(1)) % v
+         bv_y = NodalStorage(e % Nxyz(2)) % b * NodalStorage(e % Nxyz(2)) % v
+         bv_z = NodalStorage(e % Nxyz(3)) % b * NodalStorage(e % Nxyz(3)) % v
 !
 !        ----------------
 !>       Xi-contributions
@@ -372,11 +401,13 @@ module EllipticBR2
                    U_y => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % U_y, &
                    U_z => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % U_z, &
                    unStar => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % unStar )
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            U_x(:,j,k) = U_x(:,j,k) - self % eta * unStar(:,1,j,k) * bv_x(i,LEFT) * invjac(i,j,k)
-            U_y(:,j,k) = U_y(:,j,k) - self % eta * unStar(:,2,j,k) * bv_x(i,LEFT) * invjac(i,j,k)
-            U_z(:,j,k) = U_z(:,j,k) - self % eta * unStar(:,3,j,k) * bv_x(i,LEFT) * invjac(i,j,k)
+         !$acc loop vector collapse(2)
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) 
+            !$acc loop seq
+            do i = 0, e%Nxyz(1)
+            U_x(:,j,k) = U_x(:,j,k) - self % eta * unStar(:,1,j,k) * bv_x(i,LEFT) * e % geom % InvJacobian(i,j,k)
+            U_y(:,j,k) = U_y(:,j,k) - self % eta * unStar(:,2,j,k) * bv_x(i,LEFT) * e % geom % InvJacobian(i,j,k)
+            U_z(:,j,k) = U_z(:,j,k) - self % eta * unStar(:,3,j,k) * bv_x(i,LEFT) * e % geom % InvJacobian(i,j,k)
          end do                 ; end do                ; end do
          end associate
 
@@ -384,11 +415,13 @@ module EllipticBR2
                    U_y => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % U_y, &
                    U_z => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % U_z, &
                    unStar => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % unStar )
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            U_x(:,j,k) = U_x(:,j,k) - self % eta * unStar(:,1,j,k) * bv_x(i,RIGHT) * invjac(i,j,k)
-            U_y(:,j,k) = U_y(:,j,k) - self % eta * unStar(:,2,j,k) * bv_x(i,RIGHT) * invjac(i,j,k)
-            U_z(:,j,k) = U_z(:,j,k) - self % eta * unStar(:,3,j,k) * bv_x(i,RIGHT) * invjac(i,j,k)
+         !$acc loop vector collapse(2)
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)
+            !$acc loop seq
+            do i = 0, e%Nxyz(1)
+            U_x(:,j,k) = U_x(:,j,k) - self % eta * unStar(:,1,j,k) * bv_x(i,RIGHT) * e % geom % InvJacobian(i,j,k)
+            U_y(:,j,k) = U_y(:,j,k) - self % eta * unStar(:,2,j,k) * bv_x(i,RIGHT) * e % geom % InvJacobian(i,j,k)
+            U_z(:,j,k) = U_z(:,j,k) - self % eta * unStar(:,3,j,k) * bv_x(i,RIGHT) * e % geom % InvJacobian(i,j,k)
          end do                 ; end do                ; end do
          end associate
 !
@@ -400,11 +433,13 @@ module EllipticBR2
                    U_y => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % U_y, &
                    U_z => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % U_z, &
                    unStar => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % unStar )
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            U_x(:,i,k) = U_x(:,i,k) - self % eta * unStar(:,1,i,k) * bv_y(j,LEFT) * invjac(i,j,k)
-            U_y(:,i,k) = U_y(:,i,k) - self % eta * unStar(:,2,i,k) * bv_y(j,LEFT) * invjac(i,j,k)
-            U_z(:,i,k) = U_z(:,i,k) - self % eta * unStar(:,3,i,k) * bv_y(j,LEFT) * invjac(i,j,k)
+         !$acc loop vector collapse(2)
+         do k = 0, e%Nxyz(3) ; do i = 0, e%Nxyz(1)            
+            !$acc loop seq
+            do j = 0, e%Nxyz(2)    
+            U_x(:,i,k) = U_x(:,i,k) - self % eta * unStar(:,1,i,k) * bv_y(j,LEFT) * e % geom % InvJacobian(i,j,k)
+            U_y(:,i,k) = U_y(:,i,k) - self % eta * unStar(:,2,i,k) * bv_y(j,LEFT) * e % geom % InvJacobian(i,j,k)
+            U_z(:,i,k) = U_z(:,i,k) - self % eta * unStar(:,3,i,k) * bv_y(j,LEFT) * e % geom % InvJacobian(i,j,k)
          end do                 ; end do                ; end do
          end associate
 
@@ -412,11 +447,13 @@ module EllipticBR2
                    U_y => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % U_y, &
                    U_z => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % U_z, &
                    unStar => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % unStar )
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            U_x(:,i,k) = U_x(:,i,k) - self % eta * unStar(:,1,i,k) * bv_y(j,RIGHT) * invjac(i,j,k)
-            U_y(:,i,k) = U_y(:,i,k) - self % eta * unStar(:,2,i,k) * bv_y(j,RIGHT) * invjac(i,j,k)
-            U_z(:,i,k) = U_z(:,i,k) - self % eta * unStar(:,3,i,k) * bv_y(j,RIGHT) * invjac(i,j,k)
+         !$acc loop vector collapse(2)
+         do k = 0, e%Nxyz(3) ; do i = 0, e%Nxyz(1)
+            !$acc loop seq
+            do j = 0, e%Nxyz(2)
+            U_x(:,i,k) = U_x(:,i,k) - self % eta * unStar(:,1,i,k) * bv_y(j,RIGHT) * e % geom % InvJacobian(i,j,k)
+            U_y(:,i,k) = U_y(:,i,k) - self % eta * unStar(:,2,i,k) * bv_y(j,RIGHT) * e % geom % InvJacobian(i,j,k)
+            U_z(:,i,k) = U_z(:,i,k) - self % eta * unStar(:,3,i,k) * bv_y(j,RIGHT) * e % geom % InvJacobian(i,j,k)
          end do                 ; end do                ; end do
          end associate
 !
@@ -428,11 +465,13 @@ module EllipticBR2
                    U_y => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % U_y, &
                    U_z => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % U_z, &
                    unStar => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar )
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,LEFT) * invjac(i,i,j)
-            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,LEFT) * invjac(i,i,j)
-            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,LEFT) * invjac(i,i,j)
+         !$acc loop vector collapse(2)
+         do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            !$acc loop seq
+            do k = 0, e%Nxyz(3)
+            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,i,j)
+            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,i,j)
+            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,i,j)
          end do                 ; end do                ; end do
          end associate
 
@@ -440,19 +479,23 @@ module EllipticBR2
                    U_y => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % U_y, &
                    U_z => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % U_z, &
                    unStar => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % unStar )
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,RIGHT) * invjac(i,j,k)
-            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,RIGHT) * invjac(i,j,k)
-            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,RIGHT) * invjac(i,j,k)
+         !$acc loop vector collapse(2)
+         do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            !$acc loop seq
+            do k = 0, e%Nxyz(3)
+            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,RIGHT) * e % geom % InvJacobian(i,j,k)
+            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,RIGHT) * e % geom % InvJacobian(i,j,k)
+            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,RIGHT) * e % geom % InvJacobian(i,j,k)
          end do                 ; end do                ; end do
          end associate
+
 
       end subroutine BR2_ComputeGradientFaceIntegrals
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
+      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn)
+         !$acc routine vector
 !
 !        ************************************************
 !           The BR2 is written in strong form, since it
@@ -478,7 +521,6 @@ module EllipticBR2
 !
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
-         procedure(GetGradientValues_f)   :: GetGradients
 !
 !        ---------------
 !        Local variables
@@ -486,22 +528,23 @@ module EllipticBR2
 !
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
-         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
          
+         !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
-            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
-            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
-            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+            f % storage(1) % unStar(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
+            f % storage(1) % unStar(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
+            f % storage(1) % unStar(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         !call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
-         
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 1,1)
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 2,1)
+
       end subroutine BR2_GradientInterfaceSolution   
 
       subroutine BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
@@ -542,7 +585,8 @@ module EllipticBR2
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 
-      subroutine BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
+      subroutine BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time)
+         !$acc routine vector
          use Physics
          use FaceClass
          implicit none
@@ -550,7 +594,6 @@ module EllipticBR2
          integer,    intent(in)           :: nEqn
          integer,    intent(in)           :: nGradEqn
          real(kind=RP)                    :: time
-         procedure(GetGradientValues_f)   :: GetGradients
 !
 !        ---------------
 !        Local variables
@@ -558,23 +601,16 @@ module EllipticBR2
 !
          integer       :: i, j
          real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
-         real(kind=RP) :: bvExt(nEqn)
 
+         !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-
-            bvExt =  f % storage(1) % Q(:,i,j)
-   
-            call BCs(f % zone) % bc % StateForEqn( nEqn, f % geom % x(:,i,j), &
-                                time               , &
-                                f % geom % normal(:,i,j)      , &
-                                bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GetGradients( nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
-            call GetGradients( nEqn, nGradEqn, bvExt, UR )
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             

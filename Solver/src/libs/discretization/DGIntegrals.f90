@@ -56,14 +56,12 @@ module DGIntegrals
 !        ----------------------------------------
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ScalarWeakIntegrals_StdVolumeGreen( Nxyz, NEQ, Fx, Fy, Fz, volInt )
+      subroutine ScalarWeakIntegrals_StdVolumeGreen( Nxyz, NEQ, F, volInt )
          !$acc routine vector
          implicit none
          integer,             intent(in)  :: Nxyz(3)
          integer,             intent(in)  :: NEQ
-         real(kind=RP),       intent(in)  :: Fx     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
-         real(kind=RP),       intent(in)  :: Fy     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
-         real(kind=RP),       intent(in)  :: Fz     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
+         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3), 1:NDIM)
          real(kind=RP),    intent(inout)  :: volInt(1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
 !
 !        ---------------
@@ -78,9 +76,9 @@ module DGIntegrals
           do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)  
             !$acc loop seq 
             do l = 0, Nxyz(1)
-               volInt(:,i,j,k) = volInt(:,i,j,k) +  NodalStorage(Nxyz(1)) % hatD(i,l) * Fx(:,l,j,k) &
-                                                 +  NodalStorage(Nxyz(2)) % hatD(j,l) * Fy(:,i,l,k) &
-                                                 +  NodalStorage(Nxyz(3)) % hatD(k,l) * Fz(:,i,j,l)
+               volInt(:,i,j,k) = volInt(:,i,j,k) +  NodalStorage(Nxyz(1)) % hatD(i,l) * F(:,l,j,k,IX) &
+                                                 +  NodalStorage(Nxyz(2)) % hatD(j,l) * F(:,i,l,k,IY) &
+                                                 +  NodalStorage(Nxyz(3)) % hatD(k,l) * F(:,i,j,l,IZ)
             end do             
          end do               ; end do             ; end do
 

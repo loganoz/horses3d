@@ -1346,28 +1346,101 @@ module SpatialDiscretization
                   
             inviscidFlux = inviscidFlux - viscousFlux
                   
-            e % storage % FluxF(:,i,j,k) = inviscidFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                               + inviscidFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                               + inviscidFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+            e % storage % contravariantFlux(:,i,j,k,IX)  = inviscidFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                                         + inviscidFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                                         + inviscidFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
-            e % storage % FluxG(:,i,j,k) = inviscidFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                               + inviscidFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                               + inviscidFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+            e % storage % contravariantFlux(:,i,j,k,IY)  = inviscidFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                                         + inviscidFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                                         + inviscidFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
                   
-            e % storage % FluxH(:,i,j,k) = inviscidFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                               + inviscidFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                               + inviscidFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+            e % storage % contravariantFlux(:,i,j,k,IZ)  = inviscidFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                                         + inviscidFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                                         + inviscidFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
          end do               ; end do                ; end do
 
-         call ScalarWeakIntegrals_StdVolumeGreen( e % Nxyz, NCONS,&
-                                                  e % storage % FluxF, &
-                                                  e % storage % FluxG, & 
-                                                  e % storage % FluxH, & 
-                                                  e % storage % QDot)
+         call ScalarWeakIntegrals_StdVolumeGreen( e % Nxyz, NCONS, e % storage % contravariantFlux, e % storage % QDot)
+                                       
+      end subroutine TimeDerivative_VolumetricContribution
+
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+
+      subroutine TimeDerivative_VolumetricContribution_Split(e)
+         !$acc routine vector
+         use HexMeshClass
+         use ElementClass
+         use DGIntegrals
+         implicit none
+         type(Element), intent (inout)           :: e
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: i, j, k, l, eID
+         real(kind=RP)      :: mu, kappa, beta
+
+         real(kind=RP) :: Flux(1:NCONS, 1:NDIM)
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+         
+         !$acc loop vector collapse(3) private(Flux)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  
+            call EulerFlux(e % storage % Q(:,i,j,k), Flux, e % storage % rho(i,j,k))
+                  
+            e % storage % contravariantFlux(:,i,j,k,IX)  = Flux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                                         + Flux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                                         + Flux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+
+            e % storage % contravariantFlux(:,i,j,k,IY)  = Flux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                                         + Flux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                                         + Flux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+                  
+            e % storage % contravariantFlux(:,i,j,k,IZ)  = Flux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                                         + Flux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                                         + Flux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+         end do               ; end do                ; end do
+
+         !call SplitDG_ComputeSplitFormFluxes(e, e % storage % contravariantFlux, fSharp, gSharp, hSharp)
+
+         !$acc loop vector collapse(3) private(Flux)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            
+            mu = e % storage % mu_ns(1,i,j,k)
+            kappa = e % storage % mu_ns(2,i,j,k)
+            beta  = 0.0_RP
+
+            call ViscousFlux_STATE( NCONS, NGRAD, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , & 
+                                 e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), mu, beta, kappa, Flux)
+               
+            e % storage % contravariantFlux(:,i,j,k,IX)  = Flux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                                         + Flux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                                         + Flux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+
+            e % storage % contravariantFlux(:,i,j,k,IY)  = Flux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                                         + Flux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                                         + Flux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+                  
+            e % storage % contravariantFlux(:,i,j,k,IZ)  = Flux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                                         + Flux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                                         + Flux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+         end do               ; end do                ; end do
+
+         
+         !e % storage % QDot = -ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, e % storage % contravariantFlux)
+
 
 
                                        
-      end subroutine TimeDerivative_VolumetricContribution
+      end subroutine TimeDerivative_VolumetricContribution_Split
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

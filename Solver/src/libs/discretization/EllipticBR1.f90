@@ -390,7 +390,7 @@ module EllipticBR1
          use DGIntegrals
          implicit none
          type(BassiRebay1_t),   intent(in)  :: self
-         integer,                intent(in)  :: nGradEqn
+         integer,               intent(in)  :: nGradEqn
          type(Element)                      :: e
          type(HexMesh)                      :: mesh
 !

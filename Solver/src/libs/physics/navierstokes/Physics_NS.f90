@@ -32,7 +32,7 @@
       public  EulerFlux
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  GuermondPopovFlux_ENTROPY
-      public  InviscidJacobian
+      public  InviscidJacobian, ComputeEigenvaluesForState
       public  getStressTensor, ViscousJacobian, getFrictionVelocity
 !
 !     ========
@@ -820,6 +820,7 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
+      !$acc routine seq
          implicit none
          real(kind=RP), intent(in)      :: Q   (1:NCONS         )
          real(kind=RP), intent(in)      :: Q_x (1:NGRAD    )
@@ -834,8 +835,6 @@
          real(kind=RP) :: T , muOfT
          real(kind=RP) :: divV, p_div_rho
          real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM), u(NDIM)
-
-         associate ( mu0 => dimensionless % mu )
 
          select case(grad_vars)
          case(GRADVARS_STATE)
@@ -871,17 +870,15 @@
 
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
-         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
-         tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
+         tau(IX,IX) = dimensionless % mu * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = dimensionless % mu * muOfT * ( U_x(IY) + U_y(IX) ) 
+         tau(IZ,IX) = dimensionless % mu * muOfT * ( U_x(IZ) + U_z(IX) ) 
          tau(IX,IY) = tau(IY,IX)
-         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
+         tau(IY,IY) = dimensionless % mu * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = dimensionless % mu * muOfT * ( U_y(IZ) + U_z(IY) ) 
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
-         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
-
-         end associate
+         tau(IZ,IZ) = dimensionless % mu * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
 
       end subroutine getStressTensor
 
@@ -913,8 +910,8 @@
          u_tau = sqrt(abs(tau_w) / Q(IRHO)) * sign(1.0_RP, tau_w)
 
       End Subroutine getFrictionVelocity
-   END Module Physics_NS
-!@mark -
+
+      !@mark -
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -925,38 +922,38 @@
 !----------------------------------------------------------------------
 !
       SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
-      
-      USE SMConstants
-      USE PhysicsStorage_NS
-      USE VariableConversion_NS, ONLY:Pressure
-      use FluidData_NS,          only: Thermodynamics
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=Rp), DIMENSION(NCONS) :: Q
-      REAL(KIND=Rp), DIMENSION(3)     :: eigen
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=Rp) :: u, v, w, p, a
-!      
-      associate ( gamma => thermodynamics % gamma ) 
-
-      u = ABS( Q(2)/Q(1) )
-      v = ABS( Q(3)/Q(1) )
-      w = ABS( Q(4)/Q(1) )
-      p = Pressure(Q)
-      a = SQRT(gamma*p/Q(1))
-      
-      eigen(1) = u + a
-      eigen(2) = v + a
-      eigen(3) = w + a
-
-      end associate
-      
+         !$acc routine seq
+         
+         USE SMConstants
+         USE PhysicsStorage_NS
+         USE VariableConversion_NS, ONLY:Pressure
+         use FluidData_NS,          only: Thermodynamics
+         IMPLICIT NONE
+   !
+   !     ---------
+   !     Arguments
+   !     ---------
+   !
+         REAL(KIND=Rp), DIMENSION(NCONS) :: Q
+         REAL(KIND=Rp), DIMENSION(3)     :: eigen
+   !
+   !     ---------------
+   !     Local Variables
+   !     ---------------
+   !
+         REAL(KIND=Rp) :: u, v, w, p, a
+   !      
+         u = ABS( Q(2)/Q(1) )
+         v = ABS( Q(3)/Q(1) )
+         w = ABS( Q(4)/Q(1) )
+         p = Pressure(Q)
+         a = SQRT(thermodynamics % gamma*p/Q(1))
+         
+         eigen(1) = u + a
+         eigen(2) = v + a
+         eigen(3) = w + a
+         
       END SUBROUTINE ComputeEigenvaluesForState
+   
+   END Module Physics_NS
+

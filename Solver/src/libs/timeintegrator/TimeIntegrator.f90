@@ -114,10 +114,12 @@
 #ifdef FLOW
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+            !$acc enter data copyin(self % cfl)
 #if defined(NAVIERSTOKES)
             if (flowIsNavierStokes) then
                if (controlVariables % containsKey("dcfl")) then
                   self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+                  !$acc enter data copyin(self % dcfl)
                else
                   error stop '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
                end if
@@ -131,6 +133,7 @@
          ELSEIF (controlVariables % containsKey("dt")) THEN
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
+            !$acc enter data copyin(self % dt)
          ELSE
             error stop '"cfl" or "dt" keyword must be specified for the time integrator'
          END IF
