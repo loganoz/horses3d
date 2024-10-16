@@ -26,6 +26,9 @@ LIBOBJS_CH = ./build_ch/ActuatorLine.o
 LIBOBJS_MU = ./build_mu/ActuatorLine.o \
 			 ./build_mu/SpongeClass.o 
 
+LIBOBJS_SLR = ./build_slr/ActuatorLine.o \
+			 ./build_slr/SpongeClass.o 
+
 LIB = sources
 
 ############################################
@@ -33,7 +36,7 @@ LIB = sources
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ch.a lib$(LIB)_ins.a lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_mu.a
+all: lib$(LIB)_ch.a lib$(LIB)_ins.a lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_mu.a lib$(LIB)_slr.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -59,6 +62,11 @@ all: lib$(LIB)_ch.a lib$(LIB)_ins.a lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_mu
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -DMULTIPHASE -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
+
+./build_slr/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS)  -DSCALAR -I./include_slr $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_slr -c $< -o $@ $(MOD_FLAG) ./include_slr
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS)
 	@echo
@@ -105,17 +113,28 @@ lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_MU) 
 	@$(RANLIB) $@
 
+lib$(LIB)_slr.a: header mkdirs $(LIBOBJS_SLR)
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_SLR) 
+	@$(RANLIB) $@
+
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_nssa.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_slr.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
 	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
+	cp -p ./include_slr/*.mod $(INSTALL_DIR)/include_slr/
 	@echo
 	@echo
 
@@ -137,6 +156,11 @@ install-nssa: lib$(LIB)_nssa.a
 	@echo
 	@echo
 
+install-slr: lib$(LIB)_slr.a
+	cp -p lib$(LIB)_slr.a $(INSTALL_DIR)/lib/
+	cp -p ./include_slr/*.mod $(INSTALL_DIR)/include_slr/
+	@echo
+	@echo
 
 header: FORCE
 	@echo
@@ -147,16 +171,17 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu
-	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu
+	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu ./include_slr
+	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu ./build_slr
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a lib$(LIB)_slr.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod 
 	$(RM) ./build_nssa/*.o ./include_nssa/*.mod 
 	$(RM) ./build_ins/*.o ./include_ins/*.mod 
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
 	$(RM) ./build_mu/*.o ./include_mu/*.mod
+	$(RM) ./build_slr/*.o ./include_slr/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #

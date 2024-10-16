@@ -69,7 +69,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -120,6 +120,9 @@ MODULE ExplicitMethods
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                   mesh % elements(eID) % storage % c = mesh % elements(eID) % storage % c + dt_vec(eID)*mesh % elements(eID) % storage % cDot
 #endif
+#ifdef SCALAR
+                  mesh % elements(eID) % storage % slr = mesh % elements(eID) % storage % slr + dt_vec(eID)*mesh % elements(eID) % storage % slrDot
+#endif
                end do ! id
 !$omp end parallel do
             end if
@@ -136,6 +139,11 @@ MODULE ExplicitMethods
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                mesh % elements(eID) % storage % G_CH = a(k)*mesh % elements(eID) % storage % G_CH + mesh % elements(eID) % storage % cDot
                mesh % elements(eID) % storage % c    = mesh % elements(eID) % storage % c         + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_CH
+#endif
+
+#ifdef SCALAR
+               mesh % elements(eID) % storage % G_SLR = a(k)*mesh % elements(eID) % storage % G_SLR   + mesh % elements(eID) % storage % slrDot
+               mesh % elements(eID) % storage % slr   = mesh % elements(eID) % storage % slr          + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_SLR
 #endif
             end do ! id
 !$omp end parallel do
@@ -167,6 +175,10 @@ MODULE ExplicitMethods
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                   mesh % elements(eID) % storage % c = mesh % elements(eID) % storage % c + deltaT*mesh % elements(eID) % storage % cDot
 #endif
+
+#ifdef SCALAR
+                  mesh % elements(eID) % storage % slr = mesh % elements(eID) % storage % slr + deltaT*mesh % elements(eID) % storage % slrDot
+#endif
                end do ! id
 !$omp end parallel do
             end if
@@ -184,6 +196,13 @@ MODULE ExplicitMethods
                mesh % elements(eID) % storage % G_CH = a(k)*mesh % elements(eID) % storage % G_CH + mesh % elements(eID) % storage % cDot
                mesh % elements(eID) % storage % c    = mesh % elements(eID) % storage % c         + c(k)*deltaT* mesh % elements(eID) % storage % G_CH
 #endif
+
+#ifdef SCALAR
+               mesh % elements(eID) % storage % G_SLR = a(k)*mesh % elements(eID) % storage % G_SLR   + mesh % elements(eID) % storage % slrDot
+               mesh % elements(eID) % storage % slr   = mesh % elements(eID) % storage % slr          + c(k)*deltaT* mesh % elements(eID) % storage % G_SLR
+
+#endif
+
             end do ! id
 !$omp end parallel do
 
@@ -214,7 +233,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -257,6 +276,12 @@ MODULE ExplicitMethods
                   mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
                   mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
 #endif
+
+#ifdef SCALAL
+                  mesh % elements(id) % storage % G_SLR = a(k)*mesh % elements(id) % storage % G_SLR + mesh % elements(id) % storage % slrDot
+                  mesh % elements(id) % storage % slr   = mesh % elements(id) % storage % slr         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_SLR
+#endif
+
             end do ! id
 !$omp end parallel do
 
@@ -282,6 +307,12 @@ MODULE ExplicitMethods
                   mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
                   mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
+
+#ifdef SCALAR
+                  mesh % elements(id) % storage % G_SLR = a(k)*mesh % elements(id) % storage % G_SLR + mesh % elements(id) % storage % slrDot
+                  mesh % elements(id) % storage % slr   = mesh % elements(id) % storage % slr        + c(k)*deltaT* mesh % elements(id) % storage % G_SLR
+
+#endif
             end do ! id
 !$omp end parallel do
 
@@ -305,7 +336,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -402,7 +433,7 @@ MODULE ExplicitMethods
 !     ----------------
 !
       type(HexMesh)                               :: mesh
-#if defined(FLOW)
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)                           :: particles
 #else
       logical                                     :: particles
@@ -527,7 +558,7 @@ MODULE ExplicitMethods
 !     ----------------
 !
       type(HexMesh)                               :: mesh
-#if defined(FLOW)
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)                           :: particles
 #else
       logical                                     :: particles
@@ -650,7 +681,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -697,7 +728,7 @@ MODULE ExplicitMethods
    subroutine TakeExplicitBDFStep(mesh, particles, t, deltaT, ComputeTimeDerivative)
       implicit none
       type(HexMesh)                      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)                  :: particles
 #else
       logical                            :: particles
@@ -851,7 +882,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)  :: particles
 #else
       logical            :: particles

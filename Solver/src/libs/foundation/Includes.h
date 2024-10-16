@@ -13,7 +13,7 @@
 #define FLOW
 #endif 
 
-#if (defined(FLOW)) && (!defined(CAHNHILLIARD))
+#if (defined(FLOW) || defined(SCALAR) ) && (!defined(CAHNHILLIARD))
 #define FLUID_DATA_VARS thermodynamics, dimensionless, refValues
 #elif (defined(FLOW)) && (defined(CAHNHILLIARD))
 #define FLUID_DATA_VARS thermodynamics, dimensionless, refValues, multiphase

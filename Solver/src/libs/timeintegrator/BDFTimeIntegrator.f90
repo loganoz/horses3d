@@ -163,6 +163,8 @@ contains
             allocate (MatFreeSmooth_t        :: this % linsolver)
          case('matrix-free gmres')
             allocate (MatFreeGMRES_t         :: this % linsolver)
+         case('conjugate-gradient')
+            allocate (ConjugateGradient_t    :: this % linsolver)
          case('smooth')
             allocate (IterativeSolver_t      :: this % linsolver)
          case('multigrid')

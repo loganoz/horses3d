@@ -69,6 +69,9 @@ module EllipticBR2
          case(ELLIPTIC_MU)
             self % eqName = ELLIPTIC_MU
 
+         case(ELLIPTIC_SLR)
+            self % eqName = ELLIPTIC_SLR
+            
          case default
             print*, "Unrecognized equation"
             errorMessage(STD_OUT)

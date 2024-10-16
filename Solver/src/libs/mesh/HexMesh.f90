@@ -120,7 +120,7 @@ MODULE HexMeshClass
             procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
-            procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
+            procedure :: SetStorageToEqn               => HexMesh_SetStorageToEqn
 #if defined(INCNS) && defined(CAHNHILLIARD)
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
@@ -2130,6 +2130,8 @@ slavecoord:             DO l = 1, 4
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS)
 #elif defined(INCNS)
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
+#elif defined(SCALAR)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
 #endif
@@ -3033,6 +3035,9 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
+#if defined(SCALAR)
+            Q(NCONS,:,:,:) = e % storage % slr(1,:,:,:)
+#endif
 
             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO * SIZEOF_RP
             if (saveSensor) pos = pos + (e % globID - 1) * SIZEOF_RP
@@ -3049,6 +3054,9 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                Q(NGRAD,:,:,:) = e % storage % c_x(1,:,:,:)
 #endif
+#if defined(SCALAR)
+               Q(NGRAD,:,:,:) = e % storage % slr_x(1,:,:,:)
+#endif
                write(fid) Q
 
 #ifdef FLOW
@@ -3057,6 +3065,9 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                Q(NGRAD,:,:,:) = e % storage % c_y(1,:,:,:)
 #endif
+#if defined(SCALAR)
+               Q(NGRAD,:,:,:) = e % storage % slr_y(1,:,:,:)
+#endif
                write(fid) Q
 
 #ifdef FLOW
@@ -3064,6 +3075,9 @@ slavecoord:             DO l = 1, 4
 #endif
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                Q(NGRAD,:,:,:) = e % storage % c_z(1,:,:,:)
+#endif
+#if defined(SCALAR)
+               Q(NGRAD,:,:,:) = e % storage % slr_z(1,:,:,:)
 #endif
                write(fid) Q
 
@@ -3463,6 +3477,9 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
             e % storage % c(1,:,:,:) = Q(NCONS,:,:,:)
 #endif
+#if defined(SCALAR)
+            e % storage % slr(1,:,:,:) = Q(NCONS,:,:,:)
+#endif
 
             deallocate(Q)
 
@@ -3475,6 +3492,9 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_x(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
+#if defined(SCALAR)
+               e % storage % slr_x(1,:,:,:) = Q(NGRAD,:,:,:)
+#endif
 
                read(fID) Q
 #ifdef FLOW
@@ -3483,6 +3503,9 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_y(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
+#if defined(SCALAR)
+               e % storage % slr_y(1,:,:,:) = Q(NGRAD,:,:,:)
+#endif
                read(fID) Q
 #ifdef FLOW
                e % storage % U_z = Q(1:NCONS,:,:,:)
@@ -3490,6 +3513,10 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
+#if defined(SCALAR)
+               e % storage % slr_z(1,:,:,:) = Q(NGRAD,:,:,:)
+#endif
+
                deallocate(Q)
             end if
 
@@ -3993,10 +4020,10 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu, nssa
+      integer  :: off, ns, c, mu, nssa, slr
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu, nssa)
+      call GetStorageEquations(off, ns, c, mu, nssa, slr)
 
       if ( which .eq. ns ) then
 #ifdef FLOW
@@ -4061,6 +4088,22 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(1) % SetStorageToCH_mu
             call self % faces(fID) % storage(2) % SetStorageToCH_mu
          end do
+#endif
+      elseif ( which .eq. slr ) then
+#if defined(SCALAR)
+         self % storage % Q => self % storage % slr
+         self % storage % QDot => self % storage % slrDot
+         self % storage % PrevQ => self % storage % Prevslr
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToSLR_slr
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % faces(fID) % storage(1) % SetStorageToSLR_slr
+            call self % faces(fID) % storage(2) % SetStorageToSLR_slr
+         end do
+
 #endif
       end if
 

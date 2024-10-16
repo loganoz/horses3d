@@ -40,7 +40,7 @@ module EllipticBR1
          if (MPI_Process % isRoot) write(STD_OUT,'(/)')
 
          select case (self % eqName)
-         case (ELLIPTIC_NS,ELLIPTIC_NSSA,ELLIPTIC_iNS,ELLIPTIC_MU)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA,ELLIPTIC_iNS,ELLIPTIC_MU,ELLIPTIC_SLR)
             call Subsection_Header("Viscous discretization")
       
          case (ELLIPTIC_CH)
@@ -593,6 +593,14 @@ module EllipticBR1
 
          kappa = 0.0_RP
          beta  = multiphase % M0_star
+
+#elif defined(SCALAR)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call GetViscosity(e % storage % Q(1,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
+
+         kappa = 0.0_RP
+         beta  = 0.0_RP
 
 #endif
 

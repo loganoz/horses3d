@@ -55,7 +55,7 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
       type(Spalart_Almaras_t), private    :: SAModel
 #endif
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
       type(Particles_t)                                       :: particles
 #else
       logical                                                 :: particles
@@ -76,7 +76,7 @@ Module DGSEMClass
          use ParticlesClass
          IMPLICIT NONE
          type(HexMesh), target           :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
          type(Particles_t)               :: particles
 #else
          logical                         :: particles
@@ -292,7 +292,7 @@ Module DGSEMClass
 !
 !     Compute wall distances
 !     ----------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES)  || defined (SCALAR)
       call self % mesh % ComputeWallDistances
 #endif
       IF(.NOT. success) RETURN
@@ -568,8 +568,8 @@ Module DGSEMClass
 !
       INTEGER       :: id , eq, ierr
       REAL(KIND=RP) :: localMaxResidual(NCONS)
-      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
-      real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
+      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc, localslr
+      real(kind=RP) :: R1, R2, R3, R4, R5, R6, c, slr
 
       maxResidual = 0.0_RP
       R1 = 0.0_RP
@@ -578,10 +578,11 @@ Module DGSEMClass
       R4 = 0.0_RP
       R5 = 0.0_RP
       R6 = 0.0_RP
-      c    = 0.0_RP
+      c  = 0.0_RP
+      slr = 0.0_RP
 
-!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
+!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, slr, mesh) default(private)
+!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c, slr) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
 #if defined FLOW && !(SPALARTALMARAS)
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
@@ -589,13 +590,17 @@ Module DGSEMClass
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
-#else
+#elif defined(SPALARTALMARAS)
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
          localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
          localR6 = maxval(abs(mesh % elements(id) % storage % QDot(6,:,:,:)))
+#endif
+
+#ifdef SCALAR
+         localslr    = maxval(abs(mesh % elements(id) % storage % slrDot(:,:,:,:)))
 #endif
 
 #ifdef CAHNHILLIARD
@@ -617,6 +622,10 @@ Module DGSEMClass
          R6 = max(R6,localR6)
 #endif
 
+#ifdef SCALAR
+         slr    = max(slr, localslr)
+#endif
+
 #ifdef CAHNHILLIARD
          c    = max(c, localc)
 #endif
@@ -628,6 +637,10 @@ Module DGSEMClass
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
 #elif defined(SPALARTALMARAS)
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5, R6]
+#endif
+
+#if  defined(SCALAR)
+      maxResidual(NCONS) = slr
 #endif
 
 #if  defined(CAHNHILLIARD) && (!defined(FLOW))

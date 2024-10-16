@@ -398,6 +398,21 @@ contains
       end if 
 !     --------------------------------------------------------------------
 
+      WRITE(*,*) "no_levels", no_levels
+      
+      do i =1 , no_levels
+       WRITE(*,*), "i", i
+       WRITE(*,*), "MG_levels_x(i)", MG_levels_x(i), "MG_levels_y(i)", MG_levels_y(i), "MG_levels_z(i)", MG_levels_z(i)
+       WRITE(*,*), "pre_smooths(i)", pre_smooths(i), "pos_smooths(i)", pos_smooths(i)
+
+       MG_levels_x(i) = 4 - (no_levels-i) 
+       MG_levels_y(i) = 4 - (no_levels-i)
+       MG_levels_z(i) = 4 - (no_levels-i)
+       pre_smooths(i) = 5
+       pos_smooths(i) = 5
+
+      end do
+
       nelem = size(sem % mesh % elements)
       this % p_sem => sem ! this is for generic linear solver class
       this % DimPrb = DimPrb
@@ -473,9 +488,19 @@ contains
          Me % LocalStorage(k) % R = 0._RP
       end do   
 
+      WRITE(*,*), "BEFORE child construction"
+      WRITE(*,*), "lvl", lvl
+
+      !!!!!!!!! DANAGER !!!!!!!!!!!!!!!!!!!
+#if defined(SCALAR)
+         call Me % p_sem % mesh % SetStorageToEqn(5)
+#endif
+
       ! Construct coarser level
       ! ------------------------------------------------------------------
       if (lvl > 1) then
+         WRITE(*,*), "INSIDE child construction"
+         WRITE(*,*), "lvl", lvl
         ! Allocate the child
         ! ------------------------------------------------------------------
         allocate(Me % Child) ! allocate coarser MG level (child)
@@ -678,6 +703,7 @@ contains
       call MG_UpdateInfo(this,no_levels, dt, time)
 
       if ( present(ComputeA)) then
+         !WRITE(*,*) "ComputeA ComputeA ComputeA ComputeA ComputeA", ComputeA 
          if (ComputeA) then
             call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
             ComputeA = .FALSE.
@@ -686,6 +712,7 @@ contains
          call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
       end if
 
+      !WRITE(*,*), "this % child % p_sem % mesh % storage % NDOF", this % child % p_sem % mesh % storage % NDOF
       call this % child % p_sem % mesh % storage % local2globalq (this % child % p_sem % mesh % storage % NDOF)
 
       this % niter = 0
@@ -710,8 +737,8 @@ contains
       end select 
 
       print *, "No iterations: ", this % niter-2
-      print *, "Residual history: "
-      write(*,"(ES14.7)") this % resvec(1:this%niter-1)
+      !print *, "Residual history: "
+      !write(*,"(ES14.7)") this % resvec(1:this%niter-1)
 
       deallocate( this % resvec )
    end subroutine MG_Solve
@@ -752,9 +779,14 @@ contains
             this % r(i) = this % b(i) - this % r(i)
          end do 
 
+         WRITE(*,*) "this % resvec", this % resvec
+         WRITE(*,*) "this % niter", this % niter
+
+
          this % rnorm = norm2(this % r)
-         this % resvec(this % niter) = this % rnorm
          this % niter = this % niter + 1
+         this % resvec(this % niter) = this % rnorm
+         !this % niter = this % niter + 1
          if (this % rnorm < this % tol) this % converged = .true.
 
       end do
@@ -2448,6 +2480,7 @@ contains
       integer                     :: i,j,k ! counters
       real(kind=rp), allocatable  :: Mat(:,:) ! local dense matrix (one block/element)
 !  -----------------------------------------------------------------------
+      print *, 'Matrix dimensions:', this % num_of_Rows, Adbd % num_of_Rows
       
 !     Dimension check
 !     ---------------

@@ -7,6 +7,8 @@ module FluidData
    use FluidData_iNS
 #elif defined(MULTIPHASE)
    use FluidData_MU
+#elif defined(SCALAR)
+   use FluidData_SLR
 #endif
 #if defined(CAHNHILLIARD)
    use FluidData_CH

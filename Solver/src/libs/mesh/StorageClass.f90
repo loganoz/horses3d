@@ -18,7 +18,7 @@ module StorageClass
    public   GetStorageEquations
 
    enum, bind(C)
-      enumerator :: OFF = 0, NS, C, MU, NSSA
+      enumerator :: OFF = 0, NS, C, MU, NSSA, SLR
    end enum
 
    type Statistics_t
@@ -32,12 +32,15 @@ module StorageClass
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
-      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q ! Pointers to the appropriate storage (NS or CH)
-#ifdef FLOW
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q ! Pointers to the appropriate storage (NS or CH or SLR)
+#ifdef FLOW 
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: QNS
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: c
+#endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:,:,:,:),  allocatable     :: slr
 #endif
    end type ElementPrevSol_t
 
@@ -60,7 +63,7 @@ module StorageClass
       integer                                         :: first_sensed      ! Time-steps since the element was first sensed
       real(kind=RP)                                   :: prev_sensor       ! Previous value of the sensor
       real(kind=RP)                                   :: sensor            ! Value of the sensor
-      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH or SLR)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_y         !
@@ -100,6 +103,16 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliary storage
 #endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr     ! SCALAR
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slrDot  ! SCALAR time derivative
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_x   ! SCALAR x-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_y   ! SCALAR y-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_z   ! SCALAR z-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_SLR  ! SCALAR auxiliary storage
+      real(kind=RP),                       allocatable :: S_SLR(:,:,:,:) ! SCALAR source term
+      real(kind=RP),                       allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! SCALAR Jacobian with respect to gradQ
+#endif
       contains
          procedure   :: Assign              => ElementStorage_Assign
          generic     :: assignment(=)       => Assign
@@ -114,6 +127,9 @@ module StorageClass
 #ifdef CAHNHILLIARD
          procedure   :: SetStorageToCH_c  => ElementStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => ElementStorage_SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+         procedure   :: SetStorageToSLR_slr  => ElementStorage_SetStorageToSLR_slr
 #endif
    end type ElementStorage_t
 
@@ -143,6 +159,12 @@ module StorageClass
       real(kind=RP), dimension(:)  , allocatable :: c
       real(kind=RP), dimension(:,:), allocatable :: Prevc(:,:)
 #endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:)  , allocatable :: slrDot
+      real(kind=RP), dimension(:)  , allocatable :: slr
+      real(kind=RP), dimension(:,:), allocatable :: Prevslr(:,:)
+#endif
+
       contains
          procedure :: construct        => SolutionStorage_Construct
          procedure :: local2GlobalQ    => SolutionStorage_local2GlobalQ
@@ -182,6 +204,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
       real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
       real(kind=RP), dimension(:,:),     allocatable :: wallNodeDistance ! for BC walls, distance to the first fluid node
+#endif
+#if defined(FLOW) || defined(SCALAR)
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -246,6 +270,12 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),   allocatable :: mu_z
       real(kind=RP), dimension(:,:,:),   allocatable :: v
 #endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_x
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_y
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_z
+#endif
       contains
          procedure   :: Construct      => FaceStorage_Construct
          procedure   :: Destruct       => FaceStorage_Destruct
@@ -257,6 +287,9 @@ module StorageClass
 #ifdef CAHNHILLIARD
          procedure   :: SetStorageToCH_c  => FaceStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => FaceStorage_SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+         procedure   :: SetStorageToSLR_slr => FaceStorage_SetStorageToSLR_slr
 #endif
          procedure :: copy             => FaceStorage_Assign
          generic   :: assignment(=)    => copy
@@ -307,6 +340,10 @@ module StorageClass
                allocate ( self % Prevc  (NCOMP*NDOF, prevSol_num) )
                self % PrevQ    => self % Prevc
 #endif
+#ifdef SCALAR
+               allocate ( self % Prevslr  (NCONS*NDOF, prevSol_num) )
+               self % PrevQ    => self % Prevslr
+#endif
             end if
             if ( prevSol_num >= 0 ) then
 #ifdef FLOW
@@ -320,6 +357,12 @@ module StorageClass
                allocate ( self % cDot  (NCOMP*NDOF) )
                self % Q    => self % c
                self % Qdot => self % cDot
+#endif
+#ifdef SCALAR
+               allocate ( self % slr     (NCONS*NDOF) )
+               allocate ( self % slrDot  (NCONS*NDOF) )
+               self % Q    => self % slr
+               self % Qdot => self % slrDot
 #endif
             end if
          end if
@@ -391,6 +434,15 @@ module StorageClass
             self % AdaptedQ = .FALSE.
          end if
 #endif
+#ifdef SCALAR
+         if (self % AdaptedQ .or. (.not. allocated(self % slr) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % slr)
+            allocate ( self % slr(NCONS*NDOF) )
+
+            self % AdaptedQ = .FALSE.
+         end if
+#endif
 !
 !        Load solution
 !        *************
@@ -408,6 +460,14 @@ module StorageClass
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
             self % c (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % c , (/ self % elements(eID) % NDOF *NCOMP /) )
+            firstIdx = lastIdx
+         end do
+#endif
+#ifdef SCALAR
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % slr (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slr , (/ self % elements(eID) % NDOF *NCONS /) )
             firstIdx = lastIdx
          end do
 #endif
@@ -442,6 +502,12 @@ module StorageClass
             allocate ( self % cDot(NCOMP*NDOF) )
          end if
 #endif
+#ifdef SCALAR
+         if (self % AdaptedQdot .or. (.not. allocated(self % slrDot) ) ) then
+            safedeallocate (self % slrDot)
+            allocate ( self % slrDot(NCONS*NDOF) )
+         end if
+#endif
          self % AdaptedQdot = .FALSE.
 
 !
@@ -461,6 +527,14 @@ module StorageClass
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
             self % cDot (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % cDot , (/ self % elements(eID) % NDOF * NCOMP /) )
+            firstIdx = lastIdx
+         end do
+#endif
+#ifdef SCALAR
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % slrDot (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slrDot , (/ self % elements(eID) % NDOF * NCONS /) )
             firstIdx = lastIdx
          end do
 #endif
@@ -504,6 +578,16 @@ module StorageClass
             ! TODO: Adapt previous solutions...
          end if
 #endif
+#ifdef SCALAR
+         if (self % AdaptedPrevQ .or. (.not. allocated(self % Prevslr) ) ) then
+            safedeallocate (self % Prevslr)
+            allocate ( self % Prevslr(NCONS * self % NDOF, self % prevSol_num) )
+
+            self % AdaptedPrevQ = .FALSE.
+
+            ! TODO: Adapt previous solutions...
+         end if
+#endif
 
 !
 !        Load solutions
@@ -540,6 +624,10 @@ module StorageClass
 #ifdef CAHNHILLIARD
                nEqn = NCOMP
 #endif
+            case (SLR)
+#ifdef SCALAR
+               nEqn = NCONS
+#endif
          end select
 
          firstIdx = 1
@@ -573,6 +661,10 @@ module StorageClass
             case (C,MU)
 #ifdef CAHNHILLIARD
                nEqn = NCOMP
+#endif
+            case (SLR)
+#ifdef SCALAR
+               nEqn = NCONS
 #endif
          end select
 
@@ -624,6 +716,12 @@ module StorageClass
                self % Qdot  => self % cDot
                self % PrevQ => self % Prevc
 #endif
+#ifdef SCALAR
+            case (SLR)
+               self % Q     => self % slr
+               self % Qdot  => self % slrDot
+               self % PrevQ => self % Prevslr
+#endif
          end select
 
 !
@@ -656,6 +754,11 @@ module StorageClass
          safedeallocate(self % c)
          safedeallocate(self % cDot)
          safedeallocate(self % PrevC)
+#endif
+#ifdef SCALAR
+         safedeallocate(self % slr)
+         safedeallocate(self % slrDot)
+         safedeallocate(self % Prevslr)
 #endif
 
          if ( allocated(self % elements) ) then
@@ -711,6 +814,10 @@ module StorageClass
             allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
             to % Prevc        =  from % Prevc
 #endif
+#ifdef SCALAR
+            allocate ( to % Prevslr ( size(from % Prevslr,1),size(from % Prevslr,2) ) )
+            to % Prevslr        =  from % Prevslr
+#endif
          end if
 
          if ( to % prevSol_num >= 0 ) then
@@ -727,6 +834,13 @@ module StorageClass
 
             allocate ( to % c ( size(from % c) ) )
             to % c            =  from % c
+#endif
+#ifdef SCALAR
+            allocate ( to % slrDot ( size(from % slrDot) ) )
+            to % slrDot         =  from % slrDot
+
+            allocate ( to % slr ( size(from % slr) ) )
+            to % slr           =  from % slr
 #endif
          end if
 
@@ -831,7 +945,28 @@ module StorageClass
          ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
 #endif
+#ifdef SCALAR
 
+         allocate ( self % slr   (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % slrDot(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         ! Previous solution
+         if ( prevSol_num /= 0 ) then
+            if ( .not. allocated(self % PrevQ)) then
+               allocate ( self % PrevQ(prevSol_num) )
+            end if
+         end if
+
+         do k=1, prevSol_num
+            allocate ( self % PrevQ(k) % slr(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         end do
+
+         allocate(self % slr_x (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % slr_y (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % slr_z (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         ALLOCATE( self % G_SLR   (NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate( self % S_SLR   (NCONS,0:Nx,0:Ny,0:Nz) )
+
+#endif
 #ifdef MULTIPHASE
          if ( RKSteps_num .gt. 0 ) then
             allocate(self % RKSteps(RKSteps_num))
@@ -880,6 +1015,14 @@ module StorageClass
          self % G_CH  = 0.0_RP
          self % v     = 0.0_RP
 #endif
+#ifdef SCALAR
+         self % slr     = 0.0_RP
+         self % slr_x   = 0.0_RP
+         self % slr_y   = 0.0_RP
+         self % slr_z   = 0.0_RP
+         self % G_SLR   = 0.0_RP
+         self % S_SLR   = 0.0_RP
+#endif
 
          self % first_sensed = huge(1)
          self % prev_sensor = 1.0_RP
@@ -897,7 +1040,7 @@ module StorageClass
          !-arguments----------------------------------------
          class(ElementStorage_t), intent(inout) :: self
          !--------------------------------------------------
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
          self % anJacobian = .TRUE.
 
 !        Allocation
@@ -981,6 +1124,19 @@ module StorageClass
          to % cDot = from % cDot
          to % G_CH = from % G_CH
 #endif
+#ifdef SCALAR
+         to % slr    = from % slr
+         to % slr_x  = from % slr_x
+         to % slr_y  = from % slr_y
+         to % slr_z  = from % slr_z
+         to % slrDot = from % slrDot
+         to % G_SLR   = from % G_SLR
+         to % S_SLR   = from % S_SLR
+
+         if (to % anJacobian) then
+            to % dF_dgradQ = from % dF_dgradQ
+         end if
+#endif
 
          call to % PointStorage()
 
@@ -1009,6 +1165,10 @@ module StorageClass
 
             case (MU)
                call self % SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+            case (SLR)
+               call self % SetStorageToSLR_slr
 #endif
          end select
       end subroutine ElementStorage_PointStorage
@@ -1082,6 +1242,25 @@ module StorageClass
          safedeallocate(self % mu_z)
          safedeallocate(self % G_CH)
          safedeallocate(self % v)
+#endif
+#ifdef SCALAR
+         safedeallocate(self % slr)
+         safedeallocate(self % slrDot)
+
+         if ( allocated(self % PrevQ) ) then
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               safedeallocate( self % PrevQ(k) % slr )
+            end do
+         end if
+
+         safedeallocate(self % slr_x)
+         safedeallocate(self % slr_y)
+         safedeallocate(self % slr_z)
+         safedeallocate(self % G_SLR)
+         safedeallocate(self % S_SLR)
+         safedeallocate(self % dF_dgradQ)
+
 #endif
          safedeallocate(self % PrevQ)
 
@@ -1186,6 +1365,41 @@ module StorageClass
          end do
 
       end subroutine ElementStorage_SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+      pure subroutine ElementStorage_SetStorageToSLR_slr(self)
+!
+!        *********************************************
+!        This subroutine selects the scalar as
+!        current storage.
+!        *********************************************
+!
+         implicit none
+         class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
+
+         self % currentlyLoaded = SLR
+!
+!        Point to the one dimensional pointers with generic arrays
+!        ---------------------------------------------------------
+         self % Q   (1:,0:,0:,0:) => self % slr
+         self % U_x (1:,0:,0:,0:) => self % slr_x
+         self % U_y (1:,0:,0:,0:) => self % slr_y
+         self % U_z (1:,0:,0:,0:) => self % slr_z
+         self % QDot(1:,0:,0:,0:) => self % slrDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % slr
+         end do
+
+
+      end subroutine ElementStorage_SetStorageToSLR_slr
+
 #endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1332,6 +1546,15 @@ module StorageClass
 !        -----------------------------------------------------------------------
          interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCOMP*nDIM*product(Nf+1))
 #endif
+
+#ifdef SCALAR
+         allocate(self % slr   (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_x (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_y (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_z (NCONS , 0:Nf(1), 0:Nf(2)))
+
+         interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCONS*nDIM*product(Nf+1))
+#endif
 !
 !        Reserve memory for the interface fluxes
 !        ---------------------------------------
@@ -1383,6 +1606,13 @@ module StorageClass
          self % mu_z  = 0.0_RP
          self % v     = 0.0_RP
 #endif
+
+#ifdef SCALAR
+         self % slr     = 0.0_RP
+         self % slr_x   = 0.0_RP
+         self % slr_y   = 0.0_RP
+         self % slr_z   = 0.0_RP
+#endif
          self % constructed = .TRUE.
       end subroutine FaceStorage_Construct
 !
@@ -1398,18 +1628,22 @@ module StorageClass
          class(FaceStorage_t) , intent(inout) :: self
          integer              , intent(in)    :: NDIM
 
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) 
          self % anJacobian = .TRUE.
 
 !        Allocate memory
 !        ---------------
          allocate( self % dFStar_dqF  (NCONS,NCONS, 0: self % Nf(1), 0: self % Nf(2)) )
          allocate( self % dFStar_dqEl (NCONS,NCONS, 0:self % Nel(1), 0:self % Nel(2),2) )
-
+#if !defined(SCALAR)
          if (self % computeGradients) then
             allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: self % Nf(1),0: self % Nf(2)) )
             allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
          end if
+#else
+         allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: self % Nf(1),0: self % Nf(2)) )
+         allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
+#endif
 
 !        TODO: AMR, if Boundary
          allocate( self % BCJac       (NCONS,NCONS,0:self % Nel(1),0:self % Nel(2)) )
@@ -1418,10 +1652,15 @@ module StorageClass
 !        -----------
          self % dFStar_dqF   = 0.0_RP
          self % dFStar_dqEl  = 0.0_RP
+#if !defined(SCALAR)
          if (self % computeGradients) then
             self % dFv_dGradQF  = 0.0_RP
             self % dFv_dGradQEl = 0.0_RP
          end if
+#else
+            self % dFv_dGradQF  = 0.0_RP
+            self % dFv_dGradQEl = 0.0_RP
+#endif
          self % BCJac        = 0.0_RP
 #endif
       end subroutine
@@ -1449,14 +1688,20 @@ module StorageClass
          safedeallocate(self % rho )
 
          self % anJacobian      = .FALSE.
-
+#endif
+#if defined(FLOW) || defined(SCALAR)
          if (self % anJacobian) then
             safedeallocate(self % dFStar_dqF)
             safedeallocate(self % dFStar_dqEl)
+#if !defined(SCALAR)
             if (self % computeGradients) then
                safedeallocate(self % dFv_dGradQF)
                safedeallocate(self % dFv_dGradQEl)
             end if
+#else
+            safedeallocate(self % dFv_dGradQF)
+            safedeallocate(self % dFv_dGradQEl)
+#endif
             safedeallocate(self % BCJac )
          end if
 #endif
@@ -1472,6 +1717,14 @@ module StorageClass
          safedeallocate(self % mu_z)
          safedeallocate(self % v)
 #endif
+
+#ifdef SCALAR
+         safedeallocate(self % slr)
+         safedeallocate(self % slr_x)
+         safedeallocate(self % slr_y)
+         safedeallocate(self % slr_z)
+#endif
+
          safedeallocate(self % genericInterfaceFluxMemory)
 
          self % Q      => NULL()
@@ -1551,6 +1804,28 @@ module StorageClass
 
       end subroutine FaceStorage_SetStorageToCH_mu
 #endif
+#ifdef SCALAR
+      pure subroutine FaceStorage_SetStorageToSLR_slr(self)
+         implicit none
+         class(FaceStorage_t), intent(inout), target  :: self
+
+         self % currentlyLoaded = SLR
+!
+!        Get sizes
+!        ---------
+         self % Q(1:,0:,0:)   => self % slr
+         self % U_x(1:,0:,0:) => self % slr_x
+         self % U_y(1:,0:,0:) => self % slr_y
+         self % U_z(1:,0:,0:) => self % slr_z
+
+         self % fStar(1:NCONS,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
+         self % unStar(1:NCONS, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+
+         self % genericInterfaceFluxMemory = 0.0_RP
+
+      end subroutine FaceStorage_SetStorageToSLR_slr
+
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1576,6 +1851,10 @@ module StorageClass
 
             case (MU)
                call self % SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+            case (SLR)
+               call self % SetStorageToSLR_slr
 #endif
          end select
       end subroutine FaceStorage_PointStorage
@@ -1611,14 +1890,20 @@ module StorageClass
          to % mu_NS  = from % mu_NS
          to % u_tau_NS  = from % u_tau_NS
          to % wallNodeDistance  = from % wallNodeDistance
-
+#endif
+#if defined(FLOW) || defined(SCALAR)
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF
             to % dFStar_dqEl = from % dFStar_dqEl
+#ifndef SCALAR
             if (to % computeGradients) then
                to % dFv_dGradQF = from % dFv_dGradQF
                to % dFv_dGradQEl = from % dFv_dGradQEl
             end if
+#else
+            to % dFv_dGradQF = from % dFv_dGradQF
+            to % dFv_dGradQEl = from % dFv_dGradQEl
+#endif
             to % BCJac = from % BCJac
          end if
 #endif
@@ -1632,6 +1917,12 @@ module StorageClass
          to % mu_y = from % mu_y
          to % mu_z = from % mu_z
          to % v = from % v
+#endif
+#ifdef SCALAR
+         to % slr = from % slr
+         to % slr_x = from % slr_x
+         to % slr_y = from % slr_y
+         to % slr_z = from % slr_z
 #endif
          call to % PointStorage
       end subroutine FaceStorage_Assign
@@ -1664,15 +1955,16 @@ module StorageClass
 
       end subroutine Statistics_Destruct
 
-      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_)
+      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_, slr_)
          implicit none
-         integer, intent(out) :: off_, ns_, c_, mu_, nssa_
+         integer, intent(out) :: off_, ns_, c_, mu_, nssa_, slr_
 
          off_ = OFF
          ns_  = NS
          c_   = C
          mu_  = MU
          nssa_= NSSA
+         slr_ = SLR
 
       end subroutine GetStorageEquations
 

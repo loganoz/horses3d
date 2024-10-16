@@ -11,6 +11,7 @@ module MatrixFreeGMRESClass
    use MatrixClass            , only: Matrix_t, DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NCONS, NGRAD, CTD_IGNORE_MODE
    use MPI_Utilities          , only: infNorm, L2Norm, MPI_SumAll
+   use LinearMultigridSolverClass 
    implicit none
    
    private
@@ -60,6 +61,8 @@ module MatrixFreeGMRESClass
       class(Matrix_t), allocatable           :: BlockPreco        ! LU factorized Block-diagonal Jacobian matrix for BlockJacobi preconditioner (in each block Matrix = L+U, Indexes = LU-pivots)
       ! GMRES:
       type(MatFreeGMRES_t), pointer, private :: PCsolver          ! Inner GMRES solver for preconditioning
+      ! Multigrid
+      type(LinearMultigridSolver_t), pointer, private  :: PCmultigrid
       
 !     Krylov subspace variables
 !     -------------------------
@@ -101,6 +104,8 @@ module MatrixFreeGMRESClass
          ! Preconditioner action procedures
          procedure :: PC_GMRES_Ax         ! P⁻¹x for GMRES recursive preconditioning
          procedure :: PC_BlockJacobi_Ax   ! P⁻¹x for Block-Jacobi preconditioning
+         procedure :: PC_Multigrid_Ax     ! P⁻¹x for Multigrid preconditioning
+
    end type MatFreeGMRES_t
 
 !
@@ -111,6 +116,7 @@ module MatrixFreeGMRESClass
    integer, parameter :: PC_NONE        = 0
    integer, parameter :: PC_GMRES       = 1
    integer, parameter :: PC_BlockJacobi = 2
+   integer, parameter :: PC_Multigrid   = 3
    
 contains
 !
@@ -216,6 +222,17 @@ contains
                   deallocate ( ndofelm )
                   
                   this % Preconditioner = PC_BlockJacobi
+!              
+!              Multigrid preconditioner
+!              ---------------------------
+               case('Multigrid')
+                  if (.not. associated(this % p_sem) ) error stop 'MatFreeGMRES needs sem for "Multigrid" preconditioner'
+                  this % Preconditioner = PC_Multigrid
+                  allocate(this%Z(this%DimPrb,this%m+1))
+
+                  allocate (this % PCmultigrid)
+                  call this % PCmultigrid % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+
 !                 
 !              No preconditioner
 !              -----------------
@@ -340,7 +357,7 @@ contains
          CASE ('l2')
             xnorm = L2Norm(this % x)
          CASE DEFAULT
-            error stop 'MatFreeSmoothClass ERROR: Norm not implemented yet'
+            error stop 'MatFreeGMRESClass ERROR: Norm not implemented yet'
       END SELECT
    END FUNCTION Getxnorm
 !
@@ -407,6 +424,8 @@ contains
                deallocate(this%Z)
                call this % BlockA % destruct
                call this % BlockPreco % destruct
+            case (PC_Multigrid)
+            
          end select
          
          this % UserDef_Ax        = .FALSE.
@@ -510,6 +529,10 @@ contains
                case (PC_BlockJacobi)
                   call this % PC_BlockJacobi_Ax(this%V(:,j),this%Z(:,j))
                   call this % MatrixAction(this%Z(:,j),this%W, ComputeTimeDerivative)
+               case (PC_Multigrid)
+                  call this % PC_Multigrid_Ax(this%V(:,j),this%Z(:,j),ComputeTimeDerivative)
+                  call this % MatrixAction(this%Z(:,j),this%W, ComputeTimeDerivative)
+
                case default ! PC_NONE
                   call this % MatrixAction(this%V(:,j),this%W, ComputeTimeDerivative)
             end select
@@ -580,7 +603,7 @@ contains
          select case (this % Preconditioner)
             case (PC_NONE)
                this%x = this%x0 + MATMUL(this%V(:,1:m),this%y(1:m))
-            case default !PC_GMRES, PC_BlockJacobi
+            case default !PC_GMRES, PC_BlockJacobi, PC_Multigrid
                this%x = this%x0 + MATMUL(this%Z(:,1:m),this%y(1:m))
          end select
        end subroutine innerGMRES
@@ -730,6 +753,35 @@ contains
          call this % BlockPreco % SolveBlocks_LU(Pv,v)
          
       end subroutine PC_BlockJacobi_Ax
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------------------------------
+!     Returns the preconditioning product   Pv = P⁻¹ * v for the Block-Jacobi preconditioner
+!     --------------------------------------------------------------------------------------
+      subroutine PC_Multigrid_Ax(this, v, Pv, ComputeTimeDerivative)
+         implicit none
+         !---------------------------------------------------------
+         class(MatFreeGMRES_t), intent(inout) :: this
+         real(kind=RP), intent(in)    :: v(:)
+         real(kind=RP), intent(out)   :: Pv(:)
+         procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
+
+         !---------------------------------------------------------
+         logical::   computeA=.true.
+         !---------------------------------------------------------
+
+         call this % PCmultigrid % SetRHS (v)
+         
+         call this % PCmultigrid % Solve(nEqn=NCONS, nGradEqn=NGRAD, tol = 1e-1_RP, &
+         maxiter=100, time = this % timesolve, dt = this % dtsolve, &
+         ComputeTimeDerivative = ComputeTimeDerivative, computeA=computeA)
+         Pv = this % PCmultigrid % x
+         
+         ! do nothing 
+         !Pv = v
+
+      end subroutine PC_Multigrid_Ax
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -10,8 +10,8 @@ module EllipticDiscretizations
    public   EllipticFlux_f, GetViscosity_f
    public   EllipticDiscretization_t, BassiRebay1_t, BassiRebay2_t, InteriorPenalty_t
    public   SIPG, IIPG, NIPG
-   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
-#ifdef FLOW
+   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_SLR
+#if defined(FLOW) || defined(SCALAR)
    public   ViscousDiscretization
 #endif
 #if defined(CAHNHILLIARD)
@@ -19,7 +19,7 @@ module EllipticDiscretizations
 #endif
 
 
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)
    class(EllipticDiscretization_t), allocatable  :: ViscousDiscretization
 #endif
 #if defined(CAHNHILLIARD)

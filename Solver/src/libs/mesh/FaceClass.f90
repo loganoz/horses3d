@@ -88,7 +88,7 @@
             procedure   :: AdaptAviscFluxToFace          => Face_AdaptAviscFluxToFace
             procedure   :: ProjectFluxToElements         => Face_ProjectFluxToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined (SCALAR)
             procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
             procedure   :: ProjectBCJacobianToElements   => Face_ProjectBCJacobianToElements
@@ -691,7 +691,7 @@
       end do
 
    end subroutine Face_ProjectFluxToElements
-#if defined(NAVIERSTOKES) 
+#if defined(NAVIERSTOKES) || defined (SCALAR)
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -963,7 +963,7 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined (SCALAR)
    subroutine Face_ProjectGradJacobianToElements(self, whichElement, whichderiv)
       use MappedGeometryClass
       use PhysicsStorage

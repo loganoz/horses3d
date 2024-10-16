@@ -35,12 +35,12 @@ module MultigridTypes
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeTimeDerivative_f
-#ifdef FLOW
+#if defined(FLOW) || defined (SCALAR) 
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
          type(HexMesh)      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined (SCALAR) 
          type(Particles_t)  :: particles
 #else
          logical            :: particles

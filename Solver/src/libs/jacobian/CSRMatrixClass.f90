@@ -54,6 +54,9 @@ MODULE CSRMatrixClass
       procedure :: UMatVecMul                => CSR_UpperTriangularMatVecMul
       procedure :: CreateMKL                 => CSR_CreateMKLMat
       procedure :: ILU0Factorization         => CSR_ILU0Factorization
+
+      procedure :: FrobeniusNorm
+      procedure :: IsSymmetric
    END TYPE
    !-----------------------------------------------------------------------------   
    
@@ -1330,4 +1333,56 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+    function FrobeniusNorm(this) RESULT(norm)
+       implicit none
+       class(csrMat_t), intent(in) :: this
+       real(kind=rp)               :: norm
+       integer                     :: i
+  
+       norm = 0.0
+       do i = 1, size(this%Values)
+         norm = norm + this%Values(i) * this%Values(i)
+       end do
+       norm = sqrt(norm)
+    end function FrobeniusNorm
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+    function IsSymmetric(this) RESULT(resultSymmetric)
+      implicit none
+      class(csrMat_t), intent(in) :: this
+      logical :: resultSymmetric
+      integer :: i, j, k,m, rowStart, rowEnd
+      real :: value_ij, value_ji
+  
+      resultSymmetric = .true.
+  
+      do i = 1, this % num_of_Rows
+          rowStart = this % Rows(i)
+          rowEnd = this % Rows(i + 1) - 1
+          do k = rowStart, rowEnd
+              j = this % Cols(k)
+              if (i /= j) then  ! Skip diagonal elements
+                  value_ij = this % Values(k)
+                  
+                  ! Search for the (j,i) element
+                  value_ji = 0.0
+                  do m = this % Rows(j), this % Rows(j+1) - 1
+                      if (this % Cols(m) == i) then
+                          value_ji = this % Values(m)
+                          exit
+                      end if
+                  end do
+                  
+                  ! Compare (i,j) with (j,i)
+                  if (abs(value_ij - value_ji) > 1e-6) then
+                      resultSymmetric = .false.
+                      return
+                  end if
+              end if
+          end do
+      end do
+  
+   end function IsSymmetric
+
 END MODULE CSRMatrixClass

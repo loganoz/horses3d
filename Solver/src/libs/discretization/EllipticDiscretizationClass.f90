@@ -10,7 +10,7 @@ module EllipticDiscretizationClass
 !
    private
    public   EllipticDiscretization_t, EllipticFlux_f, GetViscosity_f
-   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
+   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_SLR
 
    public BaseClass_ComputeGradient
 
@@ -24,7 +24,7 @@ module EllipticDiscretizationClass
          procedure      :: LiftGradients             => BaseClass_LiftGradients
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(SCALAR)
          procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
          procedure      :: RiemannSolver_Jacobians   => BaseClass_RiemannSolver_Jacobians
 #endif
@@ -55,7 +55,7 @@ module EllipticDiscretizationClass
    end interface
 
    enum, bind(C)
-      enumerator :: ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS
+      enumerator :: ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS, ELLIPTIC_SLR
    end enum
 !
 !  ========
@@ -102,6 +102,9 @@ module EllipticDiscretizationClass
          
          case(ELLIPTIC_iNS)
             self % eqName = ELLIPTIC_iNS
+
+         case(ELLIPTIC_SLR)
+            self % eqName = ELLIPTIC_SLR
 
          case default
             print*, "Unrecognized equation"
@@ -226,7 +229,7 @@ module EllipticDiscretizationClass
 !                    |__________Jacobian for this component
 !              (added to existing Jacobian)
 !     --------------------------------------------------------------------------------------------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(SCALAR)
       subroutine BaseClass_ComputeInnerFluxJacobian( self, e, df_dgradq, dFdQ) 
          use ElementClass
          use Physics

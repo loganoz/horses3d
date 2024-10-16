@@ -35,7 +35,7 @@ module EllipticIP
          procedure      :: ComputeGradient         => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: RiemannSolver           => IP_RiemannSolver
-#if defined(NAVIERSTOKES) && !(SPALARTALMARAS)
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(SCALAR)
          procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #endif
          procedure      :: Describe                => IP_Describe
@@ -97,6 +97,10 @@ module EllipticIP
 
          case(ELLIPTIC_MU)
             self % eqName = ELLIPTIC_MU
+            self % PenaltyParameter => PenaltyParameterNS
+
+         case(ELLIPTIC_SLR)
+            self % eqName = ELLIPTIC_SLR
             self % PenaltyParameter => PenaltyParameterNS
 
          case default
@@ -646,6 +650,11 @@ module EllipticIP
 #endif
 #endif
 
+#if defined(SCALAR)
+         mu = 1.0_RP
+         kappa = 0.0_RP
+         beta  = 0.0_RP
+#endif
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             call EllipticFlux( nEqn, nGradEqn, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
@@ -770,7 +779,7 @@ flux )
 !                    |                    |__________Jacobian for this component
 !                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
 !     -----------------------------------------------------------------------------
-#if defined(NAVIERSTOKES) && !(SPALARTALMARAS)
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(SCALAR)
       subroutine IP_RiemannSolver_Jacobians( self, f) 
          use FaceClass
          use Physics
@@ -791,7 +800,11 @@ flux )
 !
 !        Initializations
 !        ---------------
-         mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
+#if defined(SCALAR)
+         mu = 1.0_RP
+#else
+         mu = dimensionless % mu             ! TODO: change for Cahn-Hilliard
+#endif
          sigma = self % PenaltyParameter(f)
          sigma = sigma * mu
          

@@ -39,6 +39,7 @@ module OutputVariables
       enumerator :: RHOEDOT_V, CDOT_V, T_V, Mach_V, S_V, Vabs_V
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Cp_V, Nxi_V, Neta_V
+      enumerator :: SLR_V
       enumerator :: Nzeta_V, Nav_V, N_V
       enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V
       enumerator :: MPIRANK_V
@@ -83,6 +84,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: RHOWKey       = "rhow"
    character(len=STR_VAR_LEN), parameter  :: RHOEKey       = "rhoe"
    character(len=STR_VAR_LEN), parameter  :: cKey          = "c"
+   character(len=STR_VAR_LEN), parameter  :: slrKey        = "slr"
    character(len=STR_VAR_LEN), parameter  :: CpKey         = "Cp"
    character(len=STR_VAR_LEN), parameter  :: NxiKey        = "Nxi"
    character(len=STR_VAR_LEN), parameter  :: NetaKey       = "Neta"
@@ -145,7 +147,9 @@ module OutputVariables
                                                                             PKey, P0Key, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
                                                                             CDOTKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
-                                                                            RHOEKey, cKey, CpKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
+                                                                            RHOEKey, cKey, CpKey, NxiKey, NetaKey,   &
+                                                                            slrKey, &
+                                                                            NzetaKey, NavKey, NKey, & 
                                                                             XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, &
                                                                             mpiRankKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
@@ -760,6 +764,10 @@ module OutputVariables
                      output(var,i,j,k) = U_z(size(U_z,1),i,j,k)
                   end do         ; end do         ; end do
 !
+               case(SLR_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(size(Q,1),i,j,k)
+                  end do         ; end do         ; end do
 !              **************
 !              Element sensor
 !              **************
@@ -877,7 +885,8 @@ module OutputVariables
                output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V, C_V/)
 
             elseif ( NVARS .eq. 1 ) then
-               output = (/C_V/)
+               !output = (/C_V/) !//#
+               output = (/SLR_V/)
 
             end if
 
