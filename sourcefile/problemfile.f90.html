@@ -201,7 +201,7 @@
 <a id="ln-27" name="ln-27" href="#ln-27"></a><span class="w">      </span><span class="k">end subroutine </span><span class="n">UserDefinedStartup_f</span>
 <a id="ln-28" name="ln-28" href="#ln-28"></a><span class="w">   </span>
 <a id="ln-29" name="ln-29" href="#ln-29"></a><span class="w">      </span><span class="k">SUBROUTINE </span><span class="n">UserDefinedFinalSetup_f</span><span class="p">(</span><span class="n">mesh</span><span class="w"> </span><span class="p">&amp;</span>
-<a id="ln-30" name="ln-30" href="#ln-30"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-30" name="ln-30" href="#ln-30"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-31" name="ln-31" href="#ln-31"></a><span class="w">                                     </span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-32" name="ln-32" href="#ln-32"></a><span class="w">                                     </span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="w">  </span><span class="p">&amp;</span>
 <a id="ln-33" name="ln-33" href="#ln-33"></a><span class="w">                                     </span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>
@@ -214,7 +214,7 @@
 <a id="ln-40" name="ln-40" href="#ln-40"></a><span class="w">         </span><span class="k">use </span><span class="n">FluidData</span>
 <a id="ln-41" name="ln-41" href="#ln-41"></a><span class="w">         </span><span class="k">IMPLICIT NONE</span>
 <a id="ln-42" name="ln-42" href="#ln-42"></a><span class="k">         CLASS</span><span class="p">(</span><span class="n">HexMesh</span><span class="p">)</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">mesh</span>
-<a id="ln-43" name="ln-43" href="#ln-43"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-43" name="ln-43" href="#ln-43"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-44" name="ln-44" href="#ln-44"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Thermodynamics_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">thermodynamics_</span>
 <a id="ln-45" name="ln-45" href="#ln-45"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Dimensionless_t</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">dimensionless_</span>
 <a id="ln-46" name="ln-46" href="#ln-46"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">RefValues_t</span><span class="p">),</span><span class="w">      </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">refValues_</span>
@@ -225,7 +225,7 @@
 <a id="ln-51" name="ln-51" href="#ln-51"></a><span class="w">      </span><span class="k">END SUBROUTINE </span><span class="n">UserDefinedFinalSetup_f</span>
 <a id="ln-52" name="ln-52" href="#ln-52"></a>
 <a id="ln-53" name="ln-53" href="#ln-53"></a><span class="w">      </span><span class="k">subroutine </span><span class="n">UserDefinedInitialCondition_f</span><span class="p">(</span><span class="n">mesh</span><span class="w"> </span><span class="p">&amp;</span>
-<a id="ln-54" name="ln-54" href="#ln-54"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-54" name="ln-54" href="#ln-54"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-55" name="ln-55" href="#ln-55"></a><span class="w">                                     </span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-56" name="ln-56" href="#ln-56"></a><span class="w">                                     </span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="w">  </span><span class="p">&amp;</span>
 <a id="ln-57" name="ln-57" href="#ln-57"></a><span class="w">                                     </span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>
@@ -240,7 +240,7 @@
 <a id="ln-66" name="ln-66" href="#ln-66"></a><span class="w">         </span><span class="k">use </span><span class="n">fluiddata</span>
 <a id="ln-67" name="ln-67" href="#ln-67"></a><span class="w">         </span><span class="k">implicit none</span>
 <a id="ln-68" name="ln-68" href="#ln-68"></a><span class="k">         class</span><span class="p">(</span><span class="n">hexmesh</span><span class="p">)</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">mesh</span>
-<a id="ln-69" name="ln-69" href="#ln-69"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-69" name="ln-69" href="#ln-69"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-70" name="ln-70" href="#ln-70"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Thermodynamics_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">thermodynamics_</span>
 <a id="ln-71" name="ln-71" href="#ln-71"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Dimensionless_t</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">dimensionless_</span>
 <a id="ln-72" name="ln-72" href="#ln-72"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">RefValues_t</span><span class="p">),</span><span class="w">      </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">refValues_</span>
@@ -249,7 +249,7 @@
 <a id="ln-75" name="ln-75" href="#ln-75"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Multiphase_t</span><span class="p">),</span><span class="w">     </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">multiphase_</span>
 <a id="ln-76" name="ln-76" href="#ln-76"></a><span class="cp">#endif</span>
 <a id="ln-77" name="ln-77" href="#ln-77"></a><span class="w">      </span><span class="k">end subroutine </span><span class="n">UserDefinedInitialCondition_f</span>
-<a id="ln-78" name="ln-78" href="#ln-78"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-78" name="ln-78" href="#ln-78"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-79" name="ln-79" href="#ln-79"></a><span class="w">      </span><span class="k">subroutine </span><span class="n">UserDefinedState_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">nHat</span><span class="p">,</span><span class="w"> </span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="p">)</span>
 <a id="ln-80" name="ln-80" href="#ln-80"></a><span class="w">         </span><span class="k">use </span><span class="n">SMConstants</span>
 <a id="ln-81" name="ln-81" href="#ln-81"></a><span class="w">         </span><span class="k">use </span><span class="n">PhysicsStorage</span>
@@ -317,7 +317,7 @@
 <a id="ln-143" name="ln-143" href="#ln-143"></a><span class="c">!</span>
 <a id="ln-144" name="ln-144" href="#ln-144"></a><span class="c">!//////////////////////////////////////////////////////////////////////// </span>
 <a id="ln-145" name="ln-145" href="#ln-145"></a><span class="c">! </span>
-<a id="ln-146" name="ln-146" href="#ln-146"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-146" name="ln-146" href="#ln-146"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-147" name="ln-147" href="#ln-147"></a><span class="w">      </span><span class="k">subroutine </span><span class="n">UserDefinedSourceTermNS_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="nb">time</span><span class="p">,</span><span class="w"> </span><span class="n">S</span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-148" name="ln-148" href="#ln-148"></a><span class="cp">#ifdef CAHNHILLIARD</span>
 <a id="ln-149" name="ln-149" href="#ln-149"></a><span class="p">,</span><span class="n">multiphase_</span><span class="w"> </span><span class="p">&amp;</span>
@@ -344,7 +344,7 @@
 <a id="ln-170" name="ln-170" href="#ln-170"></a><span class="c">!//////////////////////////////////////////////////////////////////////// </span>
 <a id="ln-171" name="ln-171" href="#ln-171"></a><span class="c">! </span>
 <a id="ln-172" name="ln-172" href="#ln-172"></a><span class="w">      </span><span class="k">SUBROUTINE </span><span class="n">UserDefinedFinalize_f</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="nb">time</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">,</span><span class="w"> </span><span class="n">maxResidual</span><span class="w"> </span><span class="p">&amp;</span>
-<a id="ln-173" name="ln-173" href="#ln-173"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-173" name="ln-173" href="#ln-173"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-174" name="ln-174" href="#ln-174"></a><span class="w">                                                 </span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-175" name="ln-175" href="#ln-175"></a><span class="w">                                                 </span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="w">  </span><span class="p">&amp;</span>
 <a id="ln-176" name="ln-176" href="#ln-176"></a><span class="w">                                                 </span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>
@@ -364,7 +364,7 @@
 <a id="ln-190" name="ln-190" href="#ln-190"></a><span class="w">         </span><span class="kt">REAL</span><span class="p">(</span><span class="nb">KIND</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                         </span><span class="kd">::</span><span class="w"> </span><span class="nb">time</span>
 <a id="ln-191" name="ln-191" href="#ln-191"></a><span class="nb">         </span><span class="kt">integer</span><span class="w">                               </span><span class="kd">::</span><span class="w"> </span><span class="n">iter</span>
 <a id="ln-192" name="ln-192" href="#ln-192"></a><span class="w">         </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                         </span><span class="kd">::</span><span class="w"> </span><span class="n">maxResidual</span>
-<a id="ln-193" name="ln-193" href="#ln-193"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-193" name="ln-193" href="#ln-193"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-194" name="ln-194" href="#ln-194"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Thermodynamics_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">thermodynamics_</span>
 <a id="ln-195" name="ln-195" href="#ln-195"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">Dimensionless_t</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">dimensionless_</span>
 <a id="ln-196" name="ln-196" href="#ln-196"></a><span class="w">         </span><span class="k">type</span><span class="p">(</span><span class="n">RefValues_t</span><span class="p">),</span><span class="w">      </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">refValues_</span>
@@ -396,7 +396,7 @@
 <a id="ln-222" name="ln-222" href="#ln-222"></a><span class="c">!//////////////////////////////////////////////////////////////////////// </span>
 <a id="ln-223" name="ln-223" href="#ln-223"></a><span class="c">! </span>
 <a id="ln-224" name="ln-224" href="#ln-224"></a><span class="w">         </span><span class="k">SUBROUTINE </span><span class="n">UserDefinedFinalSetup</span><span class="p">(</span><span class="n">mesh</span><span class="w"> </span><span class="p">&amp;</span>
-<a id="ln-225" name="ln-225" href="#ln-225"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-225" name="ln-225" href="#ln-225"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-226" name="ln-226" href="#ln-226"></a><span class="w">                                        </span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-227" name="ln-227" href="#ln-227"></a><span class="w">                                        </span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="w">  </span><span class="p">&amp;</span>
 <a id="ln-228" name="ln-228" href="#ln-228"></a><span class="w">                                        </span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>
@@ -416,7 +416,7 @@
 <a id="ln-242" name="ln-242" href="#ln-242"></a><span class="w">            </span><span class="k">use </span><span class="n">FluidData</span>
 <a id="ln-243" name="ln-243" href="#ln-243"></a><span class="w">            </span><span class="k">IMPLICIT NONE</span>
 <a id="ln-244" name="ln-244" href="#ln-244"></a><span class="k">            CLASS</span><span class="p">(</span><span class="n">HexMesh</span><span class="p">)</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">mesh</span>
-<a id="ln-245" name="ln-245" href="#ln-245"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-245" name="ln-245" href="#ln-245"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-246" name="ln-246" href="#ln-246"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">Thermodynamics_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">thermodynamics_</span>
 <a id="ln-247" name="ln-247" href="#ln-247"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">Dimensionless_t</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">dimensionless_</span>
 <a id="ln-248" name="ln-248" href="#ln-248"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">RefValues_t</span><span class="p">),</span><span class="w">      </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">refValues_</span>
@@ -429,7 +429,7 @@
 <a id="ln-255" name="ln-255" href="#ln-255"></a><span class="c">!//////////////////////////////////////////////////////////////////////// </span>
 <a id="ln-256" name="ln-256" href="#ln-256"></a><span class="c">! </span>
 <a id="ln-257" name="ln-257" href="#ln-257"></a><span class="w">         </span><span class="k">subroutine </span><span class="n">UserDefinedInitialCondition</span><span class="p">(</span><span class="n">mesh</span><span class="w"> </span><span class="p">&amp;</span>
-<a id="ln-258" name="ln-258" href="#ln-258"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-258" name="ln-258" href="#ln-258"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-259" name="ln-259" href="#ln-259"></a><span class="w">                                        </span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-260" name="ln-260" href="#ln-260"></a><span class="w">                                        </span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="w">  </span><span class="p">&amp;</span>
 <a id="ln-261" name="ln-261" href="#ln-261"></a><span class="w">                                        </span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>
@@ -451,7 +451,7 @@
 <a id="ln-277" name="ln-277" href="#ln-277"></a><span class="w">            </span><span class="k">use </span><span class="n">fluiddata</span>
 <a id="ln-278" name="ln-278" href="#ln-278"></a><span class="w">            </span><span class="k">implicit none</span>
 <a id="ln-279" name="ln-279" href="#ln-279"></a><span class="k">            class</span><span class="p">(</span><span class="n">hexmesh</span><span class="p">)</span><span class="w">                      </span><span class="kd">::</span><span class="w"> </span><span class="n">mesh</span>
-<a id="ln-280" name="ln-280" href="#ln-280"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-280" name="ln-280" href="#ln-280"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-281" name="ln-281" href="#ln-281"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">Thermodynamics_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">thermodynamics_</span>
 <a id="ln-282" name="ln-282" href="#ln-282"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">Dimensionless_t</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">dimensionless_</span>
 <a id="ln-283" name="ln-283" href="#ln-283"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">RefValues_t</span><span class="p">),</span><span class="w">      </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">refValues_</span>
@@ -543,7 +543,7 @@
 <a id="ln-369" name="ln-369" href="#ln-369"></a><span class="cp">#endif</span>
 <a id="ln-370" name="ln-370" href="#ln-370"></a>
 <a id="ln-371" name="ln-371" href="#ln-371"></a><span class="w">         </span><span class="k">end subroutine </span><span class="n">UserDefinedInitialCondition</span>
-<a id="ln-372" name="ln-372" href="#ln-372"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-372" name="ln-372" href="#ln-372"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-373" name="ln-373" href="#ln-373"></a><span class="w">         </span><span class="k">subroutine </span><span class="n">UserDefinedState1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">nHat</span><span class="p">,</span><span class="w"> </span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="p">)</span>
 <a id="ln-374" name="ln-374" href="#ln-374"></a><span class="w">            </span><span class="k">use </span><span class="n">SMConstants</span>
 <a id="ln-375" name="ln-375" href="#ln-375"></a><span class="w">            </span><span class="k">use </span><span class="n">PhysicsStorage</span>
@@ -616,7 +616,7 @@
 <a id="ln-442" name="ln-442" href="#ln-442"></a><span class="c">!</span>
 <a id="ln-443" name="ln-443" href="#ln-443"></a><span class="c">!//////////////////////////////////////////////////////////////////////// </span>
 <a id="ln-444" name="ln-444" href="#ln-444"></a><span class="c">! </span>
-<a id="ln-445" name="ln-445" href="#ln-445"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-445" name="ln-445" href="#ln-445"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-446" name="ln-446" href="#ln-446"></a><span class="w">         </span><span class="k">subroutine </span><span class="n">UserDefinedSourceTermNS</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="nb">time</span><span class="p">,</span><span class="w"> </span><span class="n">S</span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-447" name="ln-447" href="#ln-447"></a><span class="cp">#ifdef CAHNHILLIARD</span>
 <a id="ln-448" name="ln-448" href="#ln-448"></a><span class="p">,</span><span class="w"> </span><span class="n">multiphase_</span><span class="w"> </span><span class="p">&amp;</span>
@@ -659,7 +659,7 @@
 <a id="ln-485" name="ln-485" href="#ln-485"></a><span class="c">!//////////////////////////////////////////////////////////////////////// </span>
 <a id="ln-486" name="ln-486" href="#ln-486"></a><span class="c">! </span>
 <a id="ln-487" name="ln-487" href="#ln-487"></a><span class="w">         </span><span class="k">SUBROUTINE </span><span class="n">UserDefinedFinalize</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="nb">time</span><span class="p">,</span><span class="w"> </span><span class="n">iter</span><span class="p">,</span><span class="w"> </span><span class="n">maxResidual</span><span class="w"> </span><span class="p">&amp;</span>
-<a id="ln-488" name="ln-488" href="#ln-488"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-488" name="ln-488" href="#ln-488"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-489" name="ln-489" href="#ln-489"></a><span class="w">                                                    </span><span class="p">,</span><span class="w"> </span><span class="n">thermodynamics_</span><span class="w"> </span><span class="p">&amp;</span>
 <a id="ln-490" name="ln-490" href="#ln-490"></a><span class="w">                                                    </span><span class="p">,</span><span class="w"> </span><span class="n">dimensionless_</span><span class="w">  </span><span class="p">&amp;</span>
 <a id="ln-491" name="ln-491" href="#ln-491"></a><span class="w">                                                    </span><span class="p">,</span><span class="w"> </span><span class="n">refValues_</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>
@@ -686,7 +686,7 @@
 <a id="ln-512" name="ln-512" href="#ln-512"></a><span class="w">            </span><span class="kt">REAL</span><span class="p">(</span><span class="nb">KIND</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                         </span><span class="kd">::</span><span class="w"> </span><span class="nb">time</span>
 <a id="ln-513" name="ln-513" href="#ln-513"></a><span class="nb">            </span><span class="kt">integer</span><span class="w">                               </span><span class="kd">::</span><span class="w"> </span><span class="n">iter</span>
 <a id="ln-514" name="ln-514" href="#ln-514"></a><span class="w">            </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">                         </span><span class="kd">::</span><span class="w"> </span><span class="n">maxResidual</span>
-<a id="ln-515" name="ln-515" href="#ln-515"></a><span class="cp">#ifdef FLOW</span>
+<a id="ln-515" name="ln-515" href="#ln-515"></a><span class="cp">#if defined(FLOW) || defined(SCALAR)</span>
 <a id="ln-516" name="ln-516" href="#ln-516"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">Thermodynamics_t</span><span class="p">),</span><span class="w"> </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">thermodynamics_</span>
 <a id="ln-517" name="ln-517" href="#ln-517"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">Dimensionless_t</span><span class="p">),</span><span class="w">  </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">dimensionless_</span>
 <a id="ln-518" name="ln-518" href="#ln-518"></a><span class="w">            </span><span class="k">type</span><span class="p">(</span><span class="n">RefValues_t</span><span class="p">),</span><span class="w">      </span><span class="k">intent</span><span class="p">(</span><span class="n">in</span><span class="p">)</span><span class="w">    </span><span class="kd">::</span><span class="w"> </span><span class="n">refValues_</span>
@@ -732,7 +732,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:51              </p>
+ on 2024-10-16 16:27              </p>
           </div>
         </div>
         <br>

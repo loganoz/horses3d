@@ -1,5 +1,5 @@
 #include "Includes.h"
-#ifdef FLOW
+#if  defined(FLOW) || defined(SCALAR)
 module ParticleClass
  use SMConstants
  use HexMeshClass

@@ -10,7 +10,7 @@
     <meta name="author" content="HORSES3D developers" >
     <link rel="icon" href="../favicon.png">
 
-    <title>DGSpatial_ComputeGradient &ndash; HORSES3D</title>
+    <title>RiemannSolvers_SLR.f90 &ndash; HORSES3D</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
@@ -63,8 +63,8 @@
 
     <div class="container">
   <div class="row">
-    <h1>DGSpatial_ComputeGradient
-      <small>Subroutine</small>
+    <h1>RiemannSolvers_SLR.f90
+      <small>Source File</small>
       
     </h1>
       <div class="container p-2 mb-4 bg-light border rounded-3">
@@ -75,21 +75,19 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.0% of total for procedures.">6 statements</a>
+                 title=" 0.0% of total for source files.">4 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
               <i class="fa fa-code"></i>
-              <a href="../src/SpatialDiscretization.f90"> Source File</a>
+              <a href="../src/RiemannSolvers_SLR.f90"> Source File</a>
             </li>
         </ul>
       </div>
       <div class="col">
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb justify-content-end mb-0">
-                <li class="breadcrumb-item"><a href='../sourcefile/spatialdiscretization.f90~5.html'>SpatialDiscretization.f90</a></li>
-                <li class="breadcrumb-item"><a href='../module/spatialdiscretization~5.html'>SpatialDiscretization</a></li>
-            <li class="breadcrumb-item active" aria-current="page">DGSpatial_ComputeGradient</li>
+            <li class="breadcrumb-item active" aria-current="page">RiemannSolvers_SLR.f90</li>
           </ol>
         </nav>
       </div>
@@ -102,16 +100,28 @@
   </script>
 
   </div>
-  
   <div class="row">
     <div class="col-md-3 hidden-xs hidden-sm visible-md visible-lg">
-      <div id="sidebar">
+        <div id="sidebar">
       <h3>Contents</h3>
   
   
   
   
   
+      <div class="card mb-4">
+      <a data-bs-toggle="collapse" href="#mods-0"
+         aria-expanded="false" aria-controls="mods-0">
+         <h4 class="card-header bg-primary text-white">Modules</h4>
+      </a>
+      <div id="mods-0" class="collapse">
+        <div class="list-group list-group-flush">
+            <a class="list-group-item" href="../module/riemannsolvers_slrkeywordsmodule.html">RiemannSolvers_SLRKeywordsModule</a>
+            <a class="list-group-item" href="../module/riemannsolvers_slr.html">RiemannSolvers_SLR</a>
+        </div>
+      </div>
+    </div>
+
   
   
   
@@ -126,77 +136,35 @@
   
   
   
-  
+    <div class="card card-primary">
+      <div class="card-header text-left"><h3 class="card-title">Source Code</h3></div>
+      <div class="list-group">
+        <a class="list-group-item" href="../sourcefile/riemannsolvers_slr.f90.html#src">RiemannSolvers_SLR.f90</a>
+      </div>
+    </div>
 
 
   </div>
 
     </div>
-    
     <div class="col-md-9" id='text'>
-    <h2>public  subroutine DGSpatial_ComputeGradient(mesh, time)  
-</h2>
-    
+      
+      <br>
 
+      <section>
+        <h2><span class="anchor" id="src"></span>Source Code</h2>
+        <div class="hl codehilite"><pre><span></span><a id="ln-1" name="ln-1" href="#ln-1"></a><span class="cp">#include &quot;Includes.h&quot;</span>
+<a id="ln-2" name="ln-2" href="#ln-2"></a><span class="k">module </span><span class="n">RiemannSolvers_SLRKeywordsModule</span>
+<a id="ln-3" name="ln-3" href="#ln-3"></a>
+<a id="ln-4" name="ln-4" href="#ln-4"></a>
+<a id="ln-5" name="ln-5" href="#ln-5"></a><span class="k">end module </span><span class="n">RiemannSolvers_SLRKeywordsModule</span>
+<a id="ln-6" name="ln-6" href="#ln-6"></a>
+<a id="ln-7" name="ln-7" href="#ln-7"></a><span class="k">module </span><span class="n">RiemannSolvers_SLR</span>
+<a id="ln-8" name="ln-8" href="#ln-8"></a>
+<a id="ln-9" name="ln-9" href="#ln-9"></a><span class="k">end module </span><span class="n">RiemannSolvers_SLR</span>
+</pre></div>
 
-
-    <h3>Arguments</h3>
-        <table class="table table-striped varlist">
-    <thead>
-      <tr>
-        <th scope="col">Type</th>
-<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
-        <th scope="col"></th>
-        <th scope="col">Name</th>
-        <th scope="col"></th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-mesh~107"></span>
-              type(HexMesh)
-            </td>
-<td></td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>mesh</strong></td>
-            <td>
-                
-            </td>
-        </tr>
-        <tr>
-            <td>
-              <span class="anchor" id="variable-time~43"></span>
-              real(kind=RP),
-            </td>
-<td>intent(in)</td>
-              <td></td>            <td>
-              
-            </td>
-            <td>::</td>
-            <td><strong>time</strong></td>
-            <td>
-                
-            </td>
-        </tr>
-    </tbody>
-  </table>
-
-    <br>
-
-
-    
-    
-
-    
-    
-
-
-
-    
-    
+      </section>
     </div>
   </div>
 
@@ -215,7 +183,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:51              </p>
+ on 2024-10-16 16:27              </p>
           </div>
         </div>
         <br>

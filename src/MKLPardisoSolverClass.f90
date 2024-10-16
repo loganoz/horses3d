@@ -271,6 +271,11 @@ MODULE MKLPardisoSolverClass
          call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
       
+      Write(*,*), "Visualizing matrix in MKL paradisoclass.f90. Remember to delete it"
+      call this % A % Visualize('Jacobian.txt')
+      Write(*,*), "Is symmetric?"
+      WRITE(*,*) "A si symmetric ?",  this % A % IsSymmetric() 
+      
       call this % SolveLUDirect(error)
 
       if (error .NE. 0) THEN

@@ -51,7 +51,7 @@
    
 
          enum, bind(C)
-            enumerator :: NAVIERSTOKES_SOLVER, INCNS_SOLVER, CAHNHILLIARD_SOLVER
+            enumerator :: NAVIERSTOKES_SOLVER, INCNS_SOLVER, CAHNHILLIARD_SOLVER, SCALAR_SOLVER
             enumerator :: MULTIPHASE_SOLVER, NAVIERSTOKESSA_SOLVER
             enumerator :: NO_OF_SOLVERS
             enumerator :: UNKNOWN_SOLVER = -1

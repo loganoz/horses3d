@@ -75,7 +75,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 0.9% of total for derived types.</p>Including implementation: 233 statements,  1.4% of total for derived types.">15 statements</a>
+                 title="<p> 0.9% of total for derived types.</p>Including implementation: 270 statements,  1.6% of total for derived types.">15 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -115,8 +115,8 @@
       </a>
       <div id="vars-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-constructed">constructed</a>
-            <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-bname">bname</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-constructed~4">constructed</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-bname~8">bname</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-bctype">BCType</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-currenteqn">currentEqn</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#variable-udf_no">udf_no</a>
@@ -157,12 +157,15 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-describe">Describe</a>
-            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-getperiodicpair">GetPeriodicPair</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-describe~19">Describe</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-getperiodicpair~2">GetPeriodicPair</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-slrstate">SlrState</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-slrgradvars">SlrGradVars</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-slrneumann">SlrNeumann</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-stateforeqn">StateForEqn</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-gradvarsforeqn">GradVarsForEqn</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-neumannforeqn">NeumannForEqn</a>
-            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-destruct~19">Destruct</a>
+            <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-destruct~18">Destruct</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-flowstate~6">FlowState</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-flowgradvars~4">FlowGradVars</a>
             <a class="list-group-item" href="../type/userdefinedbc_t.html#boundprocedure-flowneumann~6">FlowNeumann</a>
@@ -202,7 +205,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-constructed"></span>
+              <span class="anchor" id="variable-constructed~4"></span>
               logical,
             </td>
               <td>public</td>
@@ -219,7 +222,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-bname"></span>
+              <span class="anchor" id="variable-bname~8"></span>
               character(len=LINE_LENGTH),
             </td>
               <td>public</td>
@@ -355,7 +358,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-describe"></span>
+      <span class="anchor" id="boundprocedure-describe~19"></span>
       <h3>
           procedure, public ::
   <strong>Describe</strong> => GenericBC_Describe
@@ -408,7 +411,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-getperiodicpair"></span>
+      <span class="anchor" id="boundprocedure-getperiodicpair~2"></span>
       <h3>
           procedure, public ::
   <strong>GetPeriodicPair</strong> => GenericBC_GetPeriodicPair
@@ -460,6 +463,435 @@
             </td>
             <td>::</td>
             <td><strong>bname</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+        </li>
+    </ul>
+  </div>
+
+          </div>
+          <div class="row">
+              <div class="card mt-3">
+    <div class="card-header codesum">
+      <span class="anchor" id="boundprocedure-slrstate"></span>
+      <h3>
+          procedure, public ::
+  <strong>SlrState</strong> => GenericBC_SlrState
+        
+      </h3>
+    </div>
+    <ul class="list-group">
+        <li class="list-group-item">
+                  <h3>
+    private  subroutine GenericBC_SlrState(self, x, t, nHat, Q)  
+</h3>
+
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              class(<a href='genericbc_t.html'>GenericBC_t</a>),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>x</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+        </li>
+    </ul>
+  </div>
+
+          </div>
+          <div class="row">
+              <div class="card mt-3">
+    <div class="card-header codesum">
+      <span class="anchor" id="boundprocedure-slrgradvars"></span>
+      <h3>
+          procedure, public ::
+  <strong>SlrGradVars</strong> => GenericBC_SlrGradVars
+        
+      </h3>
+    </div>
+    <ul class="list-group">
+        <li class="list-group-item">
+                  <h3>
+    private  subroutine GenericBC_SlrGradVars(self, x, t, nHat, Q, U, GetGradients)  
+</h3>
+
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              class(<a href='genericbc_t.html'>GenericBC_t</a>),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>x</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              procedure(<a href='../interface/getgradientvalues_f.html'>GetGradientValues_f</a>)
+            </td>
+<td></td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>GetGradients</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+    </tbody>
+  </table>
+
+
+        </li>
+    </ul>
+  </div>
+
+          </div>
+          <div class="row">
+              <div class="card mt-3">
+    <div class="card-header codesum">
+      <span class="anchor" id="boundprocedure-slrneumann"></span>
+      <h3>
+          procedure, public ::
+  <strong>SlrNeumann</strong> => GenericBC_SlrNeumann
+        
+      </h3>
+    </div>
+    <ul class="list-group">
+        <li class="list-group-item">
+                  <h3>
+    private  subroutine GenericBC_SlrNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)  
+</h3>
+
+  
+
+  <h4>Arguments</h4>
+      <table class="table table-striped varlist">
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+<th scope="col">Intent</th><th scope="col">Optional</th>        <th scope="col">Attributes</th>
+        <th scope="col"></th>
+        <th scope="col">Name</th>
+        <th scope="col"></th>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              class(<a href='genericbc_t.html'>GenericBC_t</a>),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>self</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>x</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>t</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>nHat</strong>(NDIM)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>Q</strong>(NCONS)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U_x</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U_y</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>U_z</strong>(NGRAD)</td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              real(kind=RP),
+            </td>
+<td>intent(inout)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>flux</strong>(NCONS)</td>
             <td>
                 
             </td>
@@ -980,7 +1412,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-destruct~19"></span>
+      <span class="anchor" id="boundprocedure-destruct~18"></span>
       <h3>
           procedure, public ::
   <strong>Destruct</strong> => UserDefinedBC_Destruct
@@ -2052,7 +2484,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-09-18 08:51              </p>
+ on 2024-10-16 16:27              </p>
           </div>
         </div>
         <br>
