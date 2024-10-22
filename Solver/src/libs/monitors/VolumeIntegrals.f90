@@ -23,7 +23,7 @@ module VolumeIntegrals
 #endif
 
 #if defined(INCNS)
-   public MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
+   public MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE, SOURCE
 #endif
 
 #if defined(MULTIPHASE)
@@ -50,7 +50,7 @@ module VolumeIntegrals
       enumerator :: ARTIFICIAL_DISSIPATION, ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 #if defined(INCNS)
-      enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
+      enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE, SOURCE
 #endif
 #if defined(MULTIPHASE)
       enumerator :: ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL
@@ -682,6 +682,13 @@ module VolumeIntegrals
 
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+#endif
+#if defined(INCNS)
+            case ( SOURCE )
+
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
 #endif
 #if defined(ACOUSTIC)

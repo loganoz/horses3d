@@ -361,7 +361,7 @@ module SpatialDiscretization
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
          use SpongeClass, only: sponge
          implicit none
          type(HexMesh)              :: mesh
@@ -556,13 +556,13 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
             call sponge % addSource(mesh)
+            call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
 !           ********************
@@ -675,7 +675,7 @@ module SpatialDiscretization
    subroutine TimeDerivative_ComputeQDotHO( mesh , particles, t)
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -871,11 +871,12 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
+
+            call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
 !           ********************
@@ -1049,7 +1050,7 @@ module SpatialDiscretization
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -1097,11 +1098,11 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
+            call ForcesFarm(farm, mesh, t)
          end if
 
 !$omp do schedule(runtime) private(i,j,k)
