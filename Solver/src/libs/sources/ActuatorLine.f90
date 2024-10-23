@@ -1150,6 +1150,8 @@ end subroutine WriteFarmForces
 !      Search in linear (not curved) mesh (faster and safer)
 !      For AL the mesh is expected to be linear
 !      -----------------------------------------------------
+
+       eID = mesh % no_of_elements + 1
        do eIndex = 1, size(elementsActuated)
           eID = elementsActuated(eIndex)
           found = mesh % elements(eID) % FindPointInLinElement(x, mesh % nodes)
