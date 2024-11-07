@@ -421,6 +421,7 @@
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS)
       use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       use SpongeClass, only: sponge
 #endif
@@ -675,7 +676,7 @@
          END SELECT
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k)
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call sponge % updateBaseFlow(sem % mesh,dt)
@@ -798,6 +799,7 @@
              call UpdateFarm(farm, t, sem % mesh)
              call WriteFarmForces(farm, t, k, last=.true.)
          end if
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
@@ -831,6 +833,7 @@
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS)
          if(ActuatorLineFlag) call DestructFarm(farm)
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call sponge % destruct()
 #endif

@@ -118,7 +118,7 @@ contains
 !        Local variables
 !        ---------------
 !
-         integer     ::  i, j, k, ii, fid, io, n_aoa, n_airfoil
+         integer     ::  i, j, k, ii, fid, n_aoa, n_airfoil
          CHARACTER(LEN=LINE_LENGTH) :: arg, char1
          CHARACTER(LEN=LINE_LENGTH) :: solution_file
          CHARACTER(LEN=5)           :: file_id
@@ -529,11 +529,10 @@ contains
    !local variables
    integer                           :: ii, jj, i, j, k, kk
    real(kind=RP)                     :: dt, interp, delta_temp
-   logical                           :: found, allfound
+   logical                           :: found
    integer                           :: eID, ierr
    real(kind=RP), dimension(NDIM)    :: x, xi
    real(kind=RP), dimension(NCONS)   :: Q, Qtemp
-   real(kind=RP), dimension(:), allocatable  :: aoa
 
    if (.not. self % active) return
 
@@ -612,11 +611,15 @@ contains
 !          -----------------------------------
 !
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
-           call FindActuatorPointElement(self, mesh, x, kk, eID, xi, found)
+           call FindActuatorPointElement(mesh, x, eID, xi, found)
            if (found) then
              ! averaged state values of the cell
-             Qtemp = element_averageQ(mesh,eID,xi,self % averageSubElement)
+             Qtemp = element_averageQ(mesh,eID, xi, self % averageSubElement)
              delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+             ! if (jj .eq. 1) then
+             !   print *, "eID: ", eID, "mpi: ", MPI_Process%rank
+             !   print *, "Qtemp: ", Qtemp, "mpi: ", MPI_Process%rank
+            ! end if 
            else
              Qtemp = 0.0_RP
              delta_temp = 0.0_RP
@@ -626,6 +629,9 @@ contains
              call mpi_allreduce(Qtemp, Q, NCONS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
              call mpi_allreduce(delta_temp, self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta(ii), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
+            ! if (jj .eq. 1) then
+            !     print *, "Q: ", Q, "mpi: ", MPI_Process%rank
+            ! end if 
            else
                Q = Qtemp
                self % turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii) = delta_temp
@@ -637,7 +643,6 @@ contains
            end if
            call FarmGetLocalForces(self, ii, jj, kk, Q, interp, self%turbine_t(kk)%blade_t(jj)%local_angle(ii), self%turbine_t(kk)%blade_t(jj)%local_velocity(ii), & 
                                    self%turbine_t(kk)%blade_t(jj)%local_Re(ii), self%turbine_t(kk)%blade_t(jj)%local_thrust(ii), self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii))
-           ! send local forces arrays and angle to device
          end do
       enddo
     enddo
@@ -777,7 +782,7 @@ contains
    real(kind=RP),intent(in)      :: time
    integer, intent(in)           :: iter
    logical, optional             :: last
-   integer                       :: fid, io
+   integer                       :: fid
    CHARACTER(LEN=LINE_LENGTH)    :: arg
    real(kind=RP)                 :: t
    integer                       :: ii, jj, kk
@@ -932,7 +937,8 @@ end subroutine WriteFarmForces
         real(kind=RP), intent(out)                    :: local_rotor_force
 
         !local variables
-        real(kind=RP)                                 :: density, Cl, Cd, aoa, g1_func, tip_correct, angle_temp
+        real(kind=RP)                                 :: density, Cl, Cd, aoa, g1_func, tip_correct
+        ! real(kind=RP)                                 :: angle_temp
         real(kind=RP)                                 :: wind_speed_axial, wind_speed_rot
         real(kind=RP)                                 :: lift_force, drag_force
         real(kind=RP)                                 :: T, muL
@@ -1130,14 +1136,12 @@ end subroutine WriteFarmForces
 !///////////////////////////////////////////////////////////////////////////////////////
 !
 ! based on HexMesh_FindPointWithCoords, without curvature only in the precalculated list
-    Subroutine FindActuatorPointElement(self, mesh, x, kk, eID, xi, success)
+    Subroutine FindActuatorPointElement(mesh, x, eID, xi, success)
        use HexMeshClass
        Implicit None
 
-       class(Farm_t), intent(inout)                  :: self
        type(HexMesh), intent(in)                     :: mesh
        real(kind=RP), dimension(NDIM), intent(in)    :: x       ! physical space
-       integer, intent(in)                           :: kk 
        integer, intent(out)                          :: eID 
        real(kind=RP), dimension(NDIM), intent(out)   :: xi      ! computational space
        logical, intent(out)                          :: success
@@ -1234,7 +1238,7 @@ function InterpolateAirfoilData(x1,x2,y1,y2,new_x)
     InterpolateAirfoilData=a*new_x+b
 end function
 
-function full_element_averageQ(mesh,eID,xi)
+function full_element_averageQ(mesh,eID)
    use HexMeshClass
    use PhysicsStorage
    use NodalStorageClass
@@ -1243,7 +1247,6 @@ function full_element_averageQ(mesh,eID,xi)
    type(HexMesh), intent(in)    :: mesh
    integer, intent(in)          :: eID 
    integer                      :: k, j, i
-   real(kind=RP), dimension(NDIM), intent(in) :: xi
 
    integer                      :: total_points
    real(kind=RP), dimension(NCONS)   :: full_element_averageQ, Qsum
@@ -1260,7 +1263,7 @@ function full_element_averageQ(mesh,eID,xi)
 
 end function full_element_averageQ
 
-Function semi_element_averageQ(mesh,eID,xi)
+Function semi_element_averageQ(mesh,eID,xi) result(Qe)
    use HexMeshClass
    use PhysicsStorage
    use NodalStorageClass
@@ -1269,7 +1272,9 @@ Function semi_element_averageQ(mesh,eID,xi)
    type(HexMesh), intent(in)    :: mesh
    integer, intent(in)          :: eID 
    real(kind=RP), dimension(NDIM), intent(in) :: xi
-   real(kind=RP), dimension(NCONS)   :: semi_element_averageQ, Qsum
+   real(kind=RP), dimension(NCONS)   :: Qe
+
+   real(kind=RP), dimension(NCONS)   :: Qsum
 
    integer                      :: k, j, i, direction, N, ind
    integer, dimension(NDIM)     :: firstNodeIndex
@@ -1318,7 +1323,7 @@ Function element_averageQ(mesh,eID,xi,averageSubElement) result(Qe)
     if (averageSubElement) then
         Qe = semi_element_averageQ(mesh, eid, xi)
     else
-        Qe = full_element_averageQ(mesh, eid, xi)
+        Qe = full_element_averageQ(mesh, eid)
     end if 
 End Function element_averageQ
 
