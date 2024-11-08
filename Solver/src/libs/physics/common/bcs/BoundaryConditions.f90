@@ -17,6 +17,9 @@ module BoundaryConditions
    use ZoneClass, only: GetZoneType
    use MPI_Process_Info
    use HexMeshClass
+#ifdef _HAS_MPI_
+      use mpi
+#endif
    implicit none
 
    private

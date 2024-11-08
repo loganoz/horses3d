@@ -22,7 +22,7 @@ save gradients with solution = .true.
 restart               = .false.
 restart file name     = "RESULTS/restart.hsol"
 riemann solver         = "lax-friedrichs"
-viscous discretization = "BR2"
+viscous discretization = "BR1"
 
 !simulation type       = time-accurate
 !final time            = 40.d0
@@ -34,30 +34,29 @@ partitioning = SFC
 ! Inflow
 !-------------------------------------------------------------
 #define boundary BACK
-  type = NoSlipWall
+  type = FreeSlipWall
   ! type = Outflow
 #end
 
 #define boundary FRONT
-  type = NoSlipWall
+  type = FreeSlipWall
   ! type = Outflow
 #end
 
 #define boundary AIRFOILT
-  type = NoSlipWall
+  type = FreeSlipWall
   ! type = FreeSlipWall
 #end
 
 #define boundary AIRFOILB
-  type = NoSlipWall
+  type = FreeSlipWall
   ! type = FreeSlipWall
 #end
 
 #define boundary INFLOW
-  type = NoSlipWall
+  type = FreeSlipWall
 #end
 
 #define boundary OUTFLOW
-  type = NoSlipWall
+  type = FreeSlipWall
 #end
-

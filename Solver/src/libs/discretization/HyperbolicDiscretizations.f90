@@ -16,7 +16,7 @@ module HyperbolicDiscretizations
    private
    public HyperbolicDiscretization_t, StandardDG_t, HyperbolicDiscretization
 #ifdef HAS_SPLIT_FORMS
-   public SplitDG_t
+   public SplitDG_t, SplitDG_ComputeSplitFormFluxes
 #endif
    
    class(HyperbolicDiscretization_t), allocatable         :: HyperbolicDiscretization

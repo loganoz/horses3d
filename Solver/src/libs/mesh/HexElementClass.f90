@@ -35,7 +35,7 @@
 
       private
       public   Element
-      public   HexElement_ComputeLocalGradient, HexElement_ProlongSolToFaces, HexElement_ProlongGradientsToFaces
+      public   HexElement_ComputeLocalGradient, HexElement_ProlongSolToFaces, HexElement_ProlongGradientsToFaces, HexElement_ProlongGradientsToFaces_GL
       public   PrintElement, SetElementBoundaryNames, SurfInfo_t
 
 !
@@ -456,8 +456,8 @@
             !$acc loop seq
             do i = 1, self % Nxyz(1)
                do eq = 1, NCONS
-                  QLeft(eq) = QLeft(eq)  + Qsol(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,LEFT)
-                  QRight(eq) = QRight(eq)  + Qsol(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,RIGHT)
+                  QLeft(eq) = QLeft(eq)   + Qsol(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,LEFT)
+                  QRight(eq) = QRight(eq) + Qsol(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,RIGHT)
                enddo
             end do
             !$acc loop seq
@@ -511,7 +511,49 @@
          call Face_AdaptGradientsToFace(fBack,  nEqn, self % Nxyz(2), self % Nxyz(3), fBack   % storage(self % faceSide(EBACK))   % Q_aux, self % faceSide(EBACK), dir)
       
       end subroutine HexElement_ProlongGradientsToFaces
-     
+
+      subroutine HexElement_ProlongGradientsToFaces_GL(self, nEqn, fFront, fBack, fBottom, fRight, fTop, fLeft, U_xyz, dir)
+         !$acc routine vector
+         use FaceClass
+         implicit none
+         type(Element),    intent(in)  :: self
+         integer,          intent(in)  :: nEqn
+         type(Face),       intent(inout)  :: fLeft
+         type(Face),       intent(inout)  :: fRight
+         type(Face),       intent(inout)  :: fTop
+         type(Face),       intent(inout)  :: fBottom
+         type(Face),       intent(inout)  :: fFront
+         type(Face),       intent(inout)  :: fBack
+         real(kind=RP),    intent(in), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3)) :: U_xyz
+         integer,          intent(in)     :: dir
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l, eq, eside
+         real(kind=RP), dimension(1:NCONS) :: Q
+         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3)) :: Qsol
+!
+!        *************************
+!        Prolong solution to faces
+!        *************************
+!
+         !$acc loop vector collapse(4)
+         do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1) ; do eq = 1, NCONS
+               Qsol(eq,i,j,k) = U_xyz(eq,i,j,k)
+         end do ; end do ; end do ; end do
+         
+         call Face_AdaptGradientsToFace(fLeft,  nEqn, self % Nxyz(2), self % Nxyz(3), Qsol(eq,0,j,k), self % faceSide(ELEFT), dir)
+         call Face_AdaptGradientsToFace(fRight, nEqn, self % Nxyz(2), self % Nxyz(3), Qsol(eq,0,j,k), self % faceSide(ERIGHT), dir)
+         call Face_AdaptGradientsToFace(fTop,   nEqn, self % Nxyz(2), self % Nxyz(3), Qsol(eq,j,k,0), self % faceSide(ETOP), dir)
+         call Face_AdaptGradientsToFace(fBottom,nEqn, self % Nxyz(2), self % Nxyz(3), Qsol(eq,j,k,0), self % faceSide(EBOTTOM), dir)
+         call Face_AdaptGradientsToFace(fFront, nEqn, self % Nxyz(2), self % Nxyz(3), Qsol(eq,j,k,0), self % faceSide(EFRONT), dir)
+         call Face_AdaptGradientsToFace(fBack,  nEqn, self % Nxyz(2), self % Nxyz(3), Qsol(eq,j,k,0), self % faceSide(EBACK), dir)
+      
+      end subroutine HexElement_ProlongGradientsToFaces_GL
+      
+
       subroutine HexElement_ProlongAviscFluxToFaces(self, nEqn, AVflux, fFR, fBK, fBOT, fR, fT, fL)
          use FaceClass
          implicit none
@@ -643,18 +685,18 @@
             do eq = 1, NCONS
             self % storage % U_x(eq,i,j,k) = (   U_xi(eq)  * self % geom % jGradXi(1,i,j,k) &
                                               + U_eta(eq)  * self % geom % jGradEta(1,i,j,k) &
-                                              + U_zeta(eq) * self % geom % jGradZeta(1,i,j,k))!&
-                                              !* self % geom % InvJacobian(i,j,k)
+                                              + U_zeta(eq) * self % geom % jGradZeta(1,i,j,k))&
+                                              * self % geom % InvJacobian(i,j,k)
 
             self % storage % U_y(eq,i,j,k) = (   U_xi(eq)  * self % geom % jGradXi(2,i,j,k) &
                                               + U_eta(eq)  * self % geom % jGradEta(2,i,j,k) &
-                                              + U_zeta(eq) * self % geom % jGradZeta(2,i,j,k))!&
-                                              !* self % geom % InvJacobian(i,j,k)
+                                              + U_zeta(eq) * self % geom % jGradZeta(2,i,j,k))&
+                                              * self % geom % InvJacobian(i,j,k)
 
             self % storage % U_z(eq,i,j,k) = (   U_xi(eq)  * self % geom % jGradXi(3,i,j,k) &
                                               + U_eta(eq)  * self % geom % jGradEta(3,i,j,k) &
-                                              + U_zeta(eq) * self % geom % jGradZeta(3,i,j,k))!&
-                                              !* self % geom % InvJacobian(i,j,k)
+                                              + U_zeta(eq) * self % geom % jGradZeta(3,i,j,k))&
+                                              * self % geom % InvJacobian(i,j,k)
             enddo
          end do           ; end do         ; end do
 !

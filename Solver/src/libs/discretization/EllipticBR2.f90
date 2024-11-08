@@ -297,10 +297,12 @@ module EllipticBR2
 !        *******************************
 !
 !$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
-            call BR2_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            call BR2_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn)
          end do
+!$acc end parallel loop
 !$omp end do 
 !
 !        **************************************************
@@ -316,10 +318,12 @@ module EllipticBR2
 !$omp end do
          else
 !$omp do schedule(runtime) private(eID)
+!$acc parallel loop gang present(mesh, self) copyin(self)
             do iEl = 1, size(mesh % elements_mpi)
                eID = mesh % elements_mpi(iEl)
                call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
             end do
+!$acc end parallel loop
 !$omp end do
          end if
 #endif
@@ -363,6 +367,16 @@ module EllipticBR2
          real(kind=RP) :: bv_y(0:e % Nxyz(2),2)
          real(kind=RP) :: bv_z(0:e % Nxyz(3),2)
          
+         !$acc loop vector collapse(3)
+         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+            !$acc loop seq
+            do eq = 1, NCONS
+               e % storage % U_x(eq,i,j,k) = -e % storage % U_x(eq,i,j,k) 
+               e % storage % U_y(eq,i,j,k) = -e % storage % U_y(eq,i,j,k) 
+               e % storage % U_z(eq,i,j,k) = -e % storage % U_z(eq,i,j,k)
+            enddo
+         end do                  ; end do                   ; end do
+
          call  VectorWeakIntegrals_StdFace(e, NGRAD, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
@@ -370,7 +384,7 @@ module EllipticBR2
                mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % unStar, &
                mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % unStar, &
                mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % unStar, &
-               -e % storage % U_x, -e % storage % U_y, -e % storage % U_z )
+               e % storage % U_x, e % storage % U_y, e % storage % U_z )
 !
 !        Add the integrals weighted with the Jacobian
 !        --------------------------------------------
@@ -378,9 +392,9 @@ module EllipticBR2
          do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
             !$acc loop seq
             do eq = 1, NCONS
-               e % storage % U_x(eq,i,j,k) = -e % storage % U_x(eq,i,j,k) * e % geom % InvJacobian(i,j,k)
-               e % storage % U_y(eq,i,j,k) = -e % storage % U_y(eq,i,j,k) * e % geom % InvJacobian(i,j,k)
-               e % storage % U_z(eq,i,j,k) = -e % storage % U_z(eq,i,j,k) * e % geom % InvJacobian(i,j,k)
+               e % storage % U_x(eq,i,j,k) = -e % storage % U_x(eq,i,j,k) 
+               e % storage % U_y(eq,i,j,k) = -e % storage % U_y(eq,i,j,k) 
+               e % storage % U_z(eq,i,j,k) = -e % storage % U_z(eq,i,j,k)
             enddo
          end do                  ; end do                   ; end do
 !
@@ -469,9 +483,9 @@ module EllipticBR2
          do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             !$acc loop seq
             do k = 0, e%Nxyz(3)
-            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,i,j)
-            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,i,j)
-            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,i,j)
+            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,j,k)
+            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,j,k)
+            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,LEFT) * e % geom % InvJacobian(i,j,k)
          end do                 ; end do                ; end do
          end associate
 
@@ -526,10 +540,52 @@ module EllipticBR2
 !        Local variables
 !        ---------------
 !
+         integer       :: i,j,eq
+         real(kind=RP) :: Uhat
+
+         !$acc loop vector collapse(2)
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            !call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            !call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            !Uhat = 0.5_RP * (UL - UR)
+
+            !$acc loop seq
+            do eq =1, NCONS
+               Uhat = 0.5_RP * (f % storage(1) % Q(eq,i,j) - f % storage(2) % Q(eq,i,j)) 
+
+               f % storage(1) % unStar(eq,IX,i,j) = Uhat * f % geom % normal(IX,i,j) * f % geom % jacobian(i,j)
+               f % storage(1) % unStar(eq,IY,i,j) = Uhat * f % geom % normal(IY,i,j) * f % geom % jacobian(i,j)
+               f % storage(1) % unStar(eq,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j) * f % geom % jacobian(i,j)
+            end do
+         end do               ; end do
+      
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 1,1)
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 2,1)
+
+      end subroutine BR2_GradientInterfaceSolution   
+
+      subroutine BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn)
+         !$acc routine vector
+         use Physics  
+         use ElementClass
+         use FaceClass
+         implicit none  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         type(Face)                       :: f
+         integer, intent(in)              :: nEqn, nGradEqn
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
 
-         integer       :: i,j
+         integer       :: i,j, maxId, Sidearray
          
          !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
@@ -542,46 +598,15 @@ module EllipticBR2
             f % storage(1) % unStar(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 1,1)
-         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 2,1)
-
-      end subroutine BR2_GradientInterfaceSolution   
-
-      subroutine BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
-         use Physics  
-         use ElementClass
-         use FaceClass
-         implicit none  
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         type(Face)                       :: f
-         integer, intent(in)              :: nEqn, nGradEqn
-         procedure(GetGradientValues_f)   :: GetGradients
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
-         real(kind=RP) :: Uhat(nGradEqn)
-         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-         integer       :: i,j, thisSide
-         
-         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
-   
-            Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
-            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
-            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
-            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
-         end do               ; end do
-
-         thisSide = maxloc(f % elementIDs, dim = 1)
-         !call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
+         !Code to replace maxloc that is not supported 
+         maxId=MAXVAL(f % elementIDs)
+         do i=1,SIZE(f % elementIDs)
+             if(f % elementIDs(i)==maxId)THEN
+               Sidearray=i
+                 exit
+             endif
+         end do
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, Sidearray,1)
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 
@@ -599,25 +624,29 @@ module EllipticBR2
 !        Local variables
 !        ---------------
 !
-         integer       :: i, j
-         real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
+         integer       :: i,j,eq
+         real(kind=RP) :: Uhat
 
-         !$acc loop vector collapse(2) private(UL,UR,Uhat)
+         !$acc loop vector collapse(2)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 !   
 !           -------------------
 !           u, v, w, T averages
 !           -------------------
 !   
-            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
-   
-            Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
-            
-            f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
-            f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
-            f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
+            !call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+            !call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
+            !Uhat = 0.5_RP * (UL - UR) 
 
+            !$acc loop seq
+            do eq =1, NCONS
+               Uhat = 0.5_RP * (f % storage(1) % Q(eq,i,j) - f % storage(2) % Q(eq,i,j)) 
+
+               f % storage(1) % unStar(eq,1,i,j) = Uhat * f % geom % normal(1,i,j) * f % geom % jacobian(i,j)
+               f % storage(1) % unStar(eq,2,i,j) = Uhat * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)
+               f % storage(1) % unStar(eq,3,i,j) = Uhat * f % geom % normal(3,i,j) * f % geom % jacobian(i,j)
+            end do
+            
          end do ; end do   
          
       end subroutine BR2_GradientInterfaceSolutionBoundary

@@ -3,6 +3,7 @@ module MPI_Process_Info
 #ifdef _HAS_MPI_
    use mpi
 #endif
+   use openacc
 
    private
    public   MPI_Process, DEFAULT_TAG
@@ -32,6 +33,7 @@ module MPI_Process_Info
 !        ---------------
 !
          integer     :: ierr
+         integer     :: num_devices, id_device
 
 #ifdef _HAS_MPI_   
          call mpi_init(ierr)
@@ -61,6 +63,18 @@ module MPI_Process_Info
 !
          if ( (self % nProcs .ne. 1) .and. (self % isRoot) ) then
             self % doMPIRootAction = .true.
+         end if
+
+         num_devices = acc_get_num_devices(acc_device_nvidia)
+         if(num_devices.ge.1) then
+   
+            id_device   = mod(self % rank,num_devices)
+            call acc_set_device_num(id_device, acc_device_nvidia)
+            print*, self % rank, self % nProcs,num_devices,id_device
+            
+         else
+            id_device = 0
+            print*, 'NO GPU FOUND IN THIS NODE!'
          end if
 
       end subroutine MPI_Process_Init

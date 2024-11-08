@@ -345,18 +345,15 @@
 
       select case (side)
       case(1)
-         select case ( self % projectionType(1) )
-         case (0)
-            !$acc loop vector collapse(2) independent
+            !$acc loop vector collapse(2)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                !$acc loop seq
                do eq = 1, NCONS
                   self % storage(1) % Q(eq,i,j) = Qe(eq,i,j)
                enddo
             enddo ; enddo
-         end select
       case(2)
-         !$acc loop vector collapse(2) independent
+         !$acc loop vector collapse(2)
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             !$acc loop seq
@@ -391,51 +388,30 @@
 
       select case (side)
       case(1)
-         select case ( self % projectionType(1) )
-         case (0)
-            !$acc loop vector collapse(2)
-            do j=0,Nely ; do i=0,Nelx
+            !$acc loop vector collapse(3)
+            do j=0,Nely ; do i=0,Nelx ; do eq = 1, NCONS
                select case (dir)
                case (1)
-                  !$acc loop seq
-                  do eq = 1, NCONS
                      self % storage(1) % U_x(eq,i,j) = Uxe(eq,i,j)
-                  enddo
                case (2)
-                  !$acc loop seq
-                  do eq = 1, NCONS
                      self % storage(1) % U_y(eq,i,j) = Uxe(eq,i,j)
-                  enddo
                case (3)
-                  !$acc loop seq
-                  do eq = 1, NCONS
                      self % storage(1) % U_z(eq,i,j) = Uxe(eq,i,j)
-                  enddo
                end select
-            enddo ; enddo
-         end select
+            end do ; end do ; end do
       case(2)
-         !$acc loop vector collapse(2)
-         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+         !$acc loop vector collapse(3)
+         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1) ; do eq = 1, NCONS
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             select case (dir)
             case (1)
-               !$acc loop seq
-               do eq = 1, NCONS
                   self % storage(2) % U_x(eq,i,j) = Uxe(eq,ii,jj)
-               enddo
             case (2)
-               !$acc loop seq
-               do eq = 1, NCONS
                   self % storage(2) % U_y(eq,i,j) = Uxe(eq,ii,jj)
-               enddo
             case (3)
-               !$acc loop seq
-               do eq = 1, NCONS
                   self % storage(2) % U_z(eq,i,j) = Uxe(eq,ii,jj)
-               enddo
             end select
-         end do                        ; end do
+         end do ; end do ; end do
       end select
 
    end subroutine Face_AdaptGradientsToFace
@@ -559,15 +535,12 @@
 !           2nd and 3rd stage: Rotation and Inversion
 !           *********
 !      
-            !$acc loop vector collapse(2)
-            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+            !$acc loop vector collapse(3)
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1) ; do eq = 1, NCONS
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               !$acc loop seq
-               do eq = 1, NCONS
                   self % storage(2) % Fstar(eq,ii,jj) = -flux(eq,i,j) 
-               enddo
-            end do                        ; end do
-
+            end do ; end do ; end do
+            
       end select
 
    end subroutine Face_ProjectFluxToElements
@@ -759,8 +732,6 @@
 
       select case ( side )
       case (1)    ! Prolong from left element
-         select case ( self % projectionType(1) )
-         case (0)
             !$acc loop vector collapse(2)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                !$acc loop seq
@@ -770,7 +741,6 @@
                   self % storage(1) % unStar(eq,IZ,i,j) = Hflux(eq,IZ,i,j)
                enddo
             end do                        ; end do
-         end select
 
       case (2)    ! Prolong from right element
 !      

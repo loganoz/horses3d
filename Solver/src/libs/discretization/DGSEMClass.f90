@@ -611,13 +611,20 @@ Module DGSEMClass
       R6 = 0.0_RP
       c    = 0.0_RP
 
-!$acc parallel loop gang present(mesh) reduction(max:R1,R2,R3,R4,R5,R6,c) copyout(R1,R2,R3,R4,R5,R6,c)
+!$acc parallel loop gang present(mesh) reduction(max:R1,R2,R3,R4,R5) copyout(R1,R2,R3,R4,R5) 
 !$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
 !$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
          N = mesh % elements(id) % Nxyz
          
-         !$acc loop vector collapse(3) reduction(max:localR1,localR2,localR3,localR4,localR5,localR6,c)
+         localR1 = 0.0_RP
+         localR2 = 0.0_RP
+         localR3 = 0.0_RP
+         localR4 = 0.0_RP
+         localR5 = 0.0_RP
+         localR6 = 0.0_RP
+
+         !$acc loop vector collapse(3) reduction(max:localR1,localR2,localR3,localR4,localR5)
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 #if defined FLOW && !(SPALARTALMARAS)
             localR1 = max(localR1, abs(mesh % elements(id) % storage % QDot(1,i,j,k)))

@@ -67,7 +67,7 @@ MODULE HexMeshClass
          type(Element), dimension(:), allocatable  :: elements
          type(MPI_FacesSet_t)                      :: MPIfaces
          type(IBM_type)                            :: IBM
-         type(Zone_t), dimension(:), allocatable  :: zones
+         type(Zone_t), dimension(:), allocatable   :: zones
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
          integer                                   :: dir2D       = 0               ! If it is in fact a 2D mesh, dir 2D stores the global direction IX, IY or IZ
@@ -991,18 +991,12 @@ slavecoord:             DO l = 1, 4
          integer  :: fIDs(6)
          integer  :: eID
 
-!!$omp do schedule(runtime)
-!         do eID = 1, size(self % elements)
-!            fIDs = self % elements(eID) % faceIDs
-!            call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
-!                                                                self % faces(fIDs(1)),&
-!                                                                self % faces(fIDs(2)),&
-!                                                                self % faces(fIDs(3)),&
-!                                                                self % faces(fIDs(4)),&
-!                                                                self % faces(fIDs(5)),&
-!                                                                self % faces(fIDs(6)) )
-!         end do
-!!$omp end do
+         select case ( self %nodeType )
+         case(1) !Gauss
+
+         case(2) !Gauss-Lobatto
+
+         end select
 
       end subroutine HexMesh_ProlongGradientsToFaces
 !
@@ -1103,9 +1097,6 @@ slavecoord:             DO l = 1, 4
 !        Perform the receive request
 !        ***************************
 !
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
-         end do
 !
 !        *************
 !        Send solution
@@ -1135,8 +1126,15 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
          end do
+
+         !$acc wait
+
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+         end do
+
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
 
@@ -1357,6 +1355,8 @@ slavecoord:             DO l = 1, 4
 !           Wait until messages have been received
 !           **************************************
 !
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
             call self % MPIfaces % faces(domain) % WaitForSolution
 
             !$acc parallel loop gang present(self) copyin(nEqn)
@@ -1368,7 +1368,6 @@ slavecoord:             DO l = 1, 4
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx = ((mpifID - 1) * faceSize) + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % faces(fID) % storage(otherSide(thisSide)) % Q(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(linear_idx:linear_idx+nEqn-1)
-                  counter = counter + nEqn
                end do               ; end do
             end do
             !$acc end parallel loop
@@ -1398,6 +1397,8 @@ slavecoord:             DO l = 1, 4
 !
          do domain = 1, MPI_Process % nProcs
 
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
 !
 !           **************************************
 !           Wait until messages have been received
@@ -1405,7 +1406,6 @@ slavecoord:             DO l = 1, 4
 !
             call self % MPIfaces % faces(domain) % WaitForGradients
 
-            !counter = 1
             !$acc parallel loop gang present(self) copyin(nEqn)
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
@@ -1416,19 +1416,16 @@ slavecoord:             DO l = 1, 4
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_x = ((mpifID - 1) * 3 * faceSize) + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % faces(fID) % storage(otherSide(thisSide)) % U_x(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
-                  !counter = counter + nEqn
                end do               ; end do
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_y = ((mpifID - 1) * 3 * faceSize) + faceSize + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % faces(fID) % storage(otherSide(thisSide)) % U_y(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
-                  !counter = counter + nEqn
                end do               ; end do
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_z = ((mpifID - 1) * 3 * faceSize) + 2 * faceSize + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % faces(fID) % storage(otherSide(thisSide)) % U_z(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
-                  !counter = counter + nEqn
                end do               ; end do
             end do
             !$acc end parallel loop
@@ -1459,6 +1456,9 @@ slavecoord:             DO l = 1, 4
 !        ***************
 !
          do domain = 1, MPI_Process % nProcs
+            
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
 !
 !           **************************************
 !           Wait until messages have been received
@@ -1506,6 +1506,9 @@ slavecoord:             DO l = 1, 4
 !        ***************
 !
          do domain = 1, MPI_Process % nProcs
+
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
 !
 !           **************************************
 !           Wait until messages have been received
@@ -2286,7 +2289,6 @@ slavecoord:             DO l = 1, 4
 #elif defined(ACOUSTIC)
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #endif
-            call MPIFaces_CreateMPIFacesStorage(self % MPIfaces, MPI_NDOFS)
 #endif
          end if
 
@@ -4287,7 +4289,7 @@ slavecoord:             DO l = 1, 4
       integer(kind=cuda_count_kind) :: heapsize 
       integer(kind=cuda_count_kind) :: val
       integer :: Istat
-      heapSize = 16_8*1024_8 * 1024_8  ! Example: 1 GB heap size
+      heapSize = 16_8*1024_8*1024_8  ! Example: 16 MB heap size
       istat = cudaDeviceGetLimit(val,cudaLimitMallocHeapSize)
       istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize , heapsize)
       
@@ -4393,6 +4395,11 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(NodalStorage(i) % v)
       END DO
 
+#ifdef _HAS_MPI_
+      !$acc enter data copyin(self % faces_mpi)
+      !$acc enter data copyin(self % elements_mpi)
+      call MPIFaces_CreateMPIFacesStorage(self % MPIfaces)
+#endif
       print*, "I am done allocating the device data"
  
    end subroutine HexMesh_CreateDeviceData

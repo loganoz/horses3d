@@ -23,6 +23,8 @@
 #ifdef _HAS_MPI_
       use mpi
 #endif
+      use openacc
+      use cudafor
 
       IMPLICIT NONE
 
@@ -135,7 +137,9 @@
 !
       call Stopwatch % CreateNewEvent("solvingtime")
       call Stopwatch % Start("solvingtime")
+      call cudaProfilerStart() !Set up the profiling here to avoid memory transfers
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      call cudaProfilerStop()
       call Stopwatch % Pause("solvingtime")
 !      
       t_elaps = Stopwatch % ElapsedTime("solvingtime")
