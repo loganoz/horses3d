@@ -616,10 +616,6 @@ contains
              ! averaged state values of the cell
              Qtemp = element_averageQ(mesh,eID, xi, self % averageSubElement)
              delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-             ! if (jj .eq. 1) then
-             !   print *, "eID: ", eID, "mpi: ", MPI_Process%rank
-             !   print *, "Qtemp: ", Qtemp, "mpi: ", MPI_Process%rank
-            ! end if 
            else
              Qtemp = 0.0_RP
              delta_temp = 0.0_RP
@@ -629,9 +625,6 @@ contains
              call mpi_allreduce(Qtemp, Q, NCONS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
              call mpi_allreduce(delta_temp, self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta(ii), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
-            ! if (jj .eq. 1) then
-            !     print *, "Q: ", Q, "mpi: ", MPI_Process%rank
-            ! end if 
            else
                Q = Qtemp
                self % turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii) = delta_temp
@@ -730,7 +723,7 @@ contains
     
     else ! no projection
 
-!$omp do schedule(runtime) private(i,j,k,ii,jj,kk,actuator_source)
+!$omp do schedule(runtime) private(i,j,k,ii,jj,kk,actuator_source,eID,interp)
         do eIndex = 1, size(elementsActuated)
             eID = elementsActuated(eIndex)
             ! only one turbine is associated for one element
@@ -1150,28 +1143,23 @@ end subroutine WriteFarmForces
        integer                                       :: eIndex
 
        success = .false.
+       found = .false.
 
 !      Search in linear (not curved) mesh (faster and safer)
 !      For AL the mesh is expected to be linear
 !      -----------------------------------------------------
 
-       eID = mesh % no_of_elements + 1
        do eIndex = 1, size(elementsActuated)
           eID = elementsActuated(eIndex)
           found = mesh % elements(eID) % FindPointInLinElement(x, mesh % nodes)
           if ( found ) exit
        end do
-!
-!      If found in linear mesh, use FindPointWithCoords in that element and, if necessary, in neighbors...
-!        ---------------------------------------------------------------------------------------------------
-       if (eID <= mesh % no_of_elements) then
-          found = mesh % FindPointWithCoordsInNeighbors(x, xi, eID, 2)
-          if ( found ) then
-             success = .true.
-             return
-          end if
-       end if
 
+!      If found in linear mesh, use FindPointWithCoords in that element
+       if (found) then
+           success = mesh % elements(eID) % FindPointWithCoords(x, mesh % dir2D_ctrl, xi)
+       end if
+!
     End Subroutine FindActuatorPointElement
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -1306,7 +1294,7 @@ Function semi_element_averageQ(mesh,eID,xi) result(Qe)
        total_points = total_points + 1
    end do                  ; end do                ; end do
 
-   semi_element_averageQ(:) = Qsum(:) / real(total_points,RP)
+   Qe(:) = Qsum(:) / real(total_points,RP)
 
 End Function semi_element_averageQ
 
