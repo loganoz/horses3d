@@ -345,13 +345,12 @@ Module SpongeClass  !
 
         Nxyz = mesh % elements(1) % Nxyz
 
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k,eID)
         do spongeEID = 1, self % nElements
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
                 do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - self % intensity(i,j,k,spongeEID) * &
-                                                  (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
+                    e % storage % S_NS(:,i,j,k) = - self % intensity(i,j,k,spongeEID) * (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
                 end do         ; end do          ; end do
             end associate
         end do
