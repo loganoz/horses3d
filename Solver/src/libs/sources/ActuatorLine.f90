@@ -1,8 +1,7 @@
 #include "Includes.h"
 
 module ActuatorLine
-! #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
     use SMConstants
     use MPI_Process_Info
 #ifdef _HAS_MPI_
@@ -441,6 +440,7 @@ contains
             end if
         end do
     end do element_loop2
+    print *, "nelem: ", nelem
 
 !
 !   Create output files
@@ -546,7 +546,7 @@ contains
 
    projection_cond:if (self%calculate_with_projection) then
 
-      delta_temp = (mesh % elements(1) % geom % Volume / product(mesh % elements(1) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+      delta_temp = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
 !
 !    ----------------------------------------------------------------------------------
 !    calculate for all mesh points its contribution based on the gaussian interpolation
@@ -669,6 +669,9 @@ contains
    real(kind=RP)                     :: local_Re
    real(kind=RP)                     :: local_thrust
    real(kind=RP)                     :: local_rotor_force
+#if defined(MULTIPHASE)
+   real(kind=RP)                     :: invSqrtRho
+#endif
 
     if (.not. self % active) return
 
@@ -717,6 +720,11 @@ contains
                 mesh % elements(eID) % storage % S_NS(INSRHOU,i,j,k) = actuator_source(1)
                 mesh % elements(eID) % storage % S_NS(INSRHOV,i,j,k) = actuator_source(2)
                 mesh % elements(eID) % storage % S_NS(INSRHOW,i,j,k) = actuator_source(3)
+#elif defined(MULTIPHASE)
+                invSqrtRho = 1.0_RP / sqrt(mesh % elements(eID) % storage % rho(i,j,k))
+                mesh % elements(eID) % storage % S_NS(IMSQRHOU,i,j,k) = actuator_source(1)*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOV,i,j,k) = actuator_source(2)*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOW,i,j,k) = actuator_source(3)*invSqrtRho
 #endif
             end do                  ; end do                ; end do
         end do
@@ -754,6 +762,11 @@ contains
                 mesh % elements(eID) % storage % S_NS(INSRHOU,i,j,k) = actuator_source(1)
                 mesh % elements(eID) % storage % S_NS(INSRHOV,i,j,k) = actuator_source(2)
                 mesh % elements(eID) % storage % S_NS(INSRHOW,i,j,k) = actuator_source(3)
+#elif defined(MULTIPHASE)
+                invSqrtRho = 1.0_RP / sqrt(mesh % elements(eID) % storage % rho(i,j,k))
+                mesh % elements(eID) % storage % S_NS(IMSQRHOU,i,j,k) = actuator_source(1)*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOV,i,j,k) = actuator_source(2)*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOW,i,j,k) = actuator_source(3)*invSqrtRho
 #endif
             end do                  ; end do                ; end do
         end do
@@ -935,6 +948,9 @@ end subroutine WriteFarmForces
         real(kind=RP)                                 :: wind_speed_axial, wind_speed_rot
         real(kind=RP)                                 :: lift_force, drag_force
         real(kind=RP)                                 :: T, muL
+#if defined(MULTIPHASE)
+        real(kind=RP)                                 :: rho, invSqrtRho
+#endif
 !
 !       -----------------------------
 !       get airfoil related variables
@@ -953,6 +969,16 @@ end subroutine WriteFarmForces
         ! project [v.w] in the rotational direction (theta in cylindrical coordinates)
         wind_speed_axial = (Q(INSRHOU)/Q(INSRHO)) * refValues % V ! our x is the z in cylindrical
         wind_speed_rot = ( -Q(INSRHOV)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) + Q(INSRHOW)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) ) / Q(INSRHO) * refValues % V
+#elif defined(MULTIPHASE)
+        rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) * Q(IMC)
+        rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
+        invSqrtRho = 1.0_RP/sqrt(rho)
+        density = rho * refValues % rho
+
+        ! project [v.w] in the rotational direction (theta in cylindrical coordinates)
+        wind_speed_axial = (Q(IMSQRHOU)*invSqrtRho) * refValues % V ! our x is the z in cylindrical
+        wind_speed_rot = ( -Q(IMSQRHOV)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) + Q(IMSQRHOW)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) )*invSqrtRho * refValues % V
+
 #endif
 
         tip_correct = 1.0_RP
@@ -962,6 +988,8 @@ end subroutine WriteFarmForces
          T     = Temperature(Q)
          muL = SutherlandsLaw(T) * refValues % mu
 #elif defined(INCNS)
+         muL = refValues % mu
+#elif defined(MULTIPHASE)
          muL = refValues % mu
 #endif
 

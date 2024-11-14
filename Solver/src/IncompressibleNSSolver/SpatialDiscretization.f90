@@ -511,15 +511,15 @@ module SpatialDiscretization
 !           ********************
 !           Add Particles source
 !           ********************
-            if (.not. mesh % child) then
-               if ( particles % active ) then             
-!$omp do schedule(runtime)
-                  do eID = 1, size(mesh % elements)
+            !if (.not. mesh % child) then
+               !if ( particles % active ) then             
+!!$omp do schedule(runtime)
+                  !do eID = 1, size(mesh % elements)
                   !   call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
-                  end do
-!$omp end do
-               endif 
-            end if
+                  !end do
+!!$omp end do
+               !endif 
+            !end if
 
       end subroutine ComputeNSTimeDerivative
 !

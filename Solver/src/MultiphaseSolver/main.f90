@@ -60,10 +60,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Multiphase Inc. Navier-Stokes Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Multiphase Inc. Navier-Stokes Solver",__DATE__,__TIME__)
 
       end if
 

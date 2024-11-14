@@ -586,6 +586,7 @@ module SpatialDiscretization
 !
       subroutine ComputeNSTimeDerivative( mesh , t )
          use SpongeClass, only: sponge
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -629,7 +630,7 @@ module SpatialDiscretization
 !
 !        *************************************************************************************
 !        Element without shared faces: Surface integrals, scaling of elements with Jacobian, 
-!                                      sqrt(rho), and add source terms
+!                                      sqrt(rho)
 !        *************************************************************************************
 ! 
 !$omp do schedule(runtime) private(i,j,k,sqrtRho,invSqrtRho)
@@ -650,36 +651,12 @@ module SpatialDiscretization
                e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
                                                              + sqrtRho * dimensionless % invFr2 * dimensionless % gravity_dir
 
-!
-!            + Add user defined source terms
-               call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
-
             end do         ; end do          ; end do 
 
             end associate 
          end do
 !$omp end do
 
-! Sponges
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
-               e % storage % S_NS = 0.0_RP
-            end associate
-         enddo
-!$omp end do
-!for the sponge, loops are in the internal subroutine as values are precalculated
-         call sponge % addSource(mesh)
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
-            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
-            end do                  ; end do                ; end do
-            end associate
-         end do
-!$omp end do  
 !
 !        ******************************************
 !        Do the same for elements with shared faces
@@ -728,11 +705,6 @@ module SpatialDiscretization
                   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
                                                                 + sqrtRho * dimensionless % invFr2 * dimensionless % gravity_dir
    
-!   
-!               + Add user defined source terms
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
-   
                end do         ; end do          ; end do 
 
 
@@ -751,6 +723,38 @@ module SpatialDiscretization
          end if
 #endif
 
+!           ***************
+!           Add source term
+!           ***************
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  InvSqrtRho = 1.0_RP / sqrt(e % storage % rho(i,j,k))
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
+                  ! scale UserDefinedSourceTerm momentum with sqrtRho
+                  e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) * [1.0_RP,InvSqrtRho,InvSqrtRho,InvSqrtRho,1.0_RP]
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
+!for the sponge, loops are in the internal subroutine as values are precalculated
+!The scale with sqrtRho is done in the subroutines, not done againg here
+         call sponge % addSource(mesh)
+         call ForcesFarm(farm, mesh, t)
+
+! Add all the source terms
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do  
 
       end subroutine ComputeNSTimeDerivative
 !
