@@ -147,7 +147,7 @@ ifeq ($(COMM),PARALLEL)
         FC=mpif90
 	MACROS+= -D_HAS_MPI_
     else ifeq ($(FC),ifx)
-        FC=mpifx
+        FC=mpiifx
 	MACROS+= -D_HAS_MPI_
     endif
 endif
