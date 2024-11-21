@@ -51,7 +51,11 @@ INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback \
 		   -check bounds -check uninit -ftrapuv -debug all \
 		   -ftrace=full -ftz -fp-model precise \
 		   -fp-speculation=off -assume bscc -D_has_Quad
+NVFORTRAN_RELEASE_FLAGS= -O3 -fast -cpp -acc -cuda -gpu=cc70,cc75,cc80,gvmode,maxregcount:32 -Minfo=accel -Mfree -Mbackslash -Mpreprocess
 ARFLAGS=crv
+CPU_METIS_FLAGS= -cpp -O2 -ffree-line-length-0
+NVFORTRAN_METIS_FLAGS= -cpp -Mfree -acc -fPIC -Mbackslash
+NVFORTRAN_PROB_FLAGS= -cpp -Mfree -Mbackslash
 
 
 ##########################################
@@ -87,21 +91,26 @@ else ifeq ($(COMPILER),GNU)
   MOD_FLAG:=-J
 endif
 
-ifeq ($(COMPILER),ifort)
-  FC:=ifort
+ifeq ($(COMPILER),ifx)
+  FC:=ifx
   MOD_FLAG:=-module 
   ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
   INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 else ifeq ($(COMPILER),intel)
-  FC:=ifort
+  FC:=ifx
   MOD_FLAG:=-module 
   ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
   INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 else ifeq ($(COMPILER),INTEL)
-  FC:=ifort
+  FC:=ifx
   MOD_FLAG:=-module 
   ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
   INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
+endif
+
+ifeq ($(COMPILER),nvfortran)
+  FC:=nvfortran
+  MOD_FLAG:=-module 
 endif
 
 ##########################################
@@ -110,22 +119,35 @@ endif
 ifeq ($(MODE),RELEASE)
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_RELEASE_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS=$(INTEL_RELEASE_FLAGS)
+     else ifeq ($(FC),nvfortran)
+         FFLAGS=$(NVFORTRAN_RELEASE_FLAGS)
      endif
 else ifeq ($(MODE),HPC)
 	 MACROS+= -D_HPC_MODE
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_HPC_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS=$(INTEL_HPC_FLAGS)
      endif	 
 else ifeq ($(MODE),DEBUG)
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_DEBUG_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS=$(INTEL_DEBUG_FLAGS)
      endif
+endif
+
+#######################
+## Select Special Flags
+#######################
+ifeq ($(FC),nvfortran)
+  PFLAGS=$(NVFORTRAN_PROB_FLAGS)
+  METIS_FLAGS=$(NVFORTRAN_METIS_FLAGS)
+else
+  PFLAGS=$(FFLAGS)
+  METIS_FLAGS=$(CPU_METIS_FLAGS)
 endif
 
 ##########################
@@ -135,8 +157,11 @@ ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
 	MACROS+= -D_HAS_MPI_
-    else ifeq ($(FC),ifort)
-        FC=mpiifort
+    else ifeq ($(FC),ifx)
+        FC=mpifx
+	MACROS+= -D_HAS_MPI_
+	else ifeq ($(FC),nvfortran)
+	    FC=mpifx
 	MACROS+= -D_HAS_MPI_
     endif
 endif
@@ -160,7 +185,7 @@ ifeq '$(WITH_MKL)''YES'
 	LIB_LAPACK := $(strip $(LIB_LAPACK))
 	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
-  else #ifort
+  else #ifx
   	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	FFLAGS+= -qmkl
   endif
@@ -220,10 +245,10 @@ endif
 ##  	Select HORSES libraries 	##
 ##########################################
 HORSES_LIBS_GENERAL = ftobject foundation mpiutils ml spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/spallartalmaras physics/acoustic
-HORSES_LIBS_PARTICULAR = physics/common mesh particles sources monitors problemfile discretization jacobian timeintegrator
+HORSES_LIBS_PARTICULAR = physics/common mesh physics/common/bcs particles sources monitors problemfile discretization jacobian timeintegrator
 HORSES_LIBS=$(HORSES_LIBS_GENERAL) $(HORSES_LIBS_PARTICULAR)
 HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ins -lml
-HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ns -lml
+HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lphysics_bcs_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ns -lml
 HORSES_LIBS_NSSA=-L$(HOME_DIR)/lib -ltimeintegrator_nssa -ljacobian_nssa -ldiscretization_nssa -lmonitors_nssa -lparticles_nssa -lmesh_nssa -lphysics_nssa -lphysicsnssa -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_nssa -lml
 HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ch -lml
 HORSES_LIBS_MU=-L$(HOME_DIR)/lib -ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_mu -lml
@@ -243,6 +268,8 @@ LIBFLAGS=  FC='$(FC)' \
 	   MOD_FLAG='$(MOD_FLAG)' \
 	   EXTLIB_INC='$(EXTLIB_INC)' \
 	   MACROS='$(MACROS)' \
+	   METIS_FLAGS='$(METIS_FLAGS)' \
+	   PFLAGS='$(PFLAGS)' \
 	   LIBS='$(LIBS)'
 
 HORSES_NS_FLAGS= FC='$(FC)' \
