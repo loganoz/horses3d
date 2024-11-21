@@ -87,18 +87,18 @@ else ifeq ($(COMPILER),GNU)
   MOD_FLAG:=-J
 endif
 
-ifeq ($(COMPILER),ifort)
-  FC:=ifort
+ifeq ($(COMPILER),ifx)
+  FC:=ifx
   MOD_FLAG:=-module 
   ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
   INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 else ifeq ($(COMPILER),intel)
-  FC:=ifort
+  FC:=ifx
   MOD_FLAG:=-module 
   ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
   INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
 else ifeq ($(COMPILER),INTEL)
-  FC:=ifort
+  FC:=ifx
   MOD_FLAG:=-module 
   ## patch, normally is in /opt/intel/oneapi/compiler/2024.1/opt/compiler/include/intel64/
   INCLUDEO=-I$(INTEL_COMPILER_DIR)/opt/compiler/include/intel64/
@@ -110,20 +110,20 @@ endif
 ifeq ($(MODE),RELEASE)
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_RELEASE_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS=$(INTEL_RELEASE_FLAGS)
      endif
 else ifeq ($(MODE),HPC)
 	 MACROS+= -D_HPC_MODE
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_HPC_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS=$(INTEL_HPC_FLAGS)
      endif	 
 else ifeq ($(MODE),DEBUG)
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_DEBUG_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS=$(INTEL_DEBUG_FLAGS)
      endif
 endif
@@ -135,8 +135,8 @@ ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
 	MACROS+= -D_HAS_MPI_
-    else ifeq ($(FC),ifort)
-        FC=mpiifort
+    else ifeq ($(FC),ifx)
+        FC=mpifx
 	MACROS+= -D_HAS_MPI_
     endif
 endif
@@ -160,7 +160,7 @@ ifeq '$(WITH_MKL)''YES'
 	LIB_LAPACK := $(strip $(LIB_LAPACK))
 	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
-  else #ifort
+  else #ifx
   	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	FFLAGS+= -qmkl
   endif
