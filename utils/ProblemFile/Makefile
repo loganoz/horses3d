@@ -7,7 +7,7 @@
 ##
 ##	Usage:
 ##		-> cd $(CASE_DIR)/SETUP
-##		-> make COMPILER=gfortran/ifort MODE=RELEASE/DEBUG COMM=SERIAL/PARALLEL
+##		-> make COMPILER=gfortran/ifx MODE=RELEASE/DEBUG COMM=SERIAL/PARALLEL
 ##		-> cd $(CASE_DIR)
 ##		-> ldd ./HORSES3D (to check whether the solver points
 ##				to the default library (found in
@@ -104,16 +104,16 @@ else ifeq ($(COMPILER),GNU)
   WHOLE_FILE:=--whole-file
 endif
 
-ifeq ($(COMPILER),ifort)
-  FC:=ifort
+ifeq ($(COMPILER),ifx)
+  FC:=ifx
   MOD_FLAG:=-module
   WHOLE_FILE:=
 else ifeq ($(COMPILER),intel)
-  FC:=ifort
+  FC:=ifx
   MOD_FLAG:=-module
   WHOLE_FILE:=
 else ifeq ($(COMPILER),INTEL)
-  FC:=ifort
+  FC:=ifx
   MOD_FLAG:=-module
   WHOLE_FILE:=
 endif
@@ -124,20 +124,20 @@ endif
 ifeq ($(MODE),RELEASE)
      ifeq ($(FC),gfortran)
          FFLAGS+=$(GNU_RELEASE_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS+=$(INTEL_RELEASE_FLAGS)
      endif
 else ifeq ($(MODE),HPC)
 	 MACROS+= -D_HPC_MODE
      ifeq ($(FC),gfortran)
          FFLAGS+=$(GNU_HPC_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS+=$(INTEL_HPC_FLAGS)
      endif	 
 else ifeq ($(MODE),DEBUG)
      ifeq ($(FC),gfortran)
          FFLAGS+=$(GNU_DEBUG_FLAGS)
-     else ifeq ($(FC),ifort)
+     else ifeq ($(FC),ifx)
          FFLAGS+=$(INTEL_DEBUG_FLAGS)
      endif
 endif
@@ -146,8 +146,8 @@ ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
 	MACROS+= -D_HAS_MPI_
-    else ifeq ($(FC),ifort)
-        FC=mpiifort
+    else ifeq ($(FC),ifx)
+        FC=mpifx
 	MACROS+= -D_HAS_MPI_
     endif
 endif
