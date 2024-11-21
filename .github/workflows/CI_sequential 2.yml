@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['gfortran','ifx']
+        compiler: ['gfortran','ifort']
         mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
@@ -38,12 +38,12 @@ jobs:
           mkl: 'YES'          
         - compiler: gfortran
           hdf5: 'NO'          
-        - compiler: ifx
+        - compiler: ifort
           mkl: 'NO'       
-        - compiler: ifx
+        - compiler: ifort
           hdf5: 'YES'              
     env:
-      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2025.0
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -59,10 +59,10 @@ jobs:
           dpkg -L libhdf5-dev 
           echo "HDF5_ROOT="/usr/lib/x86_64-linux-gnu/hdf5/serial/"" >> $GITHUB_ENV  
 
-       # IF COMPILER = ifx -> INSTALL ifx #
-      # UNCOMMENT TO USE CACHED ifx 
+       # IF COMPILER = IFORT -> INSTALL IFORT #
+      # UNCOMMENT TO USE CACHED IFORT 
       #- name: cache-intel-compilers
-      #  if: (matrix.compiler == 'ifx')
+      #  if: (matrix.compiler == 'ifort')
       #  id: cache-intel-compilers
       #  uses: actions/cache@v3
       #  with:
@@ -71,7 +71,7 @@ jobs:
 
 
       - name: Intel Apt repository
-      # UNCOMMENT TO USE CACHED ifx 
+      # UNCOMMENT TO USE CACHED IFORT 
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
           wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
@@ -80,7 +80,7 @@ jobs:
           sudo apt-get update
 
       - name: Install Intel oneAPI
-      # UNCOMMENT TO USE CACHED ifx
+      # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
@@ -479,7 +479,7 @@ jobs:
 #
 # 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
-# This test case only runs with hdf5 as we do not support hdf5 with ifx in the github actions
+# This test case only runs with hdf5 as we do not support hdf5 with ifort in the github actions
 
       - name: Build ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
