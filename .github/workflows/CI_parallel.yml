@@ -26,14 +26,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['gfortran','ifort']
+        compiler: ['gfortran','ifx']
         mode: ['RELEASE','DEBUG']
         comm: ['PARALLEL']
         enable_threads: ['NO']
 
     env:
       METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64
-      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2025.0
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -46,10 +46,10 @@ jobs:
         run: |
           sudo apt-get install openmpi-bin libopenmpi-dev
 
-      # IF COMPILER = IFORT -> INSTALL IFORT #
-      # UNCOMMENT TO USE CACHED IFORT 
+      # IF COMPILER = ifx -> INSTALL ifx #
+      # UNCOMMENT TO USE CACHED ifx 
       #- name: cache-intel-compilers
-      #  if: (matrix.compiler == 'ifort')
+      #  if: (matrix.compiler == 'ifx')
       #  id: cache-intel-compilers
       #  uses: actions/cache@v3
       #  with:
@@ -57,7 +57,7 @@ jobs:
       #    key: intel-${{ runner.os }}-compilers-b
 
       - name: Intel Apt repository
-      # UNCOMMENT TO USE CACHED IFORT 
+      # UNCOMMENT TO USE CACHED ifx 
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
           wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
@@ -66,7 +66,7 @@ jobs:
           sudo apt-get update
 
       - name: Install Intel oneAPI
-      # UNCOMMENT TO USE CACHED IFORT
+      # UNCOMMENT TO USE CACHED ifx
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
 
@@ -80,7 +80,7 @@ jobs:
       - name: Install METIS (intel)
         # if: (steps.cache-metis.outputs.cache-hit != 'true')
         # wget "http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz" (OLD LINK TO METIS)
-        if: (matrix.compiler == 'ifort') 
+        if: (matrix.compiler == 'ifx') 
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           wget "https://src.fedoraproject.org/lookaside/pkgs/metis/metis-5.1.0.tar.gz/5465e67079419a69e0116de24fce58fe/metis-5.1.0.tar.gz" 

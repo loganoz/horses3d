@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['gfortran','ifort']
+        compiler: ['gfortran','ifx']
         mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
@@ -35,10 +35,10 @@ jobs:
         exclude:
         - compiler: gfortran
           mkl: 'YES'          
-        - compiler: ifort
+        - compiler: ifx
           mkl: 'NO'          
     env:
-      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2025.0
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -52,10 +52,10 @@ jobs:
 #          sudo apt install libhdf5-dev
 #          dpkg -L libhdf5-dev
 
-      # IF COMPILER = IFORT -> INSTALL IFORT #
-      # UNCOMMENT TO USE CACHED IFORT 
+      # IF COMPILER = ifx -> INSTALL ifx #
+      # UNCOMMENT TO USE CACHED ifx 
       #- name: cache-intel-compilers
-      #  if: (matrix.compiler == 'ifort')
+      #  if: (matrix.compiler == 'ifx')
       #  id: cache-intel-compilers
       #  uses: actions/cache@v3
       #  with:
@@ -64,7 +64,7 @@ jobs:
 
 
       - name: Intel Apt repository
-      # UNCOMMENT TO USE CACHED IFORT 
+      # UNCOMMENT TO USE CACHED ifx 
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
           wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
@@ -73,7 +73,7 @@ jobs:
           sudo apt-get update
 
       - name: Install Intel oneAPI
-      # UNCOMMENT TO USE CACHED IFORT
+      # UNCOMMENT TO USE CACHED ifx
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
