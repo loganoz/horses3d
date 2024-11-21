@@ -38,7 +38,7 @@ jobs:
         - compiler: ifort
           mkl: 'NO'          
     env:
-      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2023.2.0
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -75,7 +75,8 @@ jobs:
       - name: Install Intel oneAPI
       # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+      #  run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
