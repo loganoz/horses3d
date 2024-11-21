@@ -17,7 +17,7 @@ Module SpongeClass  !
     Implicit None
 
     private
-    public sponge
+    public sponge, addSourceSponge
 
     !definition of sponge class 
     type sponge_t
@@ -45,7 +45,7 @@ Module SpongeClass  !
         procedure :: construct      => spongeConstruct
         procedure :: destruct       => spongeDestruct
         procedure :: creatRamp
-        procedure :: addSource
+        ! procedure :: addSource
         procedure :: initializeBaseFlow
         procedure :: updateBaseFlow
         procedure :: readBaseFlow
@@ -330,7 +330,7 @@ Module SpongeClass  !
 
     End Subroutine creatRamp
 !
-    Subroutine addSource(self,mesh)
+    Subroutine addSourceSponge(self,mesh)
         Implicit None
         class(sponge_t)                                         :: self
         type(HexMesh), intent(inout)                            :: mesh
@@ -356,7 +356,7 @@ Module SpongeClass  !
         end do
 !$omp end do
 
-    End Subroutine addSource
+    End Subroutine addSourceSponge
 !
     Subroutine initializeBaseFlow(self,mesh)
         use ElementClass

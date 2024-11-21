@@ -126,6 +126,8 @@ contains
          logical                    :: fileExists
          integer        :: nelem, eID, eIndex
          real(kind=RP)  :: tolerance, r_square
+         real(kind=RP)  :: delta, delta_temp
+         integer        :: delta_count, delta_paritions, ierr
 
     if (.not. controlVariables % logicalValueForKey("use actuatorline")) return
 
@@ -441,6 +443,33 @@ contains
         end do
     end do element_loop2
     print *, "nelem: ", nelem
+    if (self % calculate_with_projection) then
+        if (MPI_Process % doMPIAction) then
+            if (nelem .gt. 0) then
+              delta_temp = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+              delta_count = 1
+            else
+              delta_temp = 0.0_RP
+              delta_count = 0
+            end if 
+#ifdef _HAS_MPI_
+            call mpi_allreduce(delta_temp, delta, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(delta_temp, delta_paritions, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+            delta = delta / real(delta_paritions,kind=RP)
+        else    
+            delta = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+        end if
+!$omp do     schedule(runtime)private(i,j,k)
+        do k = 1, self%num_turbines
+          do j = 1, self%turbine_t(k)%num_blades
+             do i = 1, self%turbine_t(k)%num_blade_sections
+               self % turbine_t(k) % blade_t(j) % gauss_epsil_delta(i) = delta
+             end do
+          enddo
+        enddo
+!$omp end do
+    end if
 
 !
 !   Create output files
@@ -545,8 +574,6 @@ contains
    interp = 1.0_RP
 
    projection_cond:if (self%calculate_with_projection) then
-
-      delta_temp = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
 !
 !    ----------------------------------------------------------------------------------
 !    calculate for all mesh points its contribution based on the gaussian interpolation
@@ -574,8 +601,6 @@ contains
            ! y,z coordinate of every acutator line point
            self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2) = self%turbine_t(kk)%hub_cood_y + self%turbine_t(kk)%blade_t(jj)%r_R(ii) * cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
            self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3) = self%turbine_t(kk)%hub_cood_z + self%turbine_t(kk)%blade_t(jj)%r_R(ii) * sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
-
-           self % turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii) = delta_temp
       
          end do
       enddo
@@ -602,6 +627,7 @@ contains
          self%turbine_t(kk)%blade_t(jj)%local_root_bending(:) = 0.0_RP
 !
          do ii = 1, self%turbine_t(kk)%num_blade_sections
+         print *, "i jj: ", ii, jj
            ! y,z coordinate of every acutator line point
            self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2) = self%turbine_t(kk)%hub_cood_y + self%turbine_t(kk)%blade_t(jj)%r_R(ii) * cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
            self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3) = self%turbine_t(kk)%hub_cood_z + self%turbine_t(kk)%blade_t(jj)%r_R(ii) * sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
@@ -613,6 +639,8 @@ contains
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
            call FindActuatorPointElement(mesh, x, eID, xi, found)
            if (found) then
+               print *, "x: ", x
+               print *, "eID: ", eID
              ! averaged state values of the cell
              Qtemp = element_averageQ(mesh,eID, xi, self % averageSubElement)
              delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
@@ -630,6 +658,7 @@ contains
                self % turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii) = delta_temp
 
            end if
+           print *, "Q: ", Q
            if (all(Q .eq. 0.0_RP)) then
              print*, "Actuator line point not found in mesh, x: ", x
              call exit(99)

@@ -362,7 +362,7 @@ module SpatialDiscretization
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
          use ActuatorLine, only: farm, ForcesFarm
-         use SpongeClass, only: sponge
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -559,7 +559,7 @@ module SpatialDiscretization
             end do
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
-            call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
             call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
@@ -674,6 +674,7 @@ module SpatialDiscretization
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
          use ActuatorLine, only: farm, ForcesFarm
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -871,7 +872,7 @@ module SpatialDiscretization
             end do
 !$omp end do
 
-            call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
             call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
@@ -1047,6 +1048,7 @@ module SpatialDiscretization
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
          use TripForceClass, only: randomTrip
          use ActuatorLine, only: farm, ForcesFarm
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -1098,7 +1100,7 @@ module SpatialDiscretization
             end do
 !$omp end do
             call ForcesFarm(farm, mesh, t)
-            call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
          end if
 
 !$omp do schedule(runtime) private(i,j,k)

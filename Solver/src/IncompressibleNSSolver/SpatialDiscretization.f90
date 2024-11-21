@@ -320,7 +320,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , particles, t )
-         use SpongeClass, only: sponge
+         use SpongeClass, only: sponge, addSourceSponge
          use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
@@ -495,7 +495,7 @@ module SpatialDiscretization
 !$omp end do
 
 ! for the sponge, loops are in the internal subroutine as values are precalculated
-            call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
             call ForcesFarm(farm, mesh, t)
 
 !$omp do schedule(runtime) private(i,j,k)

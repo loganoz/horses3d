@@ -585,7 +585,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , t )
-         use SpongeClass, only: sponge
+         use SpongeClass, only: sponge, addSourceSponge
          use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
@@ -742,7 +742,7 @@ module SpatialDiscretization
 
 !for the sponge, loops are in the internal subroutine as values are precalculated
 !The scale with sqrtRho is done in the subroutines, not done againg here
-         call sponge % addSource(mesh)
+         call addSourceSponge(sponge,mesh)
          call ForcesFarm(farm, mesh, t)
 
 ! Add all the source terms
