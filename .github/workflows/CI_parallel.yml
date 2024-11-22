@@ -33,7 +33,7 @@ jobs:
 
     env:
       METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64
-      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2024.1
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2023.2.0
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -68,7 +68,8 @@ jobs:
       - name: Install Intel oneAPI
       # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+      #  run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
 
       # - name: cache-metis
       #   id: cache-metis
