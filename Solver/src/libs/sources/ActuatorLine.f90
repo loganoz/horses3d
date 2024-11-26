@@ -442,7 +442,6 @@ contains
             end if
         end do
     end do element_loop2
-    print *, "nelem: ", nelem
     if (self % calculate_with_projection) then
         if (MPI_Process % doMPIAction) then
             if (nelem .gt. 0) then
@@ -627,7 +626,6 @@ contains
          self%turbine_t(kk)%blade_t(jj)%local_root_bending(:) = 0.0_RP
 !
          do ii = 1, self%turbine_t(kk)%num_blade_sections
-         print *, "i jj: ", ii, jj
            ! y,z coordinate of every acutator line point
            self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2) = self%turbine_t(kk)%hub_cood_y + self%turbine_t(kk)%blade_t(jj)%r_R(ii) * cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
            self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3) = self%turbine_t(kk)%hub_cood_z + self%turbine_t(kk)%blade_t(jj)%r_R(ii) * sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)
@@ -639,8 +637,6 @@ contains
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
            call FindActuatorPointElement(mesh, x, eID, xi, found)
            if (found) then
-               print *, "x: ", x
-               print *, "eID: ", eID
              ! averaged state values of the cell
              Qtemp = element_averageQ(mesh,eID, xi, self % averageSubElement)
              delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
@@ -658,7 +654,6 @@ contains
                self % turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii) = delta_temp
 
            end if
-           print *, "Q: ", Q
            if (all(Q .eq. 0.0_RP)) then
              print*, "Actuator line point not found in mesh, x: ", x
              call exit(99)
