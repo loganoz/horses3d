@@ -222,7 +222,6 @@ module SpatialDiscretization
          real(kind=RP)           :: sqrtRho, invMa2
          class(Element), pointer :: e
 
-
 !$omp parallel shared(mesh, time)
 !
 !///////////////////////////////////////////////////
@@ -347,6 +346,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution(NCOMP)
+         call mesh % GatherMPIFacesSolution(NCOMP)
 !$omp end single
 #endif
          end select
@@ -371,6 +371,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
             call mesh % UpdateMPIFacesGradients(NCOMP)
+            call mesh % GatherMPIFacesGradients(NCOMP)
 !$omp end single
 #endif
 !
@@ -416,6 +417,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution(NCONS)
+         call mesh % GatherMPIFacesSolution(NCONS)
 !$omp end single
 #endif
 !
@@ -494,6 +496,14 @@ module SpatialDiscretization
 !$omp end do
 
          call ViscousDiscretization % LiftGradients( NCONS, NCONS, mesh , time , mGradientVariables)
+
+#ifdef _HAS_MPI_
+!$omp single
+         ! Not sure about the position of this w.r.t the MPI directly above
+         call mesh % UpdateMPIFacesGradients(NCONS)
+         call mesh % GatherMPIFacesGradients(NCONS)
+!$omp end single
+#endif   
 !
 !        -----------------------
 !        Compute time derivative
@@ -574,6 +584,7 @@ module SpatialDiscretization
 !$omp end do
          end select
 !$omp end parallel
+
 !
       END SUBROUTINE ComputeTimeDerivative
 !
@@ -736,9 +747,9 @@ module SpatialDiscretization
                end do         ; end do          ; end do 
 
 
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
-               end do         ; end do          ; end do
+               ! do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               !    e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               ! end do         ; end do          ; end do
                end associate
             end do
 !$omp end do
@@ -1176,7 +1187,7 @@ module SpatialDiscretization
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
             call Laplacian_FacesContribution(e, t, mesh) 
- 
+
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
             end do         ; end do          ; end do 
@@ -1217,7 +1228,7 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh)
+               call Laplacian_FacesContribution(e, t, mesh)
 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
