@@ -71,6 +71,7 @@ module FluidData_NS
    type(Thermodynamics_t), protected   :: thermodynamics
    !$acc declare create(thermodynamics)
    type(RefValues_t),      protected   :: refValues
+   !$acc declare create(refValues)
    type(Dimensionless_t),  protected   :: dimensionless
    !$acc declare create(dimensionless)
 
@@ -130,6 +131,9 @@ module FluidData_NS
          refValues % kappa    = refValues_ % kappa
          refValues % AoATheta = refValues_ % AoATheta
          refValues % AoAPhi   = refValues_ % AoAPhi
+
+         !$acc update device(refValues, refValues % T, refValues % p,  refValues % rho,  refValues % V)
+         !$acc update device(refValues % mu,  refValues % kappa,  refValues % AoATheta,  refValues % AoAPhi)
 
       end subroutine SetRefValues
 

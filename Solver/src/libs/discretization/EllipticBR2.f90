@@ -27,6 +27,7 @@ module EllipticBR2
          procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR2_RiemannSolver
          procedure      :: Describe           => BR2_Describe
+         procedure      :: CreateDeviceData   => BR2_CreateDeviceData
    end type BassiRebay2_t
 !
 !  ========
@@ -119,6 +120,14 @@ module EllipticBR2
 #endif
       end subroutine BR2_Describe
 
+      subroutine BR2_CreateDeviceData(self)
+         implicit none
+         class(BassiRebay2_t), intent(in)  :: self
+
+         !$acc enter data copyin(self)
+
+      end subroutine BR2_CreateDeviceData
+
       subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients, HO_Elements)
          use HexMeshClass
          use PhysicsStorage
@@ -172,44 +181,11 @@ module EllipticBR2
             end do
 !$omp end do    
          else
-!$acc parallel loop gang present(mesh) private(fIDs)
-!$omp do schedule(runtime) private(eID)
-                  do eID = 1, size(mesh % elements)
-                     fIDs = mesh % elements(eID) % faceIDs
-         
-                     call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                             mesh % faces(fIDs(1)),&
-                                                             mesh % faces(fIDs(2)),&
-                                                             mesh % faces(fIDs(3)),&
-                                                             mesh % faces(fIDs(4)),&
-                                                             mesh % faces(fIDs(5)),&
-                                                             mesh % faces(fIDs(6)),&
-                                                             mesh % elements(eID) % storage % U_x, 1)
-         
-                     call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                             mesh % faces(fIDs(1)),&
-                                                             mesh % faces(fIDs(2)),&
-                                                             mesh % faces(fIDs(3)),&
-                                                             mesh % faces(fIDs(4)),&
-                                                             mesh % faces(fIDs(5)),&
-                                                             mesh % faces(fIDs(6)),&
-                                                             mesh % elements(eID) % storage % U_y, 2)
-                                                             
-                     call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                             mesh % faces(fIDs(1)),&
-                                                             mesh % faces(fIDs(2)),&
-                                                             mesh % faces(fIDs(3)),&
-                                                             mesh % faces(fIDs(4)),&
-                                                             mesh % faces(fIDs(5)),&
-                                                             mesh % faces(fIDs(6)),&
-                                                             mesh % elements(eID) % storage % U_z, 3)
-                  end do
-!$acc end parallel loop
-!$omp end do
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_mpi), mesh % elements_mpi, NGRAD)
          end if
          !$acc wait
          print*, "I am in BR2 line 211"
-
 !
 !        **********************************************
 !        Compute interface solution of non-shared faces

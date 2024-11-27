@@ -86,15 +86,15 @@ module DGIntegrals
 !/////////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      function ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
+      subroutine ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv, volInt )
          !$acc routine vector
          implicit none
-         class(Element),      intent(in)  :: e
+         type(Element),       intent(in)  :: e
          real(kind=RP),       intent(in)  :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP),       intent(in)  :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP),       intent(in)  :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP),       intent(in)  :: Fv(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)                    :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(inout) :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -129,7 +129,8 @@ module DGIntegrals
                                                 + NodalStorage(e % Nxyz(3)) % hatD(k,l) * Fv(eq,i,j,l,IZ)
          end do             ; end do             ; end do               ; end do             ; end do
 
-      end function ScalarWeakIntegrals_SplitVolumeDivergence
+      end subroutine ScalarWeakIntegrals_SplitVolumeDivergence
+
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !
@@ -368,6 +369,7 @@ module DGIntegrals
          real(kind=RP)  :: b_iXi_left,   b_iXi_Right
          real(kind=RP)  :: b_iEta_left,  b_iEta_Right
          real(kind=RP)  :: b_iZeta_left, b_iZeta_Right
+         real(kind=RP)  :: inv_jac
 
          !$acc loop vector collapse(4)
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1) ; do eq = 1, NCONS           
@@ -378,33 +380,34 @@ module DGIntegrals
             b_iEta_Right = NodalStorage(e % Nxyz(2)) % b(iEta, RIGHT)
             b_iZeta_left = NodalStorage(e % Nxyz(3)) % b(iZeta, LEFT)
             b_iZeta_Right = NodalStorage(e % Nxyz(3)) % b(iZeta, RIGHT)
+            inv_jac = e % geom % InvJacobian(iXi,iEta,iZeta)
 
             faceInt_x(eq,iXi,iEta,iZeta) =  faceInt_x(eq,iXi,iEta,iZeta) &
-                                             + (HL(eq, IX, iEta, iZeta) * b_iXi_left &
+                                             + (HL(eq, IX, iEta, iZeta)* b_iXi_left &
                                              + HR(eq,IX, iEta, iZeta)  * b_iXi_Right &
                                              + HF(eq,IX, iXi, iZeta)   * b_iEta_left &
                                              + HBK(eq,IX, iXi, iZeta)  * b_iEta_Right &
                                              + HBO(eq, IX, iXi, iEta)  * b_iZeta_left &
                                              + HT(eq, IX, iXi, iEta)   * b_iZeta_Right) &
-                                             * e % geom % InvJacobian(iXi,iEta,iZeta)
+                                             * inv_jac
 
             faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) &
-                                             + (HL(eq, IY, iEta, iZeta) * b_iXi_left &
+                                             + (HL(eq, IY, iEta, iZeta)* b_iXi_left &
                                              + HR(eq,IY, iEta, iZeta)  * b_iXi_Right &
                                              + HF(eq,IY, iXi, iZeta)   * b_iEta_left &
                                              + HBK(eq,IY, iXi, iZeta)  * b_iEta_Right &
                                              + HBO(eq, IY, iXi, iEta)  * b_iZeta_left &
                                              + HT(eq, IY, iXi, iEta)   * b_iZeta_Right) &
-                                             * e % geom % InvJacobian(iXi,iEta,iZeta) 
+                                             * inv_jac
 
             faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) &
-                                             + (HL(eq, IZ, iEta, iZeta) * b_iXi_left &
+                                             + (HL(eq, IZ, iEta, iZeta)* b_iXi_left &
                                              + HR(eq,IZ, iEta, iZeta)  * b_iXi_Right &
                                              + HF(eq,IZ, iXi, iZeta)   * b_iEta_left &
                                              + HBK(eq,IZ, iXi, iZeta)  * b_iEta_Right &
                                              + HBO(eq, IZ, iXi, iEta)  * b_iZeta_left &
                                              + HT(eq, IZ, iXi, iEta)   * b_iZeta_Right) &
-                                             * e % geom % InvJacobian(iXi,iEta,iZeta)
+                                             * inv_jac
             
          enddo ; end do ; end do ; end do
 !

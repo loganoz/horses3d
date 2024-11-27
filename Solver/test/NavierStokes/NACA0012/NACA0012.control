@@ -4,7 +4,7 @@ Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/naca0012_p3.msh"
 Polynomial order    = 3 ! T
 Number of time steps  = 100
-Output Interval       = 100 ! for explicit
+Output Interval       = 1 ! for explicit
 autosave mode         = "iteration"
 autosave interval     = 100
 
@@ -15,7 +15,7 @@ dt                    = 0.000001d0
 mach number           = 0.1d0
 Reynolds number       = 100.0d0
 
-discretization nodes  = Gauss-Lobatto
+discretization nodes  = Gauss
 
 solution file name    = "RESULTS/naca.hsol"
 save gradients with solution = .true.
@@ -39,24 +39,24 @@ partitioning = SFC
 #end
 
 #define boundary FRONT
-  type = FreeSlipWall
+  type =  FreeSlipWall
   ! type = Outflow
 #end
 
 #define boundary AIRFOILT
-  type = FreeSlipWall
+  type = NoSlipWall
   ! type = FreeSlipWall
 #end
 
 #define boundary AIRFOILB
-  type = FreeSlipWall
+  type = NoSlipWall
   ! type = FreeSlipWall
 #end
 
 #define boundary INFLOW
-  type = FreeSlipWall
+  type = Inflow
 #end
 
 #define boundary OUTFLOW
-  type = FreeSlipWall
+  type = Outflow
 #end

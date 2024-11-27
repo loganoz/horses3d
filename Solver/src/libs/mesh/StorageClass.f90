@@ -68,9 +68,9 @@ module StorageClass
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
       type(RKStep_t),          allocatable :: RKSteps(:)         ! Runge-Kutta stages
 #ifdef FLOW
-      real(kind=RP),           allocatable :: FluxF(:,:,:,:)       ! NSE State vector
-      real(kind=RP),           allocatable :: FluxG(:,:,:,:)       ! NSE State vector
-      real(kind=RP),           allocatable :: FluxH(:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: FluxF(:,:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: FluxG(:,:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: FluxH(:,:,:,:,:)       ! NSE State vector
       real(kind=RP),           allocatable :: contravariantFlux(:,:,:,:,:)       ! NSE State vector
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
@@ -791,9 +791,9 @@ module StorageClass
          allocate ( self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
-         allocate ( self % FluxF (1:NCONS,0:Nx,0:Ny,0:Nz) )
-         allocate ( self % FluxG (1:NCONS,0:Nx,0:Ny,0:Nz) )
-         allocate ( self % FluxH (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxF (1:NCONS,0:Nx,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxG (1:NCONS,0:Nx,0:Ny,0:Ny,0:Nz) )
+         allocate ( self % FluxH (1:NCONS,0:Nx,0:Ny,0:Nz,0:Nz) )
          allocate ( self % contravariantFlux (1:NCONS,0:Nx,0:Ny,0:Nz,1:NDIM) ) 
 
          ! Previous solution

@@ -60,6 +60,7 @@ module NoSlipWallBCClass
 #ifdef FLOW
          procedure         :: FlowState         => NoSlipWallBC_FlowState
          procedure         :: CreateDeviceData  => NoSlipWallBC_CreateDeviceData
+         procedure         :: ExitDeviceData    => NoSlipWallBC_ExitDeviceData
          procedure         :: FlowGradVars      => NoSlipWallBC_FlowGradVars
          procedure         :: FlowNeumann       => NoSlipWallBC_FlowNeumann
 #endif
@@ -279,6 +280,20 @@ module NoSlipWallBCClass
          !$acc enter data copyin(self % vWall)
 
       end subroutine NoSlipWallBC_CreateDeviceData
+
+      subroutine NoSlipWallBC_ExitDeviceData(self)
+         implicit none 
+         class(NoSlipWallBC_t), intent(in)    :: self
+         
+         !$acc exit data delete(self % isAdiabatic)
+         !$acc exit data delete(self % ewall)
+         !$acc exit data delete(self % Twall)
+         !$acc exit data delete(self % invTwall)
+         !$acc exit data delete(self % wallType)
+         !$acc exit data delete(self % vWall)
+         !$acc exit data delete(self)
+
+      end subroutine NoSlipWallBC_ExitDeviceData
 
       subroutine NoSlipWallBC_FlowState(self, mesh, zoneID)
    !

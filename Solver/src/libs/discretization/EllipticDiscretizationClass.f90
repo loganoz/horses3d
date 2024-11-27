@@ -24,6 +24,7 @@ module EllipticDiscretizationClass
          procedure      :: LiftGradients             => BaseClass_LiftGradients
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
+         procedure      :: CreateDeviceData          => BaseClass_CreateDeviceData
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
          procedure      :: RiemannSolver_Jacobians   => BaseClass_RiemannSolver_Jacobians
@@ -118,7 +119,15 @@ module EllipticDiscretizationClass
          class(EllipticDiscretization_t), intent(in)  :: self
 
       end subroutine BaseClass_Describe
+      
+      subroutine BaseClass_CreateDeviceData(self)
+         implicit none
+         class(EllipticDiscretization_t), intent(in)  :: self
 
+         !$acc enter data copyin(self)
+
+      end subroutine BaseClass_CreateDeviceData
+      
       subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
 !
 !        *****************************************************

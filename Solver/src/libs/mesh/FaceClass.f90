@@ -521,13 +521,10 @@
       select case ( side )
       case (1)    ! Prolong to left element
          
-         select case ( self % projectionType(1) )
-         case (0)
             !   !$acc loop vector collapse(2)
             !   do j = 0, self % Nf(2)  ; do i = 0, self % Nf(1)   
             !      self % storage(1) % fStar(:,i,j) = flux(:,i,j)     
             !   enddo ; enddo 
-         end select
 
       case (2)    ! Prolong to right element
 !      

@@ -25,7 +25,8 @@ module EllipticBR1
          procedure      :: LiftGradientsHO           => BR1_LiftGradientsHO
          procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BR1_RiemannSolver
-         procedure      :: Describe => BR1_Describe
+         procedure      :: Describe                  => BR1_Describe
+         procedure      :: CreateDeviceData          => BR1_CreateDeviceData
    end type BassiRebay1_t
 !
 !  ========
@@ -68,6 +69,14 @@ module EllipticBR1
 #endif
 
       end subroutine BR1_Describe
+
+      subroutine BR1_CreateDeviceData(self)
+         implicit none
+         class(BassiRebay1_t), intent(in)  :: self
+
+         !$acc enter data copyin(self)
+
+      end subroutine BR1_CreateDeviceData
 
       subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
          use HexMeshClass
@@ -112,6 +121,7 @@ module EllipticBR1
 #else
          set_mu = .false.
 #endif
+      !$acc data copyin(self)
 
       if (HOElements) then
 !$omp do schedule(runtime) private(eID)
@@ -133,6 +143,8 @@ module EllipticBR1
          call self % LiftGradients(NCONS, NGRAD, mesh, time, GetGradients)
          print*, "I am in BR1 line 114"
       end if
+
+      !$acc end data
 
       end subroutine BR1_ComputeGradient
 !
@@ -169,7 +181,7 @@ module EllipticBR1
 !        *******************************************
 !
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh) copyin(self)
+         !$acc parallel loop gang present(mesh, self)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), NCONS, NGRAD)
@@ -189,7 +201,7 @@ module EllipticBR1
          print*, "I am in BR1 line 168"
 
 !$omp do schedule(runtime) private(eID)
-!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) present(mesh) copyin(self)
+!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) present(mesh, self)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
 !
@@ -199,49 +211,13 @@ module EllipticBR1
          end do
 !$omp end do
 !$acc end parallel loop
-!
-!           Prolong gradients
-!           -----------------
-!$acc parallel loop gang present(mesh, mesh % elements, mesh % faces, mesh % elements_sequential) private(fIDs)
-!$omp do schedule(runtime) private(eID)
-         do iEl = 1, size(mesh % elements_sequential)
-            eID = mesh % elements_sequential(iEl)
-            fIDs = mesh % elements(eID) % faceIDs
-
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_x, 1)
-
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_y, 2)
-                                                    
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_z, 3)
-         end do
-!$acc end parallel loop
-!$omp end do
 
          print*, "I am in BR1 line 195"
 
-         !$acc wait
-         
+         call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+
+         print*, "I am in BR1 line 219"
+
 #ifdef _HAS_MPI_
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
@@ -250,7 +226,7 @@ module EllipticBR1
 !$omp end single
 
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh) copyin(self)
+         !$acc parallel loop gang present(mesh, self)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn)
@@ -260,7 +236,7 @@ module EllipticBR1
 !
 
 !$omp do schedule(runtime) private(eID)
-!$acc parallel loop gang vector_length(128) present(mesh) copyin(self)
+!$acc parallel loop gang vector_length(128) present(mesh, self)
          do iEl = 1, size(mesh % elements_mpi)
             eID = mesh % elements_mpi(iEl)
 !
@@ -273,43 +249,10 @@ module EllipticBR1
 !
 !           Prolong gradients
 !           -----------------
-!$acc parallel loop gang vector_length(128) present(mesh) private(fIDs)
-!$omp do schedule(runtime) private(eID)
-         do iEl = 1, size(mesh % elements_mpi)
-            eID = mesh % elements_mpi(iEl)
-            fIDs = mesh % elements(eID) % faceIDs
+!
+         call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_mpi), mesh % elements_mpi, NGRAD)
 
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_x, 1)
-
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_y, 2)
-                                                    
-            call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                    mesh % faces(fIDs(1)),&
-                                                    mesh % faces(fIDs(2)),&
-                                                    mesh % faces(fIDs(3)),&
-                                                    mesh % faces(fIDs(4)),&
-                                                    mesh % faces(fIDs(5)),&
-                                                    mesh % faces(fIDs(6)),&
-                                                    mesh % elements(eID) % storage % U_z, 3)
-         end do
-!$acc end parallel loop
-!$omp end do
 #endif
-
       end subroutine BR1_LiftGradients
 
       subroutine BR1_LiftGradientsHO(self, nEqn, nGradEqn, mesh, time, GetGradients)
@@ -434,7 +377,6 @@ module EllipticBR1
 !        ---------------
 !
          integer  :: i,j,k,eq
-         real(kind=RP)        :: invjac
 
          call  VectorWeakIntegrals_StdFace(e, NGRAD, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
@@ -482,7 +424,6 @@ module EllipticBR1
          !real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j,eq
-         integer       :: Sidearray(2)
 
 
          !$acc loop vector collapse(2)
@@ -517,7 +458,6 @@ module EllipticBR1
             enddo
          end do               ; end do
          
-         !Sidearray = (/1,2/)
          call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 1,1)
          call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 2,1)
 
@@ -727,10 +667,10 @@ flux )
          use Physics
          use FaceClass
          implicit none
-         type(Face),   intent(in)       :: f
+         type(Face),    intent(in)      :: f
          integer,       intent(in)      :: nEqn
          integer,       intent(in)      :: nGradEqn
-         real(kind=RP), intent(inout)   :: flux(1:nEqn,0:f% Nf(1),0:f% Nf(2))
+         real(kind=RP), intent(out)     :: flux(1:nEqn,0:f% Nf(1),0:f% Nf(2))
          !
          !        ---------------
          !        Local variables

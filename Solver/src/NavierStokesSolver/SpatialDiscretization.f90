@@ -180,6 +180,7 @@ module SpatialDiscretization
 
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
                call ViscousDiscretization % Describe
+               call ViscousDiscretization % CreateDeviceData
 
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
@@ -299,20 +300,16 @@ module SpatialDiscretization
          !$acc wait
 
 !$omp do schedule(runtime)
-         !$acc parallel loop gang present(mesh, mesh % elements)
+         !$acc parallel loop gang vector_length(128) present(mesh, mesh % elements)
          do eID = 1 , size(mesh % elements)
             call HexElement_ComputeLocalGradient(mesh % elements(eID))
          end do
          !$acc end parallel loop
 !$omp end do nowait
 
-         !$acc wait
-
          if ( computeGradients ) then
             call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh, time, GetGradients, HO_Elements)
          end if
-
-         !$acc wait
          
 #ifdef _HAS_MPI_
 !$omp single
@@ -386,7 +383,7 @@ module SpatialDiscretization
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
-            call mesh % ProlongGradientsToFaces(NGRAD)
+!            call mesh % ProlongGradientsToFaces(NGRAD)
          end if
 
 !
@@ -415,7 +412,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n 
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, side
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
          real(kind=RP), allocatable :: Source_HO(:,:,:,:)
          integer,       allocatable :: i_(:), j_(:), k_(:)
@@ -479,9 +476,13 @@ module SpatialDiscretization
 !        Volume integrals
 !        ****************
 !
-         call TimeDerivative_VolumetricContribution(mesh)         
+         select type ( HyperbolicDiscretization )
+         type is (StandardDG_t)
+            call TimeDerivative_VolumetricContribution(mesh)         
+         type is (SplitDG_t)
+               call TimeDerivative_VolumetricContribution_Split(mesh)
+         end select
 
-         
          print*, "I am in Spatial Discretization line 465"
 
 #if defined(_HAS_MPI_)
@@ -497,14 +498,22 @@ module SpatialDiscretization
 !        ******************************************
 !
       print*, "I am in Spatial Discretization line 479"
-
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh)
+!$acc parallel loop gang collapse(2) present(mesh)
+      do iFace = 1, size(mesh % faces_interior) ; do side = 1,2
+         fID = mesh % faces_interior(iFace)
+         call computeElementInterfaceFlux_viscous(mesh % faces(fID), side)
+      end do ; end do 
+!$acc end parallel loop
+!$omp end do
+      
+!$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             call computeElementInterfaceFlux(mesh % faces(fID))
          end do
-         !$acc end parallel loop
+!$acc end parallel loop
 !$omp end do nowait
 
          print*, "I am in Spatial Discretization line 490"
@@ -518,14 +527,13 @@ module SpatialDiscretization
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
 !
-
 !$omp do schedule(runtime) private(i,j,k,eID)
-         !$acc parallel loop gang present(mesh, mesh % elements, mesh % elements_sequential) copyin(t)
+!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh, mesh % elements, mesh % elements_sequential) copyin(t)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
             call TimeDerivative_FacesContribution(mesh % elements(eID), t, mesh)
          end do
-         !$acc end parallel loop 
+!$acc end parallel loop 
 !$omp end do
 !
 !        ****************************
@@ -1315,8 +1323,6 @@ module SpatialDiscretization
 
          real(kind=RP) :: inviscidFlux(1:NCONS, 1:NDIM)
          real(kind=RP) :: viscousFlux(1:NCONS, 1:NDIM)
-         real(kind=RP) :: jGrad_Xi(1:NDIM), jGrad_Eta(1:NDIM), jGrad_Zeta(1:NDIM)
-
 !
 !        *************************************
 !        Compute interior contravariant fluxes
@@ -1325,10 +1331,10 @@ module SpatialDiscretization
 !        Compute inviscid - viscous contravariant flux
 !        ---------------------------------------------
          !$omp do schedule(runtime)
-         !$acc parallel loop gang vector_length(32) present(mesh)
+         !$acc parallel loop gang vector_length(128) num_gangs(9700) present(mesh)
          do eID = 1 , size(mesh % elements)
 
-            !$acc loop vector collapse(3) private(inviscidFlux, viscousFlux,jGrad_Xi,jGrad_Eta,jGrad_Zeta)
+            !$acc loop vector collapse(3) private(inviscidFlux, viscousFlux)
             do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
                   
                call EulerFlux(mesh % elements(eID) % storage % Q(:,i,j,k), inviscidFlux, mesh % elements(eID) % storage % rho(i,j,k))
@@ -1336,9 +1342,6 @@ module SpatialDiscretization
                mu    = mesh % elements(eID) % storage % mu_ns(1,i,j,k)
                beta  = 0.0_RP
                kappa = mesh % elements(eID) % storage % mu_ns(2,i,j,k)
-               jGrad_Xi   = mesh % elements(eID) % geom % jGradXi(IX:IZ,i,j,k)
-               jGrad_Eta  = mesh % elements(eID) % geom % jGradEta(IX:IZ,i,j,k)
-               jGrad_Zeta = mesh % elements(eID) % geom % jGradZeta(IX:IZ,i,j,k)
 
                call ViscousFlux_STATE( NCONS, NGRAD, mesh % elements(eID) % storage % Q(:,i,j,k) , mesh % elements(eID) % storage % U_x(:,i,j,k) , & 
                                        mesh % elements(eID) % storage % U_y(:,i,j,k) , mesh % elements(eID) % storage % U_z(:,i,j,k), mu, beta, kappa, viscousFlux)
@@ -1346,19 +1349,19 @@ module SpatialDiscretization
                inviscidFlux = inviscidFlux - viscousFlux
                   
                mesh % elements(eID) % storage % contravariantFlux(:,i,j,k,IX)  = &
-                                                           inviscidFlux(:,IX) * jGrad_Xi(IX)  &
-                                                         + inviscidFlux(:,IY) * jGrad_Xi(IY)  &
-                                                         + inviscidFlux(:,IZ) * jGrad_Xi(IZ)
+                                                           inviscidFlux(:,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
+                                                         + inviscidFlux(:,IY) * mesh % elements(eID) % geom % jGradXi(IY,i,j,k)  &
+                                                         + inviscidFlux(:,IZ) * mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)
 
                mesh % elements(eID) % storage % contravariantFlux(:,i,j,k,IY)  = &
-                                                           inviscidFlux(:,IX) * jGrad_Eta(IX)  &
-                                                         + inviscidFlux(:,IY) * jGrad_Eta(IY)  &
-                                                         + inviscidFlux(:,IZ) * jGrad_Eta(IZ)
+                                                           inviscidFlux(:,IX) * mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  &
+                                                         + inviscidFlux(:,IY) * mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  &
+                                                         + inviscidFlux(:,IZ) * mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)
                   
                mesh % elements(eID) % storage % contravariantFlux(:,i,j,k,IZ)  = &
-                                                           inviscidFlux(:,IX) * jGrad_Zeta(IX)  &
-                                                         + inviscidFlux(:,IY) * jGrad_Zeta(IY)  &
-                                                         + inviscidFlux(:,IZ) * jGrad_Zeta(IZ)
+                                                           inviscidFlux(:,IX) * mesh % elements(eID) % geom % jGradZeta(IX,i,j,k)  &
+                                                         + inviscidFlux(:,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
+                                                         + inviscidFlux(:,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
 
             end do               ; end do                ; end do
 
@@ -1375,25 +1378,53 @@ module SpatialDiscretization
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 
-      subroutine TimeDerivative_VolumetricContribution_Split(e)
-         !!$acc routine vector
+      subroutine TimeDerivative_VolumetricContribution_Split(mesh)
          use HexMeshClass
+         use NodalStorageClass, only: NodalStorage
          use ElementClass
          use DGIntegrals
+         use RiemannSolvers_NS
          implicit none
-         type(Element), intent (inout)           :: e
+         type(HexMesh), intent (inout)           :: mesh
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer            :: i, j, k, l, eID
-         real(kind=RP)      :: mu, kappa, beta
-
+         integer       :: i, j, k,l,eq, eID
          real(kind=RP) :: Flux(1:NCONS, 1:NDIM)
-         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+
+         !$acc parallel present(mesh) vector_length(128) num_gangs(9750)
+         !$acc loop gang
+         do eID = 1 , size(mesh % elements)
+         
+            !$acc loop vector collapse(3) private(Flux)
+            do k = 0, mesh % elements(eID) % Nxyz(3)  
+               do j = 0, mesh % elements(eID) % Nxyz(2)  
+                  do i = 0, mesh % elements(eID) % Nxyz(1)
+
+                  call ViscousFlux_STATE( NCONS, NGRAD, mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % U_x(:,i,j,k), & 
+                                          mesh % elements(eID) % storage % U_y(:,i,j,k) , mesh % elements(eID) % storage % U_z(:,i,j,k), &
+                                          mesh % elements(eID) % storage % mu_ns(1,i,j,k), 0.0_RP, &
+                                          mesh % elements(eID) % storage % mu_ns(2,i,j,k), Flux)
+                  do eq = 1, NCONS
+              
+                     mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
+                                                                                        - Flux(eq,IY) * mesh % elements(eID) % geom % jGradXi(IY,i,j,k)  &
+                                                                                        - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)
+
+                     mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IY) = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  &
+                                                                                       - Flux(eq,IY) * mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  &
+                                                                                       - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)
+                  
+                     mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IZ) = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradZeta(IX,i,j,k)  &
+                                                                                       - Flux(eq,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
+                                                                                       - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
+                  end do
+            end do               ; end do                ; end do
+
+         call ScalarWeakIntegrals_StdVolumeGreen( mesh % elements(eID) % Nxyz, NCONS, mesh % elements(eID) % storage % contravariantFlux, &
+                                                  mesh % elements(eID) % storage % QDot)
 !
 !        *************************************
 !        Compute interior contravariant fluxes
@@ -1401,64 +1432,37 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         
-         !!$acc loop vector collapse(3) private(Flux)
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  
-            call EulerFlux(e % storage % Q(:,i,j,k), Flux, e % storage % rho(i,j,k))
-                  
-            e % storage % contravariantFlux(:,i,j,k,IX)  = Flux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                                         + Flux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                                         + Flux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+            !$acc loop vector collapse(3) private(Flux)
+            do k = 0, mesh % elements(eID) % Nxyz(3)  
+               do j = 0, mesh % elements(eID) % Nxyz(2)  
+                  do i = 0, mesh % elements(eID) % Nxyz(1)
+                     !$acc loop seq
+                     do l = 0, mesh % elements(eID) % Nxyz(1)
+                        call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,l,j,k), mesh % elements(eID) % geom % jGradXi(:,i,j,k),  mesh % elements(eID) % geom % jGradXi(:,l,j,k), Flux(:,IX))
+                        call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,l,k), mesh % elements(eID) % geom % jGradEta(:,i,j,k), mesh % elements(eID) % geom % jGradEta(:,i,l,k), Flux(:,IY))
+                        call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,j,l), mesh % elements(eID) % geom % jGradZeta(:,i,j,k), mesh % elements(eID) % geom % jGradZeta(:,i,j,l), Flux(:,IZ))
+                        
+                        do eq = 1, NCONS
+                           mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) &
+                                                                           - NodalStorage(mesh % elements(eID) % Nxyz(1)) % sharpD(i,l) *  Flux(eq,IX) &
+                                                                           - NodalStorage(mesh % elements(eID) % Nxyz(2)) % sharpD(j,l) *  Flux(eq,IY) &
+                                                                           - NodalStorage(mesh % elements(eID) % Nxyz(3)) % sharpD(k,l) *  Flux(eq,IZ)
+                        end do
+                     end do 
 
-            e % storage % contravariantFlux(:,i,j,k,IY)  = Flux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                                         + Flux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                                         + Flux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
-                  
-            e % storage % contravariantFlux(:,i,j,k,IZ)  = Flux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                                         + Flux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                                         + Flux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
-         end do               ; end do                ; end do
+            end do               ; end do                ; end do
 
-         call SplitDG_ComputeSplitFormFluxes(e, e % storage % contravariantFlux, fSharp, gSharp, hSharp)
+         enddo
+         !$acc end parallel loop
 
-         !!$acc loop vector collapse(3) private(Flux)
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            
-            mu = e % storage % mu_ns(1,i,j,k)
-            beta  = 0.0_RP
-            kappa = e % storage % mu_ns(2,i,j,k)
-
-            call ViscousFlux_STATE( NCONS, NGRAD, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , & 
-                                 e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), mu, beta, kappa, Flux)
-               
-            e % storage % contravariantFlux(:,i,j,k,IX)  = Flux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                                         + Flux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                                         + Flux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
-
-            e % storage % contravariantFlux(:,i,j,k,IY)  = Flux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                                         + Flux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                                         + Flux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
-                  
-            e % storage % contravariantFlux(:,i,j,k,IZ)  = Flux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                                         + Flux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                                         + Flux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
-         end do               ; end do                ; end do
-
-         
-         e % storage % QDot = -ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, e % storage % contravariantFlux)
-
-
-
-                                       
       end subroutine TimeDerivative_VolumetricContribution_Split
-
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine TimeDerivative_FacesContribution( e , t , mesh)
          !$acc routine vector
          use HexMeshClass
+         use DGIntegrals
          implicit none
          type(Element)           :: e
          real(kind=RP)           :: t
@@ -1492,6 +1496,26 @@ module SpatialDiscretization
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
+      subroutine computeElementInterfaceFlux_viscous(fc, side)
+         !$acc routine vector
+         use FaceClass
+         use RiemannSolvers_NS
+         use EllipticBR1
+         implicit none
+         type(Face)   , intent(inout) :: fc
+         integer,       intent(in)    :: side
+         
+         call ViscousFlux_selector(NCONS, NGRAD, fc % Nf(1), &
+                                   fc % Nf(2), 0, &
+                                   fc % storage(side) % Q , &
+                                   fc % storage(side) % U_x, &
+                                   fc % storage(side) % U_y, &
+                                   fc % storage(side) % U_z, &
+                                   fc % storage(side) % mu_NS, &
+                                   fc % storage(side) % unStar)
+ 
+      end subroutine computeElementInterfaceFlux_viscous
+
       subroutine computeElementInterfaceFlux(fc)
          !$acc routine vector
          use FaceClass
@@ -1501,24 +1525,6 @@ module SpatialDiscretization
          type(Face)   , intent(inout) :: fc
          
          integer       :: i, j, eq
-
-         call ViscousFlux_selector(NCONS, NGRAD, fc % Nf(1), &
-                                   fc % Nf(2), 0, &
-                                   fc % storage(1) % Q , &
-                                   fc % storage(1) % U_x, &
-                                   fc % storage(1) % U_y, &
-                                   fc % storage(1) % U_z, &
-                                   fc % storage(1) % mu_NS, &
-                                   fc % storage(1) % unStar)
-           
-         call ViscousFlux_selector(NCONS, NGRAD, fc % Nf(1), & 
-                                   fc % Nf(2), 0, &
-                                   fc % storage(2) % Q , &
-                                   fc % storage(2) % U_x, &
-                                   fc % storage(2) % U_y, &
-                                   fc % storage(2) % U_z, &
-                                   fc % storage(2) % mu_NS, &
-                                   fc % storage(2) % unStar)
 
          call BR1_RiemannSolver_acc(fc, NCONS, NGRAD, fc % storage(2) % FStar)
 
@@ -1572,7 +1578,6 @@ module SpatialDiscretization
 !        Viscous fluxes
 !        --------------
 !
-
          call ViscousFlux_selector(NCONS, NGRAD, fc % Nf(1), &
                                    fc % Nf(2), 0, &
                                    fc % storage(1) % Q , &
@@ -1651,7 +1656,6 @@ module SpatialDiscretization
 !
       INTEGER                         :: i, j, eq
       INTEGER                         :: nZones, zoneID, zonefID, fID
-      REAL(KIND=RP)                   :: inv_flux(NCONS)
       integer                         :: Sidearray(2)
 !
 !     -------------------
@@ -1660,8 +1664,6 @@ module SpatialDiscretization
 !
       nZones = size(mesh % zones)
       do zoneID=1, nZones
-
-         !CALL BCs(zoneID) % bc % FlowState(mesh, zoneID)      
          
          !$acc parallel loop gang present(mesh) async(zoneID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
@@ -1689,13 +1691,13 @@ module SpatialDiscretization
          enddo
          !$acc end parallel loop 
 
-         !$acc wait
+         !!$acc wait
 
          CALL BCs(zoneID) % bc % FlowNeumann(mesh, zoneID)                             
          
-         !$acc wait
+         !!$acc wait
 
-         !$acc parallel loop gang present(mesh) private(inv_flux) async(zoneID)
+         !$acc parallel loop gang present(mesh) async(zoneID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
 

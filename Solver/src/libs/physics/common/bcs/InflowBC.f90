@@ -76,6 +76,7 @@ module InflowBCClass
          procedure         :: FlowState         => InflowBC_FlowState
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
          procedure         :: CreateDeviceData  => InflowBC_CreateDeviceData
+         procedure         :: ExitDeviceData    => InflowBC_ExitDeviceData
 #endif
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => InflowBC_PhaseFieldState
@@ -378,6 +379,21 @@ module InflowBCClass
 
       end subroutine InflowBC_CreateDeviceData
 
+      subroutine InflowBC_ExitDeviceData(self)
+         implicit none 
+         class(InflowBC_t), intent(in)    :: self
+
+         !$acc exit data delete(self % AoAPhi)
+         !$acc exit data delete(self % AoATheta)
+         !$acc exit data delete(self % v)
+         !$acc exit data delete(self % rho)
+         !$acc exit data delete(self % p)
+         !$acc exit data delete(self % TurbIntensity)
+         !$acc exit data delete(self % eddy_theta)
+         !$acc enter data copyin(self)
+
+      end subroutine InflowBC_ExitDeviceData
+
       subroutine InflowBC_FlowState(self, mesh, zoneID)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
@@ -394,7 +410,7 @@ module InflowBCClass
          integer       :: fID
          integer       :: zonefID
       
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces) private(fID) async(zoneID)
+         !$acc parallel loop gang present(mesh, self) private(fID) async(zoneID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q,qq,u,v,w)  
@@ -438,7 +454,7 @@ module InflowBCClass
          integer       :: fID
          integer       :: zonefID
          
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) async(zoneID) private(fID)
+         !$acc parallel loop gang present(mesh, self) async(zoneID) private(fID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
             !$acc loop vector collapse(2) independent private(flux)  

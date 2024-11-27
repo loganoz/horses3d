@@ -39,6 +39,7 @@ module EllipticIP
          procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #endif
          procedure      :: Describe                => IP_Describe
+         procedure      :: CreateDeviceData        => IP_CreateDeviceData
    end type InteriorPenalty_t
 
    abstract interface
@@ -186,6 +187,14 @@ module EllipticIP
             
       end subroutine IP_Describe
 
+      subroutine IP_CreateDeviceData(self)
+         implicit none
+         class(InteriorPenalty_t), intent(in)  :: self
+
+         !$acc enter data copyin(self)
+
+      end subroutine IP_CreateDeviceData
+
       subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
          use HexMeshClass
          use PhysicsStorage
@@ -238,40 +247,9 @@ module EllipticIP
             end do
 !$omp end do   
          else
-!$acc parallel loop gang present(mesh) private(fIDs)
-!$omp do schedule(runtime) private(eID)
-            do eID = 1, size(mesh % elements)
-               fIDs = mesh % elements(eID) % faceIDs
-   
-               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                       mesh % faces(fIDs(1)),&
-                                                       mesh % faces(fIDs(2)),&
-                                                       mesh % faces(fIDs(3)),&
-                                                       mesh % faces(fIDs(4)),&
-                                                       mesh % faces(fIDs(5)),&
-                                                       mesh % faces(fIDs(6)),&
-                                                       mesh % elements(eID) % storage % U_x, 1)
-   
-               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                       mesh % faces(fIDs(1)),&
-                                                       mesh % faces(fIDs(2)),&
-                                                       mesh % faces(fIDs(3)),&
-                                                       mesh % faces(fIDs(4)),&
-                                                       mesh % faces(fIDs(5)),&
-                                                       mesh % faces(fIDs(6)),&
-                                                       mesh % elements(eID) % storage % U_y, 2)
-                                                       
-               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
-                                                       mesh % faces(fIDs(1)),&
-                                                       mesh % faces(fIDs(2)),&
-                                                       mesh % faces(fIDs(3)),&
-                                                       mesh % faces(fIDs(4)),&
-                                                       mesh % faces(fIDs(5)),&
-                                                       mesh % faces(fIDs(6)),&
-                                                       mesh % elements(eID) % storage % U_z, 3)
-            end do
-!$acc end parallel loop
-!$omp end do
+
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_mpi), mesh % elements_mpi, NGRAD)
          end if
 !
 !        **********************************************

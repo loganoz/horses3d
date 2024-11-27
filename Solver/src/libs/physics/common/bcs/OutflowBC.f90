@@ -48,6 +48,7 @@ module OutflowBCClass
 #ifdef FLOW
          procedure         :: FlowState         => OutflowBC_FlowState
          procedure         :: CreateDeviceData  => OutflowBC_CreateDeviceData
+         procedure         :: ExitDeviceData    => OutflowBC_ExitDeviceData
          procedure         :: FlowNeumann       => OutflowBC_FlowNeumann
 #endif
 #if defined(CAHNHILLIARD)
@@ -234,6 +235,15 @@ module OutflowBCClass
 
       end subroutine OutflowBC_CreateDeviceData
 
+      subroutine OutflowBC_ExitDeviceData(self)
+         implicit none 
+         class(OutflowBC_t), intent(in)    :: self
+         
+         !$acc enter data copyin(self % pExt)
+         !$acc enter data copyin(self)
+
+      end subroutine OutflowBC_ExitDeviceData
+
       subroutine OutflowBC_FlowState(self, mesh, zoneID)
          use HexMeshClass
          implicit none
@@ -253,7 +263,7 @@ module OutflowBCClass
          integer       :: fID
          integer       :: zonefID
 
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) private(fID) async(zoneID)
+         !$acc parallel loop gang present(mesh, self) private(fID) async(zoneID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, nHat)  
@@ -326,7 +336,7 @@ module OutflowBCClass
          integer       :: fID
          integer       :: zonefID
          
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) private(fID) async(zoneID)
+         !$acc parallel loop gang present(mesh, self) private(fID) async(zoneID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
             !$acc loop vector collapse(2) independent private(flux)  

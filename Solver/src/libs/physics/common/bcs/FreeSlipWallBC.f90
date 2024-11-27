@@ -56,6 +56,7 @@ module FreeSlipWallBCClass
 #ifdef FLOW
          procedure         :: FlowState         => FreeSlipWallBC_FlowState
          procedure         :: CreateDeviceData  => FreeSlipWallBC_CreateDeviceData
+         procedure         :: ExitDeviceData    => FreeSlipWallBC_ExitDeviceData
          procedure         :: FlowGradVars      => FreeSlipWallBC_FlowGradVars
          procedure         :: FlowNeumann       => FreeSlipWallBC_FlowNeumann
 #endif
@@ -261,6 +262,19 @@ module FreeSlipWallBCClass
          !$acc enter data copyin(self % wallType)
 
       end subroutine FreeSlipWallBC_CreateDeviceData
+
+      subroutine FreeSlipWallBC_ExitDeviceData(self)
+         implicit none 
+         class(FreeSlipWallBC_t), intent(in)    :: self
+
+         !$acc exit data delete(self % isAdiabatic)
+         !$acc exit data delete(self % ewall)
+         !$acc exit data delete(self % Twall)
+         !$acc exit data delete(self % invTwall)
+         !$acc exit data delete(self % wallType)
+         !$acc exit data delete(self)
+
+      end subroutine FreeSlipWallBC_ExitDeviceData
 
       subroutine FreeSlipWallBC_FlowState(self, mesh, zoneID)
 !

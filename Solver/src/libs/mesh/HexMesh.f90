@@ -39,7 +39,7 @@ MODULE HexMeshClass
       public      GetOriginalNumberOfFaces
       public      ConstructFaces, ConstructPeriodicFaces
       public      DeletePeriodicMinusFaces, GetElementsFaceIDs
-      public      no_of_stats_variables, HexMesh_ProlongSolToFaces
+      public      no_of_stats_variables, HexMesh_ProlongSolToFaces, HexMesh_ProlongGradientsToFaces
 !
 !     ---------------
 !     Mesh definition
@@ -86,6 +86,7 @@ MODULE HexMeshClass
             procedure :: DescribePartition             => DescribeMeshPartition
             procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: CreateDeviceData              => HexMesh_CreateDeviceData
+            procedure :: ExitDeviceData                => HexMesh_ExitDeviceData
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
             procedure :: CheckIfMeshIs2D               => HexMesh_CheckIfMeshIs2D
@@ -94,7 +95,7 @@ MODULE HexMeshClass
             procedure :: UpdateFacesWithPartition      => HexMesh_UpdateFacesWithPartition
             procedure :: ConstructGeometry             => HexMesh_ConstructGeometry
             procedure :: ProlongSolutionToFaces        => HexMesh_ProlongSolutionToFaces
-            procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
+            !procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
             procedure :: PrepareForIO                  => HexMesh_PrepareForIO
             procedure :: Export                        => HexMesh_Export
             procedure :: ExportOrders                  => HexMesh_ExportOrders
@@ -133,6 +134,7 @@ MODULE HexMeshClass
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
+            procedure :: ConvertGradientVariables      => HexMesh_ConvertGradientVariables
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -168,7 +170,7 @@ MODULE HexMeshClass
       SUBROUTINE HexMesh_Destruct( self )
          IMPLICIT NONE
          CLASS(HexMesh) :: self
-
+         
          safedeallocate (self % Nx)
          safedeallocate (self % Ny)
          safedeallocate (self % Nz)
@@ -959,43 +961,105 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fIDs(6)
-         integer  :: eID
+         integer  :: eID, fID, fids(6)
+
+         select case ( self %nodeType )
+         case(1) !Gauss
 
 !$omp do schedule(runtime)
-         !$acc parallel loop gang num_gangs(size(self % elements)) vector_length(128) present(self, self % elements, self % faces) 
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) 
          do eID = 1, size(self % elements)
-            call HexElement_ProlongSolToFaces(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(1)), &
-                                                                           self % faces(self % elements(eID) % faceIDs(2)), & 
-                                                                           self % faces(self % elements(eID) % faceIDs(3)), &
-                                                                           self % faces(self % elements(eID) % faceIDs(4)), &
-                                                                           self % faces(self % elements(eID) % faceIDs(5)), &
-                                                                           self % faces(self % elements(eID) % faceIDs(6)))                        
-         end do
-         !$acc end parallel loop
+            do fID = 1, 6
+            call HexElement_ProlongSolToFaces(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
+         end do ; end do
+!$acc end parallel loop
 !$omp end do
+
+         case(2) !Gauss-Lobatto
+
+!$omp do schedule(runtime)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) 
+         do eID = 1, size(self % elements)
+            do fID = 1, 6
+            call HexElement_ProlongSolToFaces_GL(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
+         end do ; end do
+!$acc end parallel loop
+!$omp end do
+
+         end select
 
       end subroutine HexMesh_ProlongSolToFaces
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn)
+      subroutine HexMesh_ProlongGradientsToFaces(self, size_element_list, element_list, nGradEqn)
          implicit none
-         class(HexMesh),   intent(inout)  :: self
+         type(HexMesh),   intent(inout)   :: self
          integer,          intent(in)     :: nGradEqn
+         integer,          intent(in)     :: size_element_list
+         integer,          intent(in)     :: element_list(size_element_list)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: fIDs(6)
-         integer  :: eID
+         integer  :: iEl, eID, fID, fIDs(6), i, j, k, eq
 
          select case ( self %nodeType )
          case(1) !Gauss
 
+!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs)
+!$omp do schedule(runtime) private(eID)
+         do iEl = 1, size_element_list
+            do fid = 1,6
+               eID = element_list(iEl)
+               fIDs = self % elements(eID) % faceIDs
+               call HexElement_ProlongGradientsToFaces(self % elements(eID), NGRAD, &
+                                                       self % faces(fIDs(fid)), &
+                                                       self % elements(eID) % storage % U_x,fid, 1)
+
+               call HexElement_ProlongGradientsToFaces(self % elements(eID), NGRAD, &
+                                                       self % faces(fIDs(fid)), &
+                                                       self % elements(eID) % storage % U_y,fid, 2)
+
+               call HexElement_ProlongGradientsToFaces(self % elements(eID), NGRAD, &
+                                                       self % faces(fIDs(fid)), &
+                                                       self % elements(eID) % storage % U_z,fid, 3)
+         end do ; enddo 
+!$acc end parallel loop
+!$omp end do
+
          case(2) !Gauss-Lobatto
 
+!$omp do schedule(runtime)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list)
+         do iEl = 1, size_element_list
+            do fID = 1, 6
+               eID = element_list(iEl)
+               call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), NGRAD, self % faces(self % elements(eID) % faceIDs(fID)), self % elements(eID) % storage % U_x, fID,1)                        
+         end do ; end do
+!$acc end parallel loop
+!$omp end do
+
+!$omp do schedule(runtime)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list)
+         do iEl = 1, size_element_list
+            do fID = 1, 6
+               eID = element_list(iEl)
+            call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), NGRAD, self % faces(self % elements(eID) % faceIDs(fID)), self % elements(eID) % storage % U_y, fID,2)                        
+         end do ; end do
+!$acc end parallel loop
+!$omp end do
+         
+!$omp do schedule(runtime)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list)
+         do iEl = 1, size_element_list
+            do fID = 1, 6
+               eID = element_list(iEl)
+            call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), NGRAD, self % faces(self % elements(eID) % faceIDs(fID)), self % elements(eID) % storage % U_z, fID,3)                        
+         end do ; end do
+!$acc end parallel loop
+!$omp end do
          end select
 
       end subroutine HexMesh_ProlongGradientsToFaces
@@ -1159,9 +1223,6 @@ slavecoord:             DO l = 1, 4
 !        Perform the receive request
 !        ***************************
 !
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvU_xyz(domain, nEqn)
-         end do
 !
 !        ***************
 !        Gather gradients
@@ -1199,8 +1260,15 @@ slavecoord:             DO l = 1, 4
             end do
             !$acc end parallel loop
 
+         end do
+
+         !$acc wait
+
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvU_xyz(domain, nEqn)
             call self % MPIfaces % faces(domain) % SendU_xyz(domain, nEqn)
          end do
+
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
 !
@@ -1406,7 +1474,7 @@ slavecoord:             DO l = 1, 4
 !
             call self % MPIfaces % faces(domain) % WaitForGradients
 
-            !$acc parallel loop gang present(self) copyin(nEqn)
+            !$acc parallel loop gang present(self)
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
@@ -1415,17 +1483,17 @@ slavecoord:             DO l = 1, 4
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_x = ((mpifID - 1) * 3 * faceSize) + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
-                  self % faces(fID) % storage(otherSide(thisSide)) % U_x(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  self % faces(fID) % storage(otherSide(thisSide)) % U_x(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(linear_idx_x:linear_idx_x+nEqn-1)
                end do               ; end do
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_y = ((mpifID - 1) * 3 * faceSize) + faceSize + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
-                  self % faces(fID) % storage(otherSide(thisSide)) % U_y(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  self % faces(fID) % storage(otherSide(thisSide)) % U_y(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(linear_idx_y:linear_idx_y+nEqn-1)
                end do               ; end do
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_z = ((mpifID - 1) * 3 * faceSize) + 2 * faceSize + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
-                  self % faces(fID) % storage(otherSide(thisSide)) % U_z(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  self % faces(fID) % storage(otherSide(thisSide)) % U_z(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(linear_idx_z:linear_idx_z+nEqn-1)
                end do               ; end do
             end do
             !$acc end parallel loop
@@ -4277,8 +4345,10 @@ slavecoord:             DO l = 1, 4
 
    subroutine HexMesh_CreateDeviceData(self)
       use Physics
+#ifdef _OPENACC
       use cudafor
       use openacc
+#endif
       implicit none
       !-----------------------------------------------------------
       class(HexMesh)                  :: self
@@ -4286,13 +4356,15 @@ slavecoord:             DO l = 1, 4
       integer :: eID
       integer     :: i, j, k, iFace, fID, zoneID, nZones
       !-----------------------------------------------------------
+#ifdef _OPENACC
       integer(kind=cuda_count_kind) :: heapsize 
       integer(kind=cuda_count_kind) :: val
       integer :: Istat
       heapSize = 16_8*1024_8*1024_8  ! Example: 16 MB heap size
       istat = cudaDeviceGetLimit(val,cudaLimitMallocHeapSize)
       istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize , heapsize)
-      
+#endif
+ 
       print*, "I allocate the device data"
 
       !$acc enter data copyin(self)
@@ -4327,8 +4399,8 @@ slavecoord:             DO l = 1, 4
 
          !$acc enter data copyin(self % elements(eID) % faceIDs)
          !$acc enter data copyin(self % elements(eID) % faceSide)
-
       ENDDO
+
       !$acc enter data copyin(self%nodes)
       !$acc enter data copyin(self%faces)
 
@@ -4345,21 +4417,16 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % storage)
          !$acc enter data copyin(self % faces(iFace) % storage(1) % Q)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % Q)
-         
          !$acc enter data copyin(self % faces(iFace) % storage(1) % Q_aux)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % Q_aux)
-
          !$acc enter data copyin(self % faces(iFace) % storage(1) % U_x)
          !$acc enter data copyin(self % faces(iFace) % storage(1) % U_y)
          !$acc enter data copyin(self % faces(iFace) % storage(1) % U_z)
-         
          !$acc enter data copyin(self % faces(iFace) % storage(2) % U_x)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % U_y)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % U_z)
-
          !$acc enter data copyin(self % faces(iFace) % storage(1) % mu_NS)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_NS)
-
          !$acc enter data copyin(self % faces(iFace) % storage(1) % fStar)
          !$acc enter data copyin(self % faces(iFace) % storage(1) % unStar)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % fStar)
@@ -4371,7 +4438,6 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % geom % jacobian)
          !$acc enter data copyin(self % faces(iFace) % geom % dWall)
          !$acc enter data copyin(self % faces(iFace) % geom % Surface)
-
       enddo
       
       !$acc enter data copyin(self % zones)
@@ -4390,6 +4456,7 @@ slavecoord:             DO l = 1, 4
       DO i = 0, self % Nx(1) !it should be the maximum nX
          !$acc enter data copyin(NodalStorage(i))
          !$acc enter data copyin(NodalStorage(i) % hatD)
+         !$acc enter data copyin(NodalStorage(i) % sharpD)
          !$acc enter data copyin(NodalStorage(i) % D)
          !$acc enter data copyin(NodalStorage(i) % b)
          !$acc enter data copyin(NodalStorage(i) % v)
@@ -4404,6 +4471,119 @@ slavecoord:             DO l = 1, 4
  
    end subroutine HexMesh_CreateDeviceData
 
+   subroutine HexMesh_ExitDeviceData(self)
+      use Physics
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh)                  :: self
+      !-----------------------------------------------------------
+      integer :: eID
+      integer     :: i, j, k, iFace, fID, zoneID, nZones
+      !-----------------------------------------------------------
+
+      print*, "I de-allocate the device data"
+
+      DO eID = 1, SIZE(self % elements)
+         !$acc exit data delete(self % elements(eID) % Nxyz)
+         !$acc exit data delete(self % elements(eID) % storage % Q)
+         !$acc exit data delete(self % elements(eID) % storage % rho)
+         !$acc exit data delete(self % elements(eID) % storage % QDot)
+         !$acc exit data delete(self % elements(eID) % storage % G_NS)
+         !$acc exit data delete(self % elements(eID) % storage % FluxF)
+         !$acc exit data delete(self % elements(eID) % storage % FluxG)
+         !$acc exit data delete(self % elements(eID) % storage % FluxH)
+         !$acc exit data delete(self % elements(eID) % storage % contravariantFlux)
+         !$acc exit data delete(self % elements(eID) % storage % U_x)
+         !$acc exit data delete(self % elements(eID) % storage % U_y)
+         !$acc exit data delete(self % elements(eID) % storage % U_z)
+         !$acc exit data delete(self % elements(eID) % storage % mu_ns)
+         !$acc exit data delete(self % elements(eID) % storage % mu_turb_NS)
+         !$acc exit data delete(self % elements(eID) % geom % jGradXi)
+         !$acc exit data delete(self % elements(eID) % geom % jGradEta)
+         !$acc exit data delete(self % elements(eID) % geom % jGradZeta)
+         !$acc exit data delete(self % elements(eID) % geom % jacobian)
+         !$acc exit data delete(self % elements(eID) % geom % InvJacobian)
+         !$acc exit data delete(self % elements(eID) % geom % dWall)
+         !$acc exit data delete(self % elements(eID) % geom % Volume)
+         !$acc exit data delete(self % elements(eID) % faceIDs)
+         !$acc exit data delete(self % elements(eID) % faceSide)
+         !$acc exit data delete(self % elements(eID) % storage)
+         !$acc exit data delete(self % elements(eID) % geom)
+         !$acc exit data delete(self % elements(eID))
+      ENDDO
+
+      do iFace = 1, size(self % faces)
+         !$acc exit data delete(self % faces(iFace) % Nf)
+         !$acc exit data delete(self % faces(iFace) % NfRight)
+         !$acc exit data delete(self % faces(iFace) % rotation)
+         !$acc exit data delete(self % faces(iFace) % projectionType)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % Q)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % Q)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % Q_aux)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % Q_aux)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % U_x)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % U_y)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % U_z)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % U_x)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % U_y)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % U_z)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % mu_NS)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % mu_NS)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % fStar)
+         !$acc exit data delete(self % faces(iFace) % storage(1) % unStar)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % fStar)
+         !$acc exit data delete(self % faces(iFace) % storage(2) % unStar)
+         !$acc exit data delete(self % faces(iFace) % storage)
+         !$acc exit data delete(self % faces(iFace) % geom % normal)
+         !$acc exit data delete(self % faces(iFace) % geom % t1)
+         !$acc exit data delete(self % faces(iFace) % geom % t2)
+         !$acc exit data delete(self % faces(iFace) % geom % jacobian)
+         !$acc exit data delete(self % faces(iFace) % geom % dWall)
+         !$acc exit data delete(self % faces(iFace) % geom % Surface)
+         !$acc exit data delete(self % faces(iFace) % geom)
+         !$acc exit data delete(self % faces(iFace))
+      enddo
+      
+      nZones = size(self % zones)
+      do zoneID=1, nZones
+         !$acc exit data delete (self % zones(zoneID) % no_of_faces)
+         !$acc exit data delete (self % zones(zoneID) % Name)
+         !$acc exit data delete (self % zones(zoneID) % faces)
+         !$acc exit data delete (self % zones(zoneID) % zoneBCType)
+         !$acc exit data delete (self % zones(zoneID) % zoneBCName)
+         !$acc exit data delete (self % zones(zoneID) % assocPeriodZone)
+         !$acc exit data delete (self % zones(zoneID) % marker)
+         !$acc exit data delete (self % zones(zoneID) % toBeDeleted)     
+      enddo
+
+      DO i = 0, self % Nx(1) !it should be the maximum nX
+         !$acc exit data delete (NodalStorage(i) % hatD)
+         !$acc exit data delete (NodalStorage(i) % sharpD)
+         !$acc exit data delete (NodalStorage(i) % D)
+         !$acc exit data delete (NodalStorage(i) % b)
+         !$acc exit data delete (NodalStorage(i) % v)
+         !$acc exit data delete (NodalStorage(i))
+      END DO
+
+#ifdef _HAS_MPI_
+      !$acc exit data delete (self % faces_mpi)
+      !$acc exit data delete (self % elements_mpi)
+      call MPIFaces_ExitMPIFacesStorage(self % MPIfaces)
+#endif
+      !$acc exit data delete(self % faces_interior ) 
+      !$acc exit data delete(self % faces_boundary )
+      !$acc exit data delete (self % elements_sequential )
+
+      !$acc exit data delete(self % nodes)
+      !$acc exit data delete(self % faces)
+      !$acc exit data delete (self % zones)
+      !$acc exit data delete (self % storage)
+      !$acc exit data delete (self % elements)
+      !$acc exit data delete (self)
+
+      print*, "I am done de-allocating the device data"
+ 
+   end subroutine HexMesh_ExitDeviceData
 
    subroutine HexMesh_SetStorageToEqn(self, which)
       implicit none
@@ -4572,6 +4752,69 @@ slavecoord:             DO l = 1, 4
 
    end subroutine HexMesh_ConvertPhaseFieldToDensity
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine HexMesh_ConvertGradientVariables(self, nEqn, nGradEqn)
+      USE Physics
+      USE VariableConversion
+      implicit none
+      class(HexMesh),   intent(inout)  :: self
+      integer,          intent(in)     :: nEqn
+      integer,          intent(in)     :: nGradEqn
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: fID, i, j
+
+      select case(grad_vars)
+   
+      case(GRADVARS_STATE)
+
+!$omp do schedule(runtime) private(fID)
+         !$acc parallel loop gang present(self)
+         do fID = 1, size(self % faces)
+            !$acc loop collapse(2)
+            do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
+               call NSGradientVariables_STATE(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
+               call NSGradientVariables_STATE(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
+            enddo    ;     enddo
+         end do
+      !$acc end parallel loop
+!$omp end do 
+
+      case(GRADVARS_ENTROPY)
+
+!$omp do schedule(runtime) private(fID)
+         !$acc parallel loop gang present(self)
+         do fID = 1, size(self % faces)
+            !$acc loop collapse(2)
+            do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
+               call NSGradientVariables_ENTROPY(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
+               call NSGradientVariables_ENTROPY(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
+            enddo    ;     enddo
+         end do
+      !$acc end parallel loop
+!$omp end do 
+
+      case(GRADVARS_ENERGY)
+!$omp do schedule(runtime) private(fID)
+         !$acc parallel loop gang present(self)
+         do fID = 1, size(self % faces)
+            !$acc loop collapse(2)
+            do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
+               call NSGradientVariables_ENERGY(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
+               call NSGradientVariables_ENERGY(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
+            enddo    ;     enddo
+         end do
+         !$acc end parallel loop
+!$omp end do 
+
+      end select
+
+   end subroutine HexMesh_ConvertGradientVariables
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
