@@ -442,6 +442,8 @@ contains
             end if
         end do
     end do element_loop2
+
+    ! precalculate epsilon for projection mode
     if (self % calculate_with_projection) then
         if (MPI_Process % doMPIAction) then
             if (nelem .gt. 0) then
@@ -453,7 +455,7 @@ contains
             end if 
 #ifdef _HAS_MPI_
             call mpi_allreduce(delta_temp, delta, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
-            call mpi_allreduce(delta_temp, delta_paritions, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(delta_count, delta_paritions, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
             delta = delta / real(delta_paritions,kind=RP)
         else    
