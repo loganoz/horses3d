@@ -4758,6 +4758,7 @@ slavecoord:             DO l = 1, 4
    subroutine HexMesh_ConvertGradientVariables(self, nEqn, nGradEqn)
       USE Physics
       USE VariableConversion
+      USE PhysicsStorage
       implicit none
       class(HexMesh),   intent(inout)  :: self
       integer,          intent(in)     :: nEqn

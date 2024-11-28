@@ -124,21 +124,22 @@ module EllipticBR1
       !$acc data copyin(self)
 
       if (HOElements) then
-!$omp do schedule(runtime) private(eID)
-         do i = 1 , size(mesh % HO_Elements)
-            eID = mesh % HO_Elements(i)
-         !   call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
-         end do
-!$omp end do nowait
-         call self % LiftGradientsHO(nEqn, nGradEqn, mesh, time, GetGradients)
+
+!!$omp do schedule(runtime) private(eID)
+!         do i = 1 , size(mesh % HO_Elements)
+!            eID = mesh % HO_Elements(i)
+!         !   call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+!         end do
+!!$omp end do nowait
+!         call self % LiftGradientsHO(nEqn, nGradEqn, mesh, time, GetGradients)
       else
-!$omp do schedule(runtime)
+!!$omp do schedule(runtime)
          !!$acc parallel loop gang present(mesh, mesh % elements) 
          !do eID = 1 , size(mesh % elements)
 !        !    call HexElement_ComputeLocalGradient(mesh % elements(eID), NCONS, NGRAD)
          !end do
          !!$acc end parallel loop
-!$omp end do nowait
+!!$omp end do nowait
          print*, "I am in BR1 line 112"         
          call self % LiftGradients(NCONS, NGRAD, mesh, time, GetGradients)
          print*, "I am in BR1 line 114"

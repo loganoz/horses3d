@@ -377,7 +377,6 @@
                Qlocal= self % storage % Q(:,i,j,0)* NodalStorage(self % Nxyz(1)) % v(0,BOTTOM)
                !$acc loop seq
                do k = 1, self % Nxyz(3)
-                  !$acc loop seq
                   do eq = 1, NCONS
                      Qlocal(eq) = Qlocal(eq)  + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,BOTTOM)
                   enddo
@@ -407,7 +406,6 @@
                Qlocal   = self % storage % Q(:,i,j,0)* NodalStorage(self % Nxyz(1)) % v(0,TOP)
                !$acc loop seq
                do k = 1, self % Nxyz(3)
-                  !$acc loop seq
                   do eq = 1, NCONS
                      Qlocal(eq) = Qlocal(eq) + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,TOP)
                   enddo
@@ -608,7 +606,7 @@
             !$acc loop seq
             do k = 1, self % Nxyz(3)
                do eq = 1, NCONS
-                  Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,LEFT)
+                  Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,TOP)
                enddo
             end do
             !$acc loop seq

@@ -1,7 +1,7 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
 Polynomial order      = 3
-Number of time steps  = 20
+Number of time steps  = 100
 Output Interval       = 10
 Number of plot points = 5
 Convergence tolerance = 1.d-10
@@ -10,13 +10,13 @@ dcfl                  = 0.3
 mach number           = 0.3
 Reynolds number       = 200.0
 AOA theta             = 0.0
-AOA phi               = 0.0
+AOA phi               = 90.0
 LES model             = Vreman
 solution file name    = "RESULTS/Cylinder.hsol"
 save gradients with solution = .true.
 restart               = .false.
 restart file name     = "RESULTS/Cylinder.hsol"
-riemann solver        = central
+riemann solver        = roe
 
 #define boundary InnerCylinder
       type = NoSlipWall
@@ -40,7 +40,7 @@ riemann solver        = central
    Marker = innercylinder
    Variable = drag
    Direction = [0.0,0.0,1.0]
-   Reference surface = 1.0	
+   Reference surface = 1.0
 #end
 
 #define surface monitor 2
