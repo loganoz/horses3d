@@ -1,0 +1,92 @@
+Flow equations               = "NS"
+mesh file name               = "MESH/Cyl_M3_1z_big_fine.mesh"
+Polynomial order             = 2
+Number of time steps         = 50
+Output Interval              = 10
+
+Convergence tolerance        = 1.d-8
+!dt=1e-5
+cfl                          = 0.8
+dcfl                         = 0.8
+mach number                  = 0.15
+Reynolds number              = 100
+
+AOA theta                    = 0.0
+AOA phi                      = 0.0
+
+solution file name           = "RESULTS/Cylinder_acoustics_pAdaptationRL.hsol"
+save gradients with solution = .false.
+restart                      = .false.
+restart file name            = "RESULTS/Cylinder_acoustics_pAdaptationRL.hsol"
+simulation type              = unsteady-state
+
+Discretization nodes         = Gauss
+Riemann solver               = low dissipation roe
+Viscous discretization       = BR1
+
+!-------------------------------------------------------------
+!------ BC --------
+!-------------------------------------------------------------
+
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary left__back__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
+
+!-------------------------------------------------------------
+! p-Adaptation
+!-------------------------------------------------------------
+save sensor with solution = .false.
+
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 1d-2
+   Nmax                  = [6, 6, 2]
+   Nmin                  = [2, 2, 2]
+   adjust nz             = .FALSE.
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 15
+   threshold             = 1.0
+   error estimation      = .false.
+   !error type            = avg
+   !error variable        = p
+   acoustics             = .TRUE.
+   acoustic tolerance    = 1d-4
+   acoustic distance     = 5.0d0
+   acoustic observer     = [-15.0d0, 22.0d0, 0.5d0]
+   acoustic sources      = [InnerCylinder]
+#end
+
+!-------------------------------------------------------------
+! Monitors
+!-------------------------------------------------------------
+
+#define surface monitor 1
+   Name = drag
+   Marker = InnerCylinder
+   Variable = drag
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = lift
+   Marker = InnerCylinder
+   Variable = lift
+   Direction = [0.0,1.0,0.0]
+   Reference surface = 1.0
+#end

@@ -100,16 +100,18 @@ module pAdaptationClass
 !  Interface for constructing the p-adaptator
 !  ------------------------------------------
    interface
-   subroutine constructInterface(this, controlVariables, t0)
+   subroutine constructInterface(this, controlVariables, t0, mesh)
       import pAdaptation_t
       import FTValueDictionary
       import RP
+      import HexMesh
       !-------------------------------------------------
       implicit none
       !-------------------------------------------------
       class(pAdaptation_t)   , intent(inout) :: this             !>  P-Adaptator
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
+      class(HexMesh)         , intent(inout) :: mesh
    end subroutine constructInterface
    end interface
 
