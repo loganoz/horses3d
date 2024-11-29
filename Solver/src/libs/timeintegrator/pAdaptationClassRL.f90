@@ -430,9 +430,9 @@ module pAdaptationClassRL
 !     Find the polynomial order that fulfills the error requirement
 !     -------------------------------------------------------------
 !
-      if (this % error_estimation) then
-         Ndir = 4
-      end if
+      ! if (this % error_estimation) then
+      !    Ndir = 4
+      ! end if
       
       call Stopwatch % Start("pAdapt: PolOrder selection")
       adaptedElements = 0
