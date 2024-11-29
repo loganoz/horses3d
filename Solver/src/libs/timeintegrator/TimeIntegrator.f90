@@ -244,8 +244,8 @@
             case default
                error stop 'Adaptation type not recognized'
          end select
-         call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
-         call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
+         call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh)  ! If not requested, the constructor returns doing nothing
+         call surfacesMesh % autosaveConfig (controlVariables, initial_time)              ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)
 

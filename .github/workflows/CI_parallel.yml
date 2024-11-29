@@ -856,6 +856,23 @@ jobs:
           mpiexec -n 8 ./horses3d.ns EulerRK3_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 29) Cylinder with acoustics and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Cylinder_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_acoustics_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run Cylinder_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_acoustics_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns Cylinder_acoustics_pAdaptationRL.control
+        if: '!cancelled()'
+
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################
