@@ -92,7 +92,7 @@ module pAdaptationClassRL
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(LINE_LENGTH)         :: agentFile
-      character(20*BC_STRING_LENGTH) :: confBoundaries
+      character(20*BC_STRING_LENGTH) :: confBoundaries, R_acoustic_sources
       character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd, R_ErrorType, R_ErrorVariable, R_observer
       logical      , allocatable     :: R_increasing, reorganize_z, R_restart, R_ErrorEstimation, R_acoustics
       real(kind=RP), allocatable     :: R_tolerance, R_threshold, R_acoustic_tol, R_acoustic_distance
