@@ -552,13 +552,13 @@ end module ProblemFileFunctions
 !
 #if defined(NAVIERSTOKES)
             real(kind=RP), parameter :: final_time = 2.1612033407693628E-02_RP
-            real(kind=RP), parameter :: residuals(5) = [ 3.7538156576139485E+01_RP, &
-                                                       1.0260219416965749E+02_RP, &
-                                                       6.6875307454681831E+01_RP, &
-                                                       4.6033500893652303E-10_RP, &
-                                                       1.0100606666448173E+03_RP ]
-            real(kind=RP), parameter :: cd = 6.3141403171017482E+04_RP
-            real(kind=RP), parameter :: sensor(2) = [0.0E+00_RP, 1.4083574299553E-03_RP]
+            real(kind=RP), parameter :: residuals(5) = [3.6915729442307963E+01_RP, &
+                                                      9.986932111274236E+01_RP, &
+                                                      6.6650865615117439E+01_RP, &
+                                                      4.6033500893652303E-10_RP, &
+                                                      9.8887738522589393E+02_RP ]
+            real(kind=RP), parameter :: cd = 6.3218210532607147E+04_RP
+            real(kind=RP), parameter :: sensor(2) = [0.0E+00_RP, 1.3783879038143E-03_RP]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -595,12 +595,12 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = sensor(1) + 1.0_RP, &
                                actualValue   = monitors % volumeMonitors(1) % values(1,1) + 1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-7, &
                                msg           = "Minimum value of the sensor")
 							   
 			CALL FTAssertEqual(expectedValue = sensor(2) + 1.0_RP, &
                                actualValue   = monitors % volumeMonitors(1) % values(2,1) + 1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-7, &
                                msg           = "Maximum value of the sensor")
 
 

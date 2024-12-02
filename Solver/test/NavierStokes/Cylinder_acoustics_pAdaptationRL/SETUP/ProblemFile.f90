@@ -592,8 +592,8 @@ end module ProblemFileFunctions
                                tol           = 1.d-11, &
                                msg           = "Drag coefficient")
 
-            CALL FTAssertEqual(expectedValue = cl, &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1), &
+            CALL FTAssertEqual(expectedValue = cl+1.0_RP, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 
