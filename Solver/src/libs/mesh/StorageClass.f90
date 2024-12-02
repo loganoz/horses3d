@@ -1234,7 +1234,7 @@ module StorageClass
          !-local-variables----------------------------------------
          logical                       :: gradients
          !--------------------------------------------------------
-#if defined(NAVIERSTOKES)
+#if (defined(NAVIERSTOKES) || defined(MULTIPHASE))
          if ( present(with_gradients) ) then
             gradients = with_gradients
          else

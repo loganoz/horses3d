@@ -80,6 +80,8 @@ MODULE HexMeshClass
          integer,                     allocatable  :: HO_FacesBoundary(:)      !List of boundary faces with polynomial order greater than 1
          integer,                     allocatable  :: HO_ElementsMPI(:)        !List of MPI elements with polynomial order greater than 1
          integer,                     allocatable  :: HO_ElementsSequential(:) !List of sequential elements with polynomial order greater than 1
+         integer,                     allocatable  :: elements_acoustics(:)    !List of elements with acoustic polynomial order adaptation
+         integer,                     allocatable  :: elements_aerodynamics(:) !List of elements with standard polynomial order adaptation
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -101,6 +103,7 @@ MODULE HexMeshClass
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
+            procedure :: DefineAcousticElements        => HexMesh_DefineAcousticElements
             procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
 #if defined(NAVIERSTOKES) || defined(INCNS)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
@@ -4943,4 +4946,171 @@ end subroutine HexMesh_pAdapt_MPI
 call elementMPIList % destruct 
 
    end subroutine HexMesh_UpdateHOArrays
+
+   subroutine HexMesh_DefineAcousticElements(self, observer, acoustic_sources, d_th)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), target  , intent(inout)      :: self
+      real(kind=RP)                                :: observer(NDIM)      ! Observer coordinates
+      character(len=BC_STRING_LENGTH), allocatable :: acoustic_sources(:) ! Acoustic sources BC
+      real(kind=RP)                                :: d_th                ! Threshold distance
+      !-local-variables-----------------------------------
+      type(IntegerDataLinkedList_t)         :: acousticElementList
+      type(IntegerDataLinkedList_t)         :: aerodynamicElementList
+      integer                               :: i, j, k, eID, fID, fIdx, zoneID, cornerID
+      integer                               :: Pxyz(2)  ! Face polynomial order
+      real(kind=RP)                         :: source(NDIM), x_max(NDIM), x_min(NDIM), x_target(NDIM)
+      real(kind=RP)                         :: vec_line(NDIM), vec_point(NDIM), closest_point(NDIM)
+      real(kind=RP)                         :: proj_length, dist
+      logical                               :: end_loop
+      character(len=BC_STRING_LENGTH)       :: trimmedZoneName
+      !-MPI-variables-------------------------------------
+      real(kind=RP), allocatable            :: x(:), total_x(:)  ! Face x coordinates
+      real(kind=RP), allocatable            :: y(:), total_y(:)  ! Face y coordinates
+      real(kind=RP), allocatable            :: z(:), total_z(:)  ! Face z coordinates
+      integer                               :: no_of_sources_array(MPI_Process % nProcs), displ(MPI_Process % nProcs)
+      integer                               :: no_of_sources, no_of_all_sources
+      integer                               :: zID, ierr
+      !--------------------------------------------------
+
+      acousticElementList = IntegerDataLinkedList_t(.FALSE.)
+      aerodynamicElementList = IntegerDataLinkedList_t(.FALSE.)
+
+      if( allocated(self % elements_acoustics) ) then
+         deallocate(self % elements_acoustics)
+      endif
+      if ( allocated(self % elements_aerodynamics)) then
+         deallocate(self % elements_aerodynamics)
+      endif
+
+      no_of_sources = 0
+      ! Loop over the boundaries
+      do zoneID = 1, size(self % zones)
+         trimmedZoneName = trim(self % zones(zoneID) % Name)
+         if ( all ( acoustic_sources /= trimmedZoneName ) ) cycle
+         ! loop over the faces on every boundary
+         do fIdx = 1, self % zones(zoneID) % no_of_faces 
+            fID   = self % zones(zoneID) % faces(fIdx)
+            Pxyz = self % faces(fID) % Nf
+            no_of_sources = no_of_sources + (Pxyz(1)+1)*(Pxyz(2)+1)
+         end do
+      end do
+      !Allocate the number of sources in each partition
+      allocate(x(no_of_sources), y(no_of_sources), z(no_of_sources))
+
+      !Store the coordinates of the sources
+      no_of_sources = 0
+      ! Loop over the boundaries
+      do zoneID = 1, size(self % zones)
+         if ( all ( acoustic_sources /= trim(self % zones(zoneID) % Name) ) ) cycle
+         ! loop over the faces on every boundary
+         do fIdx = 1, self % zones(zoneID) % no_of_faces 
+            fID   = self % zones(zoneID) % faces(fIdx)
+            Pxyz = self % faces(fID) % Nf
+            do j = 0, Pxyz(2)
+               do i = 0, Pxyz(1)
+                  no_of_sources = no_of_sources + 1
+                  x(no_of_sources) = self % faces(fID) % geom % x(1, i, j)
+                  y(no_of_sources) = self % faces(fID) % geom % x(2, i, j)
+                  z(no_of_sources) = self % faces(fID) % geom % x(3, i, j)
+               end do
+            end do
+         end do
+      end do
+
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+!
+!        Share info with other processes
+!        -------------------------------
+
+         call mpi_allgather(no_of_sources, 1, MPI_INT, no_of_sources_array, 1, MPI_INT, MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(no_of_sources, no_of_all_sources, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+         !Allocate the number of sources in each partition
+         allocate(total_x(no_of_all_sources), total_y(no_of_all_sources), total_z(no_of_all_sources))
+!
+!        Compute the displacements
+!        -------------------------
+         displ(1) = 0
+         do zID = 1, MPI_Process % nProcs-1
+            displ(zID+1) = displ(zID) + no_of_sources_array(zID)
+         end do
+
+!
+!        Share the coordinates
+!        ---------------------
+         call mpi_allgatherv(x, no_of_sources, MPI_DOUBLE, total_x, no_of_sources_array, displ, MPI_DOUBLE, MPI_COMM_WORLD, ierr)
+         call mpi_allgatherv(y, no_of_sources, MPI_DOUBLE, total_y, no_of_sources_array, displ, MPI_DOUBLE, MPI_COMM_WORLD, ierr)
+         call mpi_allgatherv(z, no_of_sources, MPI_DOUBLE, total_z, no_of_sources_array, displ, MPI_DOUBLE, MPI_COMM_WORLD, ierr)
+
+         deallocate(x, y, z)
+         allocate(x(no_of_all_sources), y(no_of_all_sources), z(no_of_all_sources))
+         x(:) = total_x(:)
+         y(:) = total_y(:)
+         z(:) = total_z(:)
+#endif
+      else
+         no_of_all_sources = no_of_sources
+      end if
+
+
+      ! Loop over all the elements of the mesh
+      do eID=1, self % no_of_elements
+         end_loop = .FALSE.
+         ! Loop over corners
+         do cornerID=1, 8
+            x_target(:) = self % elements(eID) % hexMap % corners(:, cornerID)
+            ! Loop over the sources
+            do i = 1, no_of_all_sources
+               source = (/x(i), y(i), z(i)/)
+               do k = 1, NDIM
+                  x_max(k) = max(source(k), observer(k))
+                  x_min(k) = min(source(k), observer(k))   
+               end do
+                     
+               ! Calculate line vector from observer to source
+               vec_line = observer - source
+               ! Calculate vector from source to target point
+               vec_point = x_target - source
+               
+               ! Calculate projection length and closest point
+               if (norm2(vec_line) /= 0.0_RP) then
+                  proj_length = dot_product(vec_point, vec_line) / norm2(vec_line)
+                  closest_point = (vec_line * (proj_length / norm2(vec_line))) + source
+               else
+                  proj_length = 0.0_RP
+                  closest_point = source
+               end if
+               
+               ! Calculate distance from point to line
+               dist = norm2(x_target - closest_point)
+               
+               ! Check if point is within bounds (with threshold)
+               if (dist < d_th .and. &
+                  all(x_target-d_th <= x_max) .and. &
+                  all(x_target+d_th >= x_min)) then
+                  ! Mark element as acoustic if needed
+                  call acousticElementList % add(eID)
+                  self % elements(eID) % storage % sensor = 1.0_RP
+                  end_loop = .TRUE.
+                  exit
+               end if
+            end do
+            if (end_loop) exit
+         end do
+         if ( .not. end_loop ) then
+            ! Mark element as aerodynamic if needed
+            call aerodynamicElementList % add(eID)
+            self % elements(eID) % storage % sensor = 0.0_RP
+         end if
+      end do
+
+      call acousticElementList % ExportToArray(self % elements_acoustics, .TRUE.)
+      call aerodynamicElementList % ExportToArray(self % elements_aerodynamics, .TRUE.)
+
+      call acousticElementList % destruct
+      call aerodynamicElementList % destruct
+
+   end subroutine HexMesh_DefineAcousticElements
 END MODULE HexMeshClass
