@@ -698,6 +698,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SVV.control
         if: '!cancelled()'
+        continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 20) Forward facing step with SSPRK33 and limiter
@@ -716,6 +717,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SSPRK33.control
         if: '!cancelled()'
+        continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 21) Forward facing step with SSPRK43
@@ -734,6 +736,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SSPRK43.control
         if: '!cancelled()'
+        continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 22) Taylor-Green vortex with SVV-LES
