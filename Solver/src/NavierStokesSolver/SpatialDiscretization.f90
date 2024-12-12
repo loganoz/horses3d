@@ -22,6 +22,7 @@ module SpatialDiscretization
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
       use IBMClass
+      use RandomNumberGenerator_OpenACC
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -252,8 +253,6 @@ module SpatialDiscretization
          end if
 
          call SetBoundaryConditionsEqn(NS_BC)
-
-         print*, "I am in Spatial Discretization line 247"
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -262,9 +261,7 @@ module SpatialDiscretization
 !$omp parallel shared(mesh, time)
          call HexMesh_ProlongSolToFaces(mesh, NCONS)
 
-         print*, "I am in Spatial Discretization line 255"
          ! call mesh % ProlongSolutionToFaces(NCONS, HO_Elements) need to fix for HO elements
-
 
 !        ----------------
 !        Update MPI Faces
@@ -284,23 +281,17 @@ module SpatialDiscretization
 !        and one in the Elliptic discretisation. So now we compute it
 !        only once at the begining of time derivative and store it
 ! 
-         print*, "I am in Spatial Discretization line 277"
-
          nZones = size(mesh % zones)
          do zoneID=1, nZones
-            CALL BCs(zoneID) % bc % FlowState(mesh, zoneID)  
+            CALL BCs(zoneID) % bc % FlowState(mesh, mesh % zones(zoneID))  
          enddo
 !  
 !        -----------------
 !        Compute gradients
 !        -----------------
 !
-         print*, "I am in Spatial Discretization line 289"
-         
-         !$acc wait
-
 !$omp do schedule(runtime)
-         !$acc parallel loop gang vector_length(128) present(mesh, mesh % elements)
+         !$acc parallel loop gang vector_length(128) present(mesh, mesh % elements) async(1)
          do eID = 1 , size(mesh % elements)
             call HexElement_ComputeLocalGradient(mesh % elements(eID))
          end do
@@ -311,21 +302,12 @@ module SpatialDiscretization
             call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh, time, GetGradients, HO_Elements)
          end if
          
-#ifdef _HAS_MPI_
-!$omp single
-         if ( flowIsNavierStokes ) then
-            call mesh % UpdateMPIFacesGradients(NGRAD)
-         end if
-!$omp end single
-#endif
 !         call ComputeArtificialViscosity(mesh)
 !
 !        -----------------------
 !        Compute time derivative
 !        -----------------------
 !
-         print*, "I am in Spatial Discretization line 307"
-
          if (HOElements) then
             call TimeDerivative_ComputeQDotHO(mesh = mesh , &
                                           particles = particles, &
@@ -335,8 +317,6 @@ module SpatialDiscretization
                                           particles = particles, &
                                           t    = time)
          
-         print*, "I am in Spatial Discretization line 313"
-
          end if
 !$omp end parallel
 !
@@ -423,7 +403,7 @@ module SpatialDiscretization
 !
          if (flowIsNavierStokes) then
 !$omp do schedule(runtime) private(i,j,k)
-            !$acc parallel loop gang present(mesh)
+            !$acc parallel loop gang present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -436,12 +416,10 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-         print*, "I am in Spatial Discretization line 421"
-
 
          if ( LESModel % active) then
 !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
-            !$acc parallel loop gang present(mesh, LESModel)
+            !$acc parallel loop gang present(mesh, LESModel) async(1)
             do eID = 1, size(mesh % elements)
                delta = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
                !$acc loop vector collapse(3)
@@ -452,9 +430,7 @@ module SpatialDiscretization
                                                           mesh % elements(eID) % storage % U_y(:,i,j,k), &
                                                           mesh % elements(eID) % storage % U_z(:,i,j,k), &
                                                           mesh % elements(eID) % storage % mu_turb_NS(i,j,k) )
-                                                                                   ! mu_smag)
-                  ! e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
-                  ! e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+
                   mesh % elements(eID) % storage % mu_NS(1,i,j,k) = mesh % elements(eID) % storage % mu_NS(1,i,j,k) + &
                                                                     mesh % elements(eID) % storage % mu_turb_NS(i,j,k)
                   mesh % elements(eID) % storage % mu_NS(2,i,j,k) = mesh % elements(eID) % storage % mu_NS(2,i,j,k) + &
@@ -469,8 +445,14 @@ module SpatialDiscretization
 !        ------------------------------------------------
          call compute_viscosity_at_faces(size(mesh % faces_interior), 2, mesh % faces_interior, mesh)
          call compute_viscosity_at_faces(size(mesh % faces_boundary), 1, mesh % faces_boundary, mesh)
-         print*, "I am in Spatial Discretization line 450"
 
+#ifdef _HAS_MPI_
+!$omp single
+         if ( flowIsNavierStokes ) then
+            call mesh % UpdateMPIFacesGradients(NGRAD)
+         end if
+!$omp end single
+#endif
 !
 !        ****************
 !        Volume integrals
@@ -483,7 +465,8 @@ module SpatialDiscretization
                call TimeDerivative_VolumetricContribution_Split(mesh)
          end select
 
-         print*, "I am in Spatial Discretization line 465"
+         ! For the random noise addition
+         !call rndnum_openacc_Addnoise(rndGeneratorOpenacc, mesh)
 
 #if defined(_HAS_MPI_)
 !$omp single
@@ -497,9 +480,8 @@ module SpatialDiscretization
 !        Compute Riemann solver of non-shared faces
 !        ******************************************
 !
-      print*, "I am in Spatial Discretization line 479"
 !$omp do schedule(runtime) private(fID)
-!$acc parallel loop gang collapse(2) present(mesh)
+!$acc parallel loop gang collapse(2) present(mesh) async(1)
       do iFace = 1, size(mesh % faces_interior) ; do side = 1,2
          fID = mesh % faces_interior(iFace)
          call computeElementInterfaceFlux_viscous(mesh % faces(fID), side)
@@ -508,7 +490,7 @@ module SpatialDiscretization
 !$omp end do
       
 !$omp do schedule(runtime) private(fID)
-!$acc parallel loop gang present(mesh)
+!$acc parallel loop gang present(mesh) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             call computeElementInterfaceFlux(mesh % faces(fID))
@@ -516,22 +498,17 @@ module SpatialDiscretization
 !$acc end parallel loop
 !$omp end do nowait
 
-         print*, "I am in Spatial Discretization line 490"
-
          call computeBoundaryFlux(mesh, t)
-
-         print*, "I am in Spatial Discretization line 494"
-
 !
 !        ***************************************************************
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
 !
 !$omp do schedule(runtime) private(i,j,k,eID)
-!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh, mesh % elements, mesh % elements_sequential) copyin(t)
+!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh) async(1)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
-            call TimeDerivative_FacesContribution(mesh % elements(eID), t, mesh)
+            call TimeDerivative_FacesContribution(mesh % elements(eID), mesh)
          end do
 !$acc end parallel loop 
 !$omp end do
@@ -568,7 +545,7 @@ module SpatialDiscretization
 !           **************************************
 !
 !$omp do schedule(runtime) private(fID)
-!$acc parallel loop gang num_gangs(size(mesh % faces_mpi)) present(mesh) private(fID)
+!$acc parallel loop gang num_gangs(size(mesh % faces_mpi)) present(mesh) private(fID) async(1)
             do iFace = 1, size(mesh % faces_mpi)
                fID = mesh % faces_mpi(iFace)
                call computeMPIFaceFlux(mesh % faces(fID))
@@ -581,10 +558,10 @@ module SpatialDiscretization
 !           ***********************************************************
 !
 !$omp do schedule(runtime) private(i,j,k,eID)
-!$acc parallel loop gang present(mesh) copyin(t)
+!$acc parallel loop gang present(mesh) async(1)
             do iEl = 1, size(mesh % elements_mpi)
                eID = mesh % elements_mpi(iEl)
-               call TimeDerivative_FacesContribution(mesh % elements(eID), t, mesh)
+               call TimeDerivative_FacesContribution(mesh % elements(eID), mesh)
             end do
 !$acc end parallel loop
 !$omp end do
@@ -592,10 +569,12 @@ module SpatialDiscretization
 !           Add an MPI Barrier
 !           ------------------
 !$omp single
-            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!            call mpi_barrier(MPI_COMM_WORLD, ierr)
 !$omp end single
          end if
+         
 #endif
+            !$acc wait
 
 !
 !        *****************************************************************************************************************************
@@ -608,24 +587,24 @@ module SpatialDiscretization
 !           Add physical source term
 !           ************************
 !!$acc parallel loop gang present(mesh,thermodynamics,dimensionless,refValues) copyin(t)
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, mesh % no_of_elements
-             ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
-              ! different contributions and not accumulate each call
-               mesh % elements(eID) % storage % S_NS = 0.0_RP
-!!$acc loop vector collapse(3)
-               do k = 0, mesh % elements(eID) % Nxyz(1) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
-
-                  call UserDefinedSourceTermNS( mesh % elements(eID) % geom % x(:,i,j,k),  mesh % elements(eID) % storage % Q(:,i,j,k), t, &
-                                                mesh % elements(eID) % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
-                  call randomTrip % getTripSource( mesh % elements(eID) % geom % x(:,i,j,k), mesh % elements(eID) % storage % S_NS(:,i,j,k) )
-                  call ForcesFarm(farm, mesh % elements(eID) % geom % x(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % S_NS(:,i,j,k), t)
-               end do                  ; end do                ; end do
-            end do
-!!$acc end parallel loop
-!$omp end do
+!!$omp do schedule(runtime) private(i,j,k)
+!            do eID = 1, mesh % no_of_elements
+!             ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
+!              ! different contributions and not accumulate each call
+!               mesh % elements(eID) % storage % S_NS = 0.0_RP
+!!!$acc loop vector collapse(3)
+!               do k = 0, mesh % elements(eID) % Nxyz(1) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+!
+!                  call UserDefinedSourceTermNS( mesh % elements(eID) % geom % x(:,i,j,k),  mesh % elements(eID) % storage % Q(:,i,j,k), t, &
+!                                                mesh % elements(eID) % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+!                  call randomTrip % getTripSource( mesh % elements(eID) % geom % x(:,i,j,k), mesh % elements(eID) % storage % S_NS(:,i,j,k) )
+!                  call ForcesFarm(farm, mesh % elements(eID) % geom % x(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % S_NS(:,i,j,k), t)
+!               end do                  ; end do                ; end do
+!            end do
+!!!$acc end parallel loop
+!!$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
-            call sponge % addSource(mesh)
+!            call sponge % addSource(mesh)
 !
 !           Add Particles source
 !           ********************
@@ -661,29 +640,29 @@ module SpatialDiscretization
                      end associate
                   endif
                end do
-!$omp end do
-!$omp do schedule(runtime)
-               do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )
-                     e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
-                  end associate
-               enddo
-!$omp end do
+!!$omp end do
+!!$omp do schedule(runtime)
+!               do eID = 1, mesh % no_of_elements
+!                  associate ( e => mesh % elements(eID) )
+!                     e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
+!                  end associate
+!               enddo
+!!$omp end do
             end if
          end if !(.not. mesh % child)
 !
 !        ***********************
 !        Now add the source term
 !        ***********************
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
-            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
-            end do                  ; end do                ; end do
-            end associate
-         end do
-!$omp end do
+!!$omp do schedule(runtime) private(i,j,k)
+!         do eID = 1, mesh % no_of_elements
+!            associate ( e => mesh % elements(eID) )
+!            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+!            end do                  ; end do                ; end do
+!            end associate
+!         end do
+!!$omp end do
 !
 !        *********************
 !        Add IBM source term
@@ -770,8 +749,6 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-         print*, "I am in Spatial Discretization line 421"
-
          if ( LESModel % active) then
             !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
                         !$acc parallel loop gang present(mesh, LESModel)
@@ -844,7 +821,7 @@ module SpatialDiscretization
       do iEl = 1, size(mesh % HO_ElementsSequential)
          eID = mesh % HO_ElementsSequential(iEl)
          associate(e => mesh % elements(eID))
-         call TimeDerivative_FacesContribution(e, t, mesh)
+         call TimeDerivative_FacesContribution(e, mesh)
 
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
@@ -899,7 +876,7 @@ module SpatialDiscretization
             do iEl = 1, size(mesh % HO_ElementsMPI)
                eID = mesh % HO_ElementsMPI(iEl)
                associate(e => mesh % elements(eID))
-               call TimeDerivative_FacesContribution(e, t, mesh)
+               call TimeDerivative_FacesContribution(e, mesh)
 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
@@ -1065,7 +1042,7 @@ module SpatialDiscretization
 
          if (flowIsNavierStokes) then
 !$omp do schedule(runtime) private(i,j)
-            !$acc parallel loop gang present(mesh, face_ids)
+            !$acc parallel loop gang present(mesh, face_ids) async(1)
             do iFace = 1, no_of_faces
                fID = face_ids(iFace)
                !$acc loop vector collapse(3)
@@ -1083,7 +1060,7 @@ module SpatialDiscretization
 
          if ( LESModel % Active ) then
 !$omp do schedule(runtime) private(i,j,delta,mu_smag)
-            !$acc parallel loop gang present(mesh, LESModel)
+            !$acc parallel loop gang present(mesh, LESModel) async(1)
             do iFace = 1, no_of_faces
                delta = sqrt(mesh % faces(face_ids(iFace)) % geom % surface / product(mesh % faces(face_ids(iFace)) % Nf + 1))
                !$acc loop vector collapse(3)
@@ -1331,7 +1308,7 @@ module SpatialDiscretization
 !        Compute inviscid - viscous contravariant flux
 !        ---------------------------------------------
          !$omp do schedule(runtime)
-         !$acc parallel loop gang vector_length(128) num_gangs(9700) present(mesh)
+         !$acc parallel loop gang vector_length(128) num_gangs(9700) present(mesh) async(1)
          do eID = 1 , size(mesh % elements)
 
             !$acc loop vector collapse(3) private(inviscidFlux, viscousFlux)
@@ -1394,7 +1371,7 @@ module SpatialDiscretization
          integer       :: i, j, k,l,eq, eID
          real(kind=RP) :: Flux(1:NCONS, 1:NDIM)
 
-         !$acc parallel present(mesh) vector_length(128) num_gangs(9750)
+         !$acc parallel present(mesh) vector_length(128) num_gangs(9750) async(1)
          !$acc loop gang
          do eID = 1 , size(mesh % elements)
          
@@ -1459,13 +1436,12 @@ module SpatialDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_FacesContribution( e , t , mesh)
+      subroutine TimeDerivative_FacesContribution(e, mesh)
          !$acc routine vector
          use HexMeshClass
          use DGIntegrals
          implicit none
          type(Element)           :: e
-         real(kind=RP)           :: t
          type(HexMesh)           :: mesh
 
          integer                 :: i,j,k,eID,eq
@@ -1647,7 +1623,7 @@ module SpatialDiscretization
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP)                :: time
+      REAL(KIND=RP)                   :: time
       type(HexMesh), intent(inout)    :: mesh
 !
 !     ---------------
@@ -1665,7 +1641,7 @@ module SpatialDiscretization
       nZones = size(mesh % zones)
       do zoneID=1, nZones
          
-         !$acc parallel loop gang present(mesh) async(zoneID)
+         !$acc parallel loop gang present(mesh) async(1)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
 
@@ -1691,13 +1667,9 @@ module SpatialDiscretization
          enddo
          !$acc end parallel loop 
 
-         !!$acc wait
-
-         CALL BCs(zoneID) % bc % FlowNeumann(mesh, zoneID)                             
+         CALL BCs(zoneID) % bc % FlowNeumann(mesh, mesh % zones(zoneID))                             
          
-         !!$acc wait
-
-         !$acc parallel loop gang present(mesh) async(zoneID)
+         !$acc parallel loop gang present(mesh) async(1)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
 
@@ -1731,7 +1703,6 @@ module SpatialDiscretization
          !$acc end parallel loop 
       enddo
 
-      !$acc wait
       end subroutine computeBoundaryFlux
 
       subroutine ViscousFlux_selector(nEqn, nGradEqn, Nx, Ny, Nz, Q, U_x, U_y, U_z, mu, flux_cart)

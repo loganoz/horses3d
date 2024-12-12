@@ -125,14 +125,6 @@
             call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
       endif
 !
-!     ----------------------------
-!     Transfer the data to the GPU
-!     ----------------------------
-!
-#ifdef _OPENACC
-      call sem % mesh % CreateDeviceData()
-#endif
-!
 !     -----------------------------
 !     Construct the time integrator
 !     -----------------------------

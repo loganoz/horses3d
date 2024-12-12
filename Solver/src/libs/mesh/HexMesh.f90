@@ -87,6 +87,8 @@ MODULE HexMeshClass
             procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: CreateDeviceData              => HexMesh_CreateDeviceData
             procedure :: ExitDeviceData                => HexMesh_ExitDeviceData
+            procedure :: UpdateHostData                => HexMesh_UpdateHostData
+            procedure :: UpdateHostStatistics          => HexMesh_UpdateHostStatistics
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
             procedure :: CheckIfMeshIs2D               => HexMesh_CheckIfMeshIs2D
@@ -967,7 +969,7 @@ slavecoord:             DO l = 1, 4
          case(1) !Gauss
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) 
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) async(1)
          do eID = 1, size(self % elements)
             do fID = 1, 6
             call HexElement_ProlongSolToFaces(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
@@ -978,7 +980,7 @@ slavecoord:             DO l = 1, 4
          case(2) !Gauss-Lobatto
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) 
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32)  present(self) async(1)
          do eID = 1, size(self % elements)
             do fID = 1, 6
             call HexElement_ProlongSolToFaces_GL(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
@@ -1008,7 +1010,7 @@ slavecoord:             DO l = 1, 4
          select case ( self %nodeType )
          case(1) !Gauss
 
-!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs)
+!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs) async(1)
 !$omp do schedule(runtime) private(eID)
          do iEl = 1, size_element_list
             do fid = 1,6
@@ -1032,7 +1034,7 @@ slavecoord:             DO l = 1, 4
          case(2) !Gauss-Lobatto
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
@@ -1042,7 +1044,7 @@ slavecoord:             DO l = 1, 4
 !$omp end do
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
@@ -1052,7 +1054,7 @@ slavecoord:             DO l = 1, 4
 !$omp end do
          
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
@@ -1153,7 +1155,7 @@ slavecoord:             DO l = 1, 4
 !
          integer            :: mpifID, fID, thisSide, domain
          integer            :: i, j, counter, linear_idx, faceSize
-         integer, parameter :: otherSide(2) = (/2,1/)
+         integer  :: ierr, dummyreq
 
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -1173,7 +1175,7 @@ slavecoord:             DO l = 1, 4
 !           ---------------
 !
             if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
-            !$acc parallel loop gang present(self) copyin(nEqn)
+            !$acc parallel loop gang present(self) copyin(nEqn) private(fID,thisSide,faceSize) wait(1)
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
@@ -1190,13 +1192,9 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-         end do
-
-         !$acc wait
-
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
             call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+
          end do
 
 #endif
@@ -1216,6 +1214,7 @@ slavecoord:             DO l = 1, 4
          integer            :: mpifID, fID, thisSide, domain
          integer            :: i, j, counter, linear_idx_x, linear_idx_y, linear_idx_z, faceSize
          integer, parameter :: otherSide(2) = (/2,1/)
+         integer  :: ierr, dummyreq
 
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -1231,7 +1230,7 @@ slavecoord:             DO l = 1, 4
          do domain = 1, MPI_Process % nProcs
             if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
 
-            !$acc parallel loop gang present(self) copyin(nEqn)
+            !$acc parallel loop gang present(self) copyin(nEqn) wait(1)
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
@@ -1241,30 +1240,22 @@ slavecoord:             DO l = 1, 4
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)      
                   linear_idx_x = ((mpifID - 1) * 3 * faceSize) + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % MPIfaces % faces(domain) % U_xyzsend(linear_idx_x:linear_idx_x+nEqn-1) = self % faces(fID) % storage(thisSide) % U_x(:,i,j)
-                  !counter = counter + nEqn
                end do               ; end do
 
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_y = ((mpifID - 1) * 3 * faceSize) + faceSize + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % MPIfaces % faces(domain) % U_xyzsend(linear_idx_y:linear_idx_y+nEqn-1) = self % faces(fID) % storage(thisSide) % U_y(:,i,j)
-                  !counter = counter + nEqn
                end do               ; end do
 
                !$acc loop vector collapse(2)
                do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
                   linear_idx_z = ((mpifID - 1) * 3 * faceSize) + 2 * faceSize + (j * (self % faces(fID) % Nf(1) + 1) + i) * nEqn + 1
                   self % MPIfaces % faces(domain) % U_xyzsend(linear_idx_z:linear_idx_z+nEqn-1) = self % faces(fID) % storage(thisSide) % U_z(:,i,j)
-                  !counter = counter + nEqn
                end do               ; end do
             end do
             !$acc end parallel loop
 
-         end do
-
-         !$acc wait
-
-         do domain = 1, MPI_Process % nProcs
             call self % MPIfaces % faces(domain) % RecvU_xyz(domain, nEqn)
             call self % MPIfaces % faces(domain) % SendU_xyz(domain, nEqn)
          end do
@@ -3212,6 +3203,12 @@ slavecoord:             DO l = 1, 4
          refs = 0.0_RP
 #endif
 !
+!        Update the host data from the GPU
+!        ---------------------------------
+#ifdef _OPENACC
+         call self % UpdateHostData()
+#endif
+!
 !        Create new file
 !        ---------------
          if (present(saveSensor_)) then
@@ -3355,6 +3352,12 @@ slavecoord:             DO l = 1, 4
          refs(MACH_REF)  = dimensionless  % Mach
          refs(RE_REF)    = dimensionless  % Re
 
+!
+!        Update the host data from the GPU
+!        ---------------------------------
+#ifdef _OPENACC
+         call self % UpdateHostStatistics()
+#endif
 !        Create new file
 !        ---------------
          call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -3480,10 +3483,11 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer     :: eID
-
+         !$acc kernels present(self)
          do eID = 1, self % no_of_elements
             self % elements(eID) % storage % stats % data = 0.0_RP
          end do
+         !$acc end kernels
 
       end subroutine HexMesh_ResetStatistics
 #endif
@@ -4443,6 +4447,7 @@ slavecoord:             DO l = 1, 4
       !$acc enter data copyin(self % zones)
       nZones = size(self % zones)
       do zoneID=1, nZones
+         !$acc enter data copyin(self % zones(zoneID))
          !$acc enter data copyin(self % zones(zoneID) % no_of_faces)
          !$acc enter data copyin(self % zones(zoneID) % Name)
          !$acc enter data copyin(self % zones(zoneID) % faces)
@@ -4584,6 +4589,48 @@ slavecoord:             DO l = 1, 4
       print*, "I am done de-allocating the device data"
  
    end subroutine HexMesh_ExitDeviceData
+
+   subroutine HexMesh_UpdateHostData(self)
+      use Physics
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh)                  :: self
+      !-----------------------------------------------------------
+      integer :: eID
+      !-----------------------------------------------------------
+
+      !$acc wait
+
+      do eID = 1, SIZE(self % elements)
+         !$acc update self(self % elements(eID) % storage % Q)
+         !$acc update self(self % elements(eID) % storage % U_x)
+         !$acc update self(self % elements(eID) % storage % U_y)
+         !$acc update self(self % elements(eID) % storage % U_z)
+         !$acc update self(self % elements(eID) % storage % mu_ns)
+         !$acc update self(self % elements(eID) % storage % mu_turb_NS)
+      enddo
+      
+      !$acc wait
+
+   end subroutine HexMesh_UpdateHostData
+
+   subroutine HexMesh_UpdateHostStatistics(self)
+      use Physics
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh)                  :: self
+      !-----------------------------------------------------------
+      integer :: eID
+      !-----------------------------------------------------------
+      !$acc wait
+
+      do eID = 1, SIZE(self % elements)
+            !$acc update self(self % elements(eID) % storage % stats % data)
+      enddo
+      
+      !$acc wait
+
+   end subroutine HexMesh_UpdateHostStatistics
 
    subroutine HexMesh_SetStorageToEqn(self, which)
       implicit none

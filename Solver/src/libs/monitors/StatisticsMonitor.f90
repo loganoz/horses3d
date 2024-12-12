@@ -151,9 +151,9 @@ module StatisticsMonitor
 !        Construct the data
 !        ------------------
          do eID = 1, mesh % no_of_elements
-            associate(e => mesh % elements(eID))
-            call e % storage % stats % Construct(NO_OF_VARIABLES, e % Nxyz)
-            end associate
+            call mesh % elements(eID) % storage % stats % Construct(NO_OF_VARIABLES, mesh % elements(eID) % Nxyz)
+            !$acc enter data copyin(mesh % elements(eID) % storage % stats)
+            !$acc enter data copyin(mesh % elements(eID) % storage % stats % data)
          end do
 
       end subroutine StatisticsMonitor_Construct
@@ -250,33 +250,55 @@ module StatisticsMonitor
 
             inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
             ratio = self % no_of_samples * inv_nsamples_plus_1
-
+            
+            !$acc parallel loop gang vector_length(128) present(mesh, self) firstprivate(inv_nsamples_plus_1, ratio, limits)
             do eID = 1, size(mesh % elements)
-               associate(e    => mesh % elements(eID), &
-                         data => mesh % elements(eID) % storage % stats % data)
+               !$acc loop vector collapse(3) private(rfactor1, rfactor2)
+               do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                  rfactor1 = inv_nsamples_plus_1 / mesh % elements(eID) % storage % Q(IRHO,i,j,k)
+                  rfactor2 = inv_nsamples_plus_1 / POW2( mesh % elements(eID) % storage % Q(IRHO,i,j,k) )
+                  mesh % elements(eID) % storage % stats % data(U,i,j,k)  = mesh % elements(eID) % storage % stats % data(U,i,j,k) &
+                                                                          * ratio + mesh % elements(eID) % storage % Q(IRHOU,i,j,k) * rfactor1
 
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-                  rfactor1 = inv_nsamples_plus_1 / e % storage % Q(IRHO,i,j,k)
-                  rfactor2 = inv_nsamples_plus_1 / POW2( e % storage % Q(IRHO,i,j,k) )
-                  data(U,i,j,k)  = data(U,i,j,k)  * ratio + e % storage % Q(IRHOU,i,j,k) * rfactor1
-                  data(V,i,j,k)  = data(V,i,j,k)  * ratio + e % storage % Q(IRHOV,i,j,k) * rfactor1
-                  data(W,i,j,k)  = data(W,i,j,k)  * ratio + e % storage % Q(IRHOW,i,j,k) * rfactor1
-                  data(UU,i,j,k) = data(UU,i,j,k) * ratio + POW2( e % storage % Q(IRHOU,i,j,k) ) * rfactor2
-                  data(VV,i,j,k) = data(VV,i,j,k) * ratio + POW2( e % storage % Q(IRHOV,i,j,k) ) * rfactor2
-                  data(WW,i,j,k) = data(WW,i,j,k) * ratio + POW2( e % storage % Q(IRHOW,i,j,k) ) * rfactor2
-                  data(UV,i,j,k) = data(UV,i,j,k) * ratio + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOV,i,j,k) * rfactor2
-                  data(UW,i,j,k) = data(UW,i,j,k) * ratio + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOW,i,j,k) * rfactor2
-                  data(VW,i,j,k) = data(VW,i,j,k) * ratio + e % storage % Q(IRHOV,i,j,k) * e % storage % Q(IRHOW,i,j,k) * rfactor2
-                  data(limits(1):limits(2),i,j,k) = data(limits(1):limits(2),i,j,k) * ratio + e % storage % Q(:,i,j,k) * inv_nsamples_plus_1
+                  mesh % elements(eID) % storage % stats % data(V,i,j,k)  = mesh % elements(eID) % storage % stats % data(V,i,j,k) &
+                                                                          * ratio + mesh % elements(eID) % storage % Q(IRHOV,i,j,k) * rfactor1
+
+                  mesh % elements(eID) % storage % stats % data(W,i,j,k)  = mesh % elements(eID) % storage % stats % data(W,i,j,k) &
+                                                                          * ratio + mesh % elements(eID) % storage % Q(IRHOW,i,j,k) * rfactor1
+
+                  mesh % elements(eID) % storage % stats % data(UU,i,j,k) = mesh % elements(eID) % storage % stats % data(UU,i,j,k) &
+                                                                          * ratio + POW2( mesh % elements(eID) % storage % Q(IRHOU,i,j,k) ) * rfactor2
+
+                  mesh % elements(eID) % storage % stats % data(VV,i,j,k) = mesh % elements(eID) % storage % stats % data(VV,i,j,k) &
+                                                                          * ratio + POW2( mesh % elements(eID) % storage % Q(IRHOV,i,j,k) ) * rfactor2
+
+                  mesh % elements(eID) % storage % stats % data(WW,i,j,k) = mesh % elements(eID) % storage % stats % data(WW,i,j,k) &
+                                                                          * ratio + POW2( mesh % elements(eID) % storage % Q(IRHOW,i,j,k) ) * rfactor2
+
+                  mesh % elements(eID) % storage % stats % data(UV,i,j,k) = mesh % elements(eID) % storage % stats % data(UV,i,j,k) * ratio &
+                                                                          + mesh % elements(eID) % storage % Q(IRHOU,i,j,k) * mesh % elements(eID) % storage % Q(IRHOV,i,j,k) * rfactor2
+
+                  mesh % elements(eID) % storage % stats % data(UW,i,j,k) = mesh % elements(eID) % storage % stats % data(UW,i,j,k) * ratio &
+                                                                          + mesh % elements(eID) % storage % Q(IRHOU,i,j,k) * mesh % elements(eID) % storage % Q(IRHOW,i,j,k) * rfactor2
+
+                  mesh % elements(eID) % storage % stats % data(VW,i,j,k) = mesh % elements(eID) % storage % stats % data(VW,i,j,k) * ratio &
+                                                                          + mesh % elements(eID) % storage % Q(IRHOV,i,j,k) * mesh % elements(eID) % storage % Q(IRHOW,i,j,k) * rfactor2
+
+                  mesh % elements(eID) % storage % stats % data(limits(1):limits(2),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(1):limits(2),i,j,k) * ratio &
+                                                                                           + mesh % elements(eID) % storage % Q(:,i,j,k) * inv_nsamples_plus_1
                   if (self % saveGradients) then
-                      data(limits(2)+1:limits(3),i,j,k) = data(limits(2)+1:limits(3),i,j,k) * ratio + e % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
-                      data(limits(3)+1:limits(4),i,j,k) = data(limits(3)+1:limits(4),i,j,k) * ratio + e % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
-                      data(limits(4)+1:limits(5),i,j,k) = data(limits(4)+1:limits(5),i,j,k) * ratio + e % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
+                     mesh % elements(eID) % storage % stats % data(limits(2)+1:limits(3),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(2)+1:limits(3),i,j,k) * ratio &
+                                                                                                + mesh % elements(eID) % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
+
+                     mesh % elements(eID) % storage % stats % data(limits(3)+1:limits(4),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(3)+1:limits(4),i,j,k) * ratio &
+                                                                                                + mesh % elements(eID) % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
+
+                     mesh % elements(eID) % storage % stats % data(limits(4)+1:limits(5),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(4)+1:limits(5),i,j,k) * ratio &
+                                                                                                + mesh % elements(eID) % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
                   end if 
                end do                  ; end do                   ; end do
-
-               end associate
             end do
+            !$acc end parallel loop
 #endif 
 
 #ifdef INCNS

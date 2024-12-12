@@ -525,12 +525,28 @@ Module DGSEMClass
             loadFromNSSA = controlVariables % logicalValueForKey("ns from nssa")
             if (loadFromNSSA .and. MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "NS restarting from RANS"
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
+!
+!           ----------------------------
+!           Transfer the data to the GPU
+!           ----------------------------
+!
+#ifdef _OPENACC
+            call self % mesh % CreateDeviceData()
+#endif
          ELSE
 
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
 
             initial_time = 0.0_RP
             initial_iteration = 0
+!
+!           ----------------------------
+!           Transfer the data to the GPU
+!           ----------------------------
+!
+#ifdef _OPENACC
+            call self % mesh % CreateDeviceData()
+#endif
 !
 !           Save the initial condition
 !           --------------------------
@@ -613,7 +629,7 @@ Module DGSEMClass
 
 !$acc parallel loop gang present(mesh) reduction(max:R1,R2,R3,R4,R5) copyout(R1,R2,R3,R4,R5) 
 !$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
+!$omp do reduction(max:R1,R2,R3,R4,R5,R6,c) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
          N = mesh % elements(id) % Nxyz
          
@@ -669,8 +685,6 @@ Module DGSEMClass
 !$omp end parallel
 !$acc end parallel loop
       
-      print*, "The ELEMENT WITH MAX RES IS", R1, R2, R3, R4, R5, R6
-
 #if defined FLOW && (!(SPALARTALMARAS))
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
 #elif defined(SPALARTALMARAS)

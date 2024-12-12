@@ -116,9 +116,13 @@ module BoundaryConditions
                errorMessage(STD_OUT)
                error stop 99
             end select
+            
+         end do
 
+         !$acc enter data copyin(BCs)
+         do zID = 1, no_of_zones
+            !!$acc enter data copyin(BCs(zID) % bc)
             call BCs(zID) % bc % CreateDeviceData()
-             
          end do
 
       end subroutine ConstructBoundaryConditions

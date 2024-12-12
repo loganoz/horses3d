@@ -32,17 +32,16 @@ module MPI_Face_Class
       integer      , allocatable :: Nrecv(:)
       real(kind=RP), allocatable :: AviscFluxSend(:)
       real(kind=RP), allocatable :: AviscFluxRecv(:)
-      integer      , allocatable :: mpiFaceToFace(:,:,:)
       ! We need to do this to make it easier for the compiler and MPI
       ! to do internode transfers in parallel with computation. If the 
       ! arrays are not pinned then we use pageable memory which makes 
       ! buffers. That means it is slower AND cant be processes in parallel
       ! with the computation.  
-#ifdef __OPENACC
-      real(kind=RP), allocatable :: Qsend(:)
-      real(kind=RP), allocatable :: U_xyzsend(:)
-      real(kind=RP), allocatable :: Qrecv(:)
-      real(kind=RP), allocatable :: U_xyzrecv(:)
+#ifdef _OPENACC
+      real(kind=RP), allocatable, pinned :: Qsend(:)
+      real(kind=RP), allocatable, pinned :: U_xyzsend(:)
+      real(kind=RP), allocatable, pinned :: Qrecv(:)
+      real(kind=RP), allocatable, pinned :: U_xyzrecv(:)
 #else
       real(kind=RP), allocatable :: Qsend(:)
       real(kind=RP), allocatable :: U_xyzsend(:)
@@ -155,27 +154,19 @@ module MPI_Face_Class
          integer  :: domain
 
          if ( MPI_Process % doMPIAction ) then
-
+            !$acc enter data copyin(facesSet)
+            !$acc enter data copyin(facesSet % faces)
             do domain = 1, MPI_Process % nProcs
-               if ( facesSet % faces(domain) % nDOFs .gt. 0 ) then
                   !$acc enter data copyin(facesSet % faces(domain))
                   !$acc enter data copyin(facesSet % faces(domain) % faceIDs)
                   !$acc enter data copyin(facesSet % faces(domain) % elementSide)
-                  !$acc enter data copyin(facesSet % faces(domain) % nDOFs)
-                  !$acc enter data copyin(facesSet % faces(domain) % no_of_faces)
-                  !$acc enter data copyin(facesSet % faces(domain) % sizeQ)
-                  !$acc enter data copyin(facesSet % faces(domain) % sizeU_xyz)
-                  !$acc enter data copyin(facesSet % faces(domain) % sizeAviscFlux)
+               if ( facesSet % faces(domain) % nDOFs .gt. 0 ) then
                   !$acc enter data copyin(facesSet % faces(domain) % Qsend)
                   !$acc enter data copyin(facesSet % faces(domain) % U_xyzsend)
                   !$acc enter data copyin(facesSet % faces(domain) % Qrecv)
-                  !$acc enter data copyin(facesSet % faces(domain) % Qrecv_req)
                   !$acc enter data copyin(facesSet % faces(domain) % U_xyzrecv)
-                  !$acc enter data copyin(facesSet % faces(domain) % gradQrecv_req)
                   !$acc enter data copyin(facesSet % faces(domain) % AviscFluxSend)
                   !$acc enter data copyin(facesSet % faces(domain) % AviscFluxRecv)
-                  !$acc enter data copyin(facesSet % faces(domain) % AviscFluxRecv_req)
-                  !$acc enter data copyin(facesSet % faces(domain) % mpiFaceToFace)
                end if
             end do
          end if
@@ -228,7 +219,7 @@ module MPI_Face_Class
 !
       subroutine MPI_Face_SendQ(self, domain, nEqn)
          implicit none
-         class(MPI_Face_t)      :: self
+         class(MPI_Face_t)    :: self
          integer, intent(in)    :: domain
          integer,    intent(in) :: nEqn
 !
@@ -241,7 +232,6 @@ module MPI_Face_Class
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
             !$acc host_data use_device(self % Qsend)
-            !!$acc update self (self % Qsend) async(10)
             call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
@@ -253,7 +243,7 @@ module MPI_Face_Class
 
       subroutine MPI_Face_RecvQ(self, domain, nEqn)
          implicit none
-         class(MPI_Face_t)      :: self
+         class(MPI_Face_t)    :: self
          integer, intent(in)    :: domain
          integer,    intent(in) :: nEqn
 !
@@ -268,7 +258,6 @@ module MPI_Face_Class
             !$acc host_data use_device(self % Qrecv)
             call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, self % Qrecv_req, ierr)
-            !!$acc update device(self % Qrecv) async(10)
             !$acc end host_data 
          end if
 #endif
@@ -292,7 +281,6 @@ module MPI_Face_Class
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
             !$acc host_data use_device(self % U_xyzsend)
-            !!$acc update self (self % U_xyzsend) async(10)
             call mpi_isend(self % U_xyzsend, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
@@ -320,8 +308,6 @@ module MPI_Face_Class
             call mpi_irecv(self % U_xyzrecv, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, self % gradQrecv_req, ierr)
             !$acc end host_data 
-            !!$acc update device(self % Qrecv) async(10)
-
          end if
 #endif
 
@@ -568,7 +554,6 @@ module MPI_Face_Class
                   !$acc exit data delete(facesSet % faces(domain) % AviscFluxSend)
                   !$acc exit data delete(facesSet % faces(domain) % AviscFluxRecv)
                   !$acc exit data delete(facesSet % faces(domain) % AviscFluxRecv_req)
-                  !$acc exit data delete(facesSet % faces(domain) % mpiFaceToFace)
                   !$acc exit data delete(facesSet % faces(domain))
                end if
             end do

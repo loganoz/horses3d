@@ -140,9 +140,7 @@ module EllipticBR1
          !end do
          !!$acc end parallel loop
 !!$omp end do nowait
-         print*, "I am in BR1 line 112"         
          call self % LiftGradients(NCONS, NGRAD, mesh, time, GetGradients)
-         print*, "I am in BR1 line 114"
       end if
 
       !$acc end data
@@ -182,7 +180,7 @@ module EllipticBR1
 !        *******************************************
 !
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh, self)
+         !$acc parallel loop gang present(mesh, self) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), NCONS, NGRAD)
@@ -190,19 +188,15 @@ module EllipticBR1
          !$acc end parallel loop
 !$omp end do nowait
 
-         print*, "I am in BR1 line 159"
-
          nZones = size(mesh % zones)
 !$omp do schedule(runtime) private(zoneID)
          do zoneID=1, nZones
-            CALL BCs(zoneID) % bc % FlowGradVars(mesh, zoneID) 
+            CALL BCs(zoneID) % bc % FlowGradVars(mesh, mesh % zones(zoneID)) 
          enddo
 !$omp end do 
 !
-         print*, "I am in BR1 line 168"
-
 !$omp do schedule(runtime) private(eID)
-!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) present(mesh, self)
+!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) present(mesh, self) async(1)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
 !
@@ -213,11 +207,7 @@ module EllipticBR1
 !$omp end do
 !$acc end parallel loop
 
-         print*, "I am in BR1 line 195"
-
          call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
-
-         print*, "I am in BR1 line 219"
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -227,7 +217,7 @@ module EllipticBR1
 !$omp end single
 
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh, self)
+         !$acc parallel loop gang present(mesh, self) async(1)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn)
@@ -237,7 +227,7 @@ module EllipticBR1
 !
 
 !$omp do schedule(runtime) private(eID)
-!$acc parallel loop gang vector_length(128) present(mesh, self)
+!$acc parallel loop gang vector_length(128) present(mesh, self) async(1)
          do iEl = 1, size(mesh % elements_mpi)
             eID = mesh % elements_mpi(iEl)
 !

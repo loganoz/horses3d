@@ -11,6 +11,7 @@ module FreeSlipWallBCClass
    use FileReadingUtilities, only: getRealArrayFromString
    use Utilities, only: toLower, almostEqual
    use HexMeshClass
+   use ZoneClass
    implicit none
 !
 !  *****************************
@@ -255,28 +256,17 @@ module FreeSlipWallBCClass
          class(FreeSlipWallBC_t), intent(in)    :: self
 
          !$acc enter data copyin(self)
-         !$acc enter data copyin(self % isAdiabatic)
-         !$acc enter data copyin(self % ewall)
-         !$acc enter data copyin(self % Twall)
-         !$acc enter data copyin(self % invTwall)
-         !$acc enter data copyin(self % wallType)
-
       end subroutine FreeSlipWallBC_CreateDeviceData
 
       subroutine FreeSlipWallBC_ExitDeviceData(self)
          implicit none 
          class(FreeSlipWallBC_t), intent(in)    :: self
 
-         !$acc exit data delete(self % isAdiabatic)
-         !$acc exit data delete(self % ewall)
-         !$acc exit data delete(self % Twall)
-         !$acc exit data delete(self % invTwall)
-         !$acc exit data delete(self % wallType)
          !$acc exit data delete(self)
 
       end subroutine FreeSlipWallBC_ExitDeviceData
 
-      subroutine FreeSlipWallBC_FlowState(self, mesh, zoneID)
+      subroutine FreeSlipWallBC_FlowState(self, mesh, zone)
 !
 !        *************************************************************
 !           Compute the state variables for a general wall
@@ -294,8 +284,10 @@ module FreeSlipWallBCClass
          use HexMeshClass
          implicit none
          class(FreeSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID                              
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
+
+!         integer,                 intent(in)    :: zoneID                              
 !
 !        ---------------
 !        Local variables
@@ -305,9 +297,9 @@ module FreeSlipWallBCClass
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
@@ -332,7 +324,7 @@ module FreeSlipWallBCClass
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowGradVars(self, mesh, zoneID)
+      subroutine FreeSlipWallBC_FlowGradVars(self, mesh, zone)
 !
 !        *****************************************************************
 !           Only set the temperature, velocity is Neumann, use interior!
@@ -340,8 +332,10 @@ module FreeSlipWallBCClass
 !
          implicit none
          class(FreeSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
+
+!         integer,                 intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -352,9 +346,9 @@ module FreeSlipWallBCClass
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
          integer        :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
@@ -378,7 +372,7 @@ module FreeSlipWallBCClass
          !$acc end parallel loop  
       end subroutine FreeSlipWallBC_FlowGradVars
 
-      subroutine FreeSlipWallBC_FlowNeumann(self, mesh, zoneID)
+      subroutine FreeSlipWallBC_FlowNeumann(self, mesh, zone)
 !
 !        ***********************************************************
 !           In momentum, free slip is Neumann. In temperature, 
@@ -387,8 +381,8 @@ module FreeSlipWallBCClass
 !
          implicit none
          class(FreeSlipWallBC_t), intent(in)    :: self
-         type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
 !
 !        ---------------
 !        Local Variables
@@ -398,10 +392,10 @@ module FreeSlipWallBCClass
          real(kind=RP)  :: viscWork, heatFlux
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !$acc parallel loop gang present(mesh, self) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, flux)     
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q, flux, viscWork, heatFlux)     
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
 
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
