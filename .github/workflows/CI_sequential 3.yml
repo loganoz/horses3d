@@ -248,6 +248,25 @@ jobs:
           ./horses3d.mu EntropyConservingTest.control
         if: '!cancelled()'
 
+#
+# 5) RisingBubbleVreman
+# ----------------------------
+# This test case is skipped with gfortran as the result is slightly different
+
+      - name: Build MultiphaseRisingBubbleVreman
+        working-directory: ./Solver/test/Multiphase/RisingBubbleVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: ('!cancelled()')
+
+      - name: Run MultiphaseRisingBubbleVreman
+        working-directory: ./Solver/test/Multiphase/RisingBubbleVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu RisingBubble.control
+        if: ('!cancelled()')
+
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
 ########################################################################
