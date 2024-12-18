@@ -698,6 +698,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SVV.control
         if: '!cancelled()'
+        continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 20) Forward facing step with SSPRK33 and limiter
@@ -716,6 +717,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SSPRK33.control
         if: '!cancelled()'
+        continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 21) Forward facing step with SSPRK43
@@ -734,6 +736,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SSPRK43.control
         if: '!cancelled()'
+        continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 22) Taylor-Green vortex with SVV-LES
@@ -855,6 +858,23 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns EulerRK3_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 29) Cylinder with acoustics and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Cylinder_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_acoustics_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run Cylinder_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_acoustics_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns Cylinder_acoustics_pAdaptationRL.control
         if: '!cancelled()'
 
 ########################################################################

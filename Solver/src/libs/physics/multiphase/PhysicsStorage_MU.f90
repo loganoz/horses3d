@@ -9,6 +9,7 @@
          character(len=KEYWORD_LENGTH), parameter :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
          character(len=KEYWORD_LENGTH), parameter :: GRAVITY_DIRECTION_KEY          = "gravity direction"
          character(len=KEYWORD_LENGTH), parameter :: VELOCITY_DIRECTION_KEY         = "velocity direction"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                   = "les model"
 
          character(len=KEYWORD_LENGTH), parameter :: FLUID1_DENSITY_KEY    =  "fluid 1 density (kg/m^3)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID2_DENSITY_KEY    =  "fluid 2 density (kg/m^3)"

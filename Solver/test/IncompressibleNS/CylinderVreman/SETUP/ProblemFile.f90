@@ -524,7 +524,7 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "iNS Re 40 Cylinder"
+            CHARACTER(LEN=29)                  :: testName           = "Vreman iNS Cylinder"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
