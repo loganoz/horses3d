@@ -154,7 +154,7 @@ jobs:
         working-directory: ./Solver/test/Euler/UniformFlow
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 27 ./horses3d.ns UniformFlow.control
+          mpiexec -n 8 ./horses3d.ns UniformFlow.control
         if: '!cancelled()'
 
 #
@@ -295,7 +295,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns Convergence.control
+          mpiexec -n 8 ./horses3d.ns Convergence.control
         if: '!cancelled()'
 
 #
@@ -313,7 +313,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_energy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns Convergence.control
+          mpiexec -n 8 ./horses3d.ns Convergence.control
         if: '!cancelled()'
 
 #
@@ -331,7 +331,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns Convergence.control
+          mpiexec -n 8 ./horses3d.ns Convergence.control
         if: '!cancelled()'
 
 #
