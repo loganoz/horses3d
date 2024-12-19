@@ -529,12 +529,12 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-!
-!           Add an MPI Barrier
-!           ------------------
-!$omp single
-            call mpi_barrier(MPI_COMM_WORLD, ierr)
-!$omp end single
+! !
+! !           Add an MPI Barrier
+! !           ------------------
+! !$omp single
+!             call mpi_barrier(MPI_COMM_WORLD, ierr)
+! !$omp end single
          end if
 #endif
 !
@@ -844,12 +844,12 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-!
-!           Add an MPI Barrier
-!           ------------------
-!$omp single
-            call mpi_barrier(MPI_COMM_WORLD, ierr)
-!$omp end single
+! !
+! !           Add an MPI Barrier
+! !           ------------------
+! !$omp single
+!             call mpi_barrier(MPI_COMM_WORLD, ierr)
+! !$omp end single
          end if
 #endif
 !
