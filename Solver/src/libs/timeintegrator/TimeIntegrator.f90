@@ -511,7 +511,7 @@
 !
 !           Correct time step
 !           -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(INCNS) || defined(MULTIPHASE)
             sem % mesh% IBM% eta = self% CorrectDt(t, dt)
             sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -649,9 +649,13 @@
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)

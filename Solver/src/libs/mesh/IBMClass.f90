@@ -1747,12 +1747,47 @@ module IBMClass
       theta = Q(IRHOTHETA)/rho
       Source(IRHOTHETA) = rho*theta - rho_s*theta_s
 #endif                     
-#endif   
       if( Wallfunction ) then 
          Source = -1.0_RP/(this% penalCoeff * this% penalization(eID)) * Source 
       else 
          Source = -1.0_RP/this% penalization(eID) * Source
       end if 
+#endif   
+#if defined(INCNS)
+      rho_s = Q(INSRHO)
+      u_s   = 0.0_RP
+      v_s   = 0.0_RP
+      w_s   = 0.0_RP
+
+      rho = Q(INSRHO)
+      u   = Q(INSRHOU)/rho
+      v   = Q(INSRHOV)/rho
+      w   = Q(INSRHOW)/rho
+      
+      ! no penalty for pressure
+      Source(INSRHOU) = rho*u-rho_s*u_s  
+      Source(INSRHOV) = rho*v-rho_s*v_s 
+      Source(INSRHOW) = rho*w-rho_s*w_s
+
+      Source = -1.0_RP/this% penalization(eID) * Source
+#endif   
+!
+#if defined(MULTIPHASE)
+      ! this is not u, is sqrt(rho)*, we are not computing rho for now to save time as is not really use without velocity
+      u_s   = 0.0_RP
+      v_s   = 0.0_RP
+      w_s   = 0.0_RP
+
+      ! no penalty for pressure
+      ! the source for MULTIPHASE is sqrt(rho)*u - sqrt(rho_s)*u_s
+
+      Source(IMSQRHOU) = Q(IMSQRHOU) - u_s
+      Source(IMSQRHOV) = Q(IMSQRHOV) - v_s
+      Source(IMSQRHOW) = Q(IMSQRHOW) - w_s
+
+      ! no extra scaling for multiphase source term as is already in sqrt(rho)*u and no rho*u
+      Source = -1.0_RP/this% penalization(eID) * Source
+#endif   
    end subroutine IBM_SourceTerm
 
    function IBM_MaskVelocity( this, Q, nEqn, STLNum, x, t ) result( Q_target )
