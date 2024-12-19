@@ -320,7 +320,8 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , particles, t )
-         use SpongeClass, only: sponge
+         use SpongeClass, only: sponge, addSourceSponge
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -333,6 +334,7 @@ module SpatialDiscretization
 !
          integer     :: eID , i, j, k, ierr, fID
          real(kind=RP)  :: mu_smag, delta
+         real(kind=RP), dimension(NCONS)  :: Source
 !
 !        ****************
 !        Volume integrals
@@ -485,6 +487,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                end do                  ; end do                ; end do
@@ -493,7 +496,8 @@ module SpatialDiscretization
 !$omp end do
 
 ! for the sponge, loops are in the internal subroutine as values are precalculated
-            call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
+            call ForcesFarm(farm, mesh, t)
 
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
@@ -504,20 +508,43 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-
 !
 !           ********************
 !           Add Particles source
 !           ********************
-            if (.not. mesh % child) then
-               if ( particles % active ) then             
-!$omp do schedule(runtime)
-                  do eID = 1, size(mesh % elements)
+            !if (.not. mesh % child) then
+               !if ( particles % active ) then             
+!!$omp do schedule(runtime)
+                  !do eID = 1, size(mesh % elements)
                   !   call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+                  !end do
+!!$omp end do
+               !endif 
+            !end if
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+! no wall function for INCNS
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isInsideBody(i,j,k) ) then
+                           ! only without moving for now in INCNS
+                           if( .not. mesh% IBM% stl(e% STL(i,j,k))% move ) then 
+                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                           end if 
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
+                     end associate
                   end do
-!$omp end do
-               endif 
-            end if
+!$omp end do       
+            end if 
+         end if
 
       end subroutine ComputeNSTimeDerivative
 !

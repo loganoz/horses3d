@@ -163,6 +163,11 @@ install-caa: lib$(LIB)_caa$(LIBSUFFIX)
 	cp -p ./include_caa/*.mod $(INSTALL_DIR)/include_caa/
 	@echo
 
+install-ins: lib$(LIB)_ins$(LIBSUFFIX)
+	cp -p lib$(LIB)_ins$(LIBSUFFIX) $(INSTALL_DIR)/lib/
+	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
+	@echo
+
 header: FORCE
 	@echo
 	@echo "================================"

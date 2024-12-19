@@ -416,13 +416,12 @@
 #if defined(NAVIERSTOKES)
       use ShockCapturing
       use TripForceClass, only: randomTrip
-      use ActuatorLine, only: farm
-      use SpongeClass, only: sponge
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
-#if defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       use SpongeClass, only: sponge
+      use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
 #endif
 
       use IBMClass
@@ -488,13 +487,12 @@
 #if defined(NAVIERSTOKES)
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
-      if(ActuatorLineFlag) then
-          call farm % ConstructFarm(controlVariables, t)
-          call farm % UpdateFarm(t, sem % mesh)
-      end if
-      call sponge % construct(sem % mesh,controlVariables)
 #endif
-#if defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      if(ActuatorLineFlag) then
+          call ConstructFarm(farm, controlVariables, t, sem % mesh)
+          call UpdateFarm(farm, t, sem % mesh)
+      end if
       call sponge % construct(sem % mesh,controlVariables)
 #endif
 !
@@ -513,7 +511,7 @@
 !
 !           Correct time step
 !           -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(INCNS) || defined(MULTIPHASE)
             sem % mesh% IBM% eta = self% CorrectDt(t, dt)
             sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -638,7 +636,9 @@
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors, FLUID_DATA_VARS)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
-         if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 !
 !        Perform time step
@@ -649,9 +649,13 @@
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -667,11 +671,8 @@
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
 
-#if defined(NAVIERSTOKES)
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
-         call sponge % updateBaseFlow(sem % mesh,dt)
-#endif
-#if defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k)
          call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
 !
@@ -786,13 +787,8 @@
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         if(ActuatorLineFlag) then
-             call farm % UpdateFarm(t, sem % mesh)
-             call farm % WriteFarmForces(t, k, last=.true.)
-         end if
-         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
-#if defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if
@@ -822,11 +818,11 @@
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
-         if(ActuatorLineFlag) call farm % DestructFarm
-         call sponge % destruct()
 #endif
-#if defined(INCNS) || defined(MULTIPHASE)
+
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call sponge % destruct()
+         if(ActuatorLineFlag) call DestructFarm(farm)
 #endif
       if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)
 

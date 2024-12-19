@@ -336,6 +336,7 @@ mu: header mkdirs horseslibs-mu horses3d.mu
 ns: header mkdirs horseslibs-ns horses3d.ns
 nssa: header mkdirs horseslibs-nssa horses3d.nssa
 caa: header mkdirs horseslibs-caa horses3d.caa 
+ins: header mkdirs horseslibs-ins horses3d.ins
 
 horses3d.ns: 
 	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
@@ -452,6 +453,24 @@ horseslibs-caa:
 			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-caa) || exit 1 ; \
 	    	else \
 			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-caa) || exit 1; \
+		fi \
+	done
+
+horseslibs-ins:
+	@for subdir in $(HORSES_LIBS_GENERAL) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+	@for subdir in $(HORSES_LIBS_PARTICULAR) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-ins) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-ins) || exit 1; \
 		fi \
 	done
 
