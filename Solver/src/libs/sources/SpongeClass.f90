@@ -17,7 +17,7 @@ Module SpongeClass  !
     Implicit None
 
     private
-    public sponge
+    public sponge, addSourceSponge
 
     !definition of sponge class 
     type sponge_t
@@ -45,7 +45,7 @@ Module SpongeClass  !
         procedure :: construct      => spongeConstruct
         procedure :: destruct       => spongeDestruct
         procedure :: creatRamp
-        procedure :: addSource
+        ! procedure :: addSource
         procedure :: initializeBaseFlow
         procedure :: updateBaseFlow
         procedure :: readBaseFlow
@@ -330,7 +330,7 @@ Module SpongeClass  !
 
     End Subroutine creatRamp
 !
-    Subroutine addSource(self,mesh)
+    Subroutine addSourceSponge(self,mesh)
         Implicit None
         class(sponge_t)                                         :: self
         type(HexMesh), intent(inout)                            :: mesh
@@ -345,19 +345,18 @@ Module SpongeClass  !
 
         Nxyz = mesh % elements(1) % Nxyz
 
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k,eID)
         do spongeEID = 1, self % nElements
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
                 do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - self % intensity(i,j,k,spongeEID) * &
-                                                  (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
+                    e % storage % S_NS(:,i,j,k) = - self % intensity(i,j,k,spongeEID) * (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
                 end do         ; end do          ; end do
             end associate
         end do
 !$omp end do
 
-    End Subroutine addSource
+    End Subroutine addSourceSponge
 !
     Subroutine initializeBaseFlow(self,mesh)
         use ElementClass

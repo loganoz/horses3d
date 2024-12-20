@@ -239,7 +239,8 @@ Module TripForceClass
     if (.not. self % active) return
 
     call self % getTripForce(x, F, tripIndex)
-    S(IRHOU:IRHOW) = S(IRHOU:IRHOW) - F * self % normals(tripIndex,:)
+    S = 0.0_RP
+    S(IRHOU:IRHOW) = - F * self % normals(tripIndex,:)
 
   End Subroutine getTripSource
 !

@@ -322,6 +322,12 @@ install-caa: lib$(LIB)_caa.a
 	@echo
 	@echo
 
+install-ins: lib$(LIB)_ins.a
+	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
+	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
+	@echo
+	@echo
+
 header: FORCE
 	@echo
 	@echo "================================"
