@@ -4,6 +4,7 @@ module StatisticsMonitor
    use SMConstants
    use HexMeshClass
    use StorageClass
+   use StopwatchClass
    use Utilities, only: GreatestCommonDivisor
 #ifdef _HAS_MPI_
    use mpi
@@ -150,10 +151,9 @@ module StatisticsMonitor
 !
 !        Construct the data
 !        ------------------
+         !$acc enter data copyin(self) 
          do eID = 1, mesh % no_of_elements
             call mesh % elements(eID) % storage % stats % Construct(NO_OF_VARIABLES, mesh % elements(eID) % Nxyz)
-            !$acc enter data copyin(mesh % elements(eID) % storage % stats)
-            !$acc enter data copyin(mesh % elements(eID) % storage % stats % data)
          end do
 
       end subroutine StatisticsMonitor_Construct
@@ -196,11 +196,14 @@ module StatisticsMonitor
 !
 !        Dump the contents if requested
 !        ------------------------------
+         call Stopwatch % Pause("Solver") ! We dont want to measure the time of the statistics dump
          if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration .or. t > self % starting_time) ) ) then
             write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
             call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
             write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'
          end if
+         call Stopwatch % Start("Solver") ! We dont want to measure the time of the statistics dump
+
 !
 !        Reset the statistics if requested
 !        ---------------------------------
@@ -234,24 +237,23 @@ module StatisticsMonitor
 !        ---------------
 !
          integer  :: eID
-         integer  :: i, j, k
+         integer  :: i, j, k, eq
          real(RP) :: ratio, inv_nsamples_plus_1
          real(RP) :: rfactor1, rfactor2
          integer, dimension(5) :: limits
 
-
 #ifdef NAVIERSTOKES
          !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
-            limits(1) = NO_OF_VARIABLES_Sij + IRHO
-            limits(2) = NO_OF_VARIABLES_Sij + NCONS
-            limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD
-            limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD
-            limits(5) = NO_OF_VARIABLES
+            !limits(1) = NO_OF_VARIABLES_Sij + IRHO
+            !limits(2) = NO_OF_VARIABLES_Sij + NCONS
+            !limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD
+            !limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD
+            !limits(5) = NO_OF_VARIABLES
 
             inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
             ratio = self % no_of_samples * inv_nsamples_plus_1
             
-            !$acc parallel loop gang vector_length(128) present(mesh, self) firstprivate(inv_nsamples_plus_1, ratio, limits)
+            !$acc parallel loop gang vector_length(128) present(mesh) firstprivate(inv_nsamples_plus_1, ratio) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3) private(rfactor1, rfactor2)
                do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -265,7 +267,7 @@ module StatisticsMonitor
 
                   mesh % elements(eID) % storage % stats % data(W,i,j,k)  = mesh % elements(eID) % storage % stats % data(W,i,j,k) &
                                                                           * ratio + mesh % elements(eID) % storage % Q(IRHOW,i,j,k) * rfactor1
-
+               
                   mesh % elements(eID) % storage % stats % data(UU,i,j,k) = mesh % elements(eID) % storage % stats % data(UU,i,j,k) &
                                                                           * ratio + POW2( mesh % elements(eID) % storage % Q(IRHOU,i,j,k) ) * rfactor2
 
@@ -274,6 +276,17 @@ module StatisticsMonitor
 
                   mesh % elements(eID) % storage % stats % data(WW,i,j,k) = mesh % elements(eID) % storage % stats % data(WW,i,j,k) &
                                                                           * ratio + POW2( mesh % elements(eID) % storage % Q(IRHOW,i,j,k) ) * rfactor2
+
+               end do                  ; end do                   ; end do
+            end do
+            !$acc end parallel loop
+
+
+            !$acc parallel loop gang vector_length(128) present(mesh) firstprivate(inv_nsamples_plus_1, ratio) async(2)
+            do eID = 1, size(mesh % elements)
+               !$acc loop vector collapse(3) private(rfactor2)
+               do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)                                                                          
+                  rfactor2 = inv_nsamples_plus_1 / POW2( mesh % elements(eID) % storage % Q(IRHO,i,j,k) )
 
                   mesh % elements(eID) % storage % stats % data(UV,i,j,k) = mesh % elements(eID) % storage % stats % data(UV,i,j,k) * ratio &
                                                                           + mesh % elements(eID) % storage % Q(IRHOU,i,j,k) * mesh % elements(eID) % storage % Q(IRHOV,i,j,k) * rfactor2
@@ -284,21 +297,60 @@ module StatisticsMonitor
                   mesh % elements(eID) % storage % stats % data(VW,i,j,k) = mesh % elements(eID) % storage % stats % data(VW,i,j,k) * ratio &
                                                                           + mesh % elements(eID) % storage % Q(IRHOV,i,j,k) * mesh % elements(eID) % storage % Q(IRHOW,i,j,k) * rfactor2
 
-                  mesh % elements(eID) % storage % stats % data(limits(1):limits(2),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(1):limits(2),i,j,k) * ratio &
-                                                                                           + mesh % elements(eID) % storage % Q(:,i,j,k) * inv_nsamples_plus_1
-                  if (self % saveGradients) then
-                     mesh % elements(eID) % storage % stats % data(limits(2)+1:limits(3),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(2)+1:limits(3),i,j,k) * ratio &
-                                                                                                + mesh % elements(eID) % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
-
-                     mesh % elements(eID) % storage % stats % data(limits(3)+1:limits(4),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(3)+1:limits(4),i,j,k) * ratio &
-                                                                                                + mesh % elements(eID) % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
-
-                     mesh % elements(eID) % storage % stats % data(limits(4)+1:limits(5),i,j,k) = mesh % elements(eID) % storage % stats % data(limits(4)+1:limits(5),i,j,k) * ratio &
-                                                                                                + mesh % elements(eID) % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
-                  end if 
                end do                  ; end do                   ; end do
             end do
             !$acc end parallel loop
+
+            !$acc parallel loop gang vector_length(128) present(mesh) firstprivate(inv_nsamples_plus_1, ratio) async(3)
+            do eID = 1, size(mesh % elements)
+               !$acc loop vector collapse(4)
+               do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)   ; do eq = 1, NCONS                                                                       
+
+                  mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij) + eq,i,j,k) = mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij) + eq,i,j,k) * ratio &
+                                                                                           + mesh % elements(eID) % storage % Q(eq,i,j,k) * inv_nsamples_plus_1
+               end do                  ; end do                   ; end do          ; end do
+            end do
+            !$acc end parallel loop
+
+                  
+            if (self % saveGradients) then
+            !$acc parallel loop gang vector_length(128) present(mesh) firstprivate(inv_nsamples_plus_1, ratio) async(4)
+            do eID = 1, size(mesh % elements)
+               !$acc loop vector collapse(4)
+               do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)    ; do eq = 1, NGRAD                                                                 
+
+                     mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij + NCONS)+ eq,i,j,k) = mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij + NCONS)+eq,i,j,k) * ratio &
+                                                                                                + mesh % elements(eID) % storage % U_x(eq,i,j,k) * inv_nsamples_plus_1
+
+               end do                  ; end do                   ; end do          ; end do
+            end do
+            !$acc end parallel loop
+
+            !$acc parallel loop gang vector_length(128) present(mesh) firstprivate(inv_nsamples_plus_1, ratio) async(5)
+            do eID = 1, size(mesh % elements)
+               !$acc loop vector collapse(4)
+               do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)    ; do eq = 1, NGRAD                                                                 
+
+                     mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij + NCONS + NGRAD)+eq,i,j,k) = mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij + NCONS + NGRAD)+eq,i,j,k) * ratio &
+                                                                                                + mesh % elements(eID) % storage % U_y(eq,i,j,k) * inv_nsamples_plus_1
+               end do                  ; end do                   ; end do          ; end do
+            end do
+            !$acc end parallel loop
+
+            !$acc parallel loop gang vector_length(128) present(mesh) firstprivate(inv_nsamples_plus_1, ratio) async(6)
+            do eID = 1, size(mesh % elements)
+               !$acc loop vector collapse(4)
+               do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2)    ; do i = 0, mesh % elements(eID) % Nxyz(1)    ; do eq = 1, NGRAD                                                                 
+
+                     mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD)+eq,i,j,k) = mesh % elements(eID) % storage % stats % data((NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD)+eq,i,j,k) * ratio &
+                                                                                                + mesh % elements(eID) % storage % U_z(eq,i,j,k) * inv_nsamples_plus_1
+               end do                  ; end do                   ; end do          ; end do
+            end do
+            !$acc end parallel loop
+
+            end if 
+
+            !$acc wait
 #endif 
 
 #ifdef INCNS

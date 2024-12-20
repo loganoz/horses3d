@@ -377,7 +377,7 @@ module InflowBCClass
          implicit none 
          class(InflowBC_t), intent(in)    :: self
 
-         !$acc enter data copyin(self)
+         !$acc exit data delete(self)
 
       end subroutine InflowBC_ExitDeviceData
 
