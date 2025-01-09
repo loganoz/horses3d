@@ -30,7 +30,7 @@ Module SpongeClass  !
         real(kind=RP)                                            :: rampWidth        ! length of the ramp width
         real(kind=RP), dimension(:,:),allocatable                :: x0               ! position of start of the sponge (for cylindrical in the center)
         real(kind=RP), dimension(:), allocatable                 :: radious          ! radious of the ramp zone in cylindrical/cirular sponges
-        real(kind=RP), dimension(:,:) ,allocatable              :: axis             ! axis vector of the sponge. In cylindrical axis of the cylinder, in cartesian, the aligned vector
+        real(kind=RP), dimension(:,:) ,allocatable               :: axis             ! axis vector of the sponge. In cylindrical axis of the cylinder, in cartesian, the aligned vector
         character(len=STRING_CONSTANT_LENGTH),dimension(:), allocatable       :: shapeType        ! shape of the sponge, either cartesian (aligned with an axis) or cylindrical
         character(len=STRING_CONSTANT_LENGTH)                    :: initialFileName  ! file name to load the initial base flow
         character(len=STRING_CONSTANT_LENGTH)                    :: solutionFileName ! file name to write base flow
@@ -354,23 +354,14 @@ Module SpongeClass  !
 !       ------------------------
         if (.not. self % isActive) return
 
-<<<<<<< HEAD
-=======
-        Nxyz = mesh % elements(1) % Nxyz
-
->>>>>>> c57446f73103db2f077458a224379fdcadf55fe0
 !$omp do schedule(runtime) private(i,j,k,eID)
         do spongeEID = 1, self % nElements
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
-<<<<<<< HEAD
                 do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                    e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - e % storage % intensitySponge(i,j,k) * &
-                                                  (e % storage % Q(:,i,j,k) - e % storage % QbaseSponge(:,i,j,k))
-=======
-                do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    e % storage % S_NS(:,i,j,k) = - self % intensity(i,j,k,spongeEID) * (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
->>>>>>> c57446f73103db2f077458a224379fdcadf55fe0
+                    ! e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - e % storage % intensitySponge(i,j,k) * &
+                    !                               (e % storage % Q(:,i,j,k) - e % storage % QbaseSponge(:,i,j,k))
+                    e % storage % S_NS(:,i,j,k) = - e % storage % intensitySponge(i,j,k) * (e % storage % Q(:,i,j,k) - e % storage % QbaseSponge(:,i,j,k))
                 end do         ; end do          ; end do
             end associate
         end do
@@ -387,6 +378,9 @@ Module SpongeClass  !
         !local variables
         integer                                                 :: eID
         
+        if (self % readBaseFLowFlag) then
+            call self % readBaseFlow(mesh)
+        else
 !$omp do schedule(runtime) private(eID)
             do eID = 1, mesh % no_of_elements
                 associate(e => mesh % elements(eID))
@@ -394,8 +388,6 @@ Module SpongeClass  !
                 end associate
             end do
 !$omp end do
-        if (self % readBaseFLowFlag) then
-            call self % readBaseFlow(mesh)
         end if 
 !
     End Subroutine initializeBaseFlow
