@@ -17,7 +17,7 @@ Module SpongeClass  !
     Implicit None
 
     private
-    public sponge
+    public sponge, addSourceSponge
 
     !definition of sponge class 
     type sponge_t
@@ -43,7 +43,7 @@ Module SpongeClass  !
         procedure :: construct      => spongeConstruct
         procedure :: destruct       => spongeDestruct
         procedure :: creatRamp
-        procedure :: addSource
+        ! procedure :: addSource
         procedure :: initializeBaseFlow
         procedure :: updateBaseFlow
         procedure :: readBaseFlow
@@ -342,7 +342,7 @@ Module SpongeClass  !
 
     End Subroutine creatRamp
 !
-    Subroutine addSource(self,mesh)
+    Subroutine addSourceSponge(self,mesh)
         Implicit None
         class(sponge_t)                                         :: self
         type(HexMesh), intent(inout)                            :: mesh
@@ -354,19 +354,29 @@ Module SpongeClass  !
 !       ------------------------
         if (.not. self % isActive) return
 
+<<<<<<< HEAD
+=======
+        Nxyz = mesh % elements(1) % Nxyz
+
+>>>>>>> c57446f73103db2f077458a224379fdcadf55fe0
 !$omp do schedule(runtime) private(i,j,k,eID)
         do spongeEID = 1, self % nElements
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
+<<<<<<< HEAD
                 do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                     e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - e % storage % intensitySponge(i,j,k) * &
                                                   (e % storage % Q(:,i,j,k) - e % storage % QbaseSponge(:,i,j,k))
+=======
+                do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
+                    e % storage % S_NS(:,i,j,k) = - self % intensity(i,j,k,spongeEID) * (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
+>>>>>>> c57446f73103db2f077458a224379fdcadf55fe0
                 end do         ; end do          ; end do
             end associate
         end do
 !$omp end do
 
-    End Subroutine addSource
+    End Subroutine addSourceSponge
 !
     Subroutine initializeBaseFlow(self,mesh)
         use ElementClass

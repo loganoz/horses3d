@@ -77,7 +77,8 @@ LIBOBJS_MU = 	./build_mu/FluidData.o \
 		./build_mu/FreeSlipWallBC.o \
 		./build_mu/PeriodicBC.o \
 		./build_mu/UserDefinedBC.o \
-		./build_mu/BoundaryConditions.o 
+		./build_mu/BoundaryConditions.o \
+		./build_mu/LESModels.o
 
 LIBOBJS_CAA = 	./build_caa/FluidData.o \
 		./build_caa/PhysicsStorage.o \
@@ -222,6 +223,12 @@ install-nssa: lib$(LIB)_nssa.a
 install-caa: lib$(LIB)_caa.a
 	cp -p lib$(LIB)_caa.a $(INSTALL_DIR)/lib/
 	cp -p ./include_caa/*.mod $(INSTALL_DIR)/include_caa/
+	@echo
+	@echo
+
+install-ins: lib$(LIB)_ins.a
+	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
+	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	@echo
 	@echo
 

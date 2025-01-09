@@ -361,8 +361,8 @@ module SpatialDiscretization
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
-         use SpongeClass, only: sponge
+         use ActuatorLine, only: farm, ForcesFarm
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -529,12 +529,12 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-!
-!           Add an MPI Barrier
-!           ------------------
-!$omp single
-            call mpi_barrier(MPI_COMM_WORLD, ierr)
-!$omp end single
+! !
+! !           Add an MPI Barrier
+! !           ------------------
+! !$omp single
+!             call mpi_barrier(MPI_COMM_WORLD, ierr)
+! !$omp end single
          end if
 #endif
 !
@@ -550,19 +550,17 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
-               ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
-               ! different contributions and not accumulate each call
-               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               ! All terms are calculated indepentenly and overwritten in case one gauss point has more than one contribution
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
-            call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
+            call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
 !           ********************
@@ -675,7 +673,8 @@ module SpatialDiscretization
    subroutine TimeDerivative_ComputeQDotHO( mesh , particles, t)
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -844,12 +843,12 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-!
-!           Add an MPI Barrier
-!           ------------------
-!$omp single
-            call mpi_barrier(MPI_COMM_WORLD, ierr)
-!$omp end single
+! !
+! !           Add an MPI Barrier
+! !           ------------------
+! !$omp single
+!             call mpi_barrier(MPI_COMM_WORLD, ierr)
+! !$omp end single
          end if
 #endif
 !
@@ -865,17 +864,16 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, size(mesh % HO_Elements)
                associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
-               ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
-               ! different contributions and not accumulate each call
-               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
+
+            call addSourceSponge(sponge,mesh)
+            call ForcesFarm(farm, mesh, t)
 !
 !           Add Particles source
 !           ********************
@@ -1049,7 +1047,8 @@ module SpatialDiscretization
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
          use TripForceClass, only: randomTrip
-         use ActuatorLine, only: farm
+         use ActuatorLine, only: farm, ForcesFarm
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -1093,15 +1092,15 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
-               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
+            call ForcesFarm(farm, mesh, t)
+            call addSourceSponge(sponge,mesh)
          end if
 
 !$omp do schedule(runtime) private(i,j,k)

@@ -1,0 +1,126 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ./MESH/RisingBubble16x32.mesh
+                      Solution file name = ./RESULTS/RB.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = y
+                                 Restart = .false.
+                       Restart file name = ./RESULTS_P10_tCH1000/RisingBubble16x32.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                  Number of fluids (1/2) = 2
+                reference velocity (m/s) = 0.7
+                fluid 1 density (kg/m^3) = 1000.0
+                fluid 2 density (kg/m^3) = 100.0
+                fluid 1 viscosity (Pa.s) = 10.0
+                fluid 2 viscosity (Pa.s) = 1.0
+                      velocity direction = [1,0,0]
+     artificial sound speed square (m/s) = 1000.0d0
+            gravity acceleration (m/s^2) = 0.98
+                       gravity direction = [-1,0,0]
+                       Compute gradients = .true.
+
+        chemical characteristic time (s) = 1000.0
+                     interface width (m) = 0.1 ! 0.03
+                 interface tension (N/m) = 24.5
+
+!------------------------- Discretization:-
+                        Polynomial order = 4 ! 10
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Exact ! Standard Roe/Low dissipation Roe
+            Cahn-Hilliard discretization = BR1
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+  Compute time derivative after timestep = .true.
+                                      dt = 0.5e-5
+                    Number of time steps = 100
+                         Output interval = 10
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                              Final time = 2.1
+                               LES Model = Vreman
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 2000   ! 1.0
+
+!-------------------- Boundary conditions:-
+#define boundary right
+   type = FreeSlipWall
+#end
+
+#define boundary left
+   type = FreeSlipWall
+#end
+
+#define boundary bottom
+   type = FreeSlipWall
+#end
+
+#define boundary top
+   type = FreeSlipWall
+#end
+
+#define boundary front
+   type = NoSlipWall
+#end
+
+#define boundary back
+   type = NoSlipWall
+#end
+
+#define volume monitor 1
+   name = area
+   variable = phase2-area
+#end
+
+#define volume monitor 2
+   name = cog
+   variable = phase2-xcog
+#end
+
+#define volume monitor 3 
+   name = risevel
+   variable = phase2-xvel
+#end
+
+#define volume monitor 4
+   name = entr-rate
+   variable = entropy rate
+#end
+
+!#define probe 1
+!                Name = Probe example
+!            Position = [x,y,z]
+!            Variable = pressure/velocity/u/v/w/mach/K
+!#end
+
+!#define surface monitor 1
+!                Name = Surface monitor example
+!              Marker = bnameX
+!            Variable = mass-flow/flow/pressure-force/viscous-force/force/lift/drag/pressure-average
+!           Direction = [x,y,z]
+!   Reference surface = 1.0
+!#end
+
+!#define volume monitor 1
+!                Name = Surface monitor example
+!            Variable = kinetic energy/kinetic energy rate/enstrophy/entropy/entropy rate/mean velocity
+!#end
+
+!#define statistics
+!            Variable = kinetic energy/kinetic energy rate/enstrophy/entropy/entropy rate/mean velocity
+!   Sampling interval = 10
+!  Starting iteration = 0
+!       Starting time = 0.0
+!!Real time control commands:
+!@start
+!@stop
+!@pause
+!@reset
+!@dump
+!#end

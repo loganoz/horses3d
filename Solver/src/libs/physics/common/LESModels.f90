@@ -11,9 +11,10 @@ module LESModels
 !   use VariableConversion        , only: getVelocityGradients
 #if defined (NAVIERSTOKES) 
    use VariableConversion_NS     , only: getVelocityGradients
-#endif
-#if defined (INCNS) 
+#elif defined (INCNS) 
    use VariableConversion_iNS     , only: getVelocityGradients 
+#elif defined (MULTIPHASE) 
+   use VariableConversion_MU     , only: getVelocityGradients 
 #endif
    implicit none
 
@@ -265,13 +266,16 @@ module LESModels
          real(kind=RP), intent(out)          :: mu
          !-local-variables---------------------------------------
          real(kind=RP)  :: S(NDIM, NDIM)
-         real(kind=RP)  :: normS, kappa, LS
+         real(kind=RP)  :: normS, kappa, LS, rho
          real(kind=RP)  :: U_x(NDIM)
          real(kind=RP)  :: U_y(NDIM)
          real(kind=RP)  :: U_z(NDIM)
          !-------------------------------------------------------
-         
+#if defined (MULTIPHASE)        
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,dimensionless,U_x,U_y,U_z)
+#else
          call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+#endif
 !
 !        Compute symmetric part of the deformation tensor
 !        ------------------------------------------------
@@ -293,12 +297,10 @@ module LESModels
 !        ------------------------------------------
          LS = this % CS * delta
          LS = this % ComputeWallEffect(LS,dWall)
-#if defined (NAVIERSTOKES) 
-         mu = Q(IRHO) * POW2(LS) * normS
-#endif
-#if defined (INCNS) 
-         mu = Q(INSRHO) * POW2(LS) * normS
-#endif
+
+         rho = get_rho(Q, dimensionless) 
+
+         mu = rho * POW2(LS) * normS
 
       end subroutine Smagorinsky_ComputeViscosity
 !
@@ -368,14 +370,18 @@ module LESModels
          real(kind=RP)  :: S(NDIM, NDIM)
          real(kind=RP)  :: gradV2(NDIM, NDIM), gradV(NDIM,NDIM)
          real(kind=RP)  :: Sd(NDIM, NDIM)
-         real(kind=RP)  :: normS, normSd, divV2, kappa, LS
+         real(kind=RP)  :: normS, normSd, divV2, kappa, LS, rho
          real(kind=RP)  :: U_x(NDIM)
          real(kind=RP)  :: U_y(NDIM)
          real(kind=RP)  :: U_z(NDIM)
          integer        :: i,j
          integer        :: k   ! The third index
          !-------------------------------------------------------
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+#if defined (MULTIPHASE)        
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,dimensionless,U_x,U_y,U_z)
+#else
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+#endif
 
          gradV(1,:) = U_x(1:3)
          gradV(2,:) = U_y(1:3)
@@ -421,12 +427,9 @@ module LESModels
          normSd =  sum(Sd*Sd)
          LS = this % Cw * delta
 
-#if defined(NAVIERSTOKES)
-         mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
-#endif
-#if defined(INCNS)
-         mu = Q(INSRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
-#endif
+         rho = get_rho(Q, dimensionless)
+
+         mu = rho * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
 
          if (normS<1.0e-8_RP .and. normSd<1.0e-8_RP) mu=0.0_RP
       end subroutine WALE_ComputeViscosity
@@ -495,14 +498,18 @@ module LESModels
          !-local-variables---------------------------------------
          real(kind=RP)  :: G__ij(NDIM, NDIM)
          real(kind=RP)  :: gradV(NDIM, NDIM)
-         real(kind=RP)  :: delta2, alpha, Bbeta, LS
+         real(kind=RP)  :: delta2, alpha, Bbeta, LS, rho
          real(kind=RP)  :: U_x(NDIM)
          real(kind=RP)  :: U_y(NDIM)
          real(kind=RP)  :: U_z(NDIM)
          integer        :: i,j,k
          !-------------------------------------------------------
          
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+#if defined (MULTIPHASE)        
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,dimensionless,U_x,U_y,U_z)
+#else
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+#endif
 
          delta2 = delta*delta 
          gradV(1,:) = U_x(1:3)
@@ -527,20 +534,14 @@ module LESModels
             &  - G__ij(2,3) * G__ij(2,3) &
             &  - G__ij(1,3) * G__ij(1,3)
 
-#if defined (NAVIERSTOKES) 
-            if(alpha>1.0e-10_RP) then
-               mu = Q(IRHO) * this % C * sqrt (abs(Bbeta)/alpha)
-            else 
-               mu = 0.0_RP
-            end if
-#endif
-#if defined (INCNS) 
-            if(alpha>1.0e-10_RP) then
-               mu = Q(INSRHO) * this % C * sqrt (abs(Bbeta)/alpha)
-            else 
-               mu = 0.0_RP
-            end if
-#endif
+
+         rho = get_rho(Q, dimensionless)   
+
+         if(alpha>1.0e-10_RP) then
+            mu = rho * this % C * sqrt (abs(Bbeta)/alpha)
+         else 
+            mu = 0.0_RP
+         end if
          
       end subroutine Vreman_ComputeViscosity
 
@@ -563,4 +564,24 @@ module LESModels
          end select
          
       end subroutine Vreman_Describe
+
+   pure function get_rho(Q, dimensionless_) result(rho)
+         implicit none
+         real(kind=RP), intent(in) :: Q(:)              
+         class(dimensionless_t),intent(in) :: dimensionless_ 
+         
+         real(kind=RP) :: rho                          
+       
+#if defined (NAVIERSTOKES) 
+         rho = Q(IRHO)
+#elif defined (INCNS)
+         rho = Q(INSRHO)
+#elif defined (MULTIPHASE)
+         rho = dimensionless_%rho(1) * Q(IMC) + dimensionless_%rho(2) * (1.0 - Q(IMC))
+! #else
+!          print *, "Error: rho computation not valid for physics "
+!          stop
+#endif
+       end function get_rho
+
 end module LESModels
