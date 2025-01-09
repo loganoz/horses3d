@@ -68,15 +68,17 @@ module StorageClass
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
       type(RKStep_t),          allocatable :: RKSteps(:)         ! Runge-Kutta stages
 #ifdef FLOW
-      real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
-      real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
-      real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
-      real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
-      real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
-      real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
-      real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliary storage
-      real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
-      real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
+      real(kind=RP),           allocatable :: QNS(:,:,:,:)           ! NSE State vector
+      real(kind=RP),           allocatable :: rho(:,:,:)             ! Temporal storage for the density
+      real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)        ! NSE State vector time derivative
+      real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)         ! NSE x-gradients
+      real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)         ! NSE y-gradients
+      real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)         ! NSE z-gradients
+      real(kind=RP),           allocatable :: G_NS(:,:,:,:)          ! NSE auxiliary storage
+      real(kind=RP),           allocatable :: S_NS(:,:,:,:)          ! NSE source term
+      real(kind=RP),           allocatable :: S_NSP(:,:,:,:)         ! NSE Particles source term
+      real(kind=RP),           allocatable :: QbaseSponge(:,:,:,:)   ! Base Flow State vector for sponges
+      real(kind=RP),           allocatable :: intensitySponge(:,:,:) ! Intensity for sponges
 #ifndef ACOUSTIC
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: mu_turb_NS(:,:,:)    ! mu of LES
@@ -783,6 +785,8 @@ module StorageClass
 !
 #ifdef FLOW
          allocate ( self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate (self % QbaseSponge(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate (self % intensitySponge(0:Nx,0:Ny,0:Nz) )
          allocate ( self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
          ! Previous solution
@@ -861,13 +865,15 @@ module StorageClass
 !        -----------------
 !
 #ifdef FLOW
-         self % G_NS   = 0.0_RP
-         self % S_NS   = 0.0_RP
-         self % S_NSP  = 0.0_RP
-         self % QNS    = 0.0_RP
-         self % QDotNS = 0.0_RP
-         self % rho    = 0.0_RP
-#ifndef ACOUSTIC
+         self % G_NS            = 0.0_RP
+         self % S_NS            = 0.0_RP
+         self % S_NSP           = 0.0_RP
+         self % QNS             = 0.0_RP
+         self % QbaseSponge     = 0.0_RP
+         self % intensitySponge = 0.0_RP
+         self % QDotNS          = 0.0_RP
+         self % rho             = 0.0_RP
+#ifndef ACOUSTIC  
          self % mu_NS  = 0.0_RP
          self % mu_turb_NS  = 0.0_RP
 #endif
@@ -963,6 +969,8 @@ module StorageClass
 
 #ifdef FLOW
          to % QNS    = from % QNS
+         to % QbaseSponge = from % QbaseSponge
+         to % intensitySponge = from % intensitySponge
 
          if (to % computeGradients) then
             to % U_xNS  = from % U_xNS
@@ -1055,6 +1063,8 @@ module StorageClass
 #ifdef FLOW
          safedeallocate(self % QNS)
          safedeallocate(self % QDotNS)
+         safedeallocate(self % QbaseSponge)
+         safedeallocate(self % intensitySponge)
 
          if ( allocated(self % PrevQ) ) then
             num_prevSol = size(self % PrevQ)
@@ -1227,10 +1237,10 @@ module StorageClass
       impure elemental subroutine ElementStorage_InterpolateSolution(this,other,nodes,with_gradients)
          implicit none
          !-arguments----------------------------------------------
-         class(ElementStorage_t), intent(in)    :: this
-         type(ElementStorage_t) , intent(inout) :: other
-         integer                , intent(in)    :: nodes
-         logical, optional      , intent(in)    :: with_gradients
+         class(ElementStorage_t), intent(inout), target    :: this
+         type(ElementStorage_t) , intent(inout), target    :: other
+         integer                , intent(in)               :: nodes
+         logical, optional      , intent(in)               :: with_gradients
          !-local-variables----------------------------------------
          logical                       :: gradients
          !--------------------------------------------------------
@@ -1244,6 +1254,7 @@ module StorageClass
          ! Copy the solution if the polynomial orders are the same, if not, interpolate
          if (all(this % Nxyz == other % Nxyz)) then
             other % Q = this % Q
+            other % QbaseSponge = this % QbaseSponge
          else
 !$omp critical
             call NodalStorage(this  % Nxyz(1)) % construct(nodes,this  % Nxyz(1))
@@ -1288,6 +1299,18 @@ module StorageClass
                                      Nout       = other % Nxyz , &
                                      outArray   = other % U_z  )
             end if
+
+            this % Q(1:,0:,0:,0:) => this % QbaseSponge
+            other % Q(1:,0:,0:,0:) => other % QbaseSponge
+
+            call Interp3DArrays  (Nvars      = NCONS   , &
+                                  Nin        = this  % Nxyz , &
+                                  inArray    = this  % Q    , &
+                                  Nout       = other % Nxyz , &
+                                  outArray   = other % Q    )
+
+            call this % SetStorageToNS()
+            call other % SetStorageToNS()
 
          end if
 #endif

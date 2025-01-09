@@ -81,6 +81,7 @@ module pAdaptationClassRL
 !  Routine for constructing the p-adaptator
 !  ----------------------------------------
    subroutine pAdaptation_Construct(this, controlVariables, t0, mesh)
+      use SurfaceMesh, only: surfacesMesh
       implicit none
       !--------------------------------------
       class(pAdaptationRL_t) , intent(inout) :: this             !>  P-Adaptator
@@ -316,7 +317,7 @@ module pAdaptationClassRL
             error stop 'Keyword acoustic sources is mandatory for p-adaptation with acoustics'
          end if
 
-         call mesh % DefineAcousticElements(this % observer, this % acoustic_sources, this % acoustic_distance)
+         call mesh % DefineAcousticElements(this % observer, this % acoustic_sources, this % acoustic_distance, surfacesMesh % zones)
 
       end if
       
@@ -394,6 +395,9 @@ module pAdaptationClassRL
 !  ------------------------------------------------------------------------
    subroutine pAdaptation_pAdapt(this, sem, itera, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      use SpongeClass, only: sponge
+#endif
       implicit none
       !-arguments----------------------------
       class(pAdaptationRL_t)     :: this              !<> Adaptation class
@@ -560,6 +564,15 @@ module pAdaptationClassRL
       call Stopwatch % Start("pAdapt: Adaptation")
       call sem % mesh % pAdapt_MPI (NNew, controlVariables)
       call Stopwatch % Pause("pAdapt: Adaptation")
+
+!
+!     ----------------------------------
+!     Reconstruct sponge
+!     ----------------------------------
+!
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      call sponge % creatRamp(sem % mesh)
+#endif
       
       ! Reconstruct probes
       do i=1, sem % monitors % no_of_probes

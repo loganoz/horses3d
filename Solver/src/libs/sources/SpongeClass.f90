@@ -25,13 +25,11 @@ Module SpongeClass  !
         integer                                                  :: nElements        ! number of elements in sponge region
         integer                                                  :: nElementsAll     ! number of elements in sponge region in all partitions
         integer, dimension(:), allocatable                       :: elementIndexMap  ! map from eID of mesh to sponge arrays
-        real(kind=RP), dimension(:,:,:,:), allocatable           :: intensity        ! Intensity of the sponge in the domain, includes the amplitude and the ramp, precomputed for all elements in sponge region
         real(kind=RP)                                            :: amplitude        ! amplitude of the source term
         real(kind=RP)                                            :: delta            ! temporal filter width
         real(kind=RP)                                            :: rampWidth        ! length of the ramp width
         real(kind=RP), dimension(:,:),allocatable                :: x0               ! position of start of the sponge (for cylindrical in the center)
         real(kind=RP), dimension(:), allocatable                 :: radious          ! radious of the ramp zone in cylindrical/cirular sponges
-        real(kind=RP), dimension(:,:,:,:,:), allocatable         :: Qbase            ! Base flow (moving average or constant), for every variable in each GAUSS or GL node
         real(kind=RP), dimension(:,:) ,allocatable              :: axis             ! axis vector of the sponge. In cylindrical axis of the cylinder, in cartesian, the aligned vector
         character(len=STRING_CONSTANT_LENGTH),dimension(:), allocatable       :: shapeType        ! shape of the sponge, either cartesian (aligned with an axis) or cylindrical
         character(len=STRING_CONSTANT_LENGTH)                    :: initialFileName  ! file name to load the initial base flow
@@ -79,7 +77,7 @@ Module SpongeClass  !
         use FileReadingUtilities, only: getFileName
         Implicit None
         class(sponge_t)                                         :: self
-        type(HexMesh), intent(in)                               :: mesh
+        type(HexMesh), intent(inout)                               :: mesh
         type(FTValueDictionary), intent(in)                     :: controlVariables
 
         !local variables
@@ -163,18 +161,19 @@ Module SpongeClass  !
             end if
         end if 
 
+        self % isActive = .true.
+
         ! create arrays and pre calculate values
         call self % creatRamp(mesh)
         call self % initializeBaseFlow(mesh)
-
-         self % isActive = .true.
-         if ( .not. MPI_Process % isRoot ) return
-         call Subsection_Header("Sponge")
-         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of elements: ", self % nElementsAll
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Amplitude: ", self % amplitude
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Ramp width: ", self % rampWidth
-         write(STD_OUT,'(30X,A,A28,L1)') "->", "Use moving average: ", self % useMovingAverage
-         do i = 1, self% numOfSponges
+        
+        if ( .not. MPI_Process % isRoot ) return
+        call Subsection_Header("Sponge")
+        write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of elements: ", self % nElementsAll
+        write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Amplitude: ", self % amplitude
+        write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Ramp width: ", self % rampWidth
+        write(STD_OUT,'(30X,A,A28,L1)') "->", "Use moving average: ", self % useMovingAverage
+        do i = 1, self% numOfSponges
             write(*,*) 
             write(STD_OUT,'(30X,A,A28,I0)') "->", "Sponge: ", i 
             write(STD_OUT,'(30X,A,A28,A)') "->", "Shape: ", self % shapeType(i)
@@ -197,8 +196,10 @@ Module SpongeClass  !
 !       ------------------------
         if (.not. self % isActive) return
         safedeallocate(self % elementIndexMap)
-        safedeallocate(self % intensity)
-        safedeallocate(self % Qbase)
+        safedeallocate(self % x0)
+        safedeallocate(self % radious)
+        safedeallocate(self % axis)
+        safedeallocate(self % shapeType)
 
     End Subroutine spongeDestruct
 !
@@ -209,7 +210,7 @@ Module SpongeClass  !
 #endif
         Implicit None
         class(sponge_t)                                         :: self
-        type(HexMesh), intent(in)                               :: mesh
+        type(HexMesh), intent(inout)                            :: mesh
 
         !local variables
         real(kind=RP), dimension(:,:,:), allocatable            :: xStar, sigma
@@ -220,14 +221,13 @@ Module SpongeClass  !
         integer                                                 :: sponge_number
         integer                                                 :: whichSponge = -1
 
-        ! it wont work for p-refinement or p adaption
-        Nxyz = mesh % elements(1) % Nxyz
+!       Check if is activated
+!       ------------------------
+        if (.not. self % isActive) return
 
-        allocate(xStar(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))) 
-        allocate(sigma(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)))
+        if (allocated(hasSponge)) deallocate(hasSponge)
         allocate(hasSponge(mesh % no_of_elements))
         hasSponge = .false.
-        ! self % elementIndexMap = 0
         
         counter = 0
         do sponge_number=1 , self % numOfSponges 
@@ -245,6 +245,9 @@ Module SpongeClass  !
                 
             do eID = 1, mesh % no_of_elements
                 associate(e => mesh % elements(eID))
+                    Nxyz = e % Nxyz
+                    if (allocated(xStar)) deallocate(xStar)
+                    allocate(xStar(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)))
                     do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
                         r_vector(:) = e % geom % x(:,i,j,k) - self % x0(sponge_number,:)
                         select case (whichSponge)
@@ -267,16 +270,16 @@ Module SpongeClass  !
         self % nElements = counter
         if ( (MPI_Process % doMPIAction) ) then
 #ifdef _HAS_MPI_
-        call mpi_allreduce(self % nElements, self % nElementsAll, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+        call mpi_allreduce(self % nElements, self % nElementsAll, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
         else
             self % nElementsAll = self % nElements
         end if
 
         ! create mapping array
-        allocate( self % intensity(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3),self%nElements)) 
+        if (allocated(self % elementIndexMap)) deallocate(self % elementIndexMap)
         allocate( self  %  elementIndexMap(self % nElements) )
-        self % intensity = 0.0_RP
+
         counter = 0
         do eID = 1, mesh % no_of_elements
             if (hasSponge(eID)) then
@@ -297,8 +300,13 @@ Module SpongeClass  !
 
             do spongeEID = 1, self % nElements
                 eID = self % elementIndexMap(spongeEID)
-                sigma = 0
                 associate(e => mesh % elements(eID))
+                    Nxyz = e % Nxyz
+                    if (allocated(xStar)) deallocate(xStar)
+                    if (allocated(sigma)) deallocate(sigma)
+                    allocate(xStar(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)))
+                    allocate(sigma(0:Nxyz(1),0:Nxyz(2),0:Nxyz(3)))
+                    
                     do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
                         r_vector(:) = e % geom % x(:,i,j,k) - self % x0(sponge_number,:)
                         select case (whichSponge)
@@ -311,22 +319,26 @@ Module SpongeClass  !
                             xStar(i,j,k) = sum(r_vector(:)*self % axis(sponge_number,:))/(self % rampWidth)
                         end select
                     end do         ; end do          ; end do
+                
+                    if (any(xStar .ge. 0.0_RP)) then
+                        ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
+                        xStar = max(0.0_RP,xStar)
+                        xStar = min(1.0_RP,xStar)
+                        ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
+                        sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
+                        ! limit sigms <=1 since after 1 should be constant at the amplitude value
+                        sigma  = MIN(1.0_RP,sigma)
+                        ! pre computed intensity, including amplitude and ramp damping
+                        e % storage % intensitySponge(:,:,:) = max(e % storage % intensitySponge(:,:,:), self % amplitude * sigma(:,:,:))
+                    endif
                 end associate
-                if (any(xStar .ge. 0.0_RP)) then
-                    ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
-                    xStar = max(0.0_RP,xStar)
-                    xStar = min(1.0_RP,xStar)
-                    ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
-                    sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
-                    ! limit sigms <=1 since after 1 should be constant at the amplitude value
-                    sigma  = MIN(1.0_RP,sigma)
-                    ! pre computed intensity, including amplitude and ramp damping
-                    self % intensity(:,:,:,spongeEID) = max(self % intensity(:,:,:,spongeEID), self % amplitude * sigma(:,:,:))
-                endif
             end do 
         end do
 
-        deallocate(xStar, sigma, hasSponge)
+        ! deallocate(xStar, sigma, hasSponge)
+        if (allocated(xStar)) deallocate(xStar)
+        if (allocated(sigma)) deallocate(sigma)
+        if (allocated(hasSponge)) deallocate(hasSponge)
 
     End Subroutine creatRamp
 !
@@ -337,21 +349,18 @@ Module SpongeClass  !
     
         !local variables
         integer                                                 :: i, j, k, eID, spongeEID
-        integer, dimension(NDIM)                                :: Nxyz
 
 !       Check if is activated
 !       ------------------------
         if (.not. self % isActive) return
 
-        Nxyz = mesh % elements(1) % Nxyz
-
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k,eID)
         do spongeEID = 1, self % nElements
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
-                do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)
-                    e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - self % intensity(i,j,k,spongeEID) * &
-                                                  (e % storage % Q(:,i,j,k) - self % Qbase(:,i,j,k,eID))
+                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                    e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) - e % storage % intensitySponge(i,j,k) * &
+                                                  (e % storage % Q(:,i,j,k) - e % storage % QbaseSponge(:,i,j,k))
                 end do         ; end do          ; end do
             end associate
         end do
@@ -363,28 +372,24 @@ Module SpongeClass  !
         use ElementClass
         Implicit None
         class(sponge_t)                                         :: self
-        type(HexMesh), intent(in)                               :: mesh
+        type(HexMesh), intent(inout)                            :: mesh
 
         !local variables
         integer                                                 :: eID
-        integer, dimension(NDIM)                                :: Nxyz
-
-        Nxyz = mesh % elements(1) % Nxyz
-        allocate(self % Qbase(NCONS, 0: Nxyz(1), 0: Nxyz(2), 0: Nxyz(3), mesh % no_of_elements))
-        if (self % readBaseFLowFlag) then
-            call self % readBaseFlow(mesh)
-        else
-!$omp do schedule(runtime)
+        
+!$omp do schedule(runtime) private(eID)
             do eID = 1, mesh % no_of_elements
                 associate(e => mesh % elements(eID))
-                    self % Qbase(:,:,:,:,eID) = e % storage % Q(:,:,:,:) 
+                    e % storage % QbaseSponge(:,:,:,:) = e % storage % Q(:,:,:,:) 
                 end associate
             end do
 !$omp end do
+        if (self % readBaseFLowFlag) then
+            call self % readBaseFlow(mesh)
         end if 
 !
     End Subroutine initializeBaseFlow
-!
+
     ! advance in time base flow as single euler step, taken from Beck 2018
     Subroutine updateBaseFlow(self, mesh, dt)
         Implicit None
@@ -406,7 +411,7 @@ Module SpongeClass  !
 !$omp do schedule(runtime)
         do eID = 1, mesh % no_of_elements
             associate(e => mesh % elements(eID))
-                self % Qbase(:,:,:,:,eID) = self % Qbase(:,:,:,:,eID) + (e % storage % Q(:,:,:,:) - self % Qbase(:,:,:,:,eID)) * (dt / self%delta)
+                e % storage % QbaseSponge(:,:,:,:) = e % storage % QbaseSponge(:,:,:,:) + (e % storage % Q(:,:,:,:) - e % storage % QbaseSponge(:,:,:,:)) * (dt / self%delta)
             end associate
         end do
 !$omp end do
@@ -416,7 +421,7 @@ Module SpongeClass  !
     Subroutine  readBaseFlow(self,mesh)
         Implicit None
         class(sponge_t)                                         :: self
-        type(HexMesh), intent(in)                               :: mesh
+        type(HexMesh), intent(inout)                            :: mesh
 
         !local variables
         INTEGER                        :: fID, eID, fileType, no_of_elements, flag 
@@ -462,10 +467,12 @@ Module SpongeClass  !
 !       Read elements data
 !       ------------------
         fID = putSolutionFileInReadDataMode(trim(self % initialFileName))
-        Nxyz = mesh % elements(1) % Nxyz
-        allocate(Q(NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3)))
+        
         do eID = 1, size(mesh % elements)
            associate( e => mesh % elements(eID) )
+               Nxyz = e % Nxyz
+               if (allocated(Q)) deallocate(Q)
+               allocate(Q(NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3)))
                pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
                read(fID, pos=pos) array_rank
                read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
@@ -491,7 +498,7 @@ Module SpongeClass  !
                end if
 
                read(fID) Q
-               self % Qbase(:,:,:,:,eID) = Q(:,:,:,:)
+               e % storage % QbaseSponge(:,:,:,:) = Q(:,:,:,:)
           end associate
         end do
         deallocate(Q)
@@ -575,13 +582,14 @@ Module SpongeClass  !
 !       Write arrays
 !       ------------
         fID = putSolutionFileInWriteDataMode(trim(name))
-        ! do eID = 1, self % no_of_elements
-        Nxyz = mesh % elements(1) % Nxyz
-        allocate(Q(NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3)))
+
         do eID = 1, mesh % no_of_elements
             associate( e => mesh % elements(eID) )
+                Nxyz = e % Nxyz
+                if (allocated(Q)) deallocate(Q)
+                allocate(Q(NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3)))
                 pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
-                Q(1:NCONS,:,:,:)  = self % Qbase(:,:,:,:,eID)
+                Q(1:NCONS,:,:,:)  = e % storage % QbaseSponge(:,:,:,:)
                 call writeArray(fid, Q, position=pos)
             end associate
         end do
