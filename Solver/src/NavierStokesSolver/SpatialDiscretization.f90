@@ -613,13 +613,11 @@ module SpatialDiscretization
 
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  ! call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
-         print *, "Q prev: ", mesh % elements(23868) % storage % Q
             call sponge % addSource(mesh)
             call ForcesFarm(farm, mesh, t)
 !
@@ -676,13 +674,14 @@ module SpatialDiscretization
          do eID = 1 , size(mesh % elements)
          !$acc loop vector collapse(3)
             do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+         !$acc loop seq
                 do eq = 1, NCONS
                     mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) + mesh % elements(eID) % storage % S_NS(eq,i,j,k)
                 end do
             end do                  ; end do                ; end do
          end do
-!$omp end do
          !$acc end parallel loop 
+!$omp end do
 !
 !        *********************
 !        Add IBM source term
@@ -933,7 +932,6 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  ! call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -1166,7 +1164,6 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
-                  ! call ForcesFarm(farm, e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do

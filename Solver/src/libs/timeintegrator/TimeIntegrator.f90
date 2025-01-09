@@ -638,7 +638,6 @@
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors, FLUID_DATA_VARS)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
-         ! if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
          if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 !
@@ -670,7 +669,6 @@
          END SELECT
 
 #if defined(NAVIERSTOKES)
-         ! if(ActuatorLineFlag)  call farm % WriteFarmForces(t,k)
          if(ActuatorLineFlag)  call WriteFarmForces(farm,t,k)
          call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
@@ -789,12 +787,6 @@
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         if(ActuatorLineFlag) then
-             ! call farm % UpdateFarm(t, sem % mesh)
-             call UpdateFarm(farm, t, sem % mesh)
-             ! call farm % WriteFarmForces(t, k, last=.true.)
-             call WriteFarmForces(farm, t, k, last=.true.)
-         end if
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if
@@ -824,7 +816,6 @@
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
-         ! if(ActuatorLineFlag) call farm % DestructFarm
          if(ActuatorLineFlag) call DestructFarm(farm)
          call sponge % destruct()
 #endif
