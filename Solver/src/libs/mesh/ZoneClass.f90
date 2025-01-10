@@ -36,8 +36,8 @@ module ZoneClass
 !     ------------------------------------------
       subroutine ConstructZones( faces , zones )
          implicit none
-         class(Face), target                  :: faces(:)
-         class(Zone_t), allocatable           :: zones(:)
+         type(Face), target                  :: faces(:)
+         type(Zone_t), allocatable           :: zones(:)
 !
 !        ---------------
 !        Local variables
@@ -82,8 +82,8 @@ module ZoneClass
 !     ------------------------------------------------------------------------------------------
       subroutine ReassignZones( faces , zones )
          implicit none
-         class(Face), target                  :: faces(:)
-         class(Zone_t)                        :: zones(:)
+         type(Face), target                  :: faces(:)
+         type(Zone_t)                        :: zones(:)
 !
 !        ---------------
 !        Local variables
@@ -196,7 +196,7 @@ module ZoneClass
       function AllZoneNames(no_of_zones, zones)
          implicit none
          integer,       intent(in)  :: no_of_zones
-         class(Zone_t), intent(in)  :: zones(no_of_zones)
+         type(Zone_t), intent(in)  :: zones(no_of_zones)
          character(len=LINE_LENGTH) :: AllZoneNames(no_of_zones)
 !
 !        ---------------

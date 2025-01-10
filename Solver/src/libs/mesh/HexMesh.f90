@@ -67,7 +67,7 @@ MODULE HexMeshClass
          type(Element), dimension(:), allocatable  :: elements
          type(MPI_FacesSet_t)                      :: MPIfaces
          type(IBM_type)                            :: IBM
-         class(Zone_t), dimension(:), allocatable  :: zones
+         type(Zone_t), dimension(:), allocatable  :: zones
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
          integer                                   :: dir2D       = 0               ! If it is in fact a 2D mesh, dir 2D stores the global direction IX, IY or IZ

@@ -247,6 +247,8 @@
          else
             dimensionless_ % gravity_dir = 0.0_RP
          end if
+      else 
+         dimensionless_ % gravity_dir = 0.0_RP
       end if
 
       if ( almostEqual(abs(refValues_ % g0), 0.0_RP) ) then

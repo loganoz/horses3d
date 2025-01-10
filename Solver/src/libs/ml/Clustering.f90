@@ -775,8 +775,11 @@ module Clustering
       nullify(self % g % logdet)
 
       ! Required for gfortran?
+      ! The commented out line makes gfortran-13 crash. Either the code shouldnt reach this point at all
+      ! meaning that the initialization of the object is wrong, or there is a bug in gfortran with 
+      ! checking the associated status of a pointer.
       if (self % initialized) then
-         if (associated(self % g % storage)) deallocate(self % g % storage)
+         !if (associated(self % g % storage))     deallocate(self % g % storage)
          if (allocated(self % g % tcov))     deallocate(self % g % tcov)
          if (allocated(self % prob))         deallocate(self % prob)
       end if
