@@ -880,6 +880,7 @@ jobs:
 #
 # 30) Virtual surfaces with acoustics and Reinforcement Learning p-adaptation
 # --------------------------------------------
+# This test case only runs with gfortran as we do not support hdf5 with ifort in the github actions
       - name: Build VirtualSurfaces_acoustics_pAdaptationRL
         working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL/SETUP
         run: |
