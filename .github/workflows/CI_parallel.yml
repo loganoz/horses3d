@@ -877,6 +877,23 @@ jobs:
           mpiexec -n 64 ./horses3d.ns Cylinder_acoustics_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 30) Virtual surfaces with acoustics and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build VirtualSurfaces_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run VirtualSurfaces_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
+        if: '!cancelled()'
+
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################
@@ -1000,6 +1017,23 @@ jobs:
 #         run: |
 #           source /opt/intel/oneapi/setvars.sh || true
 #           mpiexec -n 64 ./horses3d.mu EntropyConservingTest.control
+
+#
+# 5) Multiphase monopole with acoustics, sponge and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Multiphase_Monopole_pAdaptationRL
+        working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run Multiphase_Monopole_pAdaptationRL
+        working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.mu monopole_pAdaptationRL.control
+        if: '!cancelled()'
 
 # ########################################################################
 # #######                      INCOMPRESSIBLE                     ########

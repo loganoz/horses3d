@@ -75,6 +75,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/Cylinder_Overenriching_pAdaptationRL \
             ./NavierStokes/EulerRK3_pAdaptationRL \
             ./NavierStokes/Cylinder_acoustics_pAdaptationRL \
+            ./NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
@@ -88,6 +89,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Multiphase/RisingBubble \
             ./Multiphase/RisingBubbleVreman\
             ./Multiphase/Pipe \
+            ./Multiphase/Monopole_pAdaptationRL \
             ./Particles/FreeFall \
             ./Particles/RadiationHeat \
             ./Particles/Pouransari \

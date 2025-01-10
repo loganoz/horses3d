@@ -1,0 +1,79 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/CYLINDER_mesh.h5"
+Polynomial order      = 3
+Number of time steps  = 10
+Output Interval       = 10
+
+Convergence tolerance = 1.d-10
+cfl                   = 0.1
+dcfl                  = 0.1
+mach number           = 0.2
+Reynolds number       = 150.0
+
+AOA theta             = 0.0
+AOA phi               = 0.0
+
+solution file name    = "RESULTS/virtual_surfaces.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/virtual_surfaces.hsol"
+simulation type       = time-accurate
+final time            = 10.d0
+
+autosave mode         = "iteration"
+autosave interval     = 100
+
+Discretization nodes  = Gauss
+Riemann solver        = Lax-Friedrichs
+
+!-------------------------------------------------------------
+!------ BC --------
+!-------------------------------------------------------------
+
+#define boundary wall
+  type = NoSlipWall
+#end
+
+#define boundary FARFIELD__fix_p
+  type = Outflow
+#end
+
+#define boundary PERIODLEFT
+   type = periodic
+   coupled boundary = PERIODRIGHT
+#end
+
+#define boundary PERIODRIGHT
+   type = periodic
+   coupled boundary = PERIODLEFT
+#end
+
+!------------
+! P-Adaptation
+!------------
+save sensor with solution = .true.
+acoustic path = .true.
+acoustic surface file = "MESH/cylcT.surfaceZone"
+acoustic save timestep  =  1000.0
+acoustic surface mesh save = .false.
+acoustic solution save  = .false.
+
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 5d-3
+   Nmax                  = [6, 6, 1]
+   Nmin                  = [2, 2, 1]
+   adjust nz             = .FALSE.
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 10
+   threshold             = 1.0
+   error estimation      = .false.
+   acoustics             = .TRUE.
+   acoustic tolerance    = 1d-5
+   acoustic distance     = 2.0d0
+   acoustic observer     = [0.0d0, 20.0d0, 1.0d0]
+   acoustic sources      = [virtual_acoustic_surface]
+#end
