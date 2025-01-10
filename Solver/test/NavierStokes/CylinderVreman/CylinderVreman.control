@@ -40,7 +40,7 @@ riemann solver        = roe
    Marker = innercylinder
    Variable = drag
    Direction = [0.0,0.0,1.0]
-   Reference surface = 1.0	
+   Reference surface = 1.0
 #end
 
 #define surface monitor 2

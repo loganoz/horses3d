@@ -6,6 +6,7 @@ module GenericBoundaryConditionClass
    use VariableConversion
    use FluidData
    use HexMeshClass
+   use ZoneClass
    implicit none
 !
 !  *****************************
@@ -237,17 +238,19 @@ module GenericBoundaryConditionClass
       subroutine GenericBC_CreateDeviceData(self)
          implicit none 
          class(GenericBC_t), intent(in)    :: self
-      
+         !$acc enter data copyin(self)
       end subroutine GenericBC_CreateDeviceData
 
-      subroutine GenericBC_FlowState(self, mesh, zoneID)
+      subroutine GenericBC_FlowState(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh),       intent(inout)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t), intent(in)            :: zone
+!         integer,             intent(in)     :: zoneID 
+         
       end subroutine GenericBC_FlowState
 
-      subroutine GenericBC_FlowGradVars(self, mesh, zoneID)
+      subroutine GenericBC_FlowGradVars(self, mesh, zone)
 !
 !        **************************************************************
 !              Computes the set of gradient variables U* at the wall
@@ -255,8 +258,10 @@ module GenericBoundaryConditionClass
 !
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         type(HexMesh), intent(inout)       :: mesh
+         type(Zone_t), intent(in)           :: zone
+
+!         integer,                 intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -269,9 +274,9 @@ module GenericBoundaryConditionClass
          integer        :: i,j,zonefID,fID
    
    
-         !$acc parallel loop gang present(mesh, self)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
+         !$acc parallel loop gang present(mesh, zone) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
@@ -321,11 +326,12 @@ module GenericBoundaryConditionClass
 !         U = 0.5_RP * (U_aux + U)
 !      end subroutine GenericBC_FlowGradVars
 
-      subroutine GenericBC_FlowNeumann(self, mesh, zoneID)
+      subroutine GenericBC_FlowNeumann(self, mesh, zone)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
          type(HexMesh),       intent(inout)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         type(Zone_t), intent(in)               :: zone
+!         integer,             intent(in)    :: zoneID 
       end subroutine GenericBC_FlowNeumann
 #endif
 !

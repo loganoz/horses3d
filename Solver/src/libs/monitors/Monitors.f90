@@ -117,22 +117,31 @@ module MonitorsClass
             call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors, Monitors % no_of_loadBalancingMonitors )
          end if
 !
+!        Initialize the Monitors class in the GPU
+!        ----------------------------------------
+         !$acc enter data copyin(Monitors)
+!        Pro tip: This is necessary to avoid the compiler doing behind the scenes copies of the class.
+!        Pro tip(cont): Its not really necessary for the class itself, but for the arrays inside the class.
+!
 !        Initialize
 !        ----------
          call Monitors % residuals % Initialization( solution_file , FirstCall )
 
          allocate ( Monitors % volumeMonitors ( Monitors % no_of_volumeMonitors )  )
+         !$acc update device(Monitors)
          do i = 1 , Monitors % no_of_volumeMonitors
             call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall  )
          end do
 
          allocate ( Monitors % loadBalancingMonitors ( Monitors % no_of_loadBalancingMonitors )  )
+         !$acc update device(Monitors)
          do i = 1 , Monitors % no_of_loadBalancingMonitors
             call Monitors % loadBalancingMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
 
 #ifdef FLOW
          allocate ( Monitors % probes ( Monitors % no_of_probes )  )
+         !$acc update device(Monitors)
          do i = 1 , Monitors % no_of_probes
             call Monitors % probes(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
@@ -144,6 +153,7 @@ module MonitorsClass
 
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
+         !$acc update device(Monitors)
          do i = 1 , Monitors % no_of_surfaceMonitors
             call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
@@ -154,6 +164,11 @@ module MonitorsClass
          Monitors % bufferLine = 0
          
          FirstCall = .FALSE.
+!
+!        Include the latest changes in the GPU
+!        ----------------------------------------
+         !$acc update device(Monitors)
+
       end subroutine Monitors_Construct
 
       subroutine Monitor_WriteLabel ( self )

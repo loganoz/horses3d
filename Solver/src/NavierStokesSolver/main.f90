@@ -23,6 +23,10 @@
 #ifdef _HAS_MPI_
       use mpi
 #endif
+#ifdef _OPENACC
+      use cudafor
+      use openacc
+#endif
 
       IMPLICIT NONE
 
@@ -120,8 +124,6 @@
       if ( sem % particles % active ) then
             call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
       endif
-
-      call sem % mesh % CreateDeviceData()
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -135,6 +137,11 @@
 !
       call Stopwatch % CreateNewEvent("solvingtime")
       call Stopwatch % Start("solvingtime")
+
+#ifdef _OPENACC
+      call cudaProfilerStart() !Set up the profiling here to avoid memory transfers
+#endif
+
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       call Stopwatch % Pause("solvingtime")
 !      
@@ -146,6 +153,10 @@
 !     ------------------------------------------
 !
       call Stopwatch % Pause("TotalTime")
+
+#ifdef _OPENACC
+      call cudaProfilerStop() ! Stop the collection of statistics for OpenACC
+#endif
 !
 !     --------------------------
 !     Show simulation statistics
@@ -188,6 +199,15 @@
 !     Finish up
 !     ---------
 !
+!     ----------------------------
+!     Delete the data from the GPU
+!     ----------------------------
+!
+#ifdef _OPENACC
+      call sem % mesh % ExitDeviceData()
+      print*, "I delete the data from the GPU"
+#endif
+
       call Stopwatch % destruct
       CALL timeIntegrator % destruct()
       CALL sem % destruct()

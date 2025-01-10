@@ -64,7 +64,7 @@ module RiemannSolvers_NS
    private
    public whichAverage, whichRiemannSolver
    public SetRiemannSolver, DescribeRiemannSolver
-   public AveragedStates, TwoPointFlux, RiemannSolver_dFdQ
+   public AveragedStates, TwoPointFlux, RiemannSolver_dFdQ, TwoPointFlux_Selector
    public CentralRiemannSolver_acc, RiemannSolver_Selector
 
    abstract interface
@@ -440,6 +440,42 @@ module RiemannSolvers_NS
          end select
          
       end subroutine RiemannSolver_Selector
+      
+      subroutine TwoPointFlux_Selector(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
+         use RiemannSolvers_NSKeywordsModule
+         implicit none 
+
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+
+         select case (whichAverage)
+         case (STANDARD_AVG)
+            call StandardDG_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         
+         case (MORINISHI_AVG)
+            call Morinishi_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         
+         case (DUCROS_AVG)
+            call Ducros_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         
+         case (KENNEDYGRUBER_AVG)
+            call KennedyGruber_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         
+         case (PIROZZOLI_AVG)
+            call Pirozzoli_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+
+         case (ENTROPYCONS_AVG)
+            call EntropyConserving_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+
+         case (CHANDRASEKAR_AVG)
+            call Chandrasekar_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         end select
+         
+      end subroutine TwoPointFlux_Selector
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
@@ -2277,6 +2313,7 @@ module RiemannSolvers_NS
 !///////////////////////////////////////////////////////////////////////
 !
       subroutine StandardDG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         !$acc routine seq
          use SMConstants
          use PhysicsStorage_NS
          implicit none
@@ -2339,6 +2376,7 @@ module RiemannSolvers_NS
       end subroutine StandardDG_TwoPointFlux
 
       subroutine Morinishi_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
          use SMConstants
          use PhysicsStorage_NS
          implicit none
@@ -2362,16 +2400,13 @@ module RiemannSolvers_NS
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
 
-         associate(gm1 => thermodynamics % GammaMinus1)
-
-         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                              + QL(IRHOV) * vL &
                                              + QL(IRHOW) * wL ))
 
-         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                              + QR(IRHOV) * vR &
                                              + QR(IRHOW) * wR ))
-         end associate
 !
 !        Here the enthalpy does not contain the kinetic energy
 !        -----------------------------------------------------
@@ -2423,6 +2458,7 @@ module RiemannSolvers_NS
       end subroutine Morinishi_TwoPointFlux
 
       subroutine Ducros_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
          use SMConstants
          use PhysicsStorage_NS
          implicit none
@@ -2446,16 +2482,13 @@ module RiemannSolvers_NS
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
 
-         associate(gm1 => thermodynamics % GammaMinus1)
-
-         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                              + QL(IRHOV) * vL &
                                              + QL(IRHOW) * wL ))
 
-         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                              + QR(IRHOV) * vR &
                                              + QR(IRHOW) * wR ))
-         end associate
 !
 !        Average metrics
 !        ---------------
@@ -2488,6 +2521,7 @@ module RiemannSolvers_NS
       end subroutine Ducros_TwoPointFlux
 
       subroutine KennedyGruber_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
          use SMConstants
          use PhysicsStorage_NS
          implicit none
@@ -2512,16 +2546,13 @@ module RiemannSolvers_NS
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
 
-         associate(gm1 => thermodynamics % GammaMinus1)
-
-         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                              + QL(IRHOV) * vL &
                                              + QL(IRHOW) * wL ))
 
-         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                              + QR(IRHOV) * vR &
                                              + QR(IRHOW) * wR ))
-         end associate
 
          rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
          u   = 0.5_RP * (uL + uR)
@@ -2561,6 +2592,7 @@ module RiemannSolvers_NS
       end subroutine KennedyGruber_TwoPointFlux
 
       subroutine Pirozzoli_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
          use SMConstants
          use PhysicsStorage_NS
          implicit none
@@ -2631,6 +2663,8 @@ module RiemannSolvers_NS
       end subroutine Pirozzoli_TwoPointFlux
 
       subroutine EntropyConserving_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
+
 !
 !        *******************************************************************
 !           Entropy conserving split form by Ismail and Roe.
@@ -2678,11 +2712,6 @@ module RiemannSolvers_NS
          real(kind=RP)     :: z5Log, z1Log, invZ1Av
          real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
 
-         associate ( gammaPlus1Div2      => thermodynamics % gammaPlus1Div2, &
-                     gammaMinus1Div2     => thermodynamics % gammaMinus1Div2, &
-                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1, &
-                     invGamma            => thermodynamics % invGamma )
-
          invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
          rhoL = QL(IRHO)               ; rhoR = QR(IRHO)
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
@@ -2716,8 +2745,8 @@ module RiemannSolvers_NS
          v   = zAv(3) * invZ1Av
          w   = zAv(4) * invZ1Av
          p   = zAv(5) * invZ1Av
-         p2  = (gammaPlus1Div2 * z5Log / z1Log + gammaMinus1Div2 * p) * invGamma
-         h   = gammaDivGammaMinus1 * p2 / rho + 0.5_RP*(POW2(u) + POW2(v) + POW2(w))
+         p2  = (thermodynamics % gammaPlus1Div2 * z5Log / z1Log + thermodynamics % gammaMinus1Div2 * p) * thermodynamics % invGamma
+         h   = thermodynamics % gammaDivGammaMinus1 * p2 / rho + 0.5_RP*(POW2(u) + POW2(v) + POW2(w))
 !
 !        Average metrics
 !        ---------------
@@ -2747,11 +2776,10 @@ module RiemannSolvers_NS
 !        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
 
-         end associate
-
       end subroutine EntropyConserving_TwoPointFlux
 
       subroutine Chandrasekar_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         !$acc routine seq
          use SMConstants
          use PhysicsStorage_NS
          use Utilities, only: logarithmicMean
@@ -2771,8 +2799,6 @@ module RiemannSolvers_NS
          real(kind=RP)     :: rho, u, v, w, h, p, betaLog
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
-
-         associate ( gammaMinus1 => thermodynamics % gammaMinus1 )
 
          invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
          rhoL = QL(IRHO)               ; rhoR = QR(IRHO)
@@ -2798,7 +2824,7 @@ module RiemannSolvers_NS
          v   = AVERAGE(vL, vR)
          w   = AVERAGE(wL, wR)
          p   = 0.5_RP * (rhoL + rhoR) / (betaL + betaR)
-         h   =   0.5_RP/(betaLog*(gammaMinus1)) &
+         h   =   0.5_RP/(betaLog*(thermodynamics % GammaMinus1)) &
                - 0.5_RP*AVERAGE(POW2(uL)+POW2(vL)+POW2(wL), POW2(uR)+POW2(vR)+POW2(wR)) &
                + p/rho + POW2(u) + POW2(v) + POW2(w)
 !
@@ -2829,8 +2855,6 @@ module RiemannSolvers_NS
 !        Compute the sharp flux
 !        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
-
-         end associate
 
       end subroutine Chandrasekar_TwoPointFlux
 

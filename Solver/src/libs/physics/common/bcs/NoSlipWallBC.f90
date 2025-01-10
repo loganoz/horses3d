@@ -12,6 +12,7 @@ module NoSlipWallBCClass
    use Utilities, only: toLower, almostEqual
    use VariableConversion, only: GetGradientValues_f
    use HexMeshClass
+   use ZoneClass
    implicit none
 !
 !  *****************************
@@ -60,6 +61,7 @@ module NoSlipWallBCClass
 #ifdef FLOW
          procedure         :: FlowState         => NoSlipWallBC_FlowState
          procedure         :: CreateDeviceData  => NoSlipWallBC_CreateDeviceData
+         procedure         :: ExitDeviceData    => NoSlipWallBC_ExitDeviceData
          procedure         :: FlowGradVars      => NoSlipWallBC_FlowGradVars
          procedure         :: FlowNeumann       => NoSlipWallBC_FlowNeumann
 #endif
@@ -269,18 +271,20 @@ module NoSlipWallBCClass
       subroutine NoSlipWallBC_CreateDeviceData(self)
          implicit none 
          class(NoSlipWallBC_t), intent(in)    :: self
-         
+
          !$acc enter data copyin(self)
-         !$acc enter data copyin(self % isAdiabatic)
-         !$acc enter data copyin(self % ewall)
-         !$acc enter data copyin(self % Twall)
-         !$acc enter data copyin(self % invTwall)
-         !$acc enter data copyin(self % wallType)
-         !$acc enter data copyin(self % vWall)
 
       end subroutine NoSlipWallBC_CreateDeviceData
 
-      subroutine NoSlipWallBC_FlowState(self, mesh, zoneID)
+      subroutine NoSlipWallBC_ExitDeviceData(self)
+         implicit none 
+         class(NoSlipWallBC_t), intent(in)    :: self
+         
+         !$acc exit data delete(self)
+
+      end subroutine NoSlipWallBC_ExitDeviceData
+
+      subroutine NoSlipWallBC_FlowState(self, mesh, zone)
    !
    !        *************************************************************
    !           Compute the state variables for a general wall
@@ -295,7 +299,9 @@ module NoSlipWallBCClass
             implicit none
             class(NoSlipWallBC_t),   intent(in)    :: self
             type(HexMesh),           intent(inout) :: mesh
-            integer,                 intent(in)    :: zoneID   
+            type(Zone_t), intent(in)               :: zone
+
+   !         integer,                 intent(in)    :: zoneID   
    !
    !        ---------------
    !        Local variables
@@ -306,9 +312,9 @@ module NoSlipWallBCClass
             integer       :: i,j,zonefID,fID
    
    
-            !$acc parallel loop gang present(mesh, self) async(zoneID)
-            do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-               fID = mesh % zones(zoneID) % faces(zonefID)
+            !$acc parallel loop gang present(mesh, zone, self % vWall, self % Twall, self % wallType) async(1) 
+            do zonefID = 1, zone % no_of_faces
+               fID = zone % faces(zonefID)
                !$acc loop vector private(Q)            
                do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                   
@@ -317,7 +323,7 @@ module NoSlipWallBCClass
 #if defined (SPALARTALMARAS)
                   Q(IRHOTHETA)   = -Q(IRHOTHETA)
 #endif
-                  Q(IRHOU:IRHOW) = 2.0_RP * Q(IRHO)*self % vWall - Q(IRHOU:IRHOW)
+                  Q(IRHOU:IRHOW) = 2.0_RP * Q(IRHO)*self % vWall  - Q(IRHOU:IRHOW) 
          !        This boundary condition should be
          !        ---------------------------------
                   !Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
@@ -333,7 +339,7 @@ module NoSlipWallBCClass
    
       end subroutine NoSlipWallBC_FlowState
 
-      subroutine NoSlipWallBC_FlowGradVars(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowGradVars(self, mesh, zone)
 !
 !        **************************************************************
 !              Computes the set of gradient variables U* at the wall
@@ -342,7 +348,9 @@ module NoSlipWallBCClass
          implicit none
          class(NoSlipWallBC_t),  intent(in)    :: self
          type(HexMesh),          intent(inout) :: mesh
-         integer,                intent(in)    :: zoneID 
+         type(Zone_t), intent(in)              :: zone
+
+!         integer,                intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -355,10 +363,10 @@ module NoSlipWallBCClass
          integer        :: i,j,zonefID,fID
    
    
-         !$acc parallel loop gang present(mesh, self) 
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int)            
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int, e_int, invRho )            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
@@ -388,7 +396,7 @@ module NoSlipWallBCClass
          !$acc end parallel loop
       end subroutine NoSlipWallBC_FlowGradVars
 
-      subroutine NoSlipWallBC_FlowNeumann(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowNeumann(self, mesh, zone)
 !
 !        ***********************************************************
 !           Cancel out the temperature flux for adiabatic BCs
@@ -396,8 +404,10 @@ module NoSlipWallBCClass
 !
          implicit none 
          class(NoSlipWallBC_t), intent(in)     :: self
-         type(HexMesh),          intent(inout) :: mesh
-         integer,                 intent(in)   :: zoneID 
+         type(HexMesh),         intent(inout)  :: mesh
+         type(Zone_t),          intent(in)     :: zone
+
+!         integer,                 intent(in)   :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -407,10 +417,10 @@ module NoSlipWallBCClass
          real(kind=RP)  :: viscWork, heatFlux, invRho, u, v, w
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !$acc parallel loop gang present(mesh, self) private(fID) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, flux)     
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q, flux, viscWork, heatFlux, invRho, u, v, w)     
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
 
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)

@@ -68,9 +68,10 @@ module StorageClass
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
       type(RKStep_t),          allocatable :: RKSteps(:)         ! Runge-Kutta stages
 #ifdef FLOW
-      real(kind=RP),           allocatable :: FluxF(:,:,:,:)       ! NSE State vector
-      real(kind=RP),           allocatable :: FluxG(:,:,:,:)         ! NSE State vector
-      real(kind=RP),           allocatable :: FluxH(:,:,:,:)         ! NSE State vector
+      real(kind=RP),           allocatable :: FluxF(:,:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: FluxG(:,:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: FluxH(:,:,:,:,:)       ! NSE State vector
+      real(kind=RP),           allocatable :: contravariantFlux(:,:,:,:,:)       ! NSE State vector
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
       real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
@@ -790,9 +791,10 @@ module StorageClass
          allocate ( self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
-         allocate ( self % FluxF (1:NCONS,0:Nx,0:Ny,0:Nz) )
-         allocate ( self % FluxG (1:NCONS,0:Nx,0:Ny,0:Nz) )
-         allocate ( self % FluxH (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxF (1:NCONS,0:Nx,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % FluxG (1:NCONS,0:Nx,0:Ny,0:Ny,0:Nz) )
+         allocate ( self % FluxH (1:NCONS,0:Nx,0:Ny,0:Nz,0:Nz) )
+         allocate ( self % contravariantFlux (1:NCONS,0:Nx,0:Ny,0:Nz,1:NDIM) ) 
 
          ! Previous solution
          if ( prevSol_num /= 0 ) then
@@ -878,6 +880,7 @@ module StorageClass
          self % FluxF    = 0.0_RP
          self % FluxG    = 0.0_RP
          self % FluxH    = 0.0_RP
+         self % contravariantFlux    = 0.0_RP
          self % rho    = 0.0_RP
 #ifndef ACOUSTIC
          self % mu_NS  = 0.0_RP
@@ -979,6 +982,7 @@ module StorageClass
          to % FluxF    = from % FluxF
          to % FluxG    = from % FluxG
          to % FluxH    = from % FluxH
+         to % contravariantFlux = from % contravariantFlux
 
          if (to % computeGradients) then
             to % U_xNS  = from % U_xNS
@@ -1075,6 +1079,7 @@ module StorageClass
          safedeallocate(self % FluxF)
          safedeallocate(self % FluxG)
          safedeallocate(self % FluxH)
+         safedeallocate(self % contravariantFlux)
 
          if ( allocated(self % PrevQ) ) then
             num_prevSol = size(self % PrevQ)

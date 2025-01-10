@@ -13,7 +13,7 @@ module DGIntegrals
    public ScalarWeakIntegrals  , VectorWeakIntegrals  , ScalarStrongIntegrals
 
    public ScalarWeakIntegrals_StdVolumeGreen, ScalarWeakIntegrals_StdFace
-   public VectorWeakIntegrals_StdFace
+   public VectorWeakIntegrals_StdFace, ScalarWeakIntegrals_SplitVolumeDivergence
 
 
    type  ScalarWeakIntegrals_t
@@ -56,77 +56,81 @@ module DGIntegrals
 !        ----------------------------------------
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ScalarWeakIntegrals_StdVolumeGreen( Nxyz, NEQ, Fx, Fy, Fz, volInt )
+      subroutine ScalarWeakIntegrals_StdVolumeGreen( Nxyz, NEQ, F, volInt )
          !$acc routine vector
          implicit none
          integer,             intent(in)  :: Nxyz(3)
          integer,             intent(in)  :: NEQ
-         real(kind=RP),       intent(in)  :: Fx     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
-         real(kind=RP),       intent(in)  :: Fy     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
-         real(kind=RP),       intent(in)  :: Fz     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
+         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3), 1:NDIM)
          real(kind=RP),    intent(inout)  :: volInt(1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer   :: i, j, k, l
+         integer   :: i, j, k, l, eq
 
-         volInt = 0.0_RP
-
-         !$acc loop vector collapse(3)
-          do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1)  
+         !$acc loop vector collapse(4)
+          do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1) ; do eq = 1, NEQ
+            volInt(eq,i,j,k) = 0.0_RP
             !$acc loop seq 
             do l = 0, Nxyz(1)
-               volInt(:,i,j,k) = volInt(:,i,j,k) +  NodalStorage(Nxyz(1)) % hatD(i,l) * Fx(:,l,j,k) &
-                                                 +  NodalStorage(Nxyz(2)) % hatD(j,l) * Fy(:,i,l,k) &
-                                                 +  NodalStorage(Nxyz(3)) % hatD(k,l) * Fz(:,i,j,l)
+               volInt(eq,i,j,k) = volInt(eq,i,j,k) +  NodalStorage(Nxyz(1)) % hatD(i,l) * F(eq,l,j,k,IX) &
+                                                   +  NodalStorage(Nxyz(2)) % hatD(j,l) * F(eq,i,l,k,IY) &
+                                                   +  NodalStorage(Nxyz(3)) % hatD(k,l) * F(eq,i,j,l,IZ)
             end do             
-         end do               ; end do             ; end do
+         end do ; end do ; end do ; end do
 
       end subroutine ScalarWeakIntegrals_StdVolumeGreen
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      function ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
+      subroutine ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv, volInt )
+         !$acc routine vector
          implicit none
-         class(Element),      intent(in)  :: e
+         type(Element),       intent(in)  :: e
          real(kind=RP),       intent(in)  :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP),       intent(in)  :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP),       intent(in)  :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP),       intent(in)  :: Fv(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)                    :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(inout) :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer     :: i, j, k, l
-
-         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
-                   spAeta  => NodalStorage(e % Nxyz(2)), &
-                   spAzeta => NodalStorage(e % Nxyz(3)) )
+         integer     :: i, j, k, l, eq
 
          volInt = 0.0_RP
 
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % sharpD(i,l) * fSharp(:,l,i,j,k) &
-                                              + spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
-         end do             ; end do               ; end do             ; end do
+         !$acc loop vector collapse(4)
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1) ; do eq = 1, NCONS
+         !$acc loop seq 
+         do l = 0, e%Nxyz(1) 
 
-         do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % sharpD(j,l) * gSharp(:,l,i,j,k) &
-                                              + spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
-         end do             ; end do               ; end do             ; end do
+            volInt(eq,i,j,k) = volInt(eq,i,j,k) + NodalStorage(e % Nxyz(1)) % sharpD(i,l) * fSharp(eq,l,i,j,k) &
+                                                + NodalStorage(e % Nxyz(1)) % hatD(i,l) * Fv(eq,l,j,k,IX)
+         end do             ; end do               ; end do             ; end do             ; end do
+         !$acc loop vector collapse(4)
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1) ; do eq = 1, NCONS
+         !$acc loop seq 
+         do l = 0, e%Nxyz(2) 
 
-         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % sharpD(k,l) * hSharp(:,l,i,j,k) &
-                                              + spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
-         end do             ; end do             ; end do               ; end do
+            volInt(eq,i,j,k) = volInt(eq,i,j,k) + NodalStorage(e % Nxyz(2)) % sharpD(j,l) * gSharp(eq,l,i,j,k) &
+                                                + NodalStorage(e % Nxyz(2)) % hatD(j,l) * Fv(eq,i,l,k,IY)
+         end do             ; end do               ; end do             ; end do             ; end do
+         !$acc loop vector collapse(4)
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1) ; do eq = 1, NCONS
+         !$acc loop seq 
+         do l = 0, e%Nxyz(3) 
 
-         end associate
-      end function ScalarWeakIntegrals_SplitVolumeDivergence
+            volInt(eq,i,j,k) = volInt(eq,i,j,k) + NodalStorage(e % Nxyz(3)) % sharpD(k,l) * hSharp(eq,l,i,j,k) &
+                                                + NodalStorage(e % Nxyz(3)) % hatD(k,l) * Fv(eq,i,j,l,IZ)
+         end do             ; end do             ; end do               ; end do             ; end do
+
+      end subroutine ScalarWeakIntegrals_SplitVolumeDivergence
+
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !
@@ -230,11 +234,10 @@ module DGIntegrals
 !
          integer            :: iXi, iEta, iZeta,eq
   
-         !$acc loop vector collapse(3)
+         !$acc loop vector collapse(4)
          do iZeta = 0, Nxyz(3) 
             do iEta = 0, Nxyz(2) 
                do iXi = 0, Nxyz(1)
-                  !$acc loop seq
                   do eq = 1, NCONS
                      intFace(eq,iXi,iEta,iZeta) = intFace(eq,iXi,iEta,iZeta) - ( &
                                                 + F_L(eq, iEta, iZeta) * NodalStorage(Nxyz(1)) % b(iXi, LEFT)    &
@@ -243,7 +246,7 @@ module DGIntegrals
                                                 + F_BK(eq, iXi, iZeta) * NodalStorage(Nxyz(2)) % b(iEta, RIGHT)  &
                                                 + F_BOT(eq, iXi, iEta) * NodalStorage(Nxyz(3)) % b(iZeta, LEFT)  &
                                                 + F_T(eq, iXi, iEta)   * NodalStorage(Nxyz(3)) % b(iZeta, RIGHT) ) 
-                     enddo
+                  enddo
                end do                 
             end do                
          end do
@@ -340,8 +343,7 @@ module DGIntegrals
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine VectorWeakIntegrals_StdFace( e, NEQ, HF, HBK, HBO, HR, HT, HL , &
-                                             faceInt_x, faceInt_y, faceInt_z )
+      subroutine VectorWeakIntegrals_StdFace( e, NEQ, HF, HBK, HBO, HR, HT, HL, faceInt_x, faceInt_y, faceInt_z)
          !$acc routine vector 
          use ElementClass
          use Physics
@@ -364,79 +366,51 @@ module DGIntegrals
 !        ---------------
 !
          integer        :: iVar, iXi, iEta, iZeta, eq
-!
-!        ----------------
-!>       Xi-contributions
-!        ----------------
-!
-         !$acc loop vector collapse(3)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               faceInt_x(eq,iXi,iEta,iZeta) =   faceInt_x(eq,iXi,iEta,iZeta) + HL(eq, IX, iEta, iZeta) * NodalStorage(e % Nxyz(1)) % b(iXi, LEFT)
-               faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) + HL(eq, IY, iEta, iZeta) * NodalStorage(e % Nxyz(1)) % b(iXi, LEFT)
-               faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) + HL(eq, IZ, iEta, iZeta) * NodalStorage(e % Nxyz(1)) % b(iXi, LEFT)
-            enddo
-         end do                 ; end do                ; end do
-         
-         !$acc loop vector collapse(3)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               faceInt_x(eq,iXi,iEta,iZeta) =   faceInt_x(eq,iXi,iEta,iZeta) + HR(eq,IX, iEta, iZeta) * NodalStorage(e % Nxyz(1)) % b(iXi, RIGHT)
-               faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) + HR(eq,IY, iEta, iZeta) * NodalStorage(e % Nxyz(1)) % b(iXi, RIGHT)
-               faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) + HR(eq,IZ, iEta, iZeta) * NodalStorage(e % Nxyz(1)) % b(iXi, RIGHT)
-            enddo
-         end do                 ; end do                ; end do
-!
-!        -----------------
-!>       Eta-contributions
-!        -----------------
-!
-         !$acc loop vector collapse(3)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               faceInt_x(eq,iXi,iEta,iZeta) =   faceInt_x(eq,iXi,iEta,iZeta) + HF(eq,IX, iXi, iZeta) * NodalStorage(e % Nxyz(2)) % b(iEta, LEFT)
-               faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) + HF(eq,IY, iXi, iZeta) * NodalStorage(e % Nxyz(2)) % b(iEta, LEFT)
-               faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) + HF(eq,IZ, iXi, iZeta) * NodalStorage(e % Nxyz(2)) % b(iEta, LEFT)
-            enddo
-         end do                 ; end do                ; end do
+         real(kind=RP)  :: b_iXi_left,   b_iXi_Right
+         real(kind=RP)  :: b_iEta_left,  b_iEta_Right
+         real(kind=RP)  :: b_iZeta_left, b_iZeta_Right
+         real(kind=RP)  :: inv_jac
 
-         !$acc loop vector collapse(3)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               faceInt_x(eq,iXi,iEta,iZeta) =   faceInt_x(eq,iXi,iEta,iZeta) + HBK(eq,IX, iXi, iZeta) * NodalStorage(e % Nxyz(2)) % b(iEta, RIGHT)
-               faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) + HBK(eq,IY, iXi, iZeta) * NodalStorage(e % Nxyz(2)) % b(iEta, RIGHT)
-               faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) + HBK(eq,IZ, iXi, iZeta) * NodalStorage(e % Nxyz(2)) % b(iEta, RIGHT)
-            enddo
-         end do                 ; end do                ; end do
-!
-!        ------------------
-!>       Zeta-contributions
-!        ------------------
-!
-         !$acc loop vector collapse(3)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               faceInt_x(eq,iXi,iEta,iZeta) =   faceInt_x(eq,iXi,iEta,iZeta) + HBO(eq, IX, iXi, iEta) * NodalStorage(e % Nxyz(3)) % b(iZeta, LEFT)
-               faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) + HBO(eq, IY, iXi, iEta) * NodalStorage(e % Nxyz(3)) % b(iZeta, LEFT)
-               faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) + HBO(eq, IZ, iXi, iEta) * NodalStorage(e % Nxyz(3)) % b(iZeta, LEFT)
-            enddo
-         end do                 ; end do                ; end do
-         
-         !$acc loop vector collapse(3)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            !$acc loop seq
-            do eq = 1, NCONS
-               faceInt_x(eq,iXi,iEta,iZeta) =   faceInt_x(eq,iXi,iEta,iZeta) + HT(eq, IX, iXi, iEta) * NodalStorage(e % Nxyz(3)) % b(iZeta, RIGHT)
-               faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) + HT(eq, IY, iXi, iEta) * NodalStorage(e % Nxyz(3)) % b(iZeta, RIGHT)
-               faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) + HT(eq, IZ, iXi, iEta) * NodalStorage(e % Nxyz(3)) % b(iZeta, RIGHT)
-            enddo
-         end do                 ; end do                ; end do
+         !$acc loop vector collapse(4)
+         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1) ; do eq = 1, NCONS           
+            
+            b_iXi_left = NodalStorage(e % Nxyz(1)) % b(iXi, LEFT)
+            b_iXi_Right = NodalStorage(e % Nxyz(1)) % b(iXi, RIGHT)
+            b_iEta_left = NodalStorage(e % Nxyz(2)) % b(iEta, LEFT)
+            b_iEta_Right = NodalStorage(e % Nxyz(2)) % b(iEta, RIGHT)
+            b_iZeta_left = NodalStorage(e % Nxyz(3)) % b(iZeta, LEFT)
+            b_iZeta_Right = NodalStorage(e % Nxyz(3)) % b(iZeta, RIGHT)
+            inv_jac = e % geom % InvJacobian(iXi,iEta,iZeta)
 
+            faceInt_x(eq,iXi,iEta,iZeta) =  faceInt_x(eq,iXi,iEta,iZeta) &
+                                             + (HL(eq, IX, iEta, iZeta)* b_iXi_left &
+                                             + HR(eq,IX, iEta, iZeta)  * b_iXi_Right &
+                                             + HF(eq,IX, iXi, iZeta)   * b_iEta_left &
+                                             + HBK(eq,IX, iXi, iZeta)  * b_iEta_Right &
+                                             + HBO(eq, IX, iXi, iEta)  * b_iZeta_left &
+                                             + HT(eq, IX, iXi, iEta)   * b_iZeta_Right) &
+                                             * inv_jac
+
+            faceInt_y(eq,iXi,iEta,iZeta) =   faceInt_y(eq,iXi,iEta,iZeta) &
+                                             + (HL(eq, IY, iEta, iZeta)* b_iXi_left &
+                                             + HR(eq,IY, iEta, iZeta)  * b_iXi_Right &
+                                             + HF(eq,IY, iXi, iZeta)   * b_iEta_left &
+                                             + HBK(eq,IY, iXi, iZeta)  * b_iEta_Right &
+                                             + HBO(eq, IY, iXi, iEta)  * b_iZeta_left &
+                                             + HT(eq, IY, iXi, iEta)   * b_iZeta_Right) &
+                                             * inv_jac
+
+            faceInt_z(eq,iXi,iEta,iZeta) =   faceInt_z(eq,iXi,iEta,iZeta) &
+                                             + (HL(eq, IZ, iEta, iZeta)* b_iXi_left &
+                                             + HR(eq,IZ, iEta, iZeta)  * b_iXi_Right &
+                                             + HF(eq,IZ, iXi, iZeta)   * b_iEta_left &
+                                             + HBK(eq,IZ, iXi, iZeta)  * b_iEta_Right &
+                                             + HBO(eq, IZ, iXi, iEta)  * b_iZeta_left &
+                                             + HT(eq, IZ, iXi, iEta)   * b_iZeta_Right) &
+                                             * inv_jac
+            
+         enddo ; end do ; end do ; end do
+!
       end subroutine VectorWeakIntegrals_StdFace
 !
 !/////////////////////////////////////////////////////////////////////////////

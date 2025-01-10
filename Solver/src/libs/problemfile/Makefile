@@ -20,6 +20,7 @@ ifeq ($(PLATFORM),MACOSX)
    DYNLIB_FLAG_CAA=-fPIC -shared -install_name @rpath/libproblemfile_caa.dylib -o ./libproblemfile_caa.dylib
    LIBSUFFIX=.dylib
 else ifeq ($(PLATFORM),LINUX)
+   #DYNLIB_FLAG_NS= -acc -shared -o ./libproblemfile_ns.so
    DYNLIB_FLAG_NS=-fPIC -shared -o ./libproblemfile_ns.so
    DYNLIB_FLAG_NSSA=-fPIC -shared -o ./libproblemfile_nssa.so
    DYNLIB_FLAG_iNS=-fPIC -shared -o ./libproblemfile_ins.so

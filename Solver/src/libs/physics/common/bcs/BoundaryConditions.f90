@@ -17,6 +17,9 @@ module BoundaryConditions
    use ZoneClass, only: GetZoneType
    use MPI_Process_Info
    use HexMeshClass
+#ifdef _HAS_MPI_
+      use mpi
+#endif
    implicit none
 
    private
@@ -113,9 +116,13 @@ module BoundaryConditions
                errorMessage(STD_OUT)
                error stop 99
             end select
+            
+         end do
 
+         !$acc enter data copyin(BCs)
+         do zID = 1, no_of_zones
+            !!$acc enter data copyin(BCs(zID) % bc)
             call BCs(zID) % bc % CreateDeviceData()
-             
          end do
 
       end subroutine ConstructBoundaryConditions

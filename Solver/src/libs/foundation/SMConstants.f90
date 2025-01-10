@@ -14,6 +14,8 @@
          REAL(KIND=RP), PARAMETER         :: PI = 3.141592653589793238462643_RP
          REAL(KIND=RP), PARAMETER         :: DEG2RAD = PI / 180.0_RP
 
+         !$acc declare copyin(RP, SP, CP, PI, DEG2RAD, DIGITS, SINGLE_DIGITS)
+
          character(len=1), parameter, private   :: SINGLE_CHARACTER = "a"
          integer      , parameter         :: SIZEOF_INT  = sizeof(integer)
          integer      , parameter         :: SIZEOF_RP   = RP

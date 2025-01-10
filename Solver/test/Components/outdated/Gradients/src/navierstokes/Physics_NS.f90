@@ -717,6 +717,7 @@
       END FUNCTION ThermalDiffusivity
 
      pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)      :: Q   (1:NCONS         )
          real(kind=RP), intent(in)      :: U_x (1:NGRAD    )
@@ -760,9 +761,6 @@
 !! Compute the temperature from the state variables
 !---------------------------------------------------------------------
 !
-
-      
-   END Module Physics_NS
 !@mark -
 !
 ! /////////////////////////////////////////////////////////////////////
@@ -774,39 +772,42 @@
 !----------------------------------------------------------------------
 !
       SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
+            !$acc routine seq
+            USE SMConstants
+            USE PhysicsStorage_NS
+            USE VariableConversion_NS, ONLY:Pressure
+            use FluidData_NS,          only: Thermodynamics
+            IMPLICIT NONE
+      !
+      !     ---------
+      !     Arguments
+      !     ---------
+      !
+            REAL(KIND=Rp), DIMENSION(NCONS) :: Q
+            REAL(KIND=Rp), DIMENSION(3)     :: eigen
+      !
+      !     ---------------
+      !     Local Variables
+      !     ---------------
+      !
+            REAL(KIND=Rp) :: u, v, w, p, a
+      !      
+            associate ( gamma => thermodynamics % gamma ) 
       
-      USE SMConstants
-      USE PhysicsStorage_NS
-      USE VariableConversion_NS, ONLY:Pressure
-      use FluidData_NS,          only: Thermodynamics
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=Rp), DIMENSION(NCONS) :: Q
-      REAL(KIND=Rp), DIMENSION(3)     :: eigen
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=Rp) :: u, v, w, p, a
-!      
-      associate ( gamma => thermodynamics % gamma ) 
+            u = ABS( Q(2)/Q(1) )
+            v = ABS( Q(3)/Q(1) )
+            w = ABS( Q(4)/Q(1) )
+            p = Pressure(Q)
+            a = SQRT(gamma*p/Q(1))
+            
+            eigen(1) = u + a
+            eigen(2) = v + a
+            eigen(3) = w + a
+      
+            end associate
+            
+            END SUBROUTINE ComputeEigenvaluesForState
+      
+   END Module Physics_NS
 
-      u = ABS( Q(2)/Q(1) )
-      v = ABS( Q(3)/Q(1) )
-      w = ABS( Q(4)/Q(1) )
-      p = Pressure(Q)
-      a = SQRT(gamma*p/Q(1))
-      
-      eigen(1) = u + a
-      eigen(2) = v + a
-      eigen(3) = w + a
-
-      end associate
-      
-      END SUBROUTINE ComputeEigenvaluesForState
 

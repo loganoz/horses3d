@@ -15,12 +15,12 @@ module HyperbolicSplitForm
    implicit none
 
    private
-   public SplitDG_t
+   public SplitDG_t, SplitDG_ComputeSplitFormFluxes
 
    type, extends(HyperbolicDiscretization_t) :: SplitDG_t
       contains
          procedure   :: Initialize             => SplitDG_Initialize
-         procedure   :: ComputeSplitFormFluxes => SplitDG_ComputeSplitFormFluxes
+         !procedure   :: ComputeSplitFormFluxes => SplitDG_ComputeSplitFormFluxes
    end type SplitDG_t
 !
 !  ========
@@ -61,11 +61,11 @@ module HyperbolicSplitForm
 
       end subroutine SplitDG_Initialize
 
-      subroutine SplitDG_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
+      subroutine SplitDG_ComputeSplitFormFluxes(e, contravariantFlux, fSharp, gSharp, hSharp)
+         !$acc routine vector
          use ElementClass
          use PhysicsStorage
          implicit none
-         class(SplitDG_t), intent(in)  :: self
          type(Element),    intent(in)  :: e
          real(kind=RP),    intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP),    intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
@@ -77,11 +77,10 @@ module HyperbolicSplitForm
 !        ---------------
 !
          integer     :: i, j, k, l
-
-         associate ( Q => e % storage % Q )
 !
 !        First, diagonal results are introduced directly (consistency property)
 !        ----------------------------------------------------------------------
+         !$acc loop vector collapse(3)
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             fSharp(:,i,i,j,k) = contravariantFlux(:,i,j,k,IX)
             gSharp(:,j,i,j,k) = contravariantFlux(:,i,j,k,IY)
@@ -90,28 +89,35 @@ module HyperbolicSplitForm
 !
 !        Then, terms out of the diagonal are computed
 !        --------------------------------------------
+         !$acc loop vector collapse(3)
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            !$acc loop seq
             do l = i+1, e%Nxyz(1)
-               call TwoPointFlux(Q(:,i,j,k), Q(:,l,j,k), e % geom % jGradXi(:,i,j,k), e % geom % jGradXi(:,l,j,k), fSharp(:,l,i,j,k))
+               call TwoPointFlux_Selector(e % storage % Q(:,i,j,k), e % storage % Q(:,l,j,k), e % geom % jGradXi(:,i,j,k), &
+                                          e % geom % jGradXi(:,l,j,k), fSharp(:,l,i,j,k))
                fSharp(:,i,l,j,k) = fSharp(:,l,i,j,k)
             end do
          end do               ; end do             ; end do
-
+         
+         !$acc loop vector collapse(3)
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            !$acc loop seq
             do l = j+1, e%Nxyz(2)
-               call TwoPointFlux(Q(:,i,j,k), Q(:,i,l,k), e % geom % jGradEta(:,i,j,k), e % geom % jGradEta(:,i,l,k), gSharp(:,l,i,j,k))
+               call TwoPointFlux_Selector(e % storage % Q(:,i,j,k), e % storage % Q(:,i,l,k), e % geom % jGradEta(:,i,j,k), &
+                                          e % geom % jGradEta(:,i,l,k), gSharp(:,l,i,j,k))
                gSharp(:,j,i,l,k) = gSharp(:,l,i,j,k)
             end do
          end do               ; end do             ; end do
-
+         
+         !$acc loop vector collapse(3)
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            !$acc loop seq
             do l = k+1, e%Nxyz(3)
-               call TwoPointFlux(Q(:,i,j,k), Q(:,i,j,l), e % geom % jGradZeta(:,i,j,k), e % geom % jGradZeta(:,i,j,l), hSharp(:,l,i,j,k))
+               call TwoPointFlux_Selector(e % storage % Q(:,i,j,k), e % storage % Q(:,i,j,l), e % geom % jGradZeta(:,i,j,k), &
+                                          e % geom % jGradZeta(:,i,j,l), hSharp(:,l,i,j,k))
                hSharp(:,k,i,j,l) = hSharp(:,l,i,j,k)
             end do
          end do               ; end do             ; end do
-
-         end associate
 
       end subroutine SplitDG_ComputeSplitFormFluxes
 end module HyperbolicSplitForm

@@ -99,6 +99,7 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
+!$acc parallel loop gang reduction(+:val) present(mesh)
 !$omp do private(fID) reduction(+:val) schedule(runtime)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
 !
@@ -113,6 +114,7 @@ module SurfaceIntegrals
          end do
 !$omp end do
 !$omp end parallel
+!$acc end parallel loop
 
 #ifdef _HAS_MPI_
          localval = val
@@ -122,6 +124,7 @@ module SurfaceIntegrals
       end function ScalarSurfaceIntegral
 
       function ScalarSurfaceIntegral_Face(f, integralType) result(val)
+         !$acc routine vector
          implicit none
          class(Face),                 intent(in)     :: f
          integer,                     intent(in)     :: integralType
@@ -133,17 +136,13 @@ module SurfaceIntegrals
 !
          integer                       :: i, j      ! Face indices
          real(kind=RP)                 :: p
-         type(NodalStorage_t), pointer :: spAxi, spAeta
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
-         spAxi  => NodalStorage(f % Nf(1))
-         spAeta => NodalStorage(f % Nf(2))
 !
 !        Perform the numerical integration
 !        ---------------------------------
-         associate( Q => f % storage(1) % Q )
          select case ( integralType )
          case ( SURFACE )
 !
@@ -152,8 +151,11 @@ module SurfaceIntegrals
 !              val = \int dS
 !           **********************************
 !
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+               val = val + NodalStorage(f % Nf(1)) % w(i) &
+                         * NodalStorage(f % Nf(2)) % w(j) & 
+                         * f % geom % jacobian(i,j)
             end do          ;    end do
 
          case ( MASS_FLOW )
@@ -164,26 +166,32 @@ module SurfaceIntegrals
 !           ***********************************
 !
 #if defined(NAVIERSTOKES)
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               val = val +  (Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
-                          + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
-                          + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                       * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+               val = val   +(f % storage(1) % Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
+                           + f % storage(1) % Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
+                           + f % storage(1) % Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                           * NodalStorage(f % Nf(1)) % w(i) &
+                           * NodalStorage(f % Nf(2)) % w(j) &
+                           * f % geom % jacobian(i,j)
 
             end do          ;    end do
 #endif
 #if defined(INCNS)
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               val = val +  (Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
-                          + Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
-                          + Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                       * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+               val = val   +(f % storage(1) % Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
+                           + f % storage(1) % Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
+                           + f % storage(1) % Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                           * NodalStorage(f % Nf(1)) % w(i) &
+                           * NodalStorage(f % Nf(2)) % w(j) &
+                           * f % geom % jacobian(i,j)
 
             end do          ;    end do
 #endif
@@ -195,25 +203,31 @@ module SurfaceIntegrals
 !           ***********************************
 !
 #if defined(NAVIERSTOKES)
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               val = val + (1.0_RP / Q(IRHO,i,j))*(Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
-                                             + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
-                                             + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+               val = val + (1.0_RP / f % storage(1) % Q(IRHO,i,j))*(f % storage(1) % Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
+                                          + f % storage(1) % Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
+                                          + f % storage(1) % Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                                          * NodalStorage(f % Nf(1)) % w(i) &
+                                          * NodalStorage(f % Nf(2)) % w(j) &
+                                          * f % geom % jacobian(i,j)
             end do          ;    end do
 #endif
 #if defined(INCNS)
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               val = val + (1.0_RP / Q(INSRHO,i,j))*(Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
-                                             + Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
-                                             + Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+               val = val + (1.0_RP / f % storage(1) % Q(INSRHO,i,j))*(f % storage(1) % Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
+                                             + f % storage(1) % Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
+                                             + f % storage(1) % Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                                             * NodalStorage(f % Nf(1)) % w(i) &
+                                             * NodalStorage(f % Nf(2)) % w(j) &
+                                             * f % geom % jacobian(i,j)
             end do          ;    end do
 #endif
          case ( PRESSURE_FORCE )
@@ -223,20 +237,21 @@ module SurfaceIntegrals
 !              val = \int pdS
 !           ***********************************
 !
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               p = Pressure(Q(:,i,j))
-               val = val + p * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+               p = Pressure(f % storage(1) % Q(:,i,j))
+               val = val + p * NodalStorage(f % Nf(1)) % w(i) &
+                             * NodalStorage(f % Nf(2)) % w(j) &
+                             * f % geom % jacobian(i,j)
             end do          ;    end do
 
 
          case ( USER_DEFINED )   ! TODO
          end select
-         end associate
 
-         nullify (spAxi, spAeta)
       end function ScalarSurfaceIntegral_Face
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -266,7 +281,6 @@ module SurfaceIntegrals
          integer,             intent(in)    :: integralType, iter
          real(kind=RP)                      :: val(NDIM)
          real(kind=RP)                      :: localVal(NDIM)
-         real(kind=RP)                      :: valx, valy, valz
 !
 !        ---------------
 !        Local variables
@@ -278,17 +292,13 @@ module SurfaceIntegrals
 !        Initialization
 !        --------------
          val = 0.0_RP
-         valx = 0.0_RP
-         valy = 0.0_RP
-         valz = 0.0_RP
 !
 !        *************************
 !        Perform the interpolation
 !        *************************
 !
          elements => mesh % elements
-!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
-!$omp&                                        valx,valy,valz,computeGradients)
+!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,computeGradients)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
@@ -317,7 +327,8 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp do private(fID,localVal) reduction(+:valx,valy,valz) schedule(runtime)
+!$acc parallel loop gang reduction(+:val) present(mesh) private(localVal)
+!$omp do private(fID,localVal) reduction(+:val) schedule(runtime)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
 !
 !           Face global ID
@@ -327,15 +338,13 @@ module SurfaceIntegrals
 !           Compute the integral
 !           --------------------
             localVal = VectorSurfaceIntegral_Face(mesh % faces(fID), integralType)
-            valx = valx + localVal(1)
-            valy = valy + localVal(2)
-            valz = valz + localVal(3)
+            val(1) = val(1) + localVal(1)
+            val(2) = val(2) + localVal(2)
+            val(3) = val(3) + localVal(3)
 
          end do
 !$omp end do
 !$omp end parallel
-
-         val = (/valx, valy, valz/)
 
 #ifdef _HAS_MPI_
          localVal = val
@@ -345,6 +354,7 @@ module SurfaceIntegrals
       end function VectorSurfaceIntegral
 
       function VectorSurfaceIntegral_Face(f, integralType) result(val)
+         !$acc routine vector
          implicit none
          class(Face),                 intent(in)     :: f
          integer,                     intent(in)     :: integralType
@@ -356,20 +366,13 @@ module SurfaceIntegrals
 !
          integer                       :: i, j      ! Face indices
          real(kind=RP)                 :: p, tau(NDIM,NDIM)
-         type(NodalStorage_t), pointer :: spAxi, spAeta
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
-         spAxi  => NodalStorage(f % Nf(1))
-         spAeta => NodalStorage(f % Nf(2))
 !
 !        Perform the numerical integration
 !        ---------------------------------
-         associate( Q => f % storage(1) % Q, &
-                  U_x => f % storage(1) % U_x, &
-                  U_y => f % storage(1) % U_y, &
-                  U_z => f % storage(1) % U_z   )
          select case ( integralType )
          case ( SURFACE )
 !
@@ -378,9 +381,10 @@ module SurfaceIntegrals
 !              val = \int \vec{n} dS
 !           **********************************
 !
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) &
-                         * f % geom % normal(:,i,j)
+               val = val + NodalStorage(f % Nf(1)) % w(i) * NodalStorage(f % Nf(2)) % w(j) &
+                         * f % geom % jacobian(i,j) * f % geom % normal(:,i,j)
             end do          ;    end do
 
          case ( TOTAL_FORCE )
@@ -390,15 +394,18 @@ module SurfaceIntegrals
 !              F = \int p \vec{n}ds - \int tau'·\vec{n}ds
 !           ************************************************
 !
+            !$acc loop vector collapse(2) reduction(+:val) private(tau)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               p = Pressure(Q(:,i,j))
-               call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
+               p = Pressure(f % storage(1) % Q(:,i,j))
+               call getStressTensor(f % storage(1) % Q(:,i,j),  f % storage(1) % U_x(:,i,j),&
+                                    f % storage(1) % U_y(:,i,j),f % storage(1) % U_z(:,i,j), tau)
 
                val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
-                           * f % geom % jacobian(i,j) * spAxi % w(i) * spAeta % w(j)
+                           * f % geom % jacobian(i,j) &
+                           * NodalStorage(f % Nf(1)) % w(i) * NodalStorage(f % Nf(2)) % w(j)
 
             end do          ;    end do
 
@@ -408,15 +415,17 @@ module SurfaceIntegrals
 !           Computes the pressure forces experienced by the zone
 !              F = \int p \vec{n}ds
 !           ****************************************************
-!
+!           
+            !$acc loop vector collapse(2) reduction(+:val)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               p = Pressure(Q(:,i,j))
+               p = Pressure(f % storage(1) % Q(:,i,j))
 
                val = val + ( p * f % geom % normal(:,i,j) ) * f % geom % jacobian(i,j) &
-                         * spAxi % w(i) * spAeta % w(j)
+                         * NodalStorage(f % Nf(1)) % w(i) &
+                         * NodalStorage(f % Nf(2)) % w(j)
 
             end do          ;    end do
 
@@ -427,21 +436,23 @@ module SurfaceIntegrals
 !              F =  - \int tau'·\vec{n}ds
 !           ************************************************
 !
+            !$acc loop vector collapse(2) reduction(+:val) private(tau)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
+               call getStressTensor(f % storage(1) % Q(:,i,j),  f % storage(1) % U_x(:,i,j),&
+                                    f % storage(1) % U_y(:,i,j),f % storage(1) % U_z(:,i,j), tau)
+               
                val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % jacobian(i,j) &
-                           * spAxi % w(i) * spAeta % w(j)
+                           * NodalStorage(f % Nf(1)) % w(i) &
+                           * NodalStorage(f % Nf(2)) % w(j)
 
             end do          ;    end do
 
          case ( USER_DEFINED )   ! TODO
 
          end select
-         end associate
-         nullify (spAxi, spAeta)
       end function VectorSurfaceIntegral_Face
 
 !

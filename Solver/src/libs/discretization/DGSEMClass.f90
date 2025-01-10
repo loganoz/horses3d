@@ -525,12 +525,28 @@ Module DGSEMClass
             loadFromNSSA = controlVariables % logicalValueForKey("ns from nssa")
             if (loadFromNSSA .and. MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "NS restarting from RANS"
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
+!
+!           ----------------------------
+!           Transfer the data to the GPU
+!           ----------------------------
+!
+#ifdef _OPENACC
+            call self % mesh % CreateDeviceData()
+#endif
          ELSE
 
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
 
             initial_time = 0.0_RP
             initial_iteration = 0
+!
+!           ----------------------------
+!           Transfer the data to the GPU
+!           ----------------------------
+!
+#ifdef _OPENACC
+            call self % mesh % CreateDeviceData()
+#endif
 !
 !           Save the initial condition
 !           --------------------------
@@ -600,6 +616,7 @@ Module DGSEMClass
       REAL(KIND=RP) :: localMaxResidual(NCONS)
       real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
       real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
+      INTEGER       :: N(3), i, j, k
 
       maxResidual = 0.0_RP
       R1 = 0.0_RP
@@ -610,32 +627,40 @@ Module DGSEMClass
       R6 = 0.0_RP
       c    = 0.0_RP
 
-      DO id = 1, SIZE(mesh % elements)
-         !$acc update self(mesh % elements(id) % storage % QDot)
-      ENDDO
-      !$acc wait
-
+!$acc parallel loop gang present(mesh) reduction(max:R1,R2,R3,R4,R5) copyout(R1,R2,R3,R4,R5) 
 !$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
+!$omp do reduction(max:R1,R2,R3,R4,R5,R6,c) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
+         N = mesh % elements(id) % Nxyz
+         
+         localR1 = 0.0_RP
+         localR2 = 0.0_RP
+         localR3 = 0.0_RP
+         localR4 = 0.0_RP
+         localR5 = 0.0_RP
+         localR6 = 0.0_RP
+
+         !$acc loop vector collapse(3) reduction(max:localR1,localR2,localR3,localR4,localR5)
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 #if defined FLOW && !(SPALARTALMARAS)
-         localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
-         localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
-         localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
-         localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
-         localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
+            localR1 = max(localR1, abs(mesh % elements(id) % storage % QDot(1,i,j,k)))
+            localR2 = max(localR2, abs(mesh % elements(id) % storage % QDot(2,i,j,k)))
+            localR3 = max(localR3, abs(mesh % elements(id) % storage % QDot(3,i,j,k)))
+            localR4 = max(localR4, abs(mesh % elements(id) % storage % QDot(4,i,j,k)))
+            localR5 = max(localR5, abs(mesh % elements(id) % storage % QDot(5,i,j,k)))
 #else
-         localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
-         localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
-         localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
-         localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
-         localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
-         localR6 = maxval(abs(mesh % elements(id) % storage % QDot(6,:,:,:)))
+            localR1 = max(localR1, abs(mesh % elements(id) % storage % QDot(1,i,j,k)))
+            localR2 = max(localR2, abs(mesh % elements(id) % storage % QDot(2,i,j,k)))
+            localR3 = max(localR3, abs(mesh % elements(id) % storage % QDot(3,i,j,k)))
+            localR4 = max(localR4, abs(mesh % elements(id) % storage % QDot(4,i,j,k)))
+            localR5 = max(localR5, abs(mesh % elements(id) % storage % QDot(5,i,j,k)))
+            localR6 = max(localR6, abs(mesh % elements(id) % storage % QDot(6,i,j,k)))
 #endif
 
 #ifdef CAHNHILLIARD
-         localc    = maxval(abs(mesh % elements(id) % storage % cDot(:,:,:,:)))
+            localc    = maxval(localc, abs(mesh % elements(id) % storage % cDot(:,i,j,k)))
 #endif
+         end do ; end do ; end do
 
 #if defined FLOW && !(SPALARTALMARAS)
          R1 = max(R1,localR1)
@@ -658,9 +683,8 @@ Module DGSEMClass
       END DO
 !$omp end do
 !$omp end parallel
-
-      print*, "The ELEMENT WITH MAX RES IS", R1, R2, R3, R4, R5, R6
-
+!$acc end parallel loop
+      
 #if defined FLOW && (!(SPALARTALMARAS))
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
 #elif defined(SPALARTALMARAS)
@@ -719,7 +743,7 @@ Module DGSEMClass
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
-      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
+!      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
 #if defined(INCNS) || defined(MULTIPHASE)
       logical :: flowIsNavierStokes = .true.
 #endif
@@ -734,16 +758,14 @@ Module DGSEMClass
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
+!$acc parallel loop gang present(self, cfl, dcfl) reduction(min:TimeStep_Conv,TimeStep_Visc) copyout(TimeStep_Conv, TimeStep_Visc)
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements)
          N = self % mesh % elements(eID) % Nxyz
-         spAxi_p => NodalStorage(N(1))
-         spAeta_p => NodalStorage(N(2))
-         spAzeta_p => NodalStorage(N(3))
 
          if ( N(1) .ne. 0 ) then
-            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )
+            dcsi = 1.0_RP / abs(  NodalStorage(N(1)) % x(1) -  NodalStorage(N(1)) % x (0) )
 
          else
             dcsi = 0.0_RP
@@ -751,7 +773,7 @@ Module DGSEMClass
          end if
 
          if ( N(2) .ne. 0 ) then
-            deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
+            deta = 1.0_RP / abs( NodalStorage(N(2)) % x(1) - NodalStorage(N(2)) % x (0) )
 
          else
             deta = 0.0_RP
@@ -759,7 +781,7 @@ Module DGSEMClass
          end if
 
          if ( N(3) .ne. 0 ) then
-            dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
+            dzet = 1.0_RP / abs(  NodalStorage(N(3)) % x(1) -  NodalStorage(N(3)) % x (0) )
 
          else
             dzet = 0.0_RP
@@ -771,7 +793,7 @@ Module DGSEMClass
             deta2 = deta*deta
             dzet2 = dzet*dzet
          end if
-
+         !$acc loop vector collapse(3) private(eValues, Q)
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 !
 !           ------------------------------------------------------------
@@ -836,6 +858,7 @@ Module DGSEMClass
       end do
 !$omp end do
 !$omp end parallel
+!$acc end parallel loop
 
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then

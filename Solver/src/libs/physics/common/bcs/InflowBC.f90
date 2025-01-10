@@ -10,6 +10,7 @@ module InflowBCClass
    use GenericBoundaryConditionClass
    use FluidData
    use HexMeshClass
+   use ZoneClass
    implicit none
 !
 !  *****************************
@@ -76,6 +77,7 @@ module InflowBCClass
          procedure         :: FlowState         => InflowBC_FlowState
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
          procedure         :: CreateDeviceData  => InflowBC_CreateDeviceData
+         procedure         :: ExitDeviceData    => InflowBC_ExitDeviceData
 #endif
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => InflowBC_PhaseFieldState
@@ -368,21 +370,24 @@ module InflowBCClass
          class(InflowBC_t), intent(in)    :: self
 
          !$acc enter data copyin(self)
-         !$acc enter data copyin(self % AoAPhi)
-         !$acc enter data copyin(self % AoATheta)
-         !$acc enter data copyin(self % v)
-         !$acc enter data copyin(self % rho)
-         !$acc enter data copyin(self % p)
-         !$acc enter data copyin(self % TurbIntensity)
-         !$acc enter data copyin(self % eddy_theta)
 
       end subroutine InflowBC_CreateDeviceData
 
-      subroutine InflowBC_FlowState(self, mesh, zoneID)
+      subroutine InflowBC_ExitDeviceData(self)
+         implicit none 
+         class(InflowBC_t), intent(in)    :: self
+
+         !$acc exit data delete(self)
+
+      end subroutine InflowBC_ExitDeviceData
+
+      subroutine InflowBC_FlowState(self, mesh, zone)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
          type(HexMesh),       intent(inout)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         type(Zone_t), intent(in)               :: zone
+
+!         integer,             intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -394,9 +399,9 @@ module InflowBCClass
          integer       :: fID
          integer       :: zonefID
       
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces) private(fID) async(zoneID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID =  mesh % zones(zoneID) % faces(zonefID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q,qq,u,v,w)  
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
 
@@ -423,11 +428,13 @@ module InflowBCClass
 
       end subroutine InflowBC_FlowState
 
-      subroutine InflowBC_FlowNeumann(self, mesh, zoneID)
+      subroutine InflowBC_FlowNeumann(self, mesh, zone)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
-         type(HexMesh),       intent(inout)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         type(HexMesh),       intent(inout) :: mesh
+         type(Zone_t),        intent(in)    :: zone
+
+!         integer,             intent(in)    :: zoneID 
 !
 !        *******************************************
 !        Cancel out the viscous flux at the inlet
@@ -438,9 +445,9 @@ module InflowBCClass
          integer       :: fID
          integer       :: zonefID
          
-         !$acc parallel loop gang present(mesh, mesh % faces, mesh % zones, mesh % zones % faces, self) async(zoneID) private(fID)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID =  mesh % zones(zoneID) % faces(zonefID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(flux)  
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP

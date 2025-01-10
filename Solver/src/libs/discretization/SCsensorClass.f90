@@ -957,7 +957,7 @@ module SCsensorClass
          end if
 
          call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, F)
-         call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
+         !call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
 
          aliasing = 0.0_RP
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)

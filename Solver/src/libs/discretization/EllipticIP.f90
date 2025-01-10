@@ -39,6 +39,7 @@ module EllipticIP
          procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #endif
          procedure      :: Describe                => IP_Describe
+         procedure      :: CreateDeviceData        => IP_CreateDeviceData
    end type InteriorPenalty_t
 
    abstract interface
@@ -186,6 +187,14 @@ module EllipticIP
             
       end subroutine IP_Describe
 
+      subroutine IP_CreateDeviceData(self)
+         implicit none
+         class(InteriorPenalty_t), intent(in)  :: self
+
+         !$acc enter data copyin(self)
+
+      end subroutine IP_CreateDeviceData
+
       subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
          use HexMeshClass
          use PhysicsStorage
@@ -238,24 +247,9 @@ module EllipticIP
             end do
 !$omp end do   
          else
-!$omp do schedule(runtime)
-            do eID = 1, size(mesh % elements)
-               associate( e => mesh % elements(eID) )
-               !call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
-   !
-   !           Prolong to faces
-   !           ----------------
-               fIDs = e % faceIDs
-               !call e % ProlongGradientsToFaces(nGradEqn, &
-               !                                 mesh % faces(fIDs(1)),&
-               !                                 mesh % faces(fIDs(2)),&
-               !                                 mesh % faces(fIDs(3)),&
-               !                                 mesh % faces(fIDs(4)),&
-               !                                 mesh % faces(fIDs(5)),&
-               !                                 mesh % faces(fIDs(6)) )
-               end associate 
-            end do
-!$omp end do 
+
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_mpi), mesh % elements_mpi, NGRAD)
          end if
 !
 !        **********************************************
@@ -266,15 +260,17 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesInterior)
                fID = mesh % HO_FacesInterior(iFace)
-               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn)
             end do
 !$omp end do 
          else
 !$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
             do iFace = 1, size(mesh % faces_interior)
                fID = mesh % faces_interior(iFace)
-               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn)
             end do
+!$acc end parallel loop
 !$omp end do 
          end if
 
@@ -282,15 +278,17 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesBoundary)
                fID = mesh % HO_FacesBoundary(iFace)
-               call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+               call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time)
             end do
 !$omp end do 
          else
 !$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
             do iFace = 1, size(mesh % faces_boundary)
                fID = mesh % faces_boundary(iFace)
-               call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+               call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time)
             end do
+!$acc end parallel loop
 !$omp end do 
          end if
 !
@@ -307,10 +305,12 @@ module EllipticIP
 !$omp end do
          else
 !$omp do schedule(runtime) private(eID) 
+!$acc parallel loop gang present(mesh, self) copyin(self)
             do iEl = 1, size(mesh % elements_sequential)
                eID = mesh % elements_sequential(iEl)
                call IP_ComputeGradientFaceIntegrals(self,nGradEqn, mesh % elements(eID), mesh)
             end do
+!$acc end parallel loop
 !$omp end do
          end if
 !
@@ -330,10 +330,12 @@ module EllipticIP
 !        *******************************
 !
 !$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
-            call IP_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            call IP_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn)
          end do
+!$acc end parallel loop
 !$omp end do 
 !
 !        **************************************************
@@ -349,10 +351,12 @@ module EllipticIP
 !$omp end do
          else
 !$omp do schedule(runtime) private(eID)
+!$acc parallel loop gang present(mesh, self) copyin(self)
             do iEl = 1, size(mesh % elements_mpi)
                eID = mesh % elements_mpi(iEl)
                call IP_ComputeGradientFaceIntegrals(self,nGradEqn, mesh % elements(eID), mesh)
             end do
+!$acc end parallel loop
 !$omp end do
          end if
 #endif
@@ -362,13 +366,14 @@ module EllipticIP
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine IP_ComputeGradientFaceIntegrals(self,nGradEqn, e, mesh)
+         !$acc routine vector
          use ElementClass
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use DGIntegrals
          implicit none
-         type(InteriorPenalty_t),         intent(in) :: self
+         type(InteriorPenalty_t),    intent(in) :: self
          integer,                    intent(in) :: nGradEqn
          class(Element)                         :: e
          class(HexMesh)                         :: mesh
@@ -377,35 +382,44 @@ module EllipticIP
 !        Local variables
 !        ---------------
 !
-         integer              :: i, j, k
+         integer              :: i, j, k, eq
          real(kind=RP)        :: invjac
          real(kind=RP)        :: faceInt_x(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP)        :: faceInt_y(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP)        :: faceInt_z(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e, nGradEqn, &
+         faceInt_x = 0.0_RP
+         faceInt_y = 0.0_RP
+         faceInt_z = 0.0_RP
+
+         call VectorWeakIntegrals_StdFace(e, nGradEqn, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
                mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % unStar, &
                mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % unStar, &
                mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % unStar, &
-               faceInt_x, faceInt_y, faceInt_z )
+               e % storage % U_x, e % storage % U_y, e % storage % U_z )
 !
 !        Add the integrals weighted with the Jacobian
 !        --------------------------------------------
-         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-            invjac = self % IPmethod * e % geom % invJacobian(i,j,k)
-            e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) + faceInt_x(:,i,j,k) * invjac
-            e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) + faceInt_y(:,i,j,k) * invjac
-            e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) + faceInt_z(:,i,j,k) * invjac
-         end do                  ; end do                   ; end do
+         !!$acc loop vector collapse(3)
+         !do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+         !   invjac = self % IPmethod * e % geom % invJacobian(i,j,k)
+         !   !$acc loop seq
+         !   do eq = 1, NCONS
+         !      e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) + faceInt_x(:,i,j,k) * invjac
+         !      e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) + faceInt_y(:,i,j,k) * invjac
+         !      e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) + faceInt_z(:,i,j,k) * invjac
+         !   end do
+         !end do                  ; end do                   ; end do
 !
       end subroutine IP_ComputeGradientFaceIntegrals
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
+      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn)
+         !$acc routine vector
          use Physics  
          use ElementClass
          use FaceClass
@@ -417,7 +431,6 @@ module EllipticIP
 !
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
-         procedure(GetGradientValues_f)   :: GetGradients
 !
 !        ---------------
 !        Local variables
@@ -425,17 +438,16 @@ module EllipticIP
 !
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
-         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-
          integer       :: i,j
-         
+
+         !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 #else
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 #endif
 
 #ifdef MULTIPHASE
@@ -447,16 +459,18 @@ module EllipticIP
 
 
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
-            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
-            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
-            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+            f % storage(1) % unStar(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
+            f % storage(1) % unStar(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
+            f % storage(1) % unStar(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         !call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
-         
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 1,1)
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, 2,1)
+
       end subroutine IP_GradientInterfaceSolution   
 
-      subroutine IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
+      subroutine IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn)
+         !$acc routine vector
          use Physics  
          use ElementClass
          use FaceClass
@@ -468,7 +482,6 @@ module EllipticIP
 !
          type(Face)                       :: f
          integer,    intent(in)           :: nEqn, nGradEqn
-         procedure(GetGradientValues_f)   :: GetGradients
 !
 !        ---------------
 !        Local variables
@@ -476,16 +489,16 @@ module EllipticIP
 !
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
-         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-         integer       :: i,j, thisSide
-         
+         integer       :: i,j,maxId,Sidearray
+
+         !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 #else
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 #endif
 
 #ifdef MULTIPHASE
@@ -495,19 +508,27 @@ module EllipticIP
             UR(IGMU) = f % storage(2) % mu(1,i,j)
 #endif
 
-   
-            Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
-            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
-            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
-            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
-         end do               ; end do
 
-         thisSide = maxloc(f % elementIDs, dim = 1)
-         !call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
+            Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
+            f % storage(1) % unStar(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
+            f % storage(1) % unStar(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
+            f % storage(1) % unStar(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+         end do ; end do
+
+         !Code to replace maxloc that is not supported 
+         maxId=MAXVAL(f % elementIDs)
+         do i=1,SIZE(f % elementIDs)
+             if(f % elementIDs(i)==maxId)THEN
+               Sidearray=i
+                 exit
+             endif
+         end do
+         call Face_ProjectGradientFluxToElements(f, nGradEqn, f % storage(1) % unStar, Sidearray,1)
          
       end subroutine IP_GradientInterfaceSolutionMPI   
 
-      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
+      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time)
+         !$acc routine vector
          use Physics
          use FaceClass
          implicit none
@@ -529,14 +550,8 @@ module EllipticIP
          if ( trim(BCs(f % zone) % bc % BCType) /= "freeslipwall" ) then
 #endif
 
+         !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-
-            bvExt =  f % storage(1) % Q(:,i,j)
-   
-            call BCs(f % zone) % bc % StateForEqn( nEqn, f % geom % x(:,i,j), &
-                                time               , &
-                                f % geom % normal(:,i,j)      , &
-                                bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages
@@ -546,8 +561,8 @@ module EllipticIP
             call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j))
 #else
-            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
-            call GetGradients(nEqn, nGradEqn, bvExt, UR)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 #endif
 
 #ifdef MULTIPHASE

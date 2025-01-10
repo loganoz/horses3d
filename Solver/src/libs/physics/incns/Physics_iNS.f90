@@ -199,7 +199,6 @@
 !----------------------------------------------------------------------
 !
       SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
-      
       USE SMConstants
       USE PhysicsStorage_iNS
       use FluidData_iNS,          only: Thermodynamics
