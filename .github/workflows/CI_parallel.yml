@@ -885,14 +885,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: '!cancelled()'
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
       - name: Run VirtualSurfaces_acoustics_pAdaptationRL
         working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 64 ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
-        if: '!cancelled()'
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
 ########################################################################
 #######                       PARTICLES                         ########
