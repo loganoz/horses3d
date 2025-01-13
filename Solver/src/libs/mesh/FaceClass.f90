@@ -875,33 +875,31 @@
       do side = 1, 2
          select case ( whichElements(side) )
          case (1)    ! Prolong from left element
-            associate(unStar => self % storage(1) % unStar)
             select case ( self % projectionType(1) )
             case (0)
-               unStar(:,:,:,:) = Hflux
+               self % storage(1) % unStar(:,:,:,:) = Hflux
             case (1)
-               unStar(:,:,:,:) = 0.0
+               self % storage(1) % unStar(:,:,:,:) = 0.0
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  unStar(:,:,i,j) = unStar(:,:,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * Hflux(:,:,l,j)
+                  self % storage(1) % unStar(:,:,i,j) = self % storage(1) % unStar(:,:,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * Hflux(:,:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               unStar(:,:,:,:) = 0.0
+               self % storage(1) % unStar(:,:,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  unStar(:,:,i,j) = unStar(:,:,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * Hflux(:,:,i,l)
+                  self % storage(1) % unStar(:,:,i,j) = self % storage(1) % unStar(:,:,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * Hflux(:,:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               unStar(:,:,:,:) = 0.0
+               self % storage(1) % unStar(:,:,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     unStar(:,:,i,j) = unStar(:,:,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
+                     self % storage(1) % unStar(:,:,i,j) = self % storage(1) % unStar(:,:,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
                                                              * Hflux(:,:,m,l)
                   end do                 ; end do
                end do                  ; end do
             end select
-            end associate
 
          case (2)    ! Prolong from right element
 !      
@@ -939,19 +937,17 @@
 !           2nd stage: Rotation
 !           *********
 !      
-            associate(unStar => self % storage(2) % unStar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               unStar(:,:,ii,jj) = HstarAux(:,:,i,j) 
+               self % storage(2) % unStar(:,:,ii,jj) = HstarAux(:,:,i,j) 
             end do                        ; end do
 !
 !           *********
 !           3rd stage: Multiplication by a factor (inversion usually)
 !           *********
 !
-            unStar = factor * unStar
+            self % storage(2) % unStar = factor * self % storage(2) % unStar
 
-            end associate
          end select
       end do
 
