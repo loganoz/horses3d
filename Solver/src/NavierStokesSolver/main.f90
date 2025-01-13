@@ -135,19 +135,12 @@
 !     Integrate in time
 !     -----------------
 !
-      call Stopwatch % CreateNewEvent("solvingtime")
-      call Stopwatch % Start("solvingtime")
-
 #ifdef _OPENACC
       call cudaProfilerStart() !Set up the profiling here to avoid memory transfers
 #endif
 
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-      call Stopwatch % Pause("solvingtime")
-!      
-      t_elaps = Stopwatch % ElapsedTime("solvingtime")
-
-      write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->", "Simulation time GPU: ",t_elaps," seconds."
+!
 !     ------------------------------------------
 !     Finish measuring the total simulation time
 !     ------------------------------------------

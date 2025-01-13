@@ -465,9 +465,6 @@ module SpatialDiscretization
                call TimeDerivative_VolumetricContribution_Split(mesh)
          end select
 
-         ! For the random noise addition
-         !call rndnum_openacc_Addnoise(rndGeneratorOpenacc, mesh)
-
 #if defined(_HAS_MPI_)
 !$omp single
          if (ShockCapturingDriver % isActive) then
@@ -574,8 +571,6 @@ module SpatialDiscretization
          end if
          
 #endif
-            !$acc wait
-
 !
 !        *****************************************************************************************************************************
 !        Compute contributions to source term
@@ -655,18 +650,15 @@ module SpatialDiscretization
 !        ***********************
 !        Now add the source term
 !        ***********************
-         !$acc parallel loop gang present(mesh, mesh % elements)
 !$omp do schedule(runtime) private(i,j,k)
-         do eID = 1 , size(mesh % elements)
-         !$acc loop vector collapse(3)
-            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
-         !$acc loop seq
-                do eq = 1, NCONS
-                    mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) + mesh % elements(eID) % storage % S_NS(eq,i,j,k)
-                end do
-            end do                  ; end do                ; end do
+!$acc parallel loop gang vector_length(128) present(mesh) async(1)
+         do eID = 1, mesh % no_of_elements
+            !$acc loop vector collapse(4)
+            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1) ; do eq = 1, NCONS
+               mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) + mesh % elements(eID) % storage % S_NS(eq,i,j,k)
+            end do   ;  end do   ;  end do   ;  end do
          end do
-         !$acc end parallel loop 
+!$acc end parallel loop
 !$omp end do
 !
 !        *********************
@@ -712,6 +704,8 @@ module SpatialDiscretization
                end if 
             end if 
          end if
+
+         !$acc wait
 
       end subroutine TimeDerivative_ComputeQDot
 
@@ -1301,7 +1295,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer            :: i, j, k, l, eID
+         integer            :: i, j, k, l, eq, eID
          real(kind=RP)      :: mu, kappa, beta
 
          real(kind=RP) :: inviscidFlux(1:NCONS, 1:NDIM)
@@ -1328,24 +1322,26 @@ module SpatialDiscretization
 
                call ViscousFlux_STATE( NCONS, NGRAD, mesh % elements(eID) % storage % Q(:,i,j,k) , mesh % elements(eID) % storage % U_x(:,i,j,k) , & 
                                        mesh % elements(eID) % storage % U_y(:,i,j,k) , mesh % elements(eID) % storage % U_z(:,i,j,k), mu, beta, kappa, viscousFlux)
-                  
-               inviscidFlux = inviscidFlux - viscousFlux
-                  
-               mesh % elements(eID) % storage % contravariantFlux(:,i,j,k,IX)  = &
-                                                           inviscidFlux(:,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
-                                                         + inviscidFlux(:,IY) * mesh % elements(eID) % geom % jGradXi(IY,i,j,k)  &
-                                                         + inviscidFlux(:,IZ) * mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)
+               
+               do eq =1, NCONS
 
-               mesh % elements(eID) % storage % contravariantFlux(:,i,j,k,IY)  = &
-                                                           inviscidFlux(:,IX) * mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  &
-                                                         + inviscidFlux(:,IY) * mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  &
-                                                         + inviscidFlux(:,IZ) * mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)
+               inviscidFlux(eq,:) = inviscidFlux(eq,:) - viscousFlux(eq,:)
                   
-               mesh % elements(eID) % storage % contravariantFlux(:,i,j,k,IZ)  = &
-                                                           inviscidFlux(:,IX) * mesh % elements(eID) % geom % jGradZeta(IX,i,j,k)  &
-                                                         + inviscidFlux(:,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
-                                                         + inviscidFlux(:,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
+               mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = &
+                                                           inviscidFlux(eq,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
+                                                         + inviscidFlux(eq,IY) * mesh % elements(eID) % geom % jGradXi(IY,i,j,k)  &
+                                                         + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)
 
+               mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IY)  = &
+                                                           inviscidFlux(eq,IX) * mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  &
+                                                         + inviscidFlux(eq,IY) * mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  &
+                                                         + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)
+                  
+               mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IZ)  = &
+                                                           inviscidFlux(eq,IX) * mesh % elements(eID) % geom % jGradZeta(IX,i,j,k)  &
+                                                         + inviscidFlux(eq,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
+                                                         + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
+               end do
             end do               ; end do                ; end do
 
             call ScalarWeakIntegrals_StdVolumeGreen( mesh % elements(eID) % Nxyz, NCONS, mesh % elements(eID) % storage % contravariantFlux, &
@@ -1390,6 +1386,7 @@ module SpatialDiscretization
                                           mesh % elements(eID) % storage % U_y(:,i,j,k) , mesh % elements(eID) % storage % U_z(:,i,j,k), &
                                           mesh % elements(eID) % storage % mu_ns(1,i,j,k), 0.0_RP, &
                                           mesh % elements(eID) % storage % mu_ns(2,i,j,k), Flux)
+                  !$acc loop seq
                   do eq = 1, NCONS
               
                      mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
@@ -1425,6 +1422,7 @@ module SpatialDiscretization
                         call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,l,k), mesh % elements(eID) % geom % jGradEta(:,i,j,k), mesh % elements(eID) % geom % jGradEta(:,i,l,k), Flux(:,IY))
                         call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,j,l), mesh % elements(eID) % geom % jGradZeta(:,i,j,k), mesh % elements(eID) % geom % jGradZeta(:,i,j,l), Flux(:,IZ))
                         
+                        !$acc loop seq
                         do eq = 1, NCONS
                            mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) &
                                                                            - NodalStorage(mesh % elements(eID) % Nxyz(1)) % sharpD(i,l) *  Flux(eq,IX) &

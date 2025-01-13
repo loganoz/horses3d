@@ -68,19 +68,12 @@ module MPI_Process_Info
          if ( (self % nProcs .ne. 1) .and. (self % isRoot) ) then
             self % doMPIRootAction = .true.
          end if
-
+         
+#ifdef _HAS_MPI_   
 #ifdef _OPENACC
          !call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, local_comm, ierr)
          !call MPI_Comm_rank(local_comm, local_rank, ierr)
          !call acc_init(acc_device_nvidia)
-         call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, local_comm,ierr)
-         call MPI_Comm_rank(local_comm, self % rank,ierr)
-         devtype = acc_get_device_type()
-         devNum = acc_get_num_devices(devtype)
-         dev = mod(self % rank,devNum)
-         call acc_set_device_num(dev, devtype)
-         num_devices = acc_get_num_devices(acc_device_nvidia)
-         print*, self % rank, self % nProcs,num_devices,dev
          !if(num_devices.ge.1) then
          !   id_device = mod(self % rank ,num_devices)
          !   call acc_set_device_num(id_device, acc_device_nvidia)
@@ -89,6 +82,15 @@ module MPI_Process_Info
          !   id_device = 0
          !   print*, 'NO GPU FOUND IN THIS NODE!'
          !end if
+         call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, local_comm,ierr)
+         call MPI_Comm_rank(local_comm, self % rank,ierr)
+         devtype = acc_get_device_type()
+         devNum = acc_get_num_devices(devtype)
+         dev = mod(self % rank,devNum)
+         call acc_set_device_num(dev, devtype)
+         num_devices = acc_get_num_devices(acc_device_nvidia)
+         print*, self % rank, self % nProcs,num_devices,dev
+#endif
 #endif
 
       end subroutine MPI_Process_Init

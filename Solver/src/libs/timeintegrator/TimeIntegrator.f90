@@ -549,7 +549,9 @@
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
       end if
 
+      call Stopwatch % Pause("Solver") ! We dont want to measure the time of the statistics dump
       call monitors % WriteToFile(sem % mesh)
+      call Stopwatch % Pause("Solver") ! We dont want to measure the time of the statistics dump
 
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
@@ -756,7 +758,9 @@
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
+            call Stopwatch % Pause("Solver") ! We dont want to measure the time of the statistics dump
             call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES)
+            call Stopwatch % Start("Solver") ! We dont want to measure the time of the statistics dump
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -779,7 +783,9 @@
 
 !        Flush monitors
 !        --------------
+         call Stopwatch % Pause("Solver") ! We dont want to measure the time of the statistics dump
          call monitors % WriteToFile(sem % mesh)
+         call Stopwatch % Start("Solver") ! We dont want to measure the time of the statistics dump
 
          sem % numberOfTimeSteps = k + 1
       END DO
@@ -787,7 +793,10 @@
 !     Flush the remaining information in the monitors
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
+         call Stopwatch % Pause("Solver") ! We dont want to measure the time of the statistics dump
          call Monitors % writeToFile(sem % mesh, force = .true. )
+         call Stopwatch % Start("Solver") ! We dont want to measure the time of the statistics dump
+         
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
