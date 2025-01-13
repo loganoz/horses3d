@@ -881,19 +881,20 @@ jobs:
 # 30) Virtual surfaces with acoustics and Reinforcement Learning p-adaptation
 # --------------------------------------------
 # This test case only runs with gfortran as we do not support hdf5 with ifort in the github actions
-      - name: Build VirtualSurfaces_acoustics_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+# HDF5 is not activated in Github when parallel mode is used
+      # - name: Build VirtualSurfaces_acoustics_pAdaptationRL
+      #   working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+      #   if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
-      - name: Run VirtualSurfaces_acoustics_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
-        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+      # - name: Run VirtualSurfaces_acoustics_pAdaptationRL
+      #   working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 64 ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
+      #   if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
 ########################################################################
 #######                       PARTICLES                         ########
