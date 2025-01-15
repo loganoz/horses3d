@@ -741,7 +741,7 @@ module SpatialDiscretization
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
 ! 
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k, sqrtRho, invSqrtRho)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
@@ -780,7 +780,7 @@ module SpatialDiscretization
 !           ***************
 !           Add source term
 !           ***************
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k, InvSqrtRho)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                e % storage % S_NS = 0.0_RP
@@ -1295,7 +1295,7 @@ module SpatialDiscretization
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
 ! 
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime) private(i, j, k)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle

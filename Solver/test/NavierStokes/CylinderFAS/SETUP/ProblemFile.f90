@@ -549,14 +549,14 @@ end module ProblemFileFunctions
 !           ------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: iterations(3:7) = [5, 0, 0, 0, 0]
-            real(kind=RP), parameter :: residuals(5) = [ 1.4850980345699349E-01_RP, &
-                                                         2.9958218618552562E-01_RP, &
-                                                         1.0685297167249336E-02_RP, &
-                                                         3.8938541902853241E-01_RP, &
-                                                         3.9083669629848719E+00_RP]
-            real(kind=RP), parameter           :: cd = 1.9212135418702578E+00_RP
-            real(kind=RP), parameter           :: cl = -1.1238652498046786E-04_RP
+            INTEGER                            :: iterations(3:7) = [3, 0, 0, 0, 0]
+            real(kind=RP), parameter :: residuals(5) = [ 1.8420913102577294E-01_RP, &
+                                                         3.5752639298232258E-01_RP, &
+                                                         1.5199117841334084E-02_RP, &
+                                                         5.6022964835969569E-01_RP, &
+                                                         4.8533945450339262E+00_RP]
+            real(kind=RP), parameter           :: cd = 1.9352817211184128E+00_RP
+            real(kind=RP), parameter           :: cl = -1.1926461995948046E-04_RP
 
 
 !
@@ -611,7 +611,7 @@ end module ProblemFileFunctions
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 5 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 3 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
