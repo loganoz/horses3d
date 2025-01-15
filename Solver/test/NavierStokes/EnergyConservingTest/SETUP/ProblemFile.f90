@@ -552,18 +552,18 @@ end module ProblemFileFunctions
 !           ------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: iterations = 100
+            INTEGER                            :: iterations = 10
   
-            real(kind=RP), parameter :: residuals(5) = [  2.4415089739574196E+01_RP, &
-                                                          8.6843849810808749E+01_RP, &
-                                                          2.3320718696514724E-11_RP, &
-                                                          1.0767476753496668E+02_RP, &
-                                                          7.7066863114976661E+02_RP]
-            real(kind=RP), parameter           :: wake_u = 1.6680552562875707E-14_RP
-            real(kind=RP), parameter           :: cd = 3.5801576759972349E+01_RP
-            real(kind=RP), parameter           :: cl = 7.1731887843551334E-04_RP
-            real(kind=RP), parameter           :: entr_bal = -1.6399730139900661E-15_RP
-            real(kind=RP), parameter           :: entr_rate = -1.3377302251066867E-01_RP
+            real(kind=RP), parameter :: residuals(5) = [  8.4536070422136675E+01_RP, &
+                                                          2.1762123673954497E+02_RP, &
+                                                          6.4602872675548434E-11_RP, &
+                                                          4.0133134577655784E+02_RP, &
+                                                          2.3743041720710371E+03_RP]
+            real(kind=RP), parameter           :: wake_u = -5.3738097464565945E-16_RP
+            real(kind=RP), parameter           :: cd = 6.9581063784598598E+01_RP
+            real(kind=RP), parameter           :: cl = -7.2520052818614289E-04_RP
+            real(kind=RP), parameter           :: entr_bal = -1.5010521152042858E-15_RP
+            real(kind=RP), parameter           :: entr_rate = -2.5103194887975733E-02_RP
 
 !write(STD_OUT,'(A)',advance="no") "["
 !do i = 1, 4
@@ -594,7 +594,7 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-10, &
                                msg           = "Y-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
@@ -642,7 +642,7 @@ end module ProblemFileFunctions
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 10 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."

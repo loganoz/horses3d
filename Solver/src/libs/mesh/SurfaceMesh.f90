@@ -15,16 +15,17 @@ Module SurfaceMesh
 !   
     private
 !
-    public SURFACE_TYPE_FWH, SURFACE_TYPE_SLICE, FWH_POSITION
+    public SURFACE_TYPE_FWH, SURFACE_TYPE_SLICE, FWH_POSITION, SURFACE_TYPE_ACOUSTICS 
     public surfacesMesh
 #if defined(NAVIERSTOKES)
     public getU_tauInSurfaces, getWallDistInSurfaces
 #endif
 !
-    integer, parameter          :: SURFACE_TYPE_FWH   = 1
-    integer, parameter          :: SURFACE_TYPE_SLICE = 2
-    integer, parameter          :: SURFACE_TYPE_BC    = 3
-    integer, parameter          :: FWH_POSITION = 1 ! the fwh surface will be always the first position if exists
+    integer, parameter          :: SURFACE_TYPE_FWH          = 1
+    integer, parameter          :: SURFACE_TYPE_SLICE        = 2
+    integer, parameter          :: SURFACE_TYPE_BC           = 3
+    integer, parameter          :: SURFACE_TYPE_ACOUSTICS    = 4
+    integer, parameter          :: FWH_POSITION              = 1 ! the fwh surface will be always the first position if exists
 !
     ! main class of surfaces mesh
     type SurfaceMesh_t 
@@ -69,7 +70,8 @@ Module SurfaceMesh
 !        The surface is construct as an structure of arrays, all the positions 
 !        correspond to the info for a single surface.
 !        If there is a FWH surface, it will always be the first one (only one
-!        is allowed). Then it will be the BC, then each direction the slices.
+!        is allowed). Then, the acoustic surface is created (only one is allowed). 
+!        Finally, it will be the BC, then each direction the slices.
 !     ************************************************************************
 !
         use FileReadingUtilities, only: getFileName, getCharArrayFromString, getRealArrayFromString, getPath, removePath
@@ -93,10 +95,10 @@ Module SurfaceMesh
         integer, dimension(NDIM)                                :: numberOfSurfacesSlices
         integer                                                 :: i, j, ierr
         integer                                                 :: idSliceX, idSliceY, idSliceZ, idBC
-        logical                                                 :: hasFWH, hasSliceX, hasSliceY, hasSliceZ, hasBC
+        logical                                                 :: hasFWH, hasSliceX, hasSliceY, hasSliceZ, hasBC, hasAcousticPath
         character(len=LINE_LENGTH)                              :: solution_file, read_str, fileName, zoneName, fullExpression, path
         character(len=LINE_LENGTH), dimension(:), allocatable   :: bcs_names, bcs_namesFWH
-        integer, dimension(:), allocatable                      :: FWHelementSide, facesIDs
+        integer, dimension(:), allocatable                      :: FWHelementSide, facesIDs, acousticElementSide
         real(kind=RP), dimension(:), allocatable                :: posSliceX, posSliceY, posSliceZ
         real(kind=RP), dimension(:), allocatable                :: limSliceX, limSliceY, limSliceZ
         logical, dimension(:), allocatable                      :: surfaceActive
@@ -112,12 +114,17 @@ Module SurfaceMesh
         hasSliceY = controlVariables % containsKey("slice y coordinates")
         hasSliceZ = controlVariables % containsKey("slice z coordinates")
         hasBC     = controlVariables % containsKey("boundaries to save")
+        hasAcousticPath = controlVariables % containsKey("acoustic path")
         idSliceX  = 0
         idSliceY  = 0
         idSliceZ  = 0
         idBC      = 0
         numberOfSurfacesBC     = 0
         numberOfSurfacesSlices = 0
+
+				if (hasFWH .and. hasAcousticPath) then
+						error stop "acoustic analogy and acoustic path cannot be used at the same time"
+				end if
 !
 !       Get the solution file name
 !       --------------------------
@@ -135,6 +142,8 @@ Module SurfaceMesh
 !       get number of surfaces
 !       ----------------------
         if (hasFWH) numberOfSurfaces = numberOfSurfaces + 1
+
+        if (hasAcousticPath) numberOfSurfaces = numberOfSurfaces + 1
 !
         if (hasSliceX) then
             read_str = controlVariables % stringValueForKey("slice x coordinates", LINE_LENGTH)
@@ -208,6 +217,16 @@ Module SurfaceMesh
             ! faces of all the file surfaces
             allocate ( self % elementSide(size(FWHelementSide),1) )
             self % elementSide(:,1) = FWHelementSide
+        end if 
+
+        if (hasAcousticPath) then
+            write(STD_OUT,*) "Creating acoustic path"
+            surfaceCont = surfaceCont + 1
+            call createAcousticSurface(self, controlVariables, mesh, solution_file, acousticElementSide, surfaceCont)
+            ! for now only one acoustic surface is loaded from file, if this changes in future, some changes must be done, allocating the side of all
+            ! faces of all the file surfaces
+            allocate ( self % elementSide(size(acousticElementSide),1) )
+            self % elementSide(:,1) = acousticElementSide
         end if 
 !
         if (hasSliceX) then
@@ -444,6 +463,8 @@ Module SurfaceMesh
             if (.not. self % surfaceActive(i)) cycle
             !skip fwh if not requested
             if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .and. (.not. saveFWH) ) cycle
+            !skip acoustic surface if not requested
+            if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_ACOUSTICS) .and. (.not. saveFWH) ) cycle
             write(FinalName,'(2A,I10.10)') trim(self % file_names(i)),'_',initial_iteration
             nf = self % zones(i) % no_of_faces
             call SurfaceSaveMesh(self % zones(i), mesh, FinalName, self % totalFaces(i), self % globalFid(1:nf,i), self % faceOffset(1:nf,i))
@@ -475,11 +496,13 @@ Module SurfaceMesh
             if (.not. self % surfaceActive(i)) cycle
             !skip fwh if not requested
             if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .and. (.not. saveFWH) ) cycle
+            !skip acoustic surface if not requested
+            if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_ACOUSTICS) .and. (.not. saveFWH) ) cycle
             write(FinalName,'(2A,I10.10,A)') trim(self % file_names(i)),'_',iter,'.surf.hsol'
             nf = self % zones(i) % no_of_faces
             safedeallocate(elemSide)
             allocate(elemSide(nf))
-            if (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) then
+            if ((self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .or. (self % surfaceTypes(i) .eq. SURFACE_TYPE_ACOUSTICS)) then
                 elemSide = self % elementSide(:,1)
             else
                 ! for slices and BC use always the first element of the face, this can be changed if needed
@@ -629,6 +652,58 @@ Module SurfaceMesh
         call createSingleSurface(self, FWH_POSITION, SURFACE_TYPE_FWH, fileName, zoneName, no_of_faces, facesIDs, isNoSlip, surfaceHasFacesInPartitions)
 !         
     End Subroutine createFWHSurface
+
+    Subroutine createAcousticSurface(self, controlVariables, mesh, solution_file, elementSide, surfaceCont)
+        use FileReadingUtilities, only: getCharArrayFromString
+        use Utilities,            only: toLower
+#ifdef _HAS_MPI_
+        use mpi
+#endif
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+        type (HexMesh), intent(in)                          :: mesh
+        character(len=LINE_LENGTH), intent(in)              :: solution_file
+        integer, dimension(:), allocatable, intent(out)     :: elementSide
+        integer, intent(in)                                 :: surfaceCont
+
+        !local variables
+        integer                                             :: i
+        integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces, numberOfFacesTotal
+        integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
+        character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file, fileName, zoneName
+        character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
+        logical                                             :: isNoSlip
+        logical                                             :: surfaceHasFacesInPartitions
+
+        if (controlVariables % containsKey("acoustic surface file")) then
+            allocate( faces_per_zone(1) )
+            surface_file = controlVariables % stringValueForKey("acoustic surface file", LINE_LENGTH)
+            call SurfaceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), elementSide)
+            isNoSlip = .false.
+        else
+            error stop "acoustic surface for integration is not defined"
+        end if
+
+        no_of_faces = sum(faces_per_zone)
+
+        if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(no_of_faces, numberOfFacesTotal, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+        else
+            numberOfFacesTotal = no_of_faces
+        end if
+        surfaceHasFacesInPartitions = numberOfFacesTotal .gt. 0
+!
+!       now create the zone and set type, name and flag
+!       --------------------------------------------------
+        write(fileName,'(A,A)') trim(solution_file),'_acoustic'
+        zoneName = "virtual_acoustic_surface"
+        call createSingleSurface(self, surfaceCont, SURFACE_TYPE_ACOUSTICS, fileName, zoneName, no_of_faces, facesIDs, isNoSlip, surfaceHasFacesInPartitions)
+!         
+    End Subroutine createAcousticSurface
 !         
     Subroutine createSingleSurface(self, surface_index, surface_type, file_name, zone_name, no_of_faces, facesIDs, isNoSlip, has_faces)
         implicit none
@@ -735,6 +810,13 @@ Module SurfaceMesh
       case (SURFACE_TYPE_SLICE)
           ! only solution and gradients will be saved for slices
           solution_type = ZONE_SOLUTION_FILE
+          if (saveGradients)  then
+              padding = NCONS + NGRAD*3
+          else
+              padding = NCONS
+          end if
+      case (SURFACE_TYPE_ACOUSTICS)
+        solution_type = ZONE_SOLUTION_FILE
           if (saveGradients)  then
               padding = NCONS + NGRAD*3
           else
@@ -968,10 +1050,14 @@ Module SurfaceMesh
       end if
 
       allocate(elementsID_p(surface_zone%no_of_faces))
-      do i=1, surface_zone % no_of_faces
-          eID = faces(surface_zone % faces(i)) % elementIDs(1)
-          elementsID_p(i) = mesh % elements(eID) % globID
-      end do
+
+			do i=1, surface_zone % no_of_faces
+					eID = faces(surface_zone % faces(i)) % elementIDs(1)
+					if (eID == 0) then
+						eID = faces(surface_zone % faces(i)) % elementIDs(2)
+					end if
+					elementsID_p(i) = mesh % elements(eID) % globID
+			end do
 
       ! get the global element ID and the face ID as a single 2D array for the root process, will be used to sort
       call mpi_gatherv(elementsID_p, surface_zone % no_of_faces,MPI_INT, zoneInfoArray(:,1), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)

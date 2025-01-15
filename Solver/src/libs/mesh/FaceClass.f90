@@ -226,13 +226,13 @@
 !     Construct needed nodal storage
 !     ------------------------------
 !
-      if ( .not. NodalStorage(self % Nf(1)) % Constructed ) then
-         call NodalStorage(self % Nf(1)) % Construct(nodeType, self % Nf(1))
-      end if
+      call NodalStorage(self % Nf(1)) % Construct(nodeType, self % Nf(1))
+      call NodalStorage(self % NfLeft(1)) % Construct(nodeType, self % NfLeft(1))
+      call NodalStorage(self % NfRight(1)) % Construct(nodeType, self % NfRight(1))
 
-      if ( .not. NodalStorage(self % Nf(2)) % Constructed ) then
-         call NodalStorage(self % Nf(2)) % Construct(nodeType, self % Nf(2))
-      end if
+      call NodalStorage(self % Nf(2)) % Construct(nodeType, self % Nf(2))
+      call NodalStorage(self % NfLeft(2)) % Construct(nodeType, self % NfLeft(2))
+      call NodalStorage(self % NfRight(2)) % Construct(nodeType, self % NfRight(2))
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)

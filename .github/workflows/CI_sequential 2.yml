@@ -480,7 +480,7 @@ jobs:
 #
 # 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
-# This test case only runs with hdf5 as we do not support hdf5 with ifort in the github actions
+# This test case only runs with gfortran as we do not support hdf5 with ifort in the github actions
 
       - name: Build ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
@@ -730,4 +730,23 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Cylinder_acoustics_pAdaptationRL.control
         if: '!cancelled()'
+
+#
+# 30) Virtual surfaces with acoustics and Reinforcement Learning p-adaptation
+# --------------------------------------------
+# This test case only runs with gfortran as we do not support hdf5 with ifort in the github actions
+
+      - name: Build VirtualSurfaces_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+
+      - name: Run VirtualSurfaces_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 

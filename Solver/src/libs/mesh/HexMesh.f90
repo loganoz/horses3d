@@ -4462,7 +4462,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
-!$omp parallel do schedule(runtime) private(e)
+!$omp parallel do schedule(runtime) private(e,sensor_value)
    do eID=1, self % no_of_elements
       e => self % elements(eID)   ! Associate fails(!) here
       if ( all( e % Nxyz == NNew(:,eID)) ) then
@@ -4947,13 +4947,14 @@ call elementMPIList % destruct
 
    end subroutine HexMesh_UpdateHOArrays
 
-   subroutine HexMesh_DefineAcousticElements(self, observer, acoustic_sources, d_th)
+   subroutine HexMesh_DefineAcousticElements(self, observer, acoustic_sources, d_th, virtualZones)
       implicit none
       !-arguments-----------------------------------------
       class(HexMesh), target  , intent(inout)      :: self
       real(kind=RP)                                :: observer(NDIM)      ! Observer coordinates
       character(len=BC_STRING_LENGTH), allocatable :: acoustic_sources(:) ! Acoustic sources BC
       real(kind=RP)                                :: d_th                ! Threshold distance
+      type(Zone_t), dimension(:), allocatable      :: virtualZones        ! Virtual surfaces
       !-local-variables-----------------------------------
       type(IntegerDataLinkedList_t)         :: acousticElementList
       type(IntegerDataLinkedList_t)         :: aerodynamicElementList
@@ -4995,6 +4996,19 @@ call elementMPIList % destruct
             no_of_sources = no_of_sources + (Pxyz(1)+1)*(Pxyz(2)+1)
          end do
       end do
+      ! Loop over the virtual surfaces
+      if (allocated(virtualZones)) then
+         do zoneID = 1, size(virtualZones)
+            trimmedZoneName = trim(virtualZones(zoneID) % Name)
+            if ( all ( acoustic_sources /= trimmedZoneName ) ) cycle
+            ! loop over the faces on every virtual surface
+            do fIdx = 1, virtualZones(zoneID) % no_of_faces 
+               fID   = virtualZones(zoneID) % faces(fIdx)
+               Pxyz = self % faces(fID) % Nf
+               no_of_sources = no_of_sources + (Pxyz(1)+1)*(Pxyz(2)+1)
+            end do
+         end do
+      end if
       !Allocate the number of sources in each partition
       allocate(x(no_of_sources), y(no_of_sources), z(no_of_sources))
 
@@ -5017,6 +5031,25 @@ call elementMPIList % destruct
             end do
          end do
       end do
+      ! Loop over the virtual surfaces
+      if (allocated(virtualZones)) then
+         do zoneID = 1, size(virtualZones)
+            if ( all ( acoustic_sources /= trim(virtualZones(zoneID) % Name) ) ) cycle
+            ! loop over the faces on every boundary
+            do fIdx = 1, virtualZones(zoneID) % no_of_faces 
+               fID   = virtualZones(zoneID) % faces(fIdx)
+               Pxyz = self % faces(fID) % Nf
+               do j = 0, Pxyz(2)
+                  do i = 0, Pxyz(1)
+                     no_of_sources = no_of_sources + 1
+                     x(no_of_sources) = self % faces(fID) % geom % x(1, i, j)
+                     y(no_of_sources) = self % faces(fID) % geom % x(2, i, j)
+                     z(no_of_sources) = self % faces(fID) % geom % x(3, i, j)
+                  end do
+               end do
+            end do
+         end do
+      end if
 
       if (  MPI_Process % doMPIAction ) then
 #ifdef _HAS_MPI_

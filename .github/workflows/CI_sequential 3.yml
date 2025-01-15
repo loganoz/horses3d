@@ -395,3 +395,20 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins CylinderVremanRe3900.control
         if: '!cancelled()'
+
+#
+# 8) Multiphase monopole with acoustics, sponge and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Multiphase_Monopole_pAdaptationRL
+        working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run Multiphase_Monopole_pAdaptationRL
+        working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu monopole_pAdaptationRL.control
+        if: '!cancelled()'
