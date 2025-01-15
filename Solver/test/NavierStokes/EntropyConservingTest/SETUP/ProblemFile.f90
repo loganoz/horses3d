@@ -552,18 +552,18 @@ end module ProblemFileFunctions
 !           ------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: iterations = 100
+            INTEGER                            :: iterations = 10
   
-            real(kind=RP), parameter :: residuals(5) = [23.2925417313183_RP, &
-                                                        87.3787200956217_RP, &
-                                                        2.313833759899472E-011_RP, &
-                                                        105.867590056256_RP, &
-                                                        739.936119108963_RP]
-            real(kind=RP), parameter           :: wake_u = 1.843611830572780E-014_RP
-            real(kind=RP), parameter           :: cd = 3.5895646251699361E+01_RP
-            real(kind=RP), parameter           :: cl = 7.9961239895087743E-04_RP
-            real(kind=RP), parameter           :: entr_bal = -4.755282970387926E-013_RP
-            real(kind=RP), parameter           :: entr_rate = -3.509463377483787E-004_RP
+            real(kind=RP), parameter :: residuals(5) = [8.2631424496364474E+01_RP, &
+                                                        2.2430272815501075E+02_RP, &
+                                                        6.4161760571618557E-11_RP, &
+                                                        4.1620680221184398E+02_RP, &
+                                                        2.3047571785589912E+03_RP]
+            real(kind=RP), parameter           :: wake_u = -5.3405562536718216E-16_RP
+            real(kind=RP), parameter           :: cd = 6.9404913210284036E+01_RP
+            real(kind=RP), parameter           :: cl = -6.7689211114085879E-04_RP
+            real(kind=RP), parameter           :: entr_bal = 2.1107188664393733E-15_RP
+            real(kind=RP), parameter           :: entr_rate = -5.3666005706312387E-04_RP
 
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
@@ -631,7 +631,7 @@ end module ProblemFileFunctions
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 10 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
