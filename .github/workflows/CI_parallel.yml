@@ -895,6 +895,40 @@ jobs:
       #     source /opt/intel/oneapi/setvars.sh || true
       #     mpiexec -n 64 ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
       #   if: ('!cancelled()' && matrix.compiler == 'gfortran')
+      #
+# 31) Actuator Line (AL) average formulation
+# --------------------------------------------
+      - name: Build AL_average
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineAverage/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run AL_average
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineAverage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.ns Actuator.control
+        if: '!cancelled()'
+
+
+#
+# 32) Actuator Line (AL) projection formulation
+# --------------------------------------------
+      - name: Build AL_projection
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineProjection/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run AL_projection
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineProjection
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.ns Actuator.control
+        if: '!cancelled()'
 
 ########################################################################
 #######                       PARTICLES                         ########
@@ -1036,6 +1070,25 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 64 ./horses3d.mu monopole_pAdaptationRL.control
         if: '!cancelled()'
+
+#
+# 6) Mu AL
+# -------------------------------
+
+      - name: Build Mu-AL
+        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run Mu-AL
+        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.mu Actuator.control
+        if: '!cancelled()'
+
 
 # ########################################################################
 # #######                      INCOMPRESSIBLE                     ########

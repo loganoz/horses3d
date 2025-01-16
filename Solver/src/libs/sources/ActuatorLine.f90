@@ -771,7 +771,7 @@ contains
                         interp = GaussianInterpolation(self%epsilon_type, mesh % elements(eID) % geom % x(:,i,j,k), self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,:), &
                                                        self%turbine_t(kk)%blade_t(jj)%chord(ii), self%gauss_epsil,self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta(ii))
         
-                        ! minus account action-reaction effect, is the force on the fliud
+                        ! minus account action-reaction effect, is the force on the fluid
                         actuator_source(1) = actuator_source(1) - self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) * interp
                         actuator_source(2) = actuator_source(2) - (-self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)  * interp)
                         actuator_source(3) = actuator_source(3) - self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) * interp 

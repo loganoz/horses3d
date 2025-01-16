@@ -101,6 +101,6 @@ The following external routines/libraries can be used with **HORSES3D**, but are
     export HDF5_DIR=path_to_hdf5
     ```
 
+## Documentation
 
-
-
+Read the complete documentation [here](https://loganoz.github.io/horses3d/).
