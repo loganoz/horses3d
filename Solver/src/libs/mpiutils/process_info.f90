@@ -83,13 +83,13 @@ module MPI_Process_Info
          !   print*, 'NO GPU FOUND IN THIS NODE!'
          !end if
          call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, local_comm,ierr)
-         call MPI_Comm_rank(local_comm, self % rank,ierr)
+         call MPI_Comm_rank(local_comm, local_rank,ierr)
          devtype = acc_get_device_type()
          devNum = acc_get_num_devices(devtype)
-         dev = mod(self % rank,devNum)
+         dev = mod(local_rank,devNum)
          call acc_set_device_num(dev, devtype)
          num_devices = acc_get_num_devices(acc_device_nvidia)
-         print*, self % rank, self % nProcs,num_devices,dev
+         print*, self % rank, local_rank, self % nProcs,num_devices,dev, devNum
 #endif
 #endif
 

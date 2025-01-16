@@ -269,7 +269,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution(NCONS)
+         call HexMesh_UpdateMPIFacesSolution(mesh, NCONS)
 !$omp end single
 #endif
 
@@ -396,6 +396,15 @@ module SpatialDiscretization
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
          real(kind=RP), allocatable :: Source_HO(:,:,:,:)
          integer,       allocatable :: i_(:), j_(:), k_(:)
+
+#ifdef _HAS_MPI_
+!$omp single
+         if ( flowIsNavierStokes ) then
+            call HexMesh_UpdateMPIFacesGradients(mesh, NGRAD)
+         end if
+!$omp end single
+#endif
+
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -445,14 +454,6 @@ module SpatialDiscretization
 !        ------------------------------------------------
          call compute_viscosity_at_faces(size(mesh % faces_interior), 2, mesh % faces_interior, mesh)
          call compute_viscosity_at_faces(size(mesh % faces_boundary), 1, mesh % faces_boundary, mesh)
-
-#ifdef _HAS_MPI_
-!$omp single
-         if ( flowIsNavierStokes ) then
-            call mesh % UpdateMPIFacesGradients(NGRAD)
-         end if
-!$omp end single
-#endif
 !
 !        ****************
 !        Volume integrals
@@ -518,9 +519,9 @@ module SpatialDiscretization
          if ( MPI_Process % doMPIAction ) then
 !$omp single
             if ( flowIsNavierStokes ) then
-               call mesh % GatherMPIFacesGradients(NGRAD)
+               call HexMesh_GatherMPIFacesGradients(mesh, NGRAD)
             else
-               call mesh % GatherMPIFacesSolution(NCONS)
+               call HexMesh_GatherMPIFacesSolution(mesh, NCONS)
             end if
 !$omp end single
 !
@@ -837,9 +838,9 @@ module SpatialDiscretization
          if ( MPI_Process % doMPIAction ) then
 !$omp single
             if ( flowIsNavierStokes ) then
-               call mesh % GatherMPIFacesGradients(NGRAD)
+               call HexMesh_GatherMPIFacesGradients(mesh, NGRAD)
             else
-               call mesh % GatherMPIFacesSolution(NCONS)
+               call HexMesh_GatherMPIFacesSolution(mesh, NCONS)
             end if
 !$omp end single
 !
@@ -1031,7 +1032,7 @@ module SpatialDiscretization
          integer, intent(in)           :: no_of_faces
          integer, intent(in)           :: no_of_sides
          integer, intent(in)           :: face_ids(no_of_faces)
-         class(HexMesh), intent(inout) :: mesh
+         type(HexMesh), intent(inout)  :: mesh
 !
 !        ---------------
 !        Local variables

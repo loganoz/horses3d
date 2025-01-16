@@ -40,6 +40,9 @@ MODULE HexMeshClass
       public      ConstructFaces, ConstructPeriodicFaces
       public      DeletePeriodicMinusFaces, GetElementsFaceIDs
       public      no_of_stats_variables, HexMesh_ProlongSolToFaces, HexMesh_ProlongGradientsToFaces
+      public      HexMesh_UpdateMPIFacesSolution, HexMesh_UpdateMPIFacesGradients
+      public      HexMesh_GatherMPIFacesSolution, HexMesh_GatherMPIFacesGradients
+
 !
 !     ---------------
 !     Mesh definition
@@ -121,11 +124,11 @@ MODULE HexMeshClass
             procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
 #endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
-            procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
-            procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
+            !procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
+            !procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
             procedure :: UpdateMPIFacesAviscflux       => HexMesh_UpdateMPIFacesAviscflux
-            procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
-            procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
+            !procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
+            !procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
             procedure :: GatherMPIFacesAviscFlux       => HexMesh_GatherMPIFacesAviscFlux
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
@@ -1145,8 +1148,8 @@ slavecoord:             DO l = 1, 4
       subroutine HexMesh_UpdateMPIFacesSolution(self, nEqn)
          use MPI_Face_Class
          implicit none
-         class(HexMesh)         :: self
-         integer,    intent(in) :: nEqn
+         type(HexMesh), intent(inout)  :: self
+         integer,       intent(in)     :: nEqn
 #ifdef _HAS_MPI_
 !
 !        ---------------
@@ -1203,7 +1206,7 @@ slavecoord:             DO l = 1, 4
       subroutine HexMesh_UpdateMPIFacesGradients(self, nEqn)
          use MPI_Face_Class
          implicit none
-         class(HexMesh)      :: self
+         type(HexMesh), intent(inout)  :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
 !
@@ -1390,7 +1393,7 @@ slavecoord:             DO l = 1, 4
 !
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
-         class(HexMesh)    :: self
+         type(HexMesh), intent(inout)  :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
 !
@@ -1436,8 +1439,8 @@ slavecoord:             DO l = 1, 4
 
       subroutine HexMesh_GatherMPIFacesGradients(self, nEqn)
          implicit none
-         class(HexMesh)      :: self
-         integer, intent(in) :: nEqn
+         type(HexMesh), intent(inout)  :: self
+         integer, intent(in)           :: nEqn
 #ifdef _HAS_MPI_
 !
 !        ---------------
@@ -1454,6 +1457,18 @@ slavecoord:             DO l = 1, 4
 !        Gather solution
 !        ***************
 !
+
+         do domain = 1, MPI_Process % nProcs
+
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForGradients
+         end do
+
          do domain = 1, MPI_Process % nProcs
 
             if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
@@ -1463,7 +1478,7 @@ slavecoord:             DO l = 1, 4
 !           Wait until messages have been received
 !           **************************************
 !
-            call self % MPIfaces % faces(domain) % WaitForGradients
+!            call self % MPIfaces % faces(domain) % WaitForGradients
 
             !$acc parallel loop gang present(self)
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces

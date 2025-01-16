@@ -207,7 +207,7 @@ contains
 !
 #ifdef _HAS_MPI_
 !$omp single
-      call sem % mesh % UpdateMPIFacesSolution(NCONS)
+      call HexMesh_UpdateMPIFacesSolution(sem % mesh, NCONS)
 !$omp end single
 #endif
 !
@@ -220,7 +220,7 @@ contains
          call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientVariables_STATE)
 #ifdef _HAS_MPI_
 !$omp single
-         call sem % mesh % UpdateMPIFacesGradients(NGRAD)
+         call HexMesh_UpdateMPIFacesGradients(sem % mesh, NGRAD)
 !$omp end single
 #endif
       end if
@@ -437,9 +437,9 @@ contains
 !        ----------------------------------------------
 !$omp single
          if ( flowIsNavierStokes ) then 
-            call mesh % GatherMPIFacesGradients(NGRAD)
+            call HexMesh_GatherMPIFacesGradients(mesh, NGRAD)
          else  
-            call mesh % GatherMPIFacesSolution(NCONS)
+            call HexMesh_GatherMPIFacesSolution(mesh, NCONS)
          end if
 !$omp end single
 !$omp do schedule(runtime)

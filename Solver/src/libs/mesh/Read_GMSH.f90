@@ -188,7 +188,6 @@ MODULE Read_GMSH
 
 !-----Read-header-info----------------------------------------------------
       read(fUnit,*) tmps
-      print*, trim(tmps)
       if (trim(tmps) .ne. '$MeshFormat') error stop "READ_GMSH :: Wrong input file - CheckGMSH."
       read(fUnit,*) tmpd, tmpi, tmpi
 !-------------------------------------------------------------------------
