@@ -444,10 +444,11 @@ module UserDefinedBCClass
 
       end subroutine UserDefinedBC_FlowState_HOIBM
 
-      subroutine UserDefinedBC_FlowStateWeak_HOIBM( self, QIn, Qsb, Qsb_weak )    
+      subroutine UserDefinedBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
          implicit none
          class(UserDefinedBC_t), intent(in)    :: self
          real(kind=RP),          intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),          intent(in)    :: nHat(NDIM)  
          real(kind=RP),          intent(inout) :: Qsb_weak(NCONS)  
 
          real(kind=RP) :: rho, invRho, Vsb(NDIM), V(NDIM)

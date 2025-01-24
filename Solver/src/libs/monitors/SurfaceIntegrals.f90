@@ -18,6 +18,7 @@ module SurfaceIntegrals
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW_RATE, PRESSURE_DISTRIBUTION
    public   ScalarSurfaceIntegral, VectorSurfaceIntegral
    public   ScalarDataReconstruction, VectorDataReconstruction, IBMSurfaceIntegral, IBMVectorIntegral
+   public   VectorDataReconstructionHOIBM, ScalarDataReconstructionHOIBM
 
    integer, parameter   :: SURFACE = 1
    integer, parameter   :: TOTAL_FORCE = 2
@@ -428,6 +429,131 @@ module SurfaceIntegrals
 !                          SURFACE INTEGRALS
 !
 !////////////////////////////////////////////////////////////////////////////////////////
+   function ScalarDataReconstructionHOIBM( mesh, STLNum, iter, integralType ) result(val)
+      use PolynomialInterpAndDerivsModule 
+#ifdef _HAS_MPI_
+      use mpi
+#endif
+      implicit none
+      class(HexMesh),      intent(inout), target  :: mesh 
+      integer,             intent(in)    :: STLnum
+      integer,             intent(in)    :: integralType, iter
+
+      real(kind=RP) :: val
+      real(kind=RP) :: localVal, lj, Surf, localValSurf
+      integer       :: eID, i, j, k, fID, fIDs(6), HOSIDE, ierr, Sidearray(2)
+
+      call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements, mesh % faces )
+
+      do eID = 1, size(mesh % elements)
+         associate(e => mesh % elements(eID))
+         if( e% HO_IBM .or. e% HOcorrection ) then 
+            fIDs = e % faceIDs
+            call e % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
+                                                   mesh % faces(fIDs(2)),&
+                                                   mesh % faces(fIDs(3)),&
+                                                   mesh % faces(fIDs(4)),&
+                                                   mesh % faces(fIDs(5)),&
+                                                   mesh % faces(fIDs(6)) )
+         end if 
+         end associate 
+      end do 
+   
+      val = 0.0_RP; Surf = 0.0_RP 
+      Sidearray = (/2,1/)
+      do fID = 1, size(mesh% faces)
+         associate(f => mesh% faces(fID))
+         if( f% HO_IBM .and. f% monitor ) then 
+            HOSIDE = Sidearray(f% HOSIDE)
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               f% stencil(i,j)% Q(:,0) = f% storage(HOSIDE)% Q(:,i,j)
+               f% stencil(i,j)% Qb     = 0.0_RP  
+               do k = 0, f% stencil(i,j)% N 
+                  lj = LagrangeInterpolatingPolynomial( k, f% stencil(i,j)% nodes(0), f% stencil(i,j)% N, f% stencil(i,j)% nodesB )
+                  f% stencil(i,j)% Qb = f% stencil(i,j)% Qb + lj * f% stencil(i,j)% Q(:,k)
+               end do 
+
+            end do; end do 
+
+            localVal = HOIBMScalarIntegral( f, STLNum, integralType)
+            val      = val + localVal
+   
+            localValSurf = GetSurface(f, STLNum)
+            Surf         = Surf + localValSurf
+         end if
+         end associate
+      end do
+#ifdef _HAS_MPI_
+      localVal = val
+      call mpi_allreduce(localVal, val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+      localValSurf = Surf
+      call mpi_allreduce(localValSurf, Surf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      val = val * mesh% IBM% stl(STLNum)% A/Surf  
+   
+   end function ScalarDataReconstructionHOIBM
+
+   function HOIBMScalarIntegral( f, STLNum, integralType ) result(val)
+      use IBMClass
+      use MPI_Process_Info
+      implicit none 
+
+      type(face),     intent(inout) :: f
+      integer,        intent(in)    :: STLNum, integralType
+      real(kind=RP)                 :: val
+
+      integer                       :: i, j      ! Face indices
+      real(kind=RP)                 :: p, tau(NDIM,NDIM)
+      type(NodalStorage_t), pointer :: spAxi, spAeta
+
+         val = 0.0_RP
+         spAxi  => NodalStorage(f % Nf(1))
+         spAeta => NodalStorage(f % Nf(2))
+
+         select case ( integralType )
+         case ( SURFACE )
+
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+               val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+
+         case ( MASS_FLOW )
+
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+               val = val -  (f% stencil(i,j)% Qb(IRHOU) * f% stencil(i,j) % normal(1)  &
+                           + f% stencil(i,j)% Qb(IRHOV) * f% stencil(i,j) % normal(2)  &
+                           + f% stencil(i,j)% Qb(IRHOW) * f% stencil(i,j) % normal(3) ) &
+                     * spAxi % w(i) * spAeta % w(j) * f% geom % jacobian(i,j)
+
+            end do          ;    end do
+
+         case ( FLOW_RATE )
+
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+               val = val - (1.0_RP / f% stencil(i,j)% Qb(IRHO))*(f% stencil(i,j)% Qb(IRHOU) * f% stencil(i,j) % normal(1)  &
+                                             + f% stencil(i,j)% Qb(IRHOV) * f% stencil(i,j) % normal(2)  &
+                                             + f% stencil(i,j)% Qb(IRHOW) * f% stencil(i,j) % normal(3) ) &
+                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+
+         case ( PRESSURE_FORCE )
+
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+               p = Pressure(f% stencil(i,j)% Qb)
+               val = val + p * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+
+
+         case ( USER_DEFINED )   ! TODO
+         end select
+
+         nullify (spAxi, spAeta)
+
+   end function HOIBMScalarIntegral
+
    subroutine ScalarDataReconstruction( IBM, elements, STLNum, integralType, iter, autosave ) 
       use TessellationTypes
       use MappedGeometryClass
@@ -467,14 +593,9 @@ module SurfaceIntegrals
       do i = 1, IBM% stl(STLNum)% NumOfObjs
          associate(obj => IBM% stl(STLNum)% ObjectsList(i))
          do j = 1, NumOfIntegrationVertices
-            if( IBM% HO_IBM ) then 
-               Q = obj% IntegrationVertices(j)% Q
-            else
-               if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
+            if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
                
-               call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
-               
-            end if 
+            call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
 
             obj% IntegrationVertices(j)% ScalarValue = IntegratedScalarValue( Q, obj% normal, integralType )   
 
@@ -516,6 +637,182 @@ module SurfaceIntegrals
 !                          VECTOR INTEGRALS
 !
 !////////////////////////////////////////////////////////////////////////////////////////
+   function VectorDataReconstructionHOIBM( mesh, STLNum, iter, integralType ) result(val)
+      use PolynomialInterpAndDerivsModule 
+#ifdef _HAS_MPI_
+      use mpi
+#endif
+      implicit none
+      class(HexMesh),      intent(inout), target  :: mesh 
+      integer,             intent(in)    :: STLnum
+      integer,             intent(in)    :: integralType, iter
+
+      real(kind=RP) :: val(NDIM)
+      real(kind=RP) :: localVal(NDIM), lj, Surf, localValSurf
+      integer       :: eID, i, j, k, fID, fIDs(6), HOSIDE, ierr, Sidearray(2)
+
+      call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements, mesh % faces )
+      call mesh% IBM% HO_IBMstencilGradient( NGRAD, mesh % elements, mesh % faces )
+
+      do eID = 1, size(mesh % elements)
+         associate(e => mesh % elements(eID))
+         if( e% HO_IBM .or. e% HOcorrection ) then 
+            fIDs = e % faceIDs
+            call e % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
+                                                   mesh % faces(fIDs(2)),&
+                                                   mesh % faces(fIDs(3)),&
+                                                   mesh % faces(fIDs(4)),&
+                                                   mesh % faces(fIDs(5)),&
+                                                   mesh % faces(fIDs(6)) )
+            if ( computeGradients ) then
+               call e % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
+                                                       mesh % faces(fIDs(2)),&
+                                                       mesh % faces(fIDs(3)),&
+                                                       mesh % faces(fIDs(4)),&
+                                                       mesh % faces(fIDs(5)),&
+                                                       mesh % faces(fIDs(6)) )
+            end if
+         end if 
+         end associate 
+      end do 
+ 
+      val = 0.0_RP; Surf = 0.0_RP 
+      Sidearray = (/2,1/)
+      do fID = 1, size(mesh% faces)
+         associate(f => mesh% faces(fID))
+         if( f% HO_IBM .and. f% monitor ) then 
+            HOSIDE = Sidearray(f% HOSIDE)
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               f% stencil(i,j)% Q(:,0) = f% storage(HOSIDE)% Q(:,i,j)
+               if ( computeGradients ) then
+                  f% stencil(i,j)% U_x(:,0) = f% storage(HOSIDE)% U_x(:,i,j)
+                  f% stencil(i,j)% U_y(:,0) = f% storage(HOSIDE)% U_y(:,i,j)
+                  f% stencil(i,j)% U_z(:,0) = f% storage(HOSIDE)% U_z(:,i,j)
+               end if
+               f% stencil(i,j)% Qb   = 0.0_RP  
+               f% stencil(i,j)% Ub_x = 0.0_RP  
+               f% stencil(i,j)% Ub_y = 0.0_RP  
+               f% stencil(i,j)% Ub_z = 0.0_RP  
+               do k = 0, f% stencil(i,j)% N 
+                  lj = LagrangeInterpolatingPolynomial( k, f% stencil(i,j)% nodes(0), f% stencil(i,j)% N, f% stencil(i,j)% nodesB )
+                  f% stencil(i,j)% Qb = f% stencil(i,j)% Qb + lj * f% stencil(i,j)% Q(:,k)
+                  if ( computeGradients ) then
+                     f% stencil(i,j)% Ub_x = f% stencil(i,j)% Ub_x + lj * f% stencil(i,j)% U_x(:,k) 
+                     f% stencil(i,j)% Ub_y = f% stencil(i,j)% Ub_y + lj * f% stencil(i,j)% U_y(:,k) 
+                     f% stencil(i,j)% Ub_z = f% stencil(i,j)% Ub_z + lj * f% stencil(i,j)% U_z(:,k) 
+                  end if
+               end do 
+
+            end do; end do 
+
+            localVal = HOIBMVectorIntegral(f, STLNum, integralType)
+            val      = val + localVal
+ 
+            localValSurf = GetSurface(f, STLNum)
+            Surf         = Surf + localValSurf
+         end if
+         end associate
+      end do
+#ifdef _HAS_MPI_
+      localVal = val
+      call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+      localValSurf = Surf
+      call mpi_allreduce(localValSurf, Surf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      val = val * mesh% IBM% stl(STLNum)% A/Surf  
+
+   end function VectorDataReconstructionHOIBM
+
+   real(kind=RP) function GetSurface( f, STLNum )
+
+      implicit none 
+
+      type(face),     intent(inout) :: f
+      integer,        intent(in)    :: STLNum
+
+      integer                       :: i, j      
+      real(kind=RP)                 :: val
+      type(NodalStorage_t), pointer :: spAxi, spAeta
+  
+      val = 0.0_RP
+      spAxi  => NodalStorage(f % Nf(1))
+      spAeta => NodalStorage(f % Nf(2)) 
+
+      do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+         val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) 
+      end do          ;    end do
+
+      GetSurface = val 
+
+   end function GetSurface
+
+   function HOIBMVectorIntegral( f, STLNum, integralType ) result(val)
+      use IBMClass
+      use MPI_Process_Info
+      implicit none 
+
+      type(face),     intent(inout) :: f
+      integer,        intent(in)    :: STLNum, integralType
+      real(kind=RP)                 :: val(NDIM)
+
+      integer                       :: i, j      ! Face indices
+      real(kind=RP)                 :: p, tau(NDIM,NDIM)
+      type(NodalStorage_t), pointer :: spAxi, spAeta
+
+      val = 0.0_RP
+      spAxi  => NodalStorage(f % Nf(1))
+      spAeta => NodalStorage(f % Nf(2))
+
+      select case ( integralType )
+      case ( SURFACE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+            val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) &
+                      * f % geom % normal(:,i,j)
+         end do          ;    end do
+
+      case ( TOTAL_FORCE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+            p = Pressure(f% stencil(i,j)% Qb)
+
+            call getStressTensor(f% stencil(i,j)% Qb, f% stencil(i,j)% Ub_x, f% stencil(i,j)% Ub_y ,f% stencil(i,j)% Ub_z, tau)
+            
+            val = val + ( -p * f % stencil(i,j) % normal + matmul(tau,f % stencil(i,j) % normal) ) &
+                        * f % geom % jacobian(i,j) * spAxi % w(i) * spAeta % w(j)
+         
+         end do          ;    end do
+
+      case ( PRESSURE_FORCE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+            p = Pressure(f% stencil(i,j)% Qb)
+
+            val = val - ( p * f % stencil(i,j) % normal ) * f % geom % jacobian(i,j) &
+                      * spAxi % w(i) * spAeta % w(j)
+
+         end do          ;    end do
+
+      case ( VISCOUS_FORCE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+            call getStressTensor(f% stencil(i,j)% Qb, f% stencil(i,j)% Ub_x, f% stencil(i,j)% Ub_y ,f% stencil(i,j)% Ub_z, tau)
+            val = val + matmul(tau,f % stencil(i,j) % normal) * f % geom % jacobian(i,j) &
+                        * spAxi % w(i) * spAeta % w(j)
+
+         end do          ;    end do
+
+      case ( USER_DEFINED )   ! TODO
+
+      end select
+
+      nullify (spAxi, spAeta)
+
+   end function HOIBMVectorIntegral 
+
    subroutine VectorDataReconstruction( IBM, elements, STLNum, integralType, iter, autosave )
       use TessellationTypes
       use MappedGeometryClass
@@ -555,22 +852,14 @@ module SurfaceIntegrals
       call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% STL(STLNum) ) 
 
       if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
-      
+
       do i = 1, IBM% stl(STLNum)% NumOfObjs
          associate( obj =>  IBM% stl(STLNum)% ObjectsList(i) )
          do j = 1, NumOfIntegrationVertices
-            if( IBM% HO_IBM ) then
-               Q   = obj% IntegrationVertices(j)% Q 
-               U_x = obj% IntegrationVertices(j)% U_x
-               U_y = obj% IntegrationVertices(j)% U_y
-               U_z = obj% IntegrationVertices(j)% U_z
-            else
-               if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
+            if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
                
-               call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
-               call GetPointGrads( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, U_x, U_y, U_z )
-
-            end if 
+            call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
+            call GetPointGrads( NGRAD, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, U_x, U_y, U_z )
             
             obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, U_x, U_y, U_z, obj% normal, IBM% IP_dWall, IBM% Wallfunction, integralType )
 
@@ -605,41 +894,7 @@ module SurfaceIntegrals
 #endif
       IBMVectorIntegral = F 
 
-   end function IBMVectorIntegral
-
-
-   subroutine GetSurfaceState( IBM, IntegrationVertex, STLNum )
-      use TessellationTypes
-      use IBMClass
-      use MPI_Process_Info
-      use omp_lib
-#ifdef _HAS_MPI_
-      use mpi
-#endif
-      implicit none
-
-      class(IBM_type),   intent(inout) :: IBM 
-      type(point_type),  intent(inout) :: IntegrationVertex
-      integer,           intent(in)    :: STLNum
-
-      type(point_type) :: x(IBM% NumOfInterPoints)
-      integer          :: k 
-
-      if( IBM% Integral(STLNum)% ListComputed ) return 
-      
-      !call IBM% minDistance( IntegrationVertex% coords, STLNum, IntegrationVertex% indeces, IntegrationVertex% domains )
-      
-      do k = 1, IBM% NumOfInterPoints
-         x(k)% coords = IBM% bandRegion(STLNum)% IBMmask(IntegrationVertex% domains(k))% coords(IntegrationVertex% indeces(k),:) 
-      end do 
-      
-      ! call GetMatrixInterpolationSystem( IntegrationVertex% coords, &
-      !                                    x,                         &
-      !                                    IntegrationVertex% invPhi, &
-      !                                    IntegrationVertex% b,      &
-      !                                    IBM% InterpolationType     )
-                                         
-   end subroutine GetSurfaceState 
+   end function IBMVectorIntegral 
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -837,15 +1092,15 @@ module SurfaceIntegrals
          select case(integralType)
             case( MASS_FLOW )
                FileName = 'MASS_FLOW_'
-               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
                call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'MASS FLOW', '"x","y","z","MassFlow"' )
             case( FLOW_RATE )
                FileName = 'FLOW_RATE_FORCE_'
-               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
                call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'FLOW RATE', '"x","y","z","FlowRate"' )
             case( PRESSURE_DISTRIBUTION )
                FileName = 'PRESSURE_'
-               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
                call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'PRESSURE DISTRIBUTION', '"x","y","z","Pressure"' )
          end select
          deallocate(x, y, z, scalar)
@@ -877,15 +1132,15 @@ module SurfaceIntegrals
          select case(integralType)
             case( TOTAL_FORCE )
                FileName = 'TOTAL_FORCE_'
-               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'            
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'            
                call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'TOTAL FORCE', '"x","y","z","Ftot_x","Ftot_y","Ftot_z"' )
             case( PRESSURE_FORCE )
                FileName = 'PRESSURE_FORCE_'
-               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
                call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'PRESSURE FORCE', '"x","y","z","Fpres_x","Fpres_y","Fpres_z"' )
             case( VISCOUS_FORCE )
                FileName = 'VISCOUS_FORCE_'
-               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
                call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'VISCOUS FORCE', '"x","y","z","Fvisc_x","Fvisc_y","Fvisc_z"' )
          end select
          deallocate(x, y, z, vector_x, vector_y, vector_z)

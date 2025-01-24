@@ -323,7 +323,7 @@ module GenericBoundaryConditionClass
          real(kind=RP),           intent(in)    :: cL, cD 
       end subroutine GenericBC_PositionMoving_IBM
 
-      subroutine GenericBC_FlowState_HOIBM( self, Q, xb, xsb, nodes, N, x, time, nHat, Qsb )   
+      subroutine GenericBC_FlowState_HOIBM( self, Q, xb, xsb, nodes, N, x, time, nHat, Qsb )  
          implicit none
          class(GenericBC_t),    intent(in)    :: self
          real(kind=RP),         intent(inout) :: Q(NCONS,0:N)
@@ -332,10 +332,11 @@ module GenericBoundaryConditionClass
          real(kind=RP),         intent(inout) :: Qsb(NCONS)
       end subroutine GenericBC_FlowState_HOIBM
 
-      subroutine GenericBC_FlowStateWeak_HOIBM( self, QIn, Qsb, Qsb_weak )    
+      subroutine GenericBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
          implicit none
          class(GenericBC_t),    intent(in)    :: self
          real(kind=RP),         intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),         intent(in)    :: nHat(NDIM)
          real(kind=RP),         intent(inout) :: Qsb_weak(NCONS)
       end subroutine GenericBC_FlowStateWeak_HOIBM
 

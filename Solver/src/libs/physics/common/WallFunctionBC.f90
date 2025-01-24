@@ -126,7 +126,6 @@ MODULE WallFunctionBC
 !------------------------------------------------------------------------------------------------------------------------
 !
    FUNCTION u_tau_f (u_II,y,nu, u_tau0)
-
       USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter
       ! USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter, u_tau0
       IMPLICIT NONE
@@ -190,7 +189,7 @@ MODULE WallFunctionBC
          u_tau = u_tau_next
 
       END DO
-
+       
       error stop "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
 
    END FUNCTION 
@@ -265,41 +264,8 @@ MODULE WallFunctionBC
       u_tau_f_ABL = kappa * u_II / log( (y-d) / y0 )
 
    END FUNCTION u_tau_f_ABL
-!   
-!------------------------------------------------------------------------------------------------------------------------
-!
 
-   REAL(KIND=RP) FUNCTION tau_w_IBM( u_tau, y, rho, nu )
-      USE WallFunctionDefinitions, ONLY: kappa, WallC
-      IMPLICIT NONE 
-
-      real(kind=RP), intent(in) :: u_tau, y, rho, nu 
-
-      real(kind=RP) :: y_plus, gradU  
-      ! 
-      ! y_plus = y * u_tau/nu
-      ! \partial y_plus/ \partial y = u_tau/nu 
-      ! _______________________________________________________________________________________________
-      ! u = u_tau * ( 1/kappa * log( 1 + kappa * y_plus ) ) &
-      !   + u_tau * ( WallC - 1 / kappa * log(kappa) ) * & 
-      !   ( 1 - exp( -y_plus / 11 )-( y_plus / 11 ) * exp( -y_plus / 3 ) )
-      ! _______________________________________________________________________________________________
-      ! tau(y) = mu * (\partial u/\partial y)|_y
-      ! _______________________________________________________________________________________________
-      ! (\partial u/\partial y)|_y = u_tau * (u_tau/nu)/( 1 + kappa * y_plus )    &
-      !                            + u_tau * ( WallC - 1 / kappa * log(kappa) ) * &
-      !                             ( exp( -y_plus / 11 )*(u_tau/nu)/11  - (u_tau/nu)/11 * exp( -y_plus / 3 ) + y_plus/11 * exp(-y_plus/3) * (u_tau/nu)/3 )
-
-
-      y_plus = y_plus_f (y, u_tau, nu)
-      gradU  = u_tau*u_tau/( 1.0_RP + kappa * y_plus ) + ( WallC - 1.0_RP / kappa * log(kappa) ) * u_tau * u_tau /(11.0_RP) * &
-               ( exp(-y_plus/11.0_RP) - exp(-y_plus/3.0_RP) + y_plus/3.0_RP * exp(-y_plus/3.0_RP) )
-
-      tau_w_IBM = rho * gradU 
-
-   END FUNCTION tau_w_IBM
-
-   SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM( N, Q, dWall, nHat, xsb, nodes, u_tau, visc_fluxsb )   
+   SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM( N, Q, dWall, nHat, xsb, nodes, u_tau0, visc_fluxsb )   
       use PolynomialInterpAndDerivsModule
       use VariableConversion
       IMPLICIT NONE 
@@ -308,47 +274,51 @@ MODULE WallFunctionBC
       integer,       intent(in)    :: N 
       real(kind=RP), intent(in)    :: dWall(0:N), xsb, nodes(0:N)
       real(kind=RP), intent(in)    :: nHat(NDIM)
-      real(kind=RP), intent(inout) :: u_tau
-      real(kind=RP), intent(inout) :: visc_fluxsb(NCONS)
+      real(kind=RP), intent(inout) :: visc_fluxsb(NCONS), u_tau0
 
-      real(kind=RP) :: U_ref(NDIM), u_parallel(NDIM), x_II(NDIM), u_II, Q_ref(NCONS)
-      real(kind=RP) :: lj(0:N), w(0:N), den, visc_flux(NDIM,0:N)
-      real(kind=RP) :: mu_ref, kappa_ref, nu_ref, mu, nu
-      integer       :: i
+      real(kind=RP) :: u_parallel(NDIM), x_II(NDIM), u_II, U(NDIM,0:N), Un(0:N), tg(NDIM)
+      real(kind=RP) :: lj(0:N), dlj(0:N), tau_wsb, tau_w(0:N), Ut(0:N)
+      real(kind=RP) :: kappa_ref, mu(0:N), du(0:N)
+      integer       :: i, j 
 
-      visc_fluxsb = 0.0_RP 
-      den         = 0.0_RP
-      Q_ref       = Q(:,N)
-
-      U_ref      = Q_ref(IRHOU:IRHOW)/Q_ref(IRHO)
-      u_parallel = U_ref - (dot_product(U_ref, nHat) * nHat)
+      tau_wsb  = 0.0_RP
+#if defined(NAVIERSTOKES)
+      do i = 0, N
+         U(:,i) = Q(IRHOU:IRHOW,i)/Q(IRHO,i)
+         call get_laminar_mu_kappa(Q(:,i),mu(i),kappa_ref)
+      end do 
+      
+      u_parallel = U(:,1) - dot_product(U(:,1), nHat) * nHat
       x_II       = u_parallel / norm2(u_parallel)
-      u_II       = dot_product(U_ref, x_II)
-
-      call get_laminar_mu_kappa(Q_ref, mu_ref, kappa_ref)
-
-      nu_ref = mu_ref/Q_ref(IRHO)
-      u_tau  = u_tau_f (u_II, dWall(N), nu_ref, u_tau)
-
+      u_II       = dot_product(U(:,1), x_II)
+      
+      !GEt the tangent component 
       do i = 0, N 
-         call get_laminar_mu_kappa(Q(:,i), mu, kappa_ref)
-         nu = mu/Q(IRHO,i)
-         visc_flux(:,i) = tau_w_IBM( u_tau, dWall(i), Q(IRHO,i), nu ) * x_II 
+         Ut(i) = dot_product(U(:,i),x_II)
       end do 
 
-      do i = 0, N
-         lj(i) = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
-         w(i)  = 1.0_RP/(abs(-1.0_RP - nodes(i))**2 + 1.0e-10)
-         den   = den + w(i) * lj(i)
-      end do
+      Ut(0) = 0.0_RP 
+   
+      du = 0.0_RP 
+      do i = 0, N 
+         call PolyDerivativeVector( nodes(i), N, nodes, dlj )
+         do j = 0, N 
+            du(i) = du(i) + dlj(j) * Ut(j)
+         end do 
+      end do  
 
       do i = 0, N
-         visc_fluxsb(IRHOU) = visc_fluxsb(IRHOU) + visc_flux(IX,i) * lj(i) * w(i)
-         visc_fluxsb(IRHOV) = visc_fluxsb(IRHOV) + visc_flux(IY,i) * lj(i) * w(i)
-         visc_fluxsb(IRHOW) = visc_fluxsb(IRHOW) + visc_flux(IZ,i) * lj(i) * w(i)
+         lj(i)    = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
+         tau_w(i) = mu(i) * du(i) 
       end do 
 
-      visc_fluxsb = -visc_fluxsb/den 
+      call wall_shear(u_II, dWall(1), Q(IRHO,1), mu(1), tau_w(0), u_tau0)
+
+      do i = 0, N
+         tau_wsb = tau_wsb + tau_w(i) * lj(i) 
+      end do 
+#endif 
+      visc_fluxsb(IRHOU:IRHOW) = -tau_wsb * x_II
 
    END SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM
 

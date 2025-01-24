@@ -104,9 +104,8 @@ module LocalIBMRefinementTool
          end if         
          mesh% IBM% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(fname), requestedLength = LINE_LENGTH)
          mesh% IBM% stl(STLNum)% body = STLNum             
-         OBB(STLNum)% filename        = mesh% IBM% STLfilename(STLNum)
          call mesh% IBM% stl(STLNum)% ReadTessellation( mesh% IBM% STLfilename(STLNum) )
-         call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .false., mesh% IBM% AAB, .false. )
+         call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .false. )
       end do
 
          call mesh% IBM% SetPolynomialOrder( mesh% elements )

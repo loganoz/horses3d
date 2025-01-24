@@ -78,7 +78,7 @@
          logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
          integer, dimension(:,:,:), allocatable :: STL, forcingPointIndex !STL file the DoFbelongs to if isInsideBody = .true. (IB)
          integer                                :: IP_index 
-         logical                                :: MaskCorners(8) = .false.
+         logical                                :: MaskCorners(8) = .false., HOcorrection = .false.
          logical                                :: HO_IBM = .false., IBMConstruct = .false., moving = .false.
          contains
             procedure   :: Construct               => HexElement_Construct

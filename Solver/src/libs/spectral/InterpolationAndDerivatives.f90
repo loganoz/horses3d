@@ -57,7 +57,7 @@
       public   ComputeVandermonde, JacobiPolynomial, ComputeModalForm
       public   LagrangeInterpolatingPolynomial, LagrangeInterpolation
 
-      INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
+      INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2      
       
       ! Interpolator type that is used in multigrid and in the plotter
       TYPE Interpolator_t

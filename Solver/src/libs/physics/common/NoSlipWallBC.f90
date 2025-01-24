@@ -417,22 +417,18 @@ module NoSlipWallBCClass
          integer,               intent(in)    :: N
          real(kind=RP),         intent(inout) :: Qsb(NCONS)  
 
-         real(kind=RP) :: T(0:N), U(NDIM,0:N), dT0, V(NDIM)
+         real(kind=RP) :: T(0:N), U(NDIM,0:N)
 #if defined (SPALARTALMARAS)
          real(kind=RP) :: theta(0:N)
 #endif 
          real(kind=RP) :: lj(0:N), dlj(0:N)
          integer       :: i
-         
-         associate(gammaM2     => dimensionless% gammaM2,     &
-                   gammaMinus1 => thermodynamics% gammaMinus1 )
 
-         Qsb              = 0.0_RP
-         dT0              = 0.0_RP 
-         Q(IRHOU:IRHOW,0) = 0.0_RP
-#if defined (SPALARTALMARAS)
-         Q(IRHOTHETA,0)   = 0.0_RP
-#endif
+         associate( gammaM2     => dimensionless% gammaM2,     &
+                    gammaMinus1 => thermodynamics% gammaMinus1 )
+
+         Qsb = 0.0_RP
+
          do i = 0, N
             lj(i)    = LagrangeInterpolatingPolynomial( i, xsb, N, nodes ) 
             T(i)     = Temperature(Q(:,i))
@@ -443,51 +439,54 @@ module NoSlipWallBCClass
          end do 
 
          call PolyDerivativeVector( xb, N, nodes, dlj )
-                 
-         do i = 1, N
-            dT0 = dT0 - T(i) * dlj(i)
-         end do
-          
-         T(0) = dT0/dlj(0)
 
-         !call BarycentricWeights( N, nodes, w )
+         U(:,0)   = 0.0_RP 
+         T(0)     = 0.0_RP
+#if defined(SPALARTALMARAS)
+         theta(0) = 0.0_RP  
+#endif
+         do i = 1, N
+            T(0) = T(0) - dlj(i) * T(i)       
+         end do 
+         
+         T(0) = T(0)/dlj(0)
 
          do i = 0, N 
             Qsb(IRHOU:IRHOW) = Qsb(IRHOU:IRHOW) + lj(i) * U(:,i)
             Qsb(IRHOE)       = Qsb(IRHOE)       + lj(i) * T(i)
-#if defined (SPALARTALMARAS)
-            Qsb(IRHOTHETA)   = Qsb(IRHOTHETA)   + lj(i) * theta(i)
+#if defined(SPALARTALMARAS)
+            Qsb(IRHOTHETA)   = Qsb(IRHOTHETA) + lj(i) * theta(i)
 #endif 
          end do
-
+         
          Qsb(IRHOE) = Qsb(IRHOE)/(gammaM2*gammaMinus1)
-
+         
          end associate
 
       end subroutine NoSlipWallBC_FlowState_HOIBM
 
-      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, Qsb_weak )    
+      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
          implicit none
          class(NoSlipWallBC_t), intent(in)    :: self
          real(kind=RP),         intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),         intent(in)    :: nHat(NDIM)  
          real(kind=RP),         intent(inout) :: Qsb_weak(NCONS)  
 
-         real(kind=RP) :: rho, invRho, Vsb(NDIM), V(NDIM)
+         real(kind=RP) :: rho, invRho, Vsb(NDIM), e_int
 
          Qsb_weak = Qsb
          rho      = QIn(IRHO)
          invRho   = 1.0_RP/rho 
          Vsb      = Qsb(IRHOU:IRHOW)
-
+         e_int    = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(POW2(QIn(IRHOU))+POW2(QIn(IRHOV))+POW2(QIn(IRHOW))))
+ 
          Qsb_weak(IRHO)        = rho 
-         Qsb_weak(IRHOU:IRHOW) = 2.0_RP * rho * Vsb - QIn(IRHOU:IRHOW)
-         V                     = invRho * Qsb_weak(IRHOU:IRHOW) 
-         Qsb_weak(IRHOE)       = rho * (Qsb(IRHOE) + 0.5_RP * sum(V*V))
-#if defined (SPALARTALMARAS)
+         Qsb_weak(IRHOU:IRHOW) = 2.0_RP*rho*Qsb(IRHOU:IRHOW) - QIn(IRHOU:IRHOW)
+         Qsb_weak(IRHOE)       = rho * (Qsb(IRHOE) + 0.5_RP * sum(Vsb*Vsb))!
+#if defined (SPALARTALMARAS) 
          Qsb_weak(IRHOTHETA)   = rho * Qsb(IRHOTHETA) - QIn(IRHOTHETA)
 #endif 
       end subroutine NoSlipWallBC_FlowStateWeak_HOIBM
-
 
       subroutine NoSlipWallBC_FlowGradVars_HOIBM( self, QIn, Qsb, x, time, nHat, Usb, GetGradients )    
          implicit none
@@ -496,21 +495,22 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(inout) :: Usb(NGRAD)
          procedure(GetGradientValues_f)        :: GetGradients
 
-         real(kind=RP) :: Q_aux(NCONS), rho, invRho, Vsb(NDIM), U1, e_int 
+         real(kind=RP) :: Q_aux(NCONS), rho, invRho, Vsb(NDIM), e_int, U1, U(NGRAD)
 
          Q_aux  = Qsb 
          rho    = QIn(IRHO)
          invRho = 1.0_RP/rho 
          Vsb    = Qsb(IRHOU:IRHOW)
+         e_int  = invRho*(QIn(IRHOE) - 0.5_RP*invRho*(POW2(QIn(IRHOU))+POW2(QIn(IRHOV))+POW2(QIn(IRHOW))))
 
-         Q_aux(IRHO)        = rho 
-         Q_aux(IRHOU:IRHOW) = rho * Vsb 
-         Q_aux(IRHOE)       = rho * (Qsb(IRHOE) + 0.5_RP * sum(Vsb*Vsb))
+         Q_aux(IRHO)        = rho
+         Q_aux(IRHOU:IRHOW) = rho * Vsb
+         Q_aux(IRHOE)       = rho * ( Qsb(IRHOE) + 0.5_RP * sum(Vsb*Vsb))!
 #if defined (SPALARTALMARAS)
          Q_aux(IRHOTHETA)   = rho * Qsb(IRHOTHETA)
 #endif
          U1 = Usb(IRHO)
-         
+   
          call GetGradients(NCONS, NGRAD, Q_aux, Usb)
 
          Usb(IRHO) = U1
@@ -527,9 +527,9 @@ module NoSlipWallBCClass
          real(kind=RP) :: invRho, u, v, w, viscWork, heatFlux, Vsb(NDIM)
 
          invRho   = 1.0_RP/QIn(IRHO)
-         u        = QIn(IRHOU)
-         v        = QIn(IRHOV)
-         w        = QIn(IRHOW)
+         u        = invRho*QIn(IRHOU)
+         v        = invRho*QIn(IRHOV)
+         w        = invRho*QIn(IRHOW)
          viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
          heatFlux = flux(IRHOE) - viscWork
          Vsb      = Qsb(IRHOU:IRHOW)
@@ -624,10 +624,11 @@ module NoSlipWallBCClass
          real(kind=RP),            intent(inout) :: Qsb(NCONS)
       end subroutine NoSlipWallBC_FlowState_HOIBM
 
-      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, Qsb_weak )    
+      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
          implicit none
          class(NoSlipWallBC_t),    intent(in)    :: self
          real(kind=RP),            intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),            intent(in)    :: nHat(NDIM)  
          real(kind=RP),            intent(inout) :: Qsb_weak(NCONS)
       end subroutine NoSlipWallBC_FlowStateWeak_HOIBM
 
@@ -734,10 +735,11 @@ module NoSlipWallBCClass
          real(kind=RP),            intent(inout) :: Qsb(NCONS)
       end subroutine NoSlipWallBC_FlowState_HOIBM
 
-      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, Qsb_weak )    
+      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
          implicit none
          class(NoSlipWallBC_t),    intent(in)    :: self
          real(kind=RP),            intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),            intent(in)    :: nHat(NDIM)
          real(kind=RP),            intent(inout) :: Qsb_weak(NCONS)
       end subroutine NoSlipWallBC_FlowStateWeak_HOIBM
 

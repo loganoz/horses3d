@@ -715,16 +715,11 @@ module FASMultigridClass
             N2yAll( Solver % p_sem % mesh % elements(k) % globID ) = N2y(k)
             N2zAll( Solver % p_sem % mesh % elements(k) % globID ) = N2z(k)
          end do
-         
-         ! setting the IBM level & saving the KDtree
-
-         if( Solver% p_sem% mesh% IBM% active ) call Child_p% p_sem% mesh% IBM% copy( Solver% p_sem% mesh% IBM, lvl )
 
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
                                            Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
                                            success = success,                                                            &
                                            ChildSem = .TRUE.  )
- 
          if (.NOT. success) error stop "Multigrid: Problem creating coarse solver."
 
          if (DualTimeStepping) then
@@ -738,7 +733,7 @@ module FASMultigridClass
 !$omp end do
             call BDFInitialiseQ(Child_p % p_sem % mesh)
          end if
-
+ write(*,*) 'here'
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
       end if
 

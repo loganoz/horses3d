@@ -772,6 +772,7 @@ readloop:do
 !  Subroutine to make the p-representation on certain boundaries conforming
 !  -----------------------------------------------------------------------
    function getAdaptationType() RESULT(adaptationType)
+      use MPI_Process_Info
       !--------------------------------------
       implicit none
       !--------------------------------------
@@ -794,11 +795,11 @@ readloop:do
                adaptationType = 1
             case default
                adaptationType = 0
-               write(STD_OUT,*) "Unknown type. Default type used for p-adaptation: Truncation Error"
+               if( MPI_Process% isRoot ) write(STD_OUT,*) "Unknown type. Default type used for p-adaptation: Truncation Error"
          end select
       else
          adaptationType = 0
-         write(STD_OUT,*) "Default type used for p-adaptation: Truncation Error"
+         if( MPI_Process% isRoot ) write(STD_OUT,*) "Default type used for p-adaptation: Truncation Error"
       end if
 
    end function

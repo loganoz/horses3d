@@ -22,15 +22,16 @@
       IMPLICIT NONE
 
       private
-      public   Face, stencil_t 
+      public   Face, stencil_t
 
       type stencil_t
 
-         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xsb, xi_B(NDIM), tg1(NDIM), tg2(NDIM)
-         real(kind=RP)              :: rhou, rhov, rhow, rho, p, T, L, d, dl, Et, U(NDIM), time, u_tau0=0.1_RP
-         integer                    :: N, partition
-         logical                    :: state = .false., wallfunction = .false.
-         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), Q(:,:), Qsb(:), nodes(:), dWall(:)
+         real(kind=RP)              :: x(NDIM), normal(NDIM), dist, xsb, xi_B(NDIM), tg1(NDIM), tg2(NDIM), update_time = 0._RP
+         real(kind=RP)              :: rhou, rhov, rhow, rho, p, T, L, d, dl, Et, U(NDIM), time = 0.0_RP, u_tau0=0.1_RP
+         integer                    :: N, eID = 0, domain = 0
+         logical                    :: state = .false., wallfunction = .false., update = .true.
+         real(kind=RP), allocatable :: x_s(:,:), xi_s(:,:), Q(:,:), Qsb(:), nodes(:), dWall(:), U_x(:,:), U_y(:,:), U_z(:,:)
+         real(kind=RP), allocatable :: Ub_x(:), Ub_y(:), Ub_z(:), Qb(:), nodesB(:)
          integer,       allocatable :: eIDs(:)
 
          contains
@@ -94,9 +95,10 @@
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2)
-         logical                         :: HO_IBM = .false., mpiHO_IBM = .false., corrGrad = .false., fmpi =.false.
-         integer                         :: HOSIDE, HO_ID, domain, HOeID, HOdomain, shared_domain, STLNum = 0
+         logical                         :: HO_IBM = .false., mpiHO_IBM = .false., corrGrad = .false., fmpi =.false., monitor = .false.
+         integer                         :: HOSIDE, HO_ID, domain, shared_domain, STLNum = 0
          type(stencil_t), allocatable    :: stencil(:,:)
+         real(kind=RP)                   :: corners(3,4)
          contains
             procedure   :: Construct                     => ConstructFace
             procedure   :: Destruct                      => DestructFace
@@ -1178,8 +1180,8 @@
 
          real(kind=RP) :: Usb(nGradEqn), normal(NDIM)
 
-         normal = -stencil% normal 
-         
+         normal = stencil% normal 
+
          select case (this% HOSIDE)
          case( RIGHT )
             Usb = UL 
@@ -1192,37 +1194,39 @@
 #if defined(NAVIERSTOKES)
             call BCsIBM(STLNum)% bc% FlowGradVars_HOIBM( QIn, stencil% Qsb, stencil% x_s(:,0), stencil% time, normal, Usb, GetGradients )
 #endif
-            UL = Usb 
+            UL = Usb  
          end select 
 
       end subroutine Face_HO_IBM_grad 
 
-      subroutine stencil_build( this, x0, normal, L, M )
+      subroutine stencil_build( this, M )
          use NodalStorageClass
          implicit none
 
          class(stencil_t), intent(inout) :: this
-         real(kind=RP),    intent(in)    :: x0(NDIM), normal(NDIM), L
          integer,          intent(in)    :: M
 
-         real(kind=RP) :: xi
-         integer       :: i
+         real(kind=RP) :: xi, x0(NDIM)
+         integer       :: i, N 
 
-         allocate( this% x_s(NDIM,0:M+1),  & 
-                   this% xi_s(NDIM,0:M+1), & 
-                   this% eIDs(0:M+1)       ) 
+         N = M + 1
 
+         allocate( this% x_s(NDIM,0:N),  & 
+                   this% xi_s(NDIM,0:N), & 
+                   this% dWall(0:N),     & 
+                   this% nodes(0:N),     & 
+                   this% nodesb(0:N),    & 
+                   this% eIDs(0:N)       ) 
+
+         x0 = this% x !+ this% d * this% normal  
          do i = 0, M
-            xi               = spA_s% x(i) 
-            this% x_s(:,i+1) = x0 + 0.5_RP * (1.0_RP + xi) * L * normal
+            xi               = this% dl + 0.5_RP * (1.0_RP + spA_s% x(i)) * this% L
+            this% x_s(:,i+1) = x0 + xi * this% normal
          end do 
+   
+      end subroutine stencil_build
 
-       end subroutine stencil_build
-
-      subroutine stencil_ComputeState( this, nHat, t1, t2, STLNum )
-#if defined(NAVIERSTOKES)
-         use VariableConversion, only: Pressure, temperature
-#endif 
+      subroutine stencil_ComputeState( this, nHat, t1, t2, STLNum, dt )
          use FluidData
          use PhysicsStorage
          use PolynomialInterpAndDerivsModule
@@ -1235,6 +1239,7 @@
          real(kind=RP),    intent(inout) :: nHat(NDIM)
          real(kind=RP),    intent(inout) :: t1(NDIM), t2(NDIM)
          integer,          intent(in)    :: STLNum
+         real(kind=RP),    intent(in)    :: dt
 
          real(kind=RP)                 :: xb, xsb, xi, d
          real(kind=RP)                 :: nodes(0:this% N)
@@ -1243,21 +1248,23 @@
  
          N      = this% N
          M      = N - 1
-         normal = -this% normal
-         
+         normal = this% normal
+ 
          do i = 0, M
-            xi               = this% dl + 0.5_RP * (1.0_RP + spA_s% x(i)) * this% L 
+            xi               = this% dl + 0.5_RP * (1.0_RP + spA_s% x(i)) * this% L
             this% dWall(i+1) = abs(xi - this% d)
-            this% nodes(i+1) = 2.0_RP * xi/(this% dl + this% L) - 1.0_RP 
+            this% nodes(i+1) = 2.0_RP*xi/(this% dl + this% L) - 1.0_RP 
          end do
 
-         this% nodes(0) = 2.0_RP * this% d/(this% dl + this% L) - 1.0_RP 
+         this% nodes(0) = 2.0_RP*this% d/(this% dl + this% L) - 1.0_RP
 
-         xb             = this% nodes(0)
-         this% xsb      = -1.0_RP
-         this% dWall(0) =  0.0_RP
-#if defined(NAVIERSTOKES)        
-         call BCsIBM(STLNum)% bc% FlowState_HOIBM( this% Q, xb, this% xsb, this% nodes, N, this% x_s(:,0), this% time, normal, this% Qsb )
+         xb                = this% nodes(0)
+         this% xsb         = -1.0_RP 
+         this% dWall(0)    = 0.0_RP 
+         this% nodesB(0:N) = this% nodes(0:N)
+         this% nodesB(0)   = -1.0_RP  
+#if defined(NAVIERSTOKES)    
+         call BCsIBM(STLNum)% bc% FlowState_HOIBM( this% Q, xb, this% xsb, this% nodes, N, this% x_s(:,0), dt, normal, this% Qsb )
 #endif
       end subroutine stencil_ComputeState
 
@@ -1328,5 +1335,6 @@
                      this% eIDs  )
 
       end subroutine stencil_destroy
+
 
 end Module FaceClass

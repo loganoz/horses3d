@@ -18,9 +18,9 @@ module MPI_IBMUtilities
    public :: SendSTL2Partitions, receiveSTLpartitions
    public :: recvScalarPlotRoot, sendScalarPlotRoot
    public :: recvVectorPlotRoot, sendVectorPlotRoot
-   public :: MPIProcedures_IBM_HO_faces, IBM_HO_findElements
+   public :: MPIProcedures_IBM_HO_faces, IBM_HO_findElements, IBM_HO_findBRElements
    public :: Set_IBM_HO_faces, GatherHOfacesState
-   public :: plotSTL, SendOBB, RecvOBB, SendAxis, RecvAxis
+   public :: plotSTL, SendAxis, RecvAxis
    public :: castMaskNumOfObjs, castMask, castMaskPlot, castIsInsideBody
    public :: gatherMaskGeom
    public :: castStateBandRegion, castGradientsBandRegion
@@ -30,6 +30,7 @@ module MPI_IBMUtilities
    public :: IBM_HO_GetGradient, GatherHOIntegrationPointsState
    public :: Mask2Root, Mask2Partitions, MaskLogical2Root
    public :: StateMask2Root, StateMask2Partitions
+   public :: GatherHOfacesGradient_x, GatherHOfacesGradient_y, GatherHOfacesGradient_z
 
    type IBMpoints
 
@@ -459,7 +460,7 @@ contains
       do i = 1, IBMmask(domain)% NumOfObjs 
          do domains = 1, MPI_Process% nProcs
             index = (domains-1)*IBMmask(domain)% NumOfObjs + i   
-            if( IBMmask(domain)% dist(i) .gt. dist(index) ) then 
+            if( abs(IBMmask(domain)% dist(i)) .gt. abs(dist(index)) ) then 
                IBMmask(domain)% dist(i)   = dist(index) 
                IBMmask(domain)% normal(i,:) = normal(index,:)
             end if 
@@ -788,80 +789,6 @@ contains
 #endif
    end subroutine RecvAxis
 
-
-   subroutine SendOBB( STLNum )
-
-      implicit none 
-
-      integer, intent(in) :: STLNum 
-#ifdef _HAS_MPI_
-      integer              :: domains, i, ierr, domain, msg, &
-                              send_req(MPI_Process% nProcs-1,17)
-
-      if ( .not. MPI_Process% isRoot ) return
-
-      do domains = 2, MPI_Process% nProcs
-
-         call mpi_isend(OBB(STLNum)% MBR% angle, 1, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains-1,1), ierr )
-
-         call mpi_isend(OBB(STLNum)% MBR% center, NDIM-1, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains-1,2), ierr )
-         
-         call mpi_isend(OBB(STLNum)% CloudCenter, NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains-1,3), ierr )
-     
-         do i = 1, NDIM 
-            call mpi_isend(OBB(STLNum)% R(:,i), NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains-1,3+i), ierr )
-         end do 
-
-         do i = 1, NDIM 
-            call mpi_isend(OBB(STLNum)% invR(:,i), NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains-1,6+i), ierr )
-         end do 
-
-         do i = 1, BOXVERTICES
-            call mpi_isend(OBB(STLNum)% LocVertices(:,i), NDIM, MPI_DOUBLE, domains-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(domains-1,9+i), ierr )
-         end do 
-      
-      end do 
-
-      do msg = 1, 17 
-         call mpi_waitall(MPI_Process% nProcs-1, send_req(:,msg), MPI_STATUSES_IGNORE, ierr)
-      end do
-#endif
-   end subroutine SendOBB
-   
-   subroutine recvOBB( STLNum )
-
-      implicit none 
-
-      integer, intent(in) :: STLNum
-
-      integer :: domain, i
-#ifdef _HAS_MPI_
-      integer :: domains, ierr, recv_req(17)
-
-      if( MPI_Process% isRoot ) return 
-
-      call mpi_irecv(OBB(STLNum) % MBR% angle,  1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
-      
-      call mpi_irecv(OBB(STLNum)%  MBR% center, NDIM-1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr)
-
-      call mpi_irecv(OBB(STLNum)% CloudCenter, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr)
-
-      do i = 1, NDIM 
-         call mpi_irecv(OBB(STLNum)% R(:,i), NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3+i), ierr)
-      end do 
-
-      do i = 1, NDIM 
-         call mpi_irecv(OBB(STLNum)% invR(:,i), NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6+i), ierr)
-      end do 
-
-      do i = 1, BOXVERTICES 
-         call mpi_irecv(OBB(STLNum)% LocVertices(:,i), NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9+i), ierr)
-      end do 
-
-      call mpi_waitall(17, recv_req, MPI_STATUSES_IGNORE, ierr)
-#endif
-   end subroutine recvOBB
-
    subroutine SendSTL2Partitions( STL, STLNum, axis )
       implicit none
       !-arguments---------------------------------------------------------------------
@@ -886,7 +813,6 @@ contains
       NumOfObjs = STL% NumOfObjs
 
       allocate( Bar(NumOfObjs),                      &
-                coord(NumOfObjs),                    &
                 SortedIndex(NumOfObjs),              &
                 normals_x(NumOfObjs),                &
                 normals_y(NumOfObjs),                &
@@ -900,9 +826,9 @@ contains
          Bar(i)         = maxval(STL% ObjectsList(i)% vertices(1:NumOfVertices)% coords(axis))
       end do
 
-      call sort( Bar, SortedIndex, coord, coord, coord, 1, NumOfObjs )
+      call sort( Bar, SortedIndex, 1, NumOfObjs )
 
-      deallocate(Bar,coord)
+      deallocate(Bar)
 
       elems_per_domain = NumOfObjs/MPI_Process% nProcs
       biggerdomains    = mod(NumOfObjs,MPI_Process% nProcs)
@@ -1286,7 +1212,7 @@ contains
 
       call IBMStencilPoints(domain)% buildstencil( IBMStencilPoints(domain)% NumOfObjs ) 
       call IBMStencilPoints(domain)% buildstate(   IBMStencilPoints(domain)% NumOfObjs, nEqn ) 
-
+  
       counter = 0 
 
       do fID = 1, size(faces)
@@ -1294,8 +1220,15 @@ contains
          if( f% HO_IBM ) then 
             do i = 0, f% Nf(1); do j = 0, f% Nf(2)
                N = f% stencil(i,j)% N
-               allocate( f% stencil(i,j)% Qsb(nEqn),  &
-                         f% stencil(i,j)% Q(nEqn,0:N) )
+               allocate( f% stencil(i,j)% Qsb(nEqn),     &
+                         f% stencil(i,j)% Q(nEqn,0:N),   &
+                         f% stencil(i,j)% Qb(nEqn),      &
+                         f% stencil(i,j)% U_x(nEqn,0:N), &
+                         f% stencil(i,j)% U_y(nEqn,0:N), &  
+                         f% stencil(i,j)% U_z(nEqn,0:N), &
+                         f% stencil(i,j)% Ub_x(nEqn),    &
+                         f% stencil(i,j)% Ub_y(nEqn),    &
+                         f% stencil(i,j)% Ub_z(nEqn)     )
                do k = 0, N
                   counter = counter + 1
                   IBMStencilPoints(domain)% coords(counter,:)         = f% stencil(i,j)% x_s(:,k)
@@ -1303,6 +1236,8 @@ contains
                   IBMStencilPoints(domain)% local_position(counter,:) = (/i,j,k/) 
                   IBMStencilPoints(domain)% fIDs(counter)             = fID
                   IBMStencilPoints(domain)% STLNum(counter)           = f% STLNum 
+                  ! IBMStencilPoints(domain)% domain(counter)           = f% stencil(i,j)% domain 
+                  ! IBMStencilPoints(domain)% element_index(counter)    = f% stencil(i,j)% eID 
                end do
             end do; end do 
          end if 
@@ -1360,6 +1295,43 @@ contains
    end subroutine CastHOfaces
 
 !================================================== HO faces state ==================================================
+   subroutine IBM_HO_findBRElements(IBMStencilPoints, elements, faces, STLNum )
+      use ElementClass
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMStencilPoints(:)
+      type(element),   intent(inout) :: elements(:)
+      type(face),      intent(in)    :: faces(:)
+      integer,         intent(in)    :: STLNum
+
+      real(kind=RP) :: xi(NDIM), coords(NDIM)
+      logical       :: FOUND
+      integer       :: domain, fID, i, j, k, eID, counter 
+
+      domain  = MPI_Process% rank + 1
+
+      do counter = 1, IBMStencilPoints(domain)% NumOfObjs 
+         i   = IBMStencilPoints(domain)% local_position(counter,IX)
+         j   = IBMStencilPoints(domain)% local_position(counter,IY)
+         k   = IBMStencilPoints(domain)% local_position(counter,IZ)
+
+         fID = IBMStencilPoints(domain)% fIDs(counter) 
+  
+         eID = faces(fID)% stencil(i,j)% eID
+
+         if( eID .eq. 0 ) then !mpi
+            IBMStencilPoints(domain)% domain = 0 
+         else
+            coords = IBMStencilPoints(domain)% coords(counter,:)
+            FOUND  = elements(eID)% FindPointWithCoords( coords, 0, xi, .false. ) 
+            IBMStencilPoints(domain)% element_index(counter) = eID
+            IBMStencilPoints(domain)% domain(counter)        = faces(fID)% stencil(i,j)% domain 
+            IBMStencilPoints(domain)% xi(counter,:)          = xi 
+         end if 
+      end do 
+   
+   end subroutine IBM_HO_findBRElements
+  
    subroutine IBM_HO_findElements( IBMStencilPoints, elements, NumOfSTL, clipAxis )
       use ElementClass
       implicit none 
@@ -1373,23 +1345,23 @@ contains
       integer       :: domain, domains, fID, i, j, k, eID, counter, counter1, N, STLNum  
 
       domain = MPI_Process% rank + 1
-
+      
       do domains = 1, MPI_Process% nProcs
          IBMStencilPoints(domains)% element_index = 0  
          do counter = 1, IBMStencilPoints(domains)% NumOfObjs 
             do eID = 1, size(elements)
                associate( e => elements(eID) )
-               if( e% HO_IBM ) cycle
                do STLNum = 1, NumOfSTL
                   coords = IBMStencilPoints(domains)% coords(counter,:)
-                  !if( OBB(STLNum)% isPointInside(coords, 2.0_RP) ) then 
-                     if( e% FindPointWithCoords(coords, clipAxis, xi) ) then
+                  if( OBB(STLNum)% isPointInside(coords, 2.0_RP) ) then 
+                     if( .not. IsPointInside_eBB(e% surfInfo% corners, coords) ) cycle 
+                     if( e% FindPointWithCoords(coords, 0, xi) ) then
                         IBMStencilPoints(domains)% domain(counter)        = domain
                         IBMStencilPoints(domains)% element_index(counter) = eID 
                         IBMStencilPoints(domains)% xi(counter,:)          = xi 
                         exit 
                      end if   
-                  !end if
+                  end if
                end do 
                end associate
             end do 
@@ -1423,6 +1395,33 @@ contains
 
    end subroutine IBM_HO_GetState
 
+   subroutine IBM_HO_GetGradient( IBMStencilPoints, elements, nEqn )
+      use ElementClass
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMStencilPoints(:)
+      type(element),   intent(inout) :: elements(:)
+      integer,         intent(in)    :: nEqn
+
+      real(kind=RP) :: xi(NDIM)
+      integer       :: domain, domains, i, eID 
+
+      domain = MPI_Process% rank + 1
+
+      do domains = 1, MPI_Process% nProcs 
+         do i = 1, IBMStencilPoints(domains)% NumOfObjs
+            if( IBMStencilPoints(domains)% domain(i) .eq. domain ) then 
+               eID = IBMStencilPoints(domains)% element_index(i) 
+               xi  = IBMStencilPoints(domains)% xi(i,:)
+               IBMStencilPoints(domains)% U_x(i,:) = elements(eID)% EvaluateGradientAtPoint(nEqn, xi, IX)
+               IBMStencilPoints(domains)% U_y(i,:) = elements(eID)% EvaluateGradientAtPoint(nEqn, xi, IY)
+               IBMStencilPoints(domains)% U_z(i,:) = elements(eID)% EvaluateGradientAtPoint(nEqn, xi, IZ)
+            end if 
+         end do
+      end do
+
+   end subroutine IBM_HO_GetGradient
+
    subroutine GatherHOfacesState( IBMStencilPoints, nEqn, faces )
       use PhysicsStorage
       implicit none 
@@ -1453,7 +1452,7 @@ contains
          end do
          
          do msg = 1, nEqn+1
-            call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUS_IGNORE, ierr )
+            call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUSES_IGNORE, ierr )
          end do
 
          do n = 1, IBMStencilPoints(domain)% NumOfObjs
@@ -1487,6 +1486,198 @@ contains
 #endif
    end subroutine GatherHOfacesState
 
+   subroutine GatherHOfacesGradient_x( IBMStencilPoints, nEqn, faces )
+      use PhysicsStorage
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMStencilPoints(:)
+      integer,         intent(in)    :: nEqn
+      type(face),      intent(inout) :: faces(:)  
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: U(:,:)
+      integer,       allocatable :: eIDsdomain(:)
+      integer                    :: domain, domains, i, j, k, fID, n, index
+      integer                    :: msg, ierr, gather_req(MPI_Process% nProcs,nEqn+1)
+
+      domain = MPI_Process% rank + 1
+
+      if( MPI_Process% doMPIAction ) then 
+      
+         allocate( U(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),    &
+                   eIDsdomain(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs) )
+
+         do domains = 1, MPI_Process% nProcs 
+            do i = 1, nEqn
+               call mpi_igather( IBMStencilPoints(domains)% U_x(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U(:,i),            &
+                                IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD, gather_req(domains,i), ierr )
+            end do 
+            call mpi_igather( IBMStencilPoints(domains)% domain, IBMStencilPoints(domains)% NumOfObjs, MPI_INT, eIDsdomain,             &
+                             IBMStencilPoints(domains)% NumOfObjs, MPI_INT, domains-1, MPI_COMM_WORLD, gather_req(domains,nEqn+1), ierr )
+         end do
+         
+         do msg = 1, nEqn+1
+            call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUSES_IGNORE, ierr )
+         end do
+
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            do domains = 1, MPI_Process% nProcs 
+               index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
+               if( eIDsdomain(index) .ne. 0 ) then 
+                  fID = IBMStencilPoints(domain)% fIDs(n)
+                  i   = IBMStencilPoints(domain)% local_position(n,IX)
+                  j   = IBMStencilPoints(domain)% local_position(n,IY)
+                  k   = IBMStencilPoints(domain)% local_position(n,IZ) 
+
+                  faces(fID)% stencil(i,j)% U_x(:,k) = U(index,:)  
+               end if 
+            end do
+         end do
+         
+         deallocate( U, eIDsdomain )
+
+      else 
+
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            fID = IBMStencilPoints(domain)% fIDs(n)
+            i   = IBMStencilPoints(domain)% local_position(n,IX)
+            j   = IBMStencilPoints(domain)% local_position(n,IY)
+            k   = IBMStencilPoints(domain)% local_position(n,IZ)
+
+            faces(fID)% stencil(i,j)% U_x(:,k) = IBMStencilPoints(domain)% U_x(n,:)
+         end do 
+
+      end if
+#endif
+   end subroutine GatherHOfacesGradient_x
+
+   subroutine GatherHOfacesGradient_y( IBMStencilPoints, nEqn, faces )
+      use PhysicsStorage
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMStencilPoints(:)
+      integer,         intent(in)    :: nEqn
+      type(face),      intent(inout) :: faces(:)  
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: U(:,:)
+      integer,       allocatable :: eIDsdomain(:)
+      integer                    :: domain, domains, i, j, k, fID, n, index
+      integer                    :: msg, ierr, gather_req(MPI_Process% nProcs,nEqn+1)
+
+      domain = MPI_Process% rank + 1
+
+      if( MPI_Process% doMPIAction ) then 
+      
+         allocate( U(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),    &
+                   eIDsdomain(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs) )
+
+         do domains = 1, MPI_Process% nProcs 
+            do i = 1, nEqn
+               call mpi_igather( IBMStencilPoints(domains)% U_y(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U(:,i),            &
+                                IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD, gather_req(domains,i), ierr )
+            end do 
+            call mpi_igather( IBMStencilPoints(domains)% domain, IBMStencilPoints(domains)% NumOfObjs, MPI_INT, eIDsdomain,             &
+                             IBMStencilPoints(domains)% NumOfObjs, MPI_INT, domains-1, MPI_COMM_WORLD, gather_req(domains,nEqn+1), ierr )
+         end do
+         
+         do msg = 1, nEqn+1
+            call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUSES_IGNORE, ierr )
+         end do
+
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            do domains = 1, MPI_Process% nProcs 
+               index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
+               if( eIDsdomain(index) .ne. 0 ) then 
+                  fID = IBMStencilPoints(domain)% fIDs(n)
+                  i   = IBMStencilPoints(domain)% local_position(n,IX)
+                  j   = IBMStencilPoints(domain)% local_position(n,IY)
+                  k   = IBMStencilPoints(domain)% local_position(n,IZ) 
+
+                  faces(fID)% stencil(i,j)% U_y(:,k) = U(index,:)  
+               end if 
+            end do
+         end do
+         
+         deallocate( U, eIDsdomain )
+
+      else 
+
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            fID = IBMStencilPoints(domain)% fIDs(n)
+            i   = IBMStencilPoints(domain)% local_position(n,IX)
+            j   = IBMStencilPoints(domain)% local_position(n,IY)
+            k   = IBMStencilPoints(domain)% local_position(n,IZ)
+
+            faces(fID)% stencil(i,j)% U_y(:,k) = IBMStencilPoints(domain)% U_y(n,:)
+         end do 
+
+      end if
+#endif
+   end subroutine GatherHOfacesGradient_y
+
+   subroutine GatherHOfacesGradient_z( IBMStencilPoints, nEqn, faces )
+      use PhysicsStorage
+      implicit none 
+
+      type(IBMpoints), intent(inout) :: IBMStencilPoints(:)
+      integer,         intent(in)    :: nEqn
+      type(face),      intent(inout) :: faces(:)  
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: U(:,:)
+      integer,       allocatable :: eIDsdomain(:)
+      integer                    :: domain, domains, i, j, k, fID, n, index
+      integer                    :: msg, ierr, gather_req(MPI_Process% nProcs,nEqn+1)
+
+      domain = MPI_Process% rank + 1
+
+      if( MPI_Process% doMPIAction ) then 
+      
+         allocate( U(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),    &
+                   eIDsdomain(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs) )
+
+         do domains = 1, MPI_Process% nProcs 
+            do i = 1, nEqn
+               call mpi_igather( IBMStencilPoints(domains)% U_z(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U(:,i),            &
+                                IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD, gather_req(domains,i), ierr )
+            end do 
+            call mpi_igather( IBMStencilPoints(domains)% domain, IBMStencilPoints(domains)% NumOfObjs, MPI_INT, eIDsdomain,             &
+                             IBMStencilPoints(domains)% NumOfObjs, MPI_INT, domains-1, MPI_COMM_WORLD, gather_req(domains,nEqn+1), ierr )
+         end do
+         
+         do msg = 1, nEqn+1
+            call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUSES_IGNORE, ierr )
+         end do
+
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            do domains = 1, MPI_Process% nProcs 
+               index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
+               if( eIDsdomain(index) .ne. 0 ) then 
+                  fID = IBMStencilPoints(domain)% fIDs(n)
+                  i   = IBMStencilPoints(domain)% local_position(n,IX)
+                  j   = IBMStencilPoints(domain)% local_position(n,IY)
+                  k   = IBMStencilPoints(domain)% local_position(n,IZ) 
+
+                  faces(fID)% stencil(i,j)% U_z(:,k) = U(index,:)  
+               end if 
+            end do
+         end do
+         
+         deallocate( U, eIDsdomain )
+
+      else 
+
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            fID = IBMStencilPoints(domain)% fIDs(n)
+            i   = IBMStencilPoints(domain)% local_position(n,IX)
+            j   = IBMStencilPoints(domain)% local_position(n,IY)
+            k   = IBMStencilPoints(domain)% local_position(n,IZ)
+
+            faces(fID)% stencil(i,j)% U_z(:,k) = IBMStencilPoints(domain)% U_z(n,:)
+         end do 
+
+      end if
+#endif
+   end subroutine GatherHOfacesGradient_z
+
    subroutine sendHO_IBMfacesMPI( faces, domain, MPIfaces )
       use MPI_Face_Class
       implicit none 
@@ -1515,11 +1706,13 @@ contains
             STLNum(mpifID) = 0
          end if 
       end do
-
+ write(*,*) 'sending...'
       call mpi_isend( HO_IBM, MPIfaces% faces(domain)% no_of_faces, MPI_LOGICAL, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
       call mpi_isend( STLNum, MPIfaces% faces(domain)% no_of_faces, MPI_INT    , domain-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+ write(*,*) ' sent over'
+      call mpi_waitall(2, send_req, MPI_STATUSES_IGNORE, ierr)
+   write(*,*) ' wait all '
 
-      call mpi_waitall(2, send_req, MPI_STATUS_IGNORE, ierr)
 #endif
    end subroutine sendHO_IBMfacesMPI
 
@@ -1543,7 +1736,7 @@ contains
       call mpi_irecv( HO_IBM, MPIfaces% faces(domain)% no_of_faces, MPI_LOGICAL, domain-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
       call mpi_irecv( STLNum, MPIfaces% faces(domain)% no_of_faces, MPI_INT    , domain-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr )
    
-      call mpi_waitall(2, recv_req, MPI_STATUS_IGNORE, ierr)
+      call mpi_waitall(2, recv_req, MPI_STATUSES_IGNORE, ierr)
 
       do mpifID = 1, MPIfaces% faces(domain)% no_of_faces
          fID = MPIfaces% faces(domain) % faceIDs(mpifID)
@@ -1645,32 +1838,6 @@ contains
 #endif
    end subroutine CastHOIntegrationPoints
 
-   subroutine IBM_HO_GetGradient( IBMStencilPoints, elements, nEqn )
-      use ElementClass
-      implicit none 
-
-      type(IBMpoints), intent(inout) :: IBMStencilPoints(:)
-      type(element),   intent(inout) :: elements(:)
-      integer,         intent(in)    :: nEqn
-
-      real(kind=RP) :: xi(NDIM)
-      integer       :: domain, domains, i, eID 
-
-      domain = MPI_Process% rank + 1
-
-      do domains = 1, MPI_Process% nProcs 
-         do i = 1, IBMStencilPoints(domains)% NumOfObjs
-            if( IBMStencilPoints(domains)% domain(i) .eq. domain ) then 
-               eID = IBMStencilPoints(domains)% element_index(i) 
-               xi  = IBMStencilPoints(domains)% xi(i,:)
-               IBMStencilPoints(domains)% U_x(i,:) = elements(eID)% EvaluateGradientAtPoint(nEqn, xi, IX)
-               IBMStencilPoints(domains)% U_y(i,:) = elements(eID)% EvaluateGradientAtPoint(nEqn, xi, IY)
-               IBMStencilPoints(domains)% U_z(i,:) = elements(eID)% EvaluateGradientAtPoint(nEqn, xi, IZ)
-            end if 
-         end do
-      end do
-
-   end subroutine IBM_HO_GetGradient
 
    subroutine GatherHOIntegrationPointsState( IBMStencilPoints, ObjectsList, zoneMask, nEqn )
       use PhysicsStorage
@@ -1688,69 +1855,74 @@ contains
 
       domain = MPI_Process% rank + 1
 
-         allocate( Q(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),    &
-                   U_x(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),  &
-                   U_y(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),  &
-                   U_z(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),  &
-                   eIDsdomain(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs) )
+      allocate( Q(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),    &
+                  U_x(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),  &
+                  U_y(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),  &
+                  U_z(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs,nEqn),  &
+                  eIDsdomain(IBMStencilPoints(domain)% NumOfObjs*MPI_Process% nProcs) )
 
-         do domains = 1, MPI_Process% nProcs 
-            do i = 1, nEqn
-               call mpi_igather( IBMStencilPoints(domains)% Q(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, Q(:,i),     &
-                                 IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
-                                 gather_req(domains,i), ierr                                                                      )
-               call mpi_igather( IBMStencilPoints(domains)% U_x(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U_x(:,i), &
-                                 IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
-                                 gather_req(domains,i+nEqn), ierr                                                                 )
-               call mpi_igather( IBMStencilPoints(domains)% U_y(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U_y(:,i), &
-                                 IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
-                                 gather_req(domains,i+2*nEqn), ierr                                                               )
-               call mpi_igather( IBMStencilPoints(domains)% U_z(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U_z(:,i), &
-                                 IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
-                                 gather_req(domains,i+3*nEqn), ierr                                                               )
-            end do 
-            call mpi_igather( IBMStencilPoints(domains)% domain, IBMStencilPoints(domains)% NumOfObjs, MPI_INT, eIDsdomain, &
-                             IBMStencilPoints(domains)% NumOfObjs, MPI_INT, domains-1, MPI_COMM_WORLD,                      &
-                             gather_req(domains,4*nEqn+1), ierr                                                             )
-         end do
+      do domains = 1, MPI_Process% nProcs 
+         do i = 1, nEqn
+            call mpi_igather( IBMStencilPoints(domains)% Q(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, Q(:,i),     &
+                              IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
+                              gather_req(domains,i), ierr                                                                      )
+            call mpi_igather( IBMStencilPoints(domains)% U_x(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U_x(:,i), &
+                              IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
+                              gather_req(domains,i+nEqn), ierr                                                                 )
+            call mpi_igather( IBMStencilPoints(domains)% U_y(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U_y(:,i), &
+                              IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
+                              gather_req(domains,i+2*nEqn), ierr                                                               )
+            call mpi_igather( IBMStencilPoints(domains)% U_z(:,i), IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, U_z(:,i), &
+                              IBMStencilPoints(domains)% NumOfObjs, MPI_DOUBLE, domains-1, MPI_COMM_WORLD,                     &
+                              gather_req(domains,i+3*nEqn), ierr                                                               )
+         end do 
+         call mpi_igather( IBMStencilPoints(domains)% domain, IBMStencilPoints(domains)% NumOfObjs, MPI_INT, eIDsdomain, &
+                           IBMStencilPoints(domains)% NumOfObjs, MPI_INT, domains-1, MPI_COMM_WORLD,                      &
+                           gather_req(domains,4*nEqn+1), ierr                                                             )
+      end do
 
-         do msg = 1, 4*nEqn+1
-            call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUS_IGNORE, ierr )
-         end do
- 
-         if( zoneMask ) then 
-            do n = 1, IBMStencilPoints(domain)% NumOfObjs
-               do domains = 1, MPI_Process% nProcs 
-                  index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
-                  if( eIDsdomain(index) .ne. 0 ) then 
-                     i = IBMStencilPoints(domain)% local_position(n,IX)
-                     j = IBMStencilPoints(domain)% local_position(n,IY)
-                     k = IBMStencilPoints(domain)% local_position(n,IZ)
+      do msg = 1, 4*nEqn+1
+         call mpi_waitall( MPI_Process% nProcs, gather_req(:,msg), MPI_STATUSES_IGNORE, ierr )
+      end do
 
-                     
-                     ObjectsList(i)% IntegrationVertices(j)% Q   = ObjectsList(i)% IntegrationVertices(j)% Q   + IBMStencilPoints(domain)% lj(k) * Q(index,:)
-                     ObjectsList(i)% IntegrationVertices(j)% U_x = ObjectsList(i)% IntegrationVertices(j)% U_x + IBMStencilPoints(domain)% lj(k) * U_x(index,:)
-                     ObjectsList(i)% IntegrationVertices(j)% U_y = ObjectsList(i)% IntegrationVertices(j)% U_y + IBMStencilPoints(domain)% lj(k) * U_y(index,:)
-                     ObjectsList(i)% IntegrationVertices(j)% U_z = ObjectsList(i)% IntegrationVertices(j)% U_y + IBMStencilPoints(domain)% lj(k) * U_z(index,:)
-                  end if 
-               end do
+      ! if( zoneMask ) then 
+         do n = 1, IBMStencilPoints(domain)% NumOfObjs
+            do domains = 1, MPI_Process% nProcs 
+               index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
+               if( eIDsdomain(index) .ne. 0 ) then 
+                  i = IBMStencilPoints(domain)% local_position(n,IX)
+                  j = IBMStencilPoints(domain)% local_position(n,IY)
+                  k = IBMStencilPoints(domain)% local_position(n,IZ)
+
+                  
+                  ObjectsList(i)% IntegrationVertices(j)% Q   = ObjectsList(i)% IntegrationVertices(j)% Q   + &
+                                                                  ObjectsList(i)% IntegrationVertices(j)% lj(k) * Q(index,:)
+                  ObjectsList(i)% IntegrationVertices(j)% U_x = ObjectsList(i)% IntegrationVertices(j)% U_x + &
+                                                                  ObjectsList(i)% IntegrationVertices(j)% lj(k) * U_x(index,:)
+                  ObjectsList(i)% IntegrationVertices(j)% U_y = ObjectsList(i)% IntegrationVertices(j)% U_y + &
+                                                                  ObjectsList(i)% IntegrationVertices(j)% lj(k) * U_y(index,:)
+                  ObjectsList(i)% IntegrationVertices(j)% U_z = ObjectsList(i)% IntegrationVertices(j)% U_y + &
+                                                                  ObjectsList(i)% IntegrationVertices(j)% lj(k) * U_z(index,:)
+               end if 
             end do
-         else
-            do n = 1, IBMStencilPoints(domain)% NumOfObjs
-               do domains = 1, MPI_Process% nProcs 
-                  index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
-                  if( eIDsdomain(index) .ne. 0 ) then 
-                     i = IBMStencilPoints(domain)% local_position(n,IX)
-                     j = IBMStencilPoints(domain)% local_position(n,IY)
+         end do
+         ! else
+         !    do n = 1, IBMStencilPoints(domain)% NumOfObjs
+         !       do domains = 1, MPI_Process% nProcs 
+         !          index = (domains-1)*IBMStencilPoints(domain)% NumOfObjs + n 
+         !          if( eIDsdomain(index) .ne. 0 ) then 
+         !             i = IBMStencilPoints(domain)% local_position(n,IX)
+         !             j = IBMStencilPoints(domain)% local_position(n,IY)
+         !             k = IBMStencilPoints(domain)% local_position(n,IZ)
 
-                     ObjectsList(i)% IntegrationVertices(j)% Q   = Q(index,:)
-                     ObjectsList(i)% IntegrationVertices(j)% U_x = U_x(index,:)
-                     ObjectsList(i)% IntegrationVertices(j)% U_y = U_y(index,:)
-                     ObjectsList(i)% IntegrationVertices(j)% U_z = U_z(index,:)
-                  end if 
-               end do
-            end do
-         end if 
+         !             ObjectsList(i)% IntegrationVertices(j)% Q   = Q(index,:)
+         !             ObjectsList(i)% IntegrationVertices(j)% U_x = U_x(index,:)
+         !             ObjectsList(i)% IntegrationVertices(j)% U_y = U_y(index,:)
+         !             ObjectsList(i)% IntegrationVertices(j)% U_z = U_z(index,:)
+         !          end if 
+         !       end do
+         !    end do
+         ! end if 
 
          deallocate( Q, U_x, U_y, U_z, eIDsdomain )
 #endif
@@ -1838,11 +2010,10 @@ contains
       do i = 1, stl% NumOfObjs
          associate(obj => stl% ObjectsList(i))
          do j = 1, NumOfVertices
-            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords, GLOBAL, coords)
             k         = k + 1
-            x(k)      = coords(1)
-            y(k)      = coords(2)
-            z(k)      = coords(3)
+            x(k)      = obj% vertices(j)% coords(1)
+            y(k)      = obj% vertices(j)% coords(2)
+            z(k)      = obj% vertices(j)% coords(3)
             scalar(k) = obj% IntegrationVertices(j)% ScalarValue
          end do
          end associate
@@ -1881,11 +2052,10 @@ contains
       do i = 1, stl% NumOfObjs
          associate(obj => stl% ObjectsList(i))
          do j = 1, NumOfVertices
-            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords, GLOBAL, coords)
             k          = k + 1
-            COORD_x(k) = coords(1)
-            COORD_y(k) = coords(2)
-            COORD_z(k) = coords(3)
+            COORD_x(k) = obj% vertices(j)% coords(1)
+            COORD_y(k) = obj% vertices(j)% coords(2)
+            COORD_z(k) = obj% vertices(j)% coords(3)
             state(k)   = obj% IntegrationVertices(j)% ScalarValue
          end do
          end associate
@@ -1999,11 +2169,10 @@ contains
       do i = 1, stl% NumOfObjs
          associate(obj => stl% ObjectsList(i) )
          do j = 1, NumOfVertices
-            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords,GLOBAL,coords)
             k           = k + 1
-            x(k)        = coords(1)
-            y(k)        = coords(2)
-            z(k)        = coords(3)
+            x(k)        = obj% vertices(j)% coords(1)
+            y(k)        = obj% vertices(j)% coords(2)
+            z(k)        = obj% vertices(j)% coords(3)
             vector_x(k) = obj% IntegrationVertices(j)% VectorValue(IX) 
             vector_y(k) = obj% IntegrationVertices(j)% VectorValue(IY)
             vector_z(k) = obj% IntegrationVertices(j)% VectorValue(IZ)
@@ -2047,11 +2216,10 @@ contains
       do i = 1, stl% NumOfObjs
          associate( obj => stl% ObjectsList(i))
          do j = 1, NumOfVertices
-            call OBB(STLNum)% ChangeRefFrame(obj% vertices(j)% coords,GLOBAL,coords)
             k          = k + 1
-            COORD_x(k) = coords(1)
-            COORD_y(k) = coords(2)
-            COORD_z(k) = coords(3)
+            COORD_x(k) = obj% vertices(j)% coords(1)
+            COORD_y(k) = obj% vertices(j)% coords(2)
+            COORD_z(k) = obj% vertices(j)% coords(3)
             state_x(k) = obj% IntegrationVertices(j)% VectorValue(IX)
             state_y(k) = obj% IntegrationVertices(j)% VectorValue(IY)
             state_z(k) = obj% IntegrationVertices(j)% VectorValue(IZ)
@@ -2076,5 +2244,46 @@ contains
       deallocate( COORD_x, COORD_y, COORD_z, state_x, state_y, state_z )     
 #endif
    end subroutine sendVectorPlotRoot
+
+   recursive subroutine sort( a, SortedIndeces, left, right )
+
+      implicit none
+      !-arguments-------------------------------------------------
+      real(kind=rp), intent(inout) :: a(:)
+      integer,       intent(inout) :: SortedIndeces(:)
+      integer,       intent(in)    :: left, right
+      !-local-variables-------------------------------------------
+      real(kind=rp) :: x, temp
+      integer       :: i, j, tempInt 
+      logical       :: stay 
+
+      if( left .ge. right ) return
+
+      x = a( (left + right)/2 )
+
+      i = left; j = right
+      stay = .true. 
+
+      do while( stay )
+         do while( a(i) .lt. x )
+            i = i+1
+         end do
+         do while( x .lt. a(j) )
+            j = j-1
+         end do
+         if( i .ge. j ) then 
+            stay = .false. 
+         else 
+            temp = a(i); a(i) = a(j); a(j) = temp
+            tempInt = SortedIndeces(i); SortedIndeces(i) = SortedIndeces(j); SortedIndeces(j) = tempInt
+            i = i+1
+            j = j-1
+         end if 
+      end do
+      
+      if( left < i-1  ) call sort( a, SortedIndeces, left, i-1 )
+      if( j+1 < right ) call sort( a, SortedIndeces, j+1, right )
+
+   end subroutine sort
 
 end module MPI_IBMUtilities
