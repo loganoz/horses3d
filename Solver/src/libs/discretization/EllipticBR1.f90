@@ -183,7 +183,7 @@ module EllipticBR1
          !$acc parallel loop gang present(mesh, self) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
-            call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), NCONS, NGRAD)
+            call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn)
          end do
          !$acc end parallel loop
 !$omp end do nowait
@@ -202,12 +202,12 @@ module EllipticBR1
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , NGRAD, mesh % elements(eID), mesh)
+            call BR1_GradientFaceLoop( self , nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
 !$acc end parallel loop
 
-         call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+         call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, nGradEqn)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -233,7 +233,7 @@ module EllipticBR1
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , NGRAD, mesh % elements(eID), mesh)
+            call BR1_GradientFaceLoop( self , nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
 !$acc end parallel loop
@@ -241,7 +241,7 @@ module EllipticBR1
 !           Prolong gradients
 !           -----------------
 !
-         call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_mpi), mesh % elements_mpi, NGRAD)
+         call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_mpi), mesh % elements_mpi, nGradEqn)
 
 #endif
       end subroutine BR1_LiftGradients
@@ -369,7 +369,7 @@ module EllipticBR1
 !
          integer  :: i,j,k,eq
 
-         call  VectorWeakIntegrals_StdFace(e, NGRAD, &
+         call  VectorWeakIntegrals_StdFace(e, nGradEqn, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
@@ -438,7 +438,7 @@ module EllipticBR1
             end select
 #endif
             !$acc loop seq
-            do eq =1, NCONS
+            do eq =1, nEqn
                uStar = 0.5_RP * (f % storage(2) % Q(eq,i,j) - f % storage(1) % Q(eq,i,j)) * f % geom % jacobian(i,j)
                
                !uStar(eq) = 0.5_RP * (UR(eq) - UL(eq)) * f % geom % jacobian(i,j)
@@ -651,7 +651,11 @@ flux )
 
       end subroutine BR1_RiemannSolver
 
-      subroutine BR1_RiemannSolver_acc ( f, nEqn, nGradEqn, flux)
+      subroutine BR1_RiemannSolver_acc ( f, nEqn, nGradEqn,&
+#ifdef MULTIPHASE
+   sigma, BR1_sigma, & 
+#endif
+   flux ) 
          !$acc routine vector
          use SMConstants
          use PhysicsStorage
@@ -662,18 +666,30 @@ flux )
          integer,       intent(in)      :: nEqn
          integer,       intent(in)      :: nGradEqn
          real(kind=RP), intent(out)     :: flux(1:nEqn,0:f% Nf(1),0:f% Nf(2))
+#ifdef MULTIPHASE
+         real(kind=RP), intent(in)       :: sigma(1:nEqn)
+         real(kind=RP), intent(in)       :: BR1_sigma
+#endif
          !
          !        ---------------
          !        Local variables
          !        ---------------
          !
          integer :: fID, i, j, eq
+         real(kind=RP)     :: sigma0
+
+#ifdef MULTIPHASE
+         sigma0 = 0.5_RP * BR1_sigma * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h
+#endif
           
          !$acc loop vector collapse(3)
-         do j = 0, f % Nf(2) ;  do i = 0, f % Nf(1) ; do eq = 1, NCONS
+         do j = 0, f % Nf(2) ;  do i = 0, f % Nf(1) ; do eq = 1, nEqn
                flux (eq,i,j) = 0.5_RP * (f % storage(1) % unStar(eq,IX,i,j) + f % storage(2) % unStar(eq,IX,i,j)) * f % geom % normal(IX,i,j) + &
                                0.5_RP * (f % storage(1) % unStar(eq,IY,i,j) + f % storage(2) % unStar(eq,IY,i,j)) * f % geom % normal(IY,i,j) + &
-                               0.5_RP * (f % storage(1) % unStar(eq,IZ,i,j) + f % storage(2) % unStar(eq,IZ,i,j)) * f % geom % normal(IZ,i,j)
+                               0.5_RP * (f % storage(1) % unStar(eq,IZ,i,j) + f % storage(2) % unStar(eq,IZ,i,j)) * f % geom % normal(IZ,i,j) &
+#ifdef MULTIPHASE
+                               - sigma0 * sigma(eq) * (f % storage(1) % Q(eq,i,j) - f % storage(2) % Q(eq,i,j))
+#endif
          enddo ; enddo ; enddo
          
       end subroutine BR1_RiemannSolver_acc

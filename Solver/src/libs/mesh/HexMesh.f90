@@ -975,7 +975,7 @@ slavecoord:             DO l = 1, 4
 !$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) async(1)
          do eID = 1, size(self % elements)
             do fID = 1, 6
-            call HexElement_ProlongSolToFaces(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
+            call HexElement_ProlongSolToFaces(self % elements(eID), nEqn, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
          end do ; end do
 !$acc end parallel loop
 !$omp end do
@@ -986,7 +986,7 @@ slavecoord:             DO l = 1, 4
 !$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32)  present(self) async(1)
          do eID = 1, size(self % elements)
             do fID = 1, 6
-            call HexElement_ProlongSolToFaces_GL(self % elements(eID), NCONS, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
+            call HexElement_ProlongSolToFaces_GL(self % elements(eID), nEqn, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
          end do ; end do
 !$acc end parallel loop
 !$omp end do

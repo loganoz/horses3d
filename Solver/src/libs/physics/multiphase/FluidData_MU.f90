@@ -47,8 +47,11 @@ module FluidData_MU
 !  ---------
 !
    type(Thermodynamics_t), protected   :: thermodynamics
+   !$acc declare create(thermodynamics)
    type(RefValues_t),      protected   :: refValues
+   !$acc declare create(refValues)
    type(Dimensionless_t),  protected   :: dimensionless
+   !$acc declare create(dimensionless)
 
    contains
 !
@@ -69,6 +72,8 @@ module FluidData_MU
          thermodynamics % mu  = thermodynamics_ % mu
          thermodynamics % c02 = thermodynamics_ % c02
 
+         !$acc update device(thermodynamics, thermodynamics % rho, thermodynamics % mu, thermodynamics % c02)
+
       end subroutine SetThermodynamics
 
       subroutine SetRefValues( refValues_ )
@@ -80,6 +85,8 @@ module FluidData_MU
          refValues % V   = refValues_ % V
          refValues % mu  = refValues_ % mu
          refValues % g0  = refValues_ % g0
+
+         !$acc update device(refValues, refValues % p, refValues % rho, refValues % V, refValues % mu, refValues % g0)
 
       end subroutine SetRefValues
 
@@ -99,5 +106,10 @@ module FluidData_MU
          dimensionless % Ma2         = dimensionless_ % Ma2
          dimensionless % invMa2      = dimensionless_ % invMa2
 
+         !$acc update device(dimensionless, dimensionless % rho, dimensionless % mu, dimensionless % Re)
+         !$acc update device(dimensionless % Fr, dimensionless % invFr2, dimensionless % gravity_dir)
+         !$acc update device(dimensionless % vel_dir, dimensionless % rho_max, dimensionless % rho_min)
+         !$acc update device(dimensionless % Ma2, dimensionless % invMa2)
+         
       end subroutine SetDimensionless
 end module FluidData_MU

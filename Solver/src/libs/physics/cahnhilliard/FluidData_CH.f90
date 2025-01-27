@@ -28,6 +28,7 @@ module FluidData_CH
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
+   !$acc declare create(multiphase)
 
    interface Multiphase_t
       module procedure ConstructMultiphase
@@ -66,6 +67,11 @@ module FluidData_CH
          multiphase % M0_wDim    = multiphase_ % M0_wDim
          multiphase % invEps     = 1.0_RP / multiphase % eps
 
+         !$acc update device(multiphase, multiphase % tCH, multiphase % eps)
+         !$acc update device(multiphase % sigma, multiphase % M0, multiphase % M0_star)
+         !$acc update device(multiphase % tCH_wDim, multiphase % eps_wDim, multiphase % sigma_wDim)
+         !$acc update device(multiphase % M0_wDim, multiphase % invEps)
+
       end subroutine SetMultiphase
    
       subroutine Multiphase_SetStarMobility(M0)
@@ -73,6 +79,8 @@ module FluidData_CH
          real(kind=RP),       intent(in) :: M0
 
          multiphase % M0_star = M0
+
+         !$acc update device(multiphase, multiphase % M0_star)
 
       end subroutine Multiphase_SetStarMobility
 end module FluidData_CH

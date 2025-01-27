@@ -236,9 +236,14 @@ module SpatialDiscretization
          select case (mode)
          case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
+            !$acc parallel loop gang vector_length(128) present(mesh)
             do eID = 1, size(mesh % elements)
-               mesh % elements(eID) % storage % c(1,:,:,:) = mesh % elements(eID) % storage % QNS(IMC,:,:,:)
+               !$acc loop vector collapse(3)
+               do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                  mesh % elements(eID) % storage % c(1,i,j,k) = mesh % elements(eID) % storage % QNS(IMC,i,j,k)
+               end do               ; end do                ; end do
             end do
+            !$acc end parallel loop 
 !$omp end do         
          end select
 
@@ -263,7 +268,7 @@ module SpatialDiscretization
 !        Prolong Cahn-Hilliard concentration to faces
 !        --------------------------------------------
 !
-         call mesh % ProlongSolutionToFaces(NCOMP)
+         call HexMesh_ProlongSolToFaces(mesh, NCOMP)
 !
 !        ----------------
 !        Update MPI Faces
@@ -271,7 +276,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution(NCOMP)
+         call HexMesh_UpdateMPIFacesSolution(mesh, NCOMP)
 !$omp end single
 #endif
 !
@@ -287,7 +292,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients(NCOMP)
+         call HexMesh_UpdateMPIFacesGradients(mesh, NCOMP)
 !$omp end single
 #endif
 !
@@ -302,29 +307,40 @@ module SpatialDiscretization
          select case (mode)
          case (CTD_IGNORE_MODE, CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
+            !$acc parallel loop gang vector_length(128) present(mesh)
             do eID = 1, size(mesh % elements)
 !
 !            + Linear part
                !mesh % elements(eID) % storage % mu = - POW2(multiphase % eps)* mesh % elements(eID) % storage % QDot
-               mesh % elements(eID) % storage % mu = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot
+               !$acc loop vector collapse(3)
+               do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                  !The 1st index is only one because the equation is set to CH
+                  mesh % elements(eID) % storage % mu(1,i,j,k) = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot(1,i,j,k)
+                  call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c(1,i,j,k), mesh % elements(eID) % storage % mu(1,i,j,k))
+               end do               ; end do                ; end do
 !
 !            + NonLinear part
                !call AddQuarticDWPDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
-               call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
+               ! call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
 
             end do
+            !$acc end parallel loop 
 !$omp end do         
          case (CTD_IMEX_IMPLICIT)
 !$omp do schedule(runtime)
+            !$acc parallel loop gang vector_length(128) present(mesh)
             do eID = 1, size(mesh % elements)
-!
+               !$acc loop vector collapse(3)
+               do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
 !            + Linear part
-               !mesh % elements(eID) % storage % mu = - IMEX_K0 * POW2(multiphase % eps) * mesh % elements(eID) % storage % QDot &
-               mesh % elements(eID) % storage % mu = - 1.5_RP * IMEX_K0 * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot &
-                                                     + IMEX_S0 * mesh % elements(eID) % storage % c
+                  !mesh % elements(eID) % storage % mu = - IMEX_K0 * POW2(multiphase % eps) * mesh % elements(eID) % storage % QDot &
+                  mesh % elements(eID) % storage % mu(1,i,j,k) = - 1.5_RP * IMEX_K0 * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot(1,i,j,k) &
+                                                     + IMEX_S0 * mesh % elements(eID) % storage % c(1,i,j,k)
 !            + Multiply by mobility
-               mesh % elements(eID) % storage % mu = multiphase % M0 * mesh % elements(eID) % storage % mu
+                  mesh % elements(eID) % storage % mu(1,i,j,k) = multiphase % M0 * mesh % elements(eID) % storage % mu(1,i,j,k)
+               end do               ; end do                ; end do
             end do
+            !$acc end parallel loop 
 !$omp end do         
          end select
 !
@@ -338,7 +354,7 @@ module SpatialDiscretization
 !$omp single
          call mesh % SetStorageToEqn(MU_BC)
 !$omp end single
-         call mesh % ProlongSolutionToFaces(NCOMP)
+         call HexMesh_ProlongSolToFaces(mesh, NCOMP)
 !
 !        ----------------
 !        Update MPI Faces
@@ -346,7 +362,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution(NCOMP)
+         call HexMesh_UpdateMPIFacesSolution(mesh, NCOMP)
 !$omp end single
 #endif
          end select
@@ -370,7 +386,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-            call mesh % UpdateMPIFacesGradients(NCOMP)
+            call HexMesh_UpdateMPIFacesGradients(mesh, NCOMP)
 !$omp end single
 #endif
 !
@@ -407,7 +423,7 @@ module SpatialDiscretization
 !        Prolong solution to faces        
 !        -------------------------
 !
-         call mesh % ProlongSolutionToFaces(NCONS)
+         call HexMesh_ProlongSolToFaces(mesh, NCONS)
 !
 !        ----------------
 !        Update MPI Faces
@@ -415,7 +431,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution(NCONS)
+         call HexMesh_UpdateMPIFacesSolution(mesh, NCONS)
 !$omp end single
 #endif
 !
@@ -424,21 +440,30 @@ module SpatialDiscretization
 !        -------------------------------------
 !
 !$omp do schedule(runtime)
+         !$acc parallel loop gang vector_length(128) present(mesh)
          do eID = 1, size(mesh % elements)
-            mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,:,:,:)
-
-            mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
+            !$acc loop vector collapse(3)
+            do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+               mesh % elements(eID) % storage % rho(i,j,k) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,i,j,k)
+               mesh % elements(eID) % storage % rho(i,j,k) = min(max(mesh % elements(eID) % storage % rho(i,j,k), dimensionless % rho_min),dimensionless % rho_max)
+            end do               ; end do                ; end do
          end do
+         !$acc end parallel loop 
 !$omp end do nowait
 
 !$omp do schedule(runtime)
+         !$acc parallel loop gang vector_length(128) present(mesh)
          do fID = 1, size(mesh % faces)
-            mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(1) % Q(IMC,:,:)
-            mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,:,:)
+            !$acc loop vector collapse(2)
+            do j = 0, self % faces(fID) % Nf(2)  ; do i = 0, self % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(1) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(1) % Q(IMC,i,j)
+               mesh % faces(fID) % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,i,j)
 
-            mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, dimensionless % rho_min),dimensionless % rho_max)
-            mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, dimensionless % rho_min),dimensionless % rho_max)
+               mesh % faces(fID) % storage(1) % rho(i,j) = min(max(mesh % faces(fID) % storage(1) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
+               mesh % faces(fID) % storage(2) % rho(i,j) = min(max(mesh % faces(fID) % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
+            end do               ; end do 
          end do
+         !$acc end parallel loop
 !$omp end do
 !
 !        ----------------------------------------
@@ -453,7 +478,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients(NCONS)
+         call HexMesh_UpdateMPIFacesGradients(mesh, NCONS)
 !$omp end single
 #endif
 !
@@ -517,18 +542,22 @@ module SpatialDiscretization
          select case (mode)
          case(CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
+            !$acc parallel loop gang vector_length(128) present(mesh)
             do eID = 1, size(mesh % elements)
-!
+               !$acc loop vector collapse(3)
+               do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
 !            + Linear part
-               mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c &
-                                                     - 1.5_RP*(1.0_RP - IMEX_K0)*multiphase % sigma*multiphase % eps*mesh % elements(eID) % storage % cDot
-               !mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c &
-               !                                      - (1.0_RP - IMEX_K0)* POW2(multiphase % eps)*mesh % elements(eID) % storage % cDot
+                  mesh % elements(eID) % storage % mu(1,i,j,k) = - IMEX_S0 * mesh % elements(eID) % storage % c(1,i,j,k) &
+                                                        - 1.5_RP*(1.0_RP - IMEX_K0)*multiphase % sigma*multiphase % eps*mesh % elements(eID) % storage % cDot(1,i,j,k)
+                  !mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c &
+                  !                                      - (1.0_RP - IMEX_K0)* POW2(multiphase % eps)*mesh % elements(eID) % storage % cDot
 !
 !            + NonLinear part
-               !call AddQuarticDWPDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
-               call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
+                  !call AddQuarticDWPDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
+                  call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c(1,i,j,k), mesh % elements(eID) % storage % mu(1,i,j,k))
+               end do               ; end do                ; end do             ;  end do
             end do
+            !$acc end parallel loop
 !$omp end do         
 !
 !           -----------------------------------
@@ -539,7 +568,7 @@ module SpatialDiscretization
             call mesh % SetStorageToEqn(MU_BC)
             call SetBoundaryConditionsEqn(MU_BC)
 !$omp end single
-            call mesh % ProlongSolutionToFaces(NCOMP)
+            call HexElement_ProlongSolToFaces(mesh, NCOMP)
 !
 !           ------------------------------------------------------------
 !           Get concentration (lifted) gradients (also prolong to faces)
@@ -565,10 +594,15 @@ module SpatialDiscretization
 !           -----------------------------------------
 !
 !$omp do schedule(runtime)
+            !$acc parallel loop gang vector_length(128) present(mesh)
             do eID = 1, size(mesh % elements)
-               mesh % elements(eID) % storage % QDot(IMC,:,:,:) =   mesh % elements(eID) % storage % QDot(IMC,:,:,:) &
-                                                                  + multiphase % M0*mesh % elements(eID) % storage % cDot(1,:,:,:)
+               !$acc loop vector collapse(3)
+               do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                  mesh % elements(eID) % storage % QDot(IMC,i,j,k) = mesh % elements(eID) % storage % QDot(IMC,i,j,k) &
+                                                                                   + multiphase % M0*mesh % elements(eID) % storage % cDot(1,i,j,k)
+               end do               ; end do                ; end do
             end do
+            !$acc end parallel loop
 !$omp end do
          end select
 !$omp end parallel

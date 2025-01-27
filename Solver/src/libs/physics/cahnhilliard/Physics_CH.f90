@@ -31,6 +31,7 @@ module Physics_CH
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine CHDivergenceFlux(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+         !$acc routine seq
          implicit none
          integer,       intent(in)  :: nEqn, nGradEqn
          real(kind=RP), intent(in)  :: Q   (nEqn)
@@ -49,6 +50,7 @@ module Physics_CH
       end subroutine CHDivergenceFlux
 
       elemental subroutine AddQuarticDWPDerivative(c, mu)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)    :: c
          real(kind=RP), intent(inout) :: mu
@@ -58,6 +60,7 @@ module Physics_CH
       end subroutine AddQuarticDWPDerivative
    
       elemental subroutine Multiphase_AddChemFEDerivative(c, mu)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)    :: c
          real(kind=RP), intent(inout) :: mu
@@ -67,6 +70,7 @@ module Physics_CH
       end subroutine Multiphase_AddChemFEDerivative
 
       elemental subroutine QuarticDWP(c, f)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: c
          real(kind=RP), intent(out) :: f
@@ -76,6 +80,7 @@ module Physics_CH
       end subroutine QuarticDWP
 
       pure subroutine PoiseuilleFlow(x, v)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: x(NDIM)
          real(kind=RP), intent(out) :: v(NDIM)

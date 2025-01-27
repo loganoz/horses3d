@@ -732,7 +732,7 @@
             !$acc loop vector collapse(2)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                !$acc loop seq
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   self % storage(1) % unStar(eq,IX,i,j) = Hflux(eq,IX,i,j)
                   self % storage(1) % unStar(eq,IY,i,j) = Hflux(eq,IY,i,j)
                   self % storage(1) % unStar(eq,IZ,i,j) = Hflux(eq,IZ,i,j)
@@ -749,7 +749,7 @@
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             !$acc loop seq
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                self % storage(2) % unStar(eq,IX,ii,jj) = factor * Hflux(eq,IX,i,j)
                self % storage(2) % unStar(eq,IY,ii,jj) = factor * Hflux(eq,IY,i,j)
                self % storage(2) % unStar(eq,IZ,ii,jj) = factor * Hflux(eq,IZ,i,j)

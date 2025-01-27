@@ -330,7 +330,7 @@
 !        Local variables
 !        ---------------
          integer  :: i, j, k, l, eq
-         real(kind=RP), dimension(1:NCONS) :: Qlocal
+         real(kind=RP), dimension(1:nEqn) :: Qlocal
 !
 !        *************************
 !        Prolong solution to faces
@@ -346,7 +346,7 @@
                !$acc loop seq
                do j = 1, self % Nxyz(3)
                   !$acc loop seq
-                  do eq = 1, NCONS
+                  do eq = 1, nEqn
                      Qlocal(eq) = Qlocal(eq) + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(j,FRONT)
                   enddo
                end do
@@ -362,7 +362,7 @@
                !$acc loop seq
                do j = 1, self % Nxyz(3)
                   !$acc loop seq
-                  do eq = 1, NCONS
+                  do eq = 1, nEqn
                      Qlocal(eq)  = Qlocal(eq)  + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(j,BACK)
                   enddo
                end do
@@ -456,7 +456,7 @@
          case(1)
          !$acc loop vector collapse(3) 
           do k = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                f_side % storage(self % faceSide(EFRONT)) % Q_aux(eq,i,k) = self % storage % Q(eq,i,0,k)
             enddo
           end do ; end do
@@ -464,7 +464,7 @@
          case(2)
          !$acc loop vector collapse(3) 
             do k = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side  % storage(self % faceSide(EBACK))  % Q_aux(eq,i,k) = self % storage % Q(eq,i,self % Nxyz(2),k)
                enddo
              end do ; end do
@@ -472,7 +472,7 @@
          case(3)
          !$acc loop vector collapse(3) 
             do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(EBOTTOM)) % Q_aux(eq,i,j) = self % storage % Q(eq,i,j,0)
                enddo
              end do ; end do
@@ -481,7 +481,7 @@
          case(4)
          !$acc loop vector collapse(3) 
             do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(ERIGHT)) % Q_aux(eq,j,k) = self % storage % Q(eq,self % Nxyz(1),j,k)
                enddo
              end do ; end do
@@ -490,7 +490,7 @@
          case(5)
          !$acc loop vector collapse(3) 
           do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                f_side  % storage(self % faceSide(ETOP))  % Q_aux(eq,i,j)  = self % storage % Q(eq,i,j,self % Nxyz(3))
             enddo
           end do ; end do
@@ -499,7 +499,7 @@
          case(6)
          !$acc loop vector collapse(3)
          do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2)
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                f_side  % storage(self % faceSide(ELEFT))  % Q_aux(eq,j,k) = self % storage % Q(eq,0,j,k)
             enddo
           end do ; end do
