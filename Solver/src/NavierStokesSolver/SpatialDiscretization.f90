@@ -1344,7 +1344,7 @@ module SpatialDiscretization
                                                          + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
 
                ! initialize to 0 to accumulate
-               mesh % elements(eID) % storage % Qdot(eq,i,j,k,IZ)  = 0.0_RP
+               mesh % elements(eID) % storage % Qdot(eq,i,j,k)  = 0.0_RP
                end do
             end do               ; end do                ; end do
 
@@ -1405,7 +1405,7 @@ module SpatialDiscretization
                                                                                        - Flux(eq,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
                                                                                        - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
                      ! initialize to 0 to accumulate
-                     mesh % elements(eID) % storage % Qdot(eq,i,j,k,IZ)  = 0.0_RP
+                     mesh % elements(eID) % storage % Qdot(eq,i,j,k)  = 0.0_RP
                   end do
             end do               ; end do                ; end do
 
