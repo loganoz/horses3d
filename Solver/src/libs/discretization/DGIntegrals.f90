@@ -72,7 +72,8 @@ module DGIntegrals
 
          !$acc loop vector collapse(4)
           do k = 0, Nxyz(3) ; do j = 0, Nxyz(2) ; do i = 0, Nxyz(1) ; do eq = 1, NEQ
-            volInt(eq,i,j,k) = 0.0_RP
+            ! not initialize to 0 to be general for all Physics
+            ! volInt(eq,i,j,k) = 0.0_RP
             !$acc loop seq 
             do l = 0, Nxyz(1)
                volInt(eq,i,j,k) = volInt(eq,i,j,k) +  NodalStorage(Nxyz(1)) % hatD(i,l) * F(eq,l,j,k,IX) &
