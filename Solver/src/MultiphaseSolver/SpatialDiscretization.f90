@@ -1097,38 +1097,40 @@ module SpatialDiscretization
       !    f % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*f % storage(2) % Q(IMC,i,j)
       !    f % storage(2) % rho(i,j) = min(max(f % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
 
+      !TODOs: TAKE CARE OF FLOW STATE
+
       nZones = size(mesh % zones)
        do zoneID=1, nZones
 
           !!!!!$acc parallel loop gang present(mesh) async(1)
           !$acc parallel loop gang present(mesh)
-          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
              fID =  mesh % zones(zoneID) % faces(zonefID)
      
-         !$acc loop vector collapse(2)
-         do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
-            call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), mu)
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
+               call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), mu)
 
-            call mViscousFlux(NCONS, NCONS, mesh % faces(fID) % storage(1) % Q(:,i,j), &
+               call mViscousFlux(NCONS, NCONS, mesh % faces(fID) % storage(1) % Q(:,i,j), &
                                          mesh % faces(fID) % storage(1) % U_x(:,i,j), &
                                          mesh % faces(fID) % storage(1) % U_y(:,i,j), &
                                          mesh % faces(fID) % storage(1) % U_z(:,i,j), &
                                          mu, multiphase % M0_star, 0.0_RP, mesh % faces(fID) % storage(1) % unStar(:,:,i,j))
 
-         enddo ; enddo
+            enddo ; enddo
 
-         !TODO fuse with the above loop
-         !$acc loop vector collapse(2)
-         do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
-            !$acc loop seq
-            do eq = 1, NCONS
+            !TODO fuse with the above loop
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
+               !$acc loop seq
+               do eq = 1, NCONS
 
-              mesh % faces(fID) % storage(2) % FStar(eq,i,j) = mesh % faces(fID) % storage(1) % unStar(eq,IX,i,j)* mesh % faces(fID) % geom % normal(IX,i,j) &
+                  mesh % faces(fID) % storage(2) % FStar(eq,i,j) = mesh % faces(fID) % storage(1) % unStar(eq,IX,i,j)* mesh % faces(fID) % geom % normal(IX,i,j) &
                                                              + mesh % faces(fID) % storage(1) % unStar(eq,IY,i,j)* mesh % faces(fID) % geom % normal(IY,i,j) &
                                                              + mesh % faces(fID) % storage(1) % unStar(eq,IZ,i,j)* mesh % faces(fID) % geom % normal(IZ,i,j)
                enddo
             enddo ; enddo
-         enddo
+         end do
          !$acc end parallel loop 
 
 
@@ -1139,9 +1141,9 @@ module SpatialDiscretization
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
 
-         !TODO fc % storage(2) % FStar will be overrwritten if it is kept like that
-         ! fc % storage(2) % FStar was dedicated to the viscous flux above
-         call RiemannSolver_Selector(fc % Nf(1), &                         
+            !TODO fc % storage(2) % FStar will be overrwritten if it is kept like that
+            ! fc % storage(2) % FStar was dedicated to the viscous flux above
+            call RiemannSolver_Selector(fc % Nf(1), &                         
                                      fc % Nf(2), &
                                      fc % storage(1) % Q, &
                                      fc % storage(2) % Q, &
@@ -1159,7 +1161,7 @@ module SpatialDiscretization
 !           ------------------------
             !TODO figure out the storage Fstar
             !$acc loop vector collapse(2)
-             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                !$acc loop seq
                do eq = 1, NCONS
                   mesh % faces(fID) % storage(1) % FStar(eq,i,j) = (mesh % faces(fID) % storage(1) % FStar(eq,i,j)  - &
@@ -1175,6 +1177,8 @@ module SpatialDiscretization
             call Face_ProjectFluxToElements(mesh % faces(fID), NCONS, mesh % faces(fID) % storage(1) % FStar, 1)
          enddo
          !$acc end parallel loop 
+         
+      end do 
 
       END SUBROUTINE computeBoundaryFlux_MU
 !
