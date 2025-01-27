@@ -1578,6 +1578,7 @@ module SpatialDiscretization
             enddo
             !$acc end parallel loop 
 
+            !TODO: NeumanForEqn should be used here to switch
             CALL BCs(zoneID) % bc % FlowNeumann(mesh, mesh % zones(zoneID))                             
          
             !$acc parallel loop gang present(mesh)

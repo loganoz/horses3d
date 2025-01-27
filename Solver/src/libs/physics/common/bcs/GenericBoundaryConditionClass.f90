@@ -130,88 +130,71 @@ module GenericBoundaryConditionClass
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StateForEqn(self, nEqn, x, t, nHat, Q)
+      subroutine StateForEqn(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         integer,             intent(in)    :: nEqn
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(nEqn)
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t), intent(in)            :: zone
 
 #ifndef CAHNHILLIARD
-!        call self % FlowState(x, t, nHat, Q)
+        call self % FlowState(self, mesh, zone)
 
 #else
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
-!            call self % FlowState(x, t, nHat, Q)
+            call self % FlowState(self, mesh, zone)
 #endif
          case(C_BC)
-            call self % PhaseFieldState(x, t, nHat, Q)
+            call self % PhaseFieldState(self, mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotState(x, t, nHat, Q)
+            call self % ChemPotState(self, mesh, zone)
 
          end select
 #endif
 
       end subroutine StateForEqn
 
-      subroutine GradVarsForEqn(self, nEqn, nGradEqn, x, t, nHat, Q, U, GetGradients)
+      subroutine GradVarsForEqn(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         integer,             intent(in)    :: nEqn
-         integer,             intent(in)    :: nGradEqn
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(nEqn)
-         real(kind=RP),       intent(inout) :: U(nGradEqn)
-         procedure(GetGradientValues_f)     :: GetGradients
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t), intent(in)            :: zone
 
 #ifndef CAHNHILLIARD
-!         call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
+         call self % FlowGradVars(self, mesh, zone)
 
 #else
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
-            call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
+            call self % FlowGradVars(self, mesh, zone)
 #endif
          case(C_BC)
-            call self % PhaseFieldState(x, t, nHat, U)
+            call self % PhaseFieldState(self, mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotState(x, t, nHat, U)
+            call self % ChemPotState(self, mesh, zone)
 
          end select
 #endif
 
       end subroutine GradVarsForEqn
 
-      subroutine NeumannForEqn(self, nEqn, nGradEqn, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine NeumannForEqn(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         integer,             intent(in)    :: nEqn
-         integer,             intent(in)    :: nGradEqn
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(nEqn)
-         real(kind=RP),       intent(in)    :: U_x(nGradEqn)
-         real(kind=RP),       intent(in)    :: U_y(nGradEqn)
-         real(kind=RP),       intent(in)    :: U_z(nGradEqn)
-         real(kind=RP),       intent(inout) :: flux(nEqn)
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t), intent(in)            :: zone
 
 #ifdef CAHNHILLIARD
          select case(self % currentEqn)
          case(C_BC)
-            call self % PhaseFieldNeumann(x, t, nHat, Q, U_x, U_y, U_z, flux)
+            call self % PhaseFieldNeumann(self, mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotNeumann(x, t, nHat, Q, U_x, U_y, U_z, flux)
+            call self % ChemPotNeumann(self, mesh, zone)
 
          case default
             print*, "Unexpected equation choice"
@@ -286,6 +269,8 @@ module GenericBoundaryConditionClass
                call NSGradientVariables_STATE(NCONS, NGRAD, Q    , u_int)
                call NSGradientVariables_STATE(NCONS, NGRAD, Q_aux, u_star)
 
+               !TODOs: Fix the flowgradvars for multiphase. Look below for the original code
+
                u_star = 0.5_RP* (u_star + u_int)
                
                mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(1,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
@@ -331,7 +316,6 @@ module GenericBoundaryConditionClass
          class(GenericBC_t),  intent(in)    :: self
          type(HexMesh),       intent(inout)    :: mesh
          type(Zone_t), intent(in)               :: zone
-!         integer,             intent(in)    :: zoneID 
       end subroutine GenericBC_FlowNeumann
 #endif
 !
@@ -343,48 +327,32 @@ module GenericBoundaryConditionClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #ifdef CAHNHILLIARD
-      subroutine GenericBC_PhaseFieldState(self, x, t, nHat, Q)
+      subroutine GenericBC_PhaseFieldState(self, mesh, zone)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         type(HexMesh),       intent(inout)    :: mesh
+         type(Zone_t), intent(in)               :: zone
       end subroutine GenericBC_PhaseFieldState
 
-      subroutine GenericBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine GenericBC_PhaseFieldNeumann(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(NCOMP)
-         real(kind=RP),       intent(in)    :: U_x(NCOMP)
-         real(kind=RP),       intent(in)    :: U_y(NCOMP)
-         real(kind=RP),       intent(in)    :: U_z(NCOMP)
-         real(kind=RP),       intent(inout) :: flux(NCOMP)
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t),        intent(in)     :: zone
       end subroutine GenericBC_PhaseFieldNeumann
 
-      subroutine GenericBC_ChemPotState(self, x, t, nHat, Q)
+      subroutine GenericBC_ChemPotState(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t),        intent(in)     :: zone
       end subroutine GenericBC_ChemPotState
 
-      subroutine GenericBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine GenericBC_ChemPotNeumann(self, mesh, zone)
          implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(NCOMP)
-         real(kind=RP),       intent(in)    :: U_x(NCOMP)
-         real(kind=RP),       intent(in)    :: U_y(NCOMP)
-         real(kind=RP),       intent(in)    :: U_z(NCOMP)
-         real(kind=RP),       intent(inout) :: flux(NCOMP)
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t),        intent(in)     :: zone
       end subroutine GenericBC_ChemPotNeumann
 #endif
 
