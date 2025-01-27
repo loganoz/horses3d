@@ -4424,6 +4424,21 @@ slavecoord:             DO l = 1, 4
 
          !$acc enter data copyin(self % elements(eID) % faceIDs)
          !$acc enter data copyin(self % elements(eID) % faceSide)
+
+#ifdef CAHNHILLIARD
+         !$acc enter data copyin(self % elements(eID) % c)     ! CHE concentration
+         !$acc enter data copyin(self % elements(eID) % cDot)  ! CHE concentration time derivative
+         !$acc enter data copyin(self % elements(eID) % c_x)   ! CHE concentration x-gradient
+         !$acc enter data copyin(self % elements(eID) % c_y)   ! CHE concentration y-gradient
+         !$acc enter data copyin(self % elements(eID) % c_z)   ! CHE concentration z-gradient
+         !$acc enter data copyin(self % elements(eID) % mu)    ! CHE chemical potential
+         !$acc enter data copyin(self % elements(eID) % mu_x)  ! CHE chemical potential x-gradient
+         !$acc enter data copyin(self % elements(eID) % mu_y)  ! CHE chemical potential y-gradient
+         !$acc enter data copyin(self % elements(eID) % mu_z)  ! CHE chemical potential z-gradient
+         !$acc enter data copyin(self % elements(eID) % v)     ! CHE flow field velocity
+         !$acc enter data copyin(self % elements(eID) % G_CH)  ! CHE auxiliary storage
+#endif
+
       ENDDO
 
       !$acc enter data copyin(self%nodes)
@@ -4464,6 +4479,18 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % geom % jacobian)
          !$acc enter data copyin(self % faces(iFace) % geom % dWall)
          !$acc enter data copyin(self % faces(iFace) % geom % Surface)
+         
+#ifdef CAHNHILLIARD
+         !$acc enter data copyin(self % faces(iFace) % c)     ! CHE concentration
+         !$acc enter data copyin(self % faces(iFace) % c_x)   ! CHE concentration x-gradient
+         !$acc enter data copyin(self % faces(iFace) % c_y)   ! CHE concentration y-gradient
+         !$acc enter data copyin(self % faces(iFace) % c_z)   ! CHE concentration z-gradient
+         !$acc enter data copyin(self % faces(iFace) % mu)    ! CHE chemical potential
+         !$acc enter data copyin(self % faces(iFace) % mu_x)  ! CHE chemical potential x-gradient
+         !$acc enter data copyin(self % faces(iFace) % mu_y)  ! CHE chemical potential y-gradient
+         !$acc enter data copyin(self % faces(iFace) % mu_z)  ! CHE chemical potential z-gradient
+         !$acc enter data copyin(self % faces(iFace) % v)     ! CHE flow field velocity
+#endif
       enddo
       
       !$acc enter data copyin(self % zones)
