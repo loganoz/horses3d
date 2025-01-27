@@ -25,6 +25,7 @@ module VariableConversion_MU
 !        to be done manually afterwards.
 !        --------------------------------------------------------------
 !
+         !$acc routine seq
          implicit none
          integer, intent(in)                 :: nEqn, nGrad
          real(kind=RP), intent(in)           :: Q(nEqn)
@@ -52,6 +53,7 @@ module VariableConversion_MU
 !           fluid 2
 !        ***********************************
 !
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)   :: c
          real(kind=RP), intent(out)  :: mu
@@ -73,6 +75,7 @@ module VariableConversion_MU
 !           fluid 2
 !        ***********************************
 !
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)   :: c
          real(kind=RP), intent(out)  :: mu

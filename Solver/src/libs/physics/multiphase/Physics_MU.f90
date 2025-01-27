@@ -27,6 +27,7 @@
 !//////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine mEulerFlux(Q, F, rho_, Qbase)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS, 1:NDIM)
@@ -68,6 +69,7 @@
       end subroutine mEulerFlux
 
       pure subroutine mEulerXFlux(Q, F, rho)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS)
@@ -99,6 +101,7 @@
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine mViscousFlux(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+         !$acc routine seq
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn

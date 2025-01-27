@@ -599,11 +599,7 @@ module SpatialDiscretization
 !        Volume integrals
 !        ****************
 !
-!$omp do schedule(runtime) 
-         do eID = 1 , size(mesh % elements)
-            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
-         end do
-!$omp end do nowait
+         call TimeDerivative_VolumetricContribution(mesh)
 !
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
@@ -733,52 +729,76 @@ module SpatialDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_VolumetricContribution( e , t )
+      subroutine TimeDerivative_VolumetricContribution(mesh)
          use HexMeshClass
          use ElementClass
+         use DGIntegrals
          implicit none
-         type(Element)      :: e
-         real(kind=RP)      :: t
-
+         type(HexMesh), intent (inout)           :: mesh
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         integer       :: eID
+         integer       :: i, j, k, l, eq, eID
+         real(kind=RP) :: mu, kappa, beta
+         real(kind=RP) :: inviscidFlux(1:NCONS, 1:NDIM)
+         real(kind=RP) :: viscousFlux(1:NCONS, 1:NDIM)
 !
 !        *************************************
 !        Compute interior contravariant fluxes
 !        *************************************
 !
-!        Compute inviscid contravariant flux
-!        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , mEulerFlux, inviscidContravariantFlux ) 
-!
-!        Compute viscous contravariant flux
-!        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, mViscousFlux, GetmTwoFluidsViscosity, e , viscousContravariantFlux) 
-!
-!        ************************
-!        Perform volume integrals
-!        ************************
-!
-!
-!        Compute the total Navier-Stokes flux
-!        ------------------------------------
-         contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux 
-!
-!        Perform the Weak Volume Green integral
-!        --------------------------------------
-         e % storage % QDot = e % storage % QDot + ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
 
+!        Compute inviscid - viscous contravariant flux
+!        ---------------------------------------------
+         !$omp do schedule(runtime)
+         !!$acc parallel loop gang vector_length(128) num_gangs(9700) present(mesh) async(1)
+         !$acc parallel loop gang present(mesh)
+         do eID = 1 , size(mesh % elements)
 
+            !$acc loop vector collapse(3) private(inviscidFlux, viscousFlux)
+            do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                  
+               call mEulerFlux(mesh % elements(eID) % storage % Q(:,i,j,k), inviscidFlux, mesh % elements(eID) % storage % rho(i,j,k))
+
+               call GetmTwoFluidsViscosity(mesh % elements(eID) % storage % Q(IMC,i,j,k), mu)
+               beta  = multiphase % M0_star
+               kappa = 0.0_RP
+
+               call mViscousFlux( NCONS, NGRAD, mesh % elements(eID) % storage % Q(:,i,j,k) , mesh % elements(eID) % storage % U_x(:,i,j,k) , & 
+                                       mesh % elements(eID) % storage % U_y(:,i,j,k) , mesh % elements(eID) % storage % U_z(:,i,j,k), mu, beta, kappa, viscousFlux)
+!
+               do eq =1, NCONS
+
+               inviscidFlux(eq,:) = inviscidFlux(eq,:) - viscousFlux(eq,:)
+                  
+               mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = &
+                                                           inviscidFlux(eq,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
+                                                         + inviscidFlux(eq,IY) * mesh % elements(eID) % geom % jGradXi(IY,i,j,k)  &
+                                                         + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)
+
+               mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IY)  = &
+                                                           inviscidFlux(eq,IX) * mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  &
+                                                         + inviscidFlux(eq,IY) * mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  &
+                                                         + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)
+                  
+               mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IZ)  = &
+                                                           inviscidFlux(eq,IX) * mesh % elements(eID) % geom % jGradZeta(IX,i,j,k)  &
+                                                         + inviscidFlux(eq,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
+                                                         + inviscidFlux(eq,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
+               end do
+            end do               ; end do                ; end do
+!
+!           Perform volume integrals
+!           ------------------------
+            call ScalarWeakIntegrals_StdVolumeGreen( mesh % elements(eID) % Nxyz, NCONS, mesh % elements(eID) % storage % contravariantFlux, &
+                                                     mesh % elements(eID) % storage % QDot)
+
+         end do
+         !$acc end parallel loop 
+         !$omp end do
+!
       end subroutine TimeDerivative_VolumetricContribution
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
