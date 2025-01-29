@@ -540,22 +540,6 @@ module InflowBCClass
 !
 #if defined(CAHNHILLIARD)
 
-      subroutine InflowBC_CreateDeviceData(self)
-         implicit none 
-         class(InflowBC_t), intent(in)    :: self
-
-         !$acc enter data copyin(self)
-
-      end subroutine InflowBC_CreateDeviceData
-
-      subroutine InflowBC_ExitDeviceData(self)
-         implicit none 
-         class(InflowBC_t), intent(in)    :: self
-
-         !$acc exit data delete(self)
-
-      end subroutine InflowBC_ExitDeviceData
-
       subroutine InflowBC_PhaseFieldState(self, mesh, zone)
          use HexMeshClass
          implicit none
