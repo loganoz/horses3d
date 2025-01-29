@@ -686,9 +686,9 @@ flux )
          do j = 0, f % Nf(2) ;  do i = 0, f % Nf(1) ; do eq = 1, nEqn
                flux (eq,i,j) = 0.5_RP * (f % storage(1) % unStar(eq,IX,i,j) + f % storage(2) % unStar(eq,IX,i,j)) * f % geom % normal(IX,i,j) + &
                                0.5_RP * (f % storage(1) % unStar(eq,IY,i,j) + f % storage(2) % unStar(eq,IY,i,j)) * f % geom % normal(IY,i,j) + &
-                               0.5_RP * (f % storage(1) % unStar(eq,IZ,i,j) + f % storage(2) % unStar(eq,IZ,i,j)) * f % geom % normal(IZ,i,j) &
+                               0.5_RP * (f % storage(1) % unStar(eq,IZ,i,j) + f % storage(2) % unStar(eq,IZ,i,j)) * f % geom % normal(IZ,i,j) 
 #ifdef MULTIPHASE
-                               - sigma0 * sigma(eq) * (f % storage(1) % Q(eq,i,j) - f % storage(2) % Q(eq,i,j))
+               flux (eq,i,j) = flux (eq,i,j) - sigma0 * sigma(eq) * (f % storage(1) % Q(eq,i,j) - f % storage(2) % Q(eq,i,j))
 #endif
          enddo ; enddo ; enddo
          

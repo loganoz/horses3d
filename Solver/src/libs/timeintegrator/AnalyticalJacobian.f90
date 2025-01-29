@@ -493,11 +493,11 @@ contains
 !        ------------------
          
          f % storage(RIGHT) % Q(:,i,j) = f % storage(LEFT) % Q(:,i,j)
-         CALL BCs(f % zone) % bc % StateForEqn( NCONS, &
-                                      f % geom % x(:,i,j), &
-                                      time, &
-                                      f % geom % normal(:,i,j), &
-                                      f % storage(RIGHT) % Q(:,i,j))
+         ! CALL BCs(f % zone) % bc % StateForEqn( NCONS, &
+         !                              f % geom % x(:,i,j), &
+         !                              time, &
+         !                              f % geom % normal(:,i,j), &
+         !                              f % storage(RIGHT) % Q(:,i,j))
 !
 !        Get numerical flux jacobian on the face point (i,j)
 !        ---------------------------------------------------
@@ -653,7 +653,7 @@ contains
          buffer = q(i)
          q(i) = q(i) + eps
          newQext = q
-         CALL BCs(zone) % bc % StateForEqn( NCONS, x, time, nHat, newQext)
+         !CALL BCs(zone) % bc % StateForEqn( NCONS, x, time, nHat, newQext)
          
          BCjac(:,i) = (newQext-Qex)/eps
          

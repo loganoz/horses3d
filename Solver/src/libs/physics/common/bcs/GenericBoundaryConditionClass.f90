@@ -137,19 +137,19 @@ module GenericBoundaryConditionClass
          type(Zone_t), intent(in)            :: zone
 
 #ifndef CAHNHILLIARD
-        call self % FlowState(self, mesh, zone)
+        call self % FlowState(mesh, zone)
 
 #else
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
-            call self % FlowState(self, mesh, zone)
+            call self % FlowState(mesh, zone)
 #endif
          case(C_BC)
-            call self % PhaseFieldState(self, mesh, zone)
+            call self % PhaseFieldState(mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotState(self, mesh, zone)
+            call self % ChemPotState(mesh, zone)
 
          end select
 #endif
@@ -163,19 +163,19 @@ module GenericBoundaryConditionClass
          type(Zone_t), intent(in)            :: zone
 
 #ifndef CAHNHILLIARD
-         call self % FlowGradVars(self, mesh, zone)
+         call self % FlowGradVars(mesh, zone)
 
 #else
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
-            call self % FlowGradVars(self, mesh, zone)
+            call self % FlowGradVars(mesh, zone)
 #endif
          case(C_BC)
-            call self % PhaseFieldState(self, mesh, zone)
+            call self % PhaseFieldState(mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotState(self, mesh, zone)
+            call self % ChemPotState(mesh, zone)
 
          end select
 #endif
@@ -191,10 +191,10 @@ module GenericBoundaryConditionClass
 #ifdef CAHNHILLIARD
          select case(self % currentEqn)
          case(C_BC)
-            call self % PhaseFieldNeumann(self, mesh, zone)
+            call self % PhaseFieldNeumann(mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotNeumann(self, mesh, zone)
+            call self % ChemPotNeumann(mesh, zone)
 
          case default
             print*, "Unexpected equation choice"

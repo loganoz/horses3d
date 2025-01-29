@@ -16,6 +16,7 @@ module VariableConversion_CH
 !---------------------------------------------------------------------
 !
       pure subroutine chGradientVariables( nEqn, nGrad, Q, U, rho_ )
+         !$acc routine seq
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
@@ -27,6 +28,7 @@ module VariableConversion_CH
       end subroutine chGradientVariables
 
       pure subroutine GetCHViscosity(phi, mu)
+         !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: phi
          real(kind=RP), intent(out) :: mu
