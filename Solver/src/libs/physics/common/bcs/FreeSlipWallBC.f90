@@ -508,7 +508,23 @@ module FreeSlipWallBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #ifdef MULTIPHASE
-      subroutine FreeSlipWallBC_FlowState(self, x, t, nHat, Q)
+
+      subroutine FreeSlipWallBC_CreateDeviceData(self)
+         implicit none 
+         class(FreeSlipWallBC_t), intent(in)    :: self
+
+         !$acc enter data copyin(self)
+      end subroutine FreeSlipWallBC_CreateDeviceData
+
+      subroutine FreeSlipWallBC_ExitDeviceData(self)
+         implicit none 
+         class(FreeSlipWallBC_t), intent(in)    :: self
+
+         !$acc exit data delete(self)
+
+      end subroutine FreeSlipWallBC_ExitDeviceData
+
+      subroutine FreeSlipWallBC_FlowState(self, mesh, zoneID)
 !
 !        *************************************************************
 !           Compute the state variables for a general wall
@@ -519,63 +535,113 @@ module FreeSlipWallBCClass
 !        *************************************************************
 !
 
+         use HexMeshClass
          implicit none
-         class(FreeSlipWallBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
+         class(FreeSlipWallBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)              :: mesh
+         integer,                 intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: vn
+         real(kind=RP) :: vn
+         real(kind=RP) :: Q(NCONS)
+         integer       :: i,j,zonefID,fID
+         !!$acc parallel loop gang present(mesh, self, zone) async(1)
+         !$acc parallel loop gang present(mesh, self, zone)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            fID = mesh % zones(zoneID) % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q)            
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               
+               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+               
 !
-!        -----------------------------------------------
-!        Generate the external flow along the face, that
-!        represents a solid wall.
-!        -----------------------------------------------
+!              -----------------------------------------------
+!              Generate the external flow along the face, that
+!              represents a solid wall.
+!              -----------------------------------------------
 !
-         vn = sum(Q(IMSQRHOU:IMSQRHOW)*nHat)
+               vn =  mesh % faces(fID) % geom % normal(IX,i,j) * Q(IMSQRHOU) + &
+                     mesh % faces(fID) % geom % normal(IY,i,j) * Q(IMSQRHOV) + &
+                     mesh % faces(fID) % geom % normal(IZ,i,j) * Q(IMSQRHOW) 
 
-         Q(IMC)      = Q(IMC)
-         Q(IMSQRHOU) = Q(IMSQRHOU) - 2.0_RP * vn * nHat(IX)
-         Q(IMSQRHOV) = Q(IMSQRHOV) - 2.0_RP * vn * nHat(IY)
-         Q(IMSQRHOW) = Q(IMSQRHOW) - 2.0_RP * vn * nHat(IZ)
-         Q(IMP)      = Q(IMP)
+               Q(IMC)          = Q(IMC)
+               Q(IMSQRHOU:IMSQRHOW) = Q(IMSQRHOU:IMSQRHOW) - 2.0_RP * vn * mesh % faces(fID) % geom % normal(:,i,j)
+               Q(IMP)            = Q(IMP)
+
+               mesh % faces(fID) % storage(2) % Q(:,i,j) = Q
+            enddo ; enddo
+         enddo
+         !$acc end parallel loop
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
+      subroutine FreeSlipWallBC_FlowGradVars(self, mesh, zoneID)
+         !TODO slightly unsure about this one 
 !
 !        **************************************************************
 !           Use the interior velocity: Neumann BC!
 !        **************************************************************
 !
          implicit none
-         class(FreeSlipWallBC_t),  intent(in)  :: self
-         real(kind=RP),          intent(in)    :: x(NDIM)
-         real(kind=RP),          intent(in)    :: t
-         real(kind=RP),          intent(in)    :: nHat(NDIM)
-         real(kind=RP),          intent(in)    :: Q(NCONS)
-         real(kind=RP),          intent(inout) :: U(NGRAD)
-         procedure(GetGradientValues_f)        :: GetGradients
+         class(FreeSlipWallBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)           :: mesh
+         integer,                 intent(in)    :: zoneID 
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!        
+         real(kind=RP)  :: Q(NCONS)
+         integer        :: i,j,zonefID,fID
+         real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
+
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            fID = mesh % zones(zoneID) % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q, u_int)            
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               
+               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+
+               rho = dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC))
+               call mGradientVariables(NCONS, NGRAD, Q, u_int,rho )
+               u_star = u_int
+
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(1,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(2,i,j) * mesh % faces(fID) % geom % jacobian(i,j)    
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(3,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+               
+            enddo ; enddo
+         enddo
+         !$acc end parallel loop
+         
       end subroutine FreeSlipWallBC_FlowGradVars
 
-      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine FreeSlipWallBC_FlowNeumann(self, mesh, zoneID)
          implicit none
-         class(FreeSlipWallBC_t),  intent(in) :: self
-         real(kind=RP),       intent(in)      :: x(NDIM)
-         real(kind=RP),       intent(in)      :: t
-         real(kind=RP),       intent(in)      :: nHat(NDIM)
-         real(kind=RP),       intent(in)      :: Q(NCONS)
-         real(kind=RP),       intent(in)      :: U_x(NCONS)
-         real(kind=RP),       intent(in)      :: U_y(NCONS)
-         real(kind=RP),       intent(in)      :: U_z(NCONS)
-         real(kind=RP),       intent(inout)   :: flux(NCONS)
+         class(FreeSlipWallBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)              :: mesh
+         integer,                 intent(in)    :: zoneID 
 
-         flux = 0.0_RP
+         integer        :: i,j,zonefID,fID
+         real(kind=RP)  :: flux(NCONS),Q(NCONS)
+
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            fID =  mesh % zones(zoneID) % faces(zonefID)
+            !$acc loop vector collapse(2) independent private(Q,flux)  
+            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
+            enddo 
+          enddo
+         enddo
+         !$acc end parallel loop
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif

@@ -13,6 +13,7 @@ module RiemannSolvers_MUKeywordsModule
      enum, bind(C)
         enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_EXACT
      end enum
+     !$acc declare copyin(RIEMANN_CENTRAL,RIEMANN_EXACT)
 
 end module RiemannSolvers_MUKeywordsModule
 !
@@ -31,27 +32,29 @@ module RiemannSolvers_MU
    public whichRiemannSolver
    public SetRiemannSolver, DescribeRiemannSolver
    public RiemannSolver, ExactRiemannSolver
+   public RiemannSolver_Selector
 
    abstract interface
-      subroutine RiemannSolverFCN(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
-         use SMConstants
-         use PhysicsStorage_MU
-         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
-         real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: rhoL
-         real(kind=RP), intent(in)       :: rhoR
-         real(kind=RP), intent(in)       :: muL
-         real(kind=RP), intent(in)       :: muR
-         real(kind=RP), intent(in)       :: nHat(1:NDIM)
-         real(kind=RP), intent(in)       :: t1(1:NDIM)
-         real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: fL(1:NCONS)
-         real(kind=RP), intent(out)      :: fR(1:NCONS)
-      end subroutine RiemannSolverFCN
+   !    subroutine RiemannSolverFCN(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
+   !       use SMConstants
+   !       use PhysicsStorage_MU
+   !       real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+   !       real(kind=RP), intent(in)       :: QRight(1:NCONS)
+   !       real(kind=RP), intent(in)       :: rhoL
+   !       real(kind=RP), intent(in)       :: rhoR
+   !       real(kind=RP), intent(in)       :: muL
+   !       real(kind=RP), intent(in)       :: muR
+   !       real(kind=RP), intent(in)       :: nHat(1:NDIM)
+   !       real(kind=RP), intent(in)       :: t1(1:NDIM)
+   !       real(kind=RP), intent(in)       :: t2(1:NDIM)
+   !       real(kind=RP), intent(out)      :: fL(1:NCONS)
+   !       real(kind=RP), intent(out)      :: fR(1:NCONS)
+   !    end subroutine RiemannSolverFCN
    end interface
 
-   procedure(RiemannSolverFCN), protected, pointer :: RiemannSolver  => NULL()
+   !procedure(RiemannSolverFCN), protected, pointer :: RiemannSolver  => NULL()
    integer,                     protected          :: whichRiemannSolver = -1
+   !$acc declare create(whichRiemannSolver)
 !
 !  ========
    contains
@@ -87,11 +90,11 @@ module RiemannSolvers_MU
 
             select case (keyword)
             case(RIEMANN_CENTRAL_NAME)
-               RiemannSolver => CentralRiemannSolver
+               !RiemannSolver => CentralRiemannSolver
                whichRiemannSolver = RIEMANN_CENTRAL
 
             case(RIEMANN_EXACT_NAME)
-               RiemannSolver => ExactRiemannSolver
+               !RiemannSolver => ExactRiemannSolver
                whichRiemannSolver = RIEMANN_EXACT
 
             case default
@@ -105,7 +108,7 @@ module RiemannSolvers_MU
 !
 !           Select exact by default
 !           -----------------------
-            RiemannSolver => CentralRiemannSolver
+            !RiemannSolver => CentralRiemannSolver
             whichRiemannSolver = RIEMANN_EXACT
 
          end if
@@ -130,6 +133,33 @@ module RiemannSolvers_MU
          end select
 
       end subroutine DescribeRiemannSolver
+
+      subroutine RiemannSolver_Selector(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
+         !$acc routine vector
+         use RiemannSolvers_MUKeywordsModule
+         implicit none 
+         integer , intent(in)            :: Nx, Ny
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: rhoL(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: rhoR(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: muL(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: muR(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM, 0:Nx, 0:Ny), t1(NDIM, 0:Nx, 0:Ny), t2(NDIM, 0:Nx, 0:Ny)
+         real(kind=RP), intent(out)      :: fL(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(out)      :: fR(1:NCONS, 0:Nx, 0:Ny)
+
+
+         select case (whichRiemannSolver)
+         case (RIEMANN_CENTRAL)
+          call CentralRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
+         case (RIEMANN_EXACT)
+            call ExactRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
+
+
+         end select
+         
+      end subroutine RiemannSolver_Selector
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -138,17 +168,19 @@ module RiemannSolvers_MU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine CentralRiemannSolver(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
+      subroutine CentralRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
+         !$acc routine vector
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
-         real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: rhoL
-         real(kind=RP), intent(in)       :: rhoR
-         real(kind=RP), intent(in)       :: muL
-         real(kind=RP), intent(in)       :: muR
-         real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: fL(1:NCONS)
-         real(kind=RP), intent(out)      :: fR(1:NCONS)
+         integer , intent(in)            :: Nx, Ny
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: rhoL(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: rhoR(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: muL(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: muR(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM, 0:Nx, 0:Ny), t1(NDIM, 0:Nx, 0:Ny), t2(NDIM, 0:Nx, 0:Ny)
+         real(kind=RP), intent(out)      :: fL(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(out)      :: fR(1:NCONS, 0:Nx, 0:Ny)
 !
 !        ---------------
 !        Local variables
@@ -156,71 +188,78 @@ module RiemannSolvers_MU
 !
          real(kind=RP) :: cL, uL, vL, wL, pL, invSqrtRhoL
          real(kind=RP) :: cR, uR, vR, wR, pR, invSqrtRhoR
+         integer :: i,j
+
+         !$acc loop vector collapse(2)
+            do j = 0, Ny ; do i = 0, Nx 
 !
 !        Left state variables and fluxes
 !        -------------------------------
-         invSqrtRhoL = 1.0_RP / sqrt(rhoL)
-         cL = QLeft(IMC)
-         uL = invSqrtRhoL * (QLeft(IMSQRHOU) * nHat(1) + QLeft(IMSQRHOV) * nHat(2) + QLeft(IMSQRHOW) * nHat(3))
-         vL = invSqrtRhoL * (QLeft(IMSQRHOU) * t1(1)   + QLeft(IMSQRHOV) * t1(2)   + QLeft(IMSQRHOW) * t1(3))
-         wL = invSqrtRhoL * (QLeft(IMSQRHOU) * t2(1)   + QLeft(IMSQRHOV) * t2(2)   + QLeft(IMSQRHOW) * t2(3))
-         pL = QLeft(IMP)
+            invSqrtRhoL = 1.0_RP / sqrt(rhoL(i,j))
+            cL = QLeft(IMC,i,j)
+            uL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * nHat(1,i,j) + QLeft(IMSQRHOV,i,j) * nHat(2,i,j) + QLeft(IMSQRHOW,i,j) * nHat(3,i,j))
+            vL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * t1(1,i,j)   + QLeft(IMSQRHOV,i,j) * t1(2,i,j)   + QLeft(IMSQRHOW,i,j) * t1(3,i,j))
+            wL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * t2(1,i,j)   + QLeft(IMSQRHOV,i,j) * t2(2,i,j)   + QLeft(IMSQRHOW,i,j) * t2(3,i,j))
+            pL = QLeft(IMP,i,j)
 
-         fL(IMC)      = uL*cL
-         fL(IMSQRHOU) = 0.5_RP*rhoL*uL*uL + pL
-         fL(IMSQRHOV) = 0.5_RP*rhoL*uL*vL
-         fL(IMSQRHOW) = 0.5_RP*rhoL*uL*wL
-         fL(IMP)      = 0.0_RP
+            fL(IMC,i,j)      = uL*cL
+            fL(IMSQRHOU,i,j) = 0.5_RP*rhoL(i,j)*uL*uL + pL
+            fL(IMSQRHOV,i,j) = 0.5_RP*rhoL(i,j)*uL*vL
+            fL(IMSQRHOW,i,j) = 0.5_RP*rhoL(i,j)*uL*wL
+            fL(IMP,i,j)      = 0.0_RP
 
 !
 !        Right state variables and fluxes
 !        --------------------------------
-         invSqrtRhoR = 1.0_RP / sqrt(rhoR)
-         cR = QRight(IMC)
-         uR = invSqrtRhoR * (QRight(IMSQRHOU) * nHat(1) + QRight(IMSQRHOV) * nHat(2) + QRight(IMSQRHOW) * nHat(3))
-         vR = invSqrtRhoR * (QRight(IMSQRHOU) * t1(1)   + QRight(IMSQRHOV) * t1(2)   + QRight(IMSQRHOW) * t1(3))
-         wR = invSqrtRhoR * (QRight(IMSQRHOU) * t2(1)   + QRight(IMSQRHOV) * t2(2)   + QRight(IMSQRHOW) * t2(3))
-         pR = QRight(IMP)
+            invSqrtRhoR = 1.0_RP / sqrt(rhoR(i,j))
+            cR = QRight(IMC,i,j)
+            uR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * nHat(1,i,j) + QRight(IMSQRHOV,i,j) * nHat(2,i,j) + QRight(IMSQRHOW,i,j) * nHat(3,i,j))
+            vR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t1(1,i,j)   + QRight(IMSQRHOV,i,j) * t1(2,i,j)   + QRight(IMSQRHOW,i,j) * t1(3,i,j))
+            wR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t2(1,i,j)   + QRight(IMSQRHOV,i,j) * t2(2,i,j)   + QRight(IMSQRHOW,i,j) * t2(3,i,j))
+            pR = QRight(IMP,i,j)
 
-         fR(IMC)      = uR*cR
-         fR(IMSQRHOU) = 0.5_RP*rhoR*uR*uR + pR
-         fR(IMSQRHOV) = 0.5_RP*rhoR*uR*vR
-         fR(IMSQRHOW) = 0.5_RP*rhoR*uR*wR
-         fR(IMP)      = 0.0_RP
+            fR(IMC,i,j)      = uR*cR
+            fR(IMSQRHOU,i,j) = 0.5_RP*rhoR(i,j)*uR*uR + pR
+            fR(IMSQRHOV,i,j) = 0.5_RP*rhoR(i,j)*uR*vR
+            fR(IMSQRHOW,i,j) = 0.5_RP*rhoR(i,j)*uR*wR
+            fR(IMP,i,j)      = 0.0_RP
 !
 !        Perform the average and rotation
 !        --------------------------------
-         fL = 0.5_RP*(fL + fR)
-         fR = fL
+            fL(:,i,j) = 0.5_RP*(fL(:,i,j) + fR(:,i,j))
+            fR(:,i,j) = fL(:,i,j)
 !
 !        Add the non-conservative term
 !        -----------------------------
-         fL(IMSQRHOU) = fL(IMSQRHOU) + 0.5_RP*cL*(muR-muL) + 0.25_RP*rhoL*uL*(uR-uL)
-         fL(IMSQRHOV) = fL(IMSQRHOV) + 0.25_RP*rhoL*uL*(vR-vL)
-         fL(IMSQRHOW) = fL(IMSQRHOW) + 0.25_RP*rhoL*uL*(wR-wL)
-         fL(IMP)      = fL(IMP)      + 0.5_RP*dimensionless % invMa2*(uR-uL)
+            fL(IMSQRHOU,i,j) = fL(IMSQRHOU,i,j) + 0.5_RP*cL*(muR(i,j)-muL(i,j)) + 0.25_RP*rhoL(i,j)*uL*(uR-uL)
+            fL(IMSQRHOV,i,j) = fL(IMSQRHOV,i,j) + 0.25_RP*rhoL(i,j)*uL*(vR-vL)
+            fL(IMSQRHOW,i,j) = fL(IMSQRHOW,i,j) + 0.25_RP*rhoL(i,j)*uL*(wR-wL)
+            fL(IMP,i,j)      = fL(IMP,i,j)      + 0.5_RP*dimensionless % invMa2*(uR-uL)
 
-         fR(IMSQRHOU) = fR(IMSQRHOU) + 0.5_RP*cR*(muL-muR) + 0.25_RP*rhoR*uR*(uL-uR)
-         fR(IMSQRHOV) = fR(IMSQRHOV) + 0.25_RP*rhoR*uR*(vL-vR)
-         fR(IMSQRHOW) = fR(IMSQRHOW) + 0.25_RP*rhoR*uR*(wL-wR)
-         fR(IMP)      = fR(IMP)      + 0.5_RP*dimensionless % invMa2*(uL-uR)
+            fR(IMSQRHOU,i,j) = fR(IMSQRHOU,i,j) + 0.5_RP*cR*(muL(i,j)-muR(i,j)) + 0.25_RP*rhoR(i,j)*uR*(uL-uR)
+            fR(IMSQRHOV,i,j) = fR(IMSQRHOV,i,j) + 0.25_RP*rhoR(i,j)*uR*(vL-vR)
+            fR(IMSQRHOW,i,j) = fR(IMSQRHOW,i,j) + 0.25_RP*rhoR(i,j)*uR*(wL-wR)
+            fR(IMP,i,j)      = fR(IMP,i,j)      + 0.5_RP*dimensionless % invMa2*(uL-uR)
 
-         fL(IMSQRHOU:IMSQRHOW) = nHat*fL(IMSQRHOU) + t1*fL(IMSQRHOV) + t2*fL(IMSQRHOW)
-         fR(IMSQRHOU:IMSQRHOW) = nHat*fR(IMSQRHOU) + t1*fR(IMSQRHOV) + t2*fR(IMSQRHOW)
-
+            fL(IMSQRHOU:IMSQRHOW,i,j) = nHat(:,i,j)*fL(IMSQRHOU,i,j) + t1(:,i,j)*fL(IMSQRHOV,i,j) + t2(:,i,j)*fL(IMSQRHOW,i,j)
+            fR(IMSQRHOU:IMSQRHOW,i,j) = nHat(:,i,j)*fR(IMSQRHOU,i,j) + t1(:,i,j)*fR(IMSQRHOV,i,j) + t2(:,i,j)*fR(IMSQRHOW,i,j)
+         enddo ; enddo
+         
       end subroutine CentralRiemannSolver
 
-      subroutine ExactRiemannSolver(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
+      subroutine ExactRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
+         !$acc routine vector
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
-         real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: rhoL
-         real(kind=RP), intent(in)       :: rhoR
-         real(kind=RP), intent(in)       :: muL
-         real(kind=RP), intent(in)       :: muR
-         real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: fL(1:NCONS)
-         real(kind=RP), intent(out)      :: fR(1:NCONS)
+         integer , intent(in)            :: Nx, Ny
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: rhoL(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: rhoR(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: muL(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: muR(0:Nx, 0:Ny)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM, 0:Nx, 0:Ny), t1(NDIM, 0:Nx, 0:Ny), t2(NDIM, 0:Nx, 0:Ny)
+         real(kind=RP), intent(out)      :: fL(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(out)      :: fR(1:NCONS, 0:Nx, 0:Ny)
 !
 !        ---------------
 !        Local variables
@@ -231,67 +270,74 @@ module RiemannSolvers_MU
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: lambda_mu = 0.0_RP
+         integer :: i,j
+
+         !$acc loop vector collapse(2)
+            do j = 0, Ny ; do i = 0, Nx 
+!  
+!           Rotate the variables to the face local frame using normal and tangent vectors
+!           -----------------------------------------------------------------------------
+
+            invRhoL     = 1.0_RP / rhoL(i,j)
+            invSqrtRhoL = sqrt(invRhoL)
+            cL = QLeft(IMC,i,j)
+            uL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * nHat(1,i,j) + QLeft(IMSQRHOV,i,j) * nHat(2,i,j) + QLeft(IMSQRHOW,i,j) * nHat(3,i,j))
+            vL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * t1(1,i,j)   + QLeft(IMSQRHOV,i,j) * t1(2,i,j)   + QLeft(IMSQRHOW,i,j) * t1(3,i,j))
+            wL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * t2(1,i,j)   + QLeft(IMSQRHOV,i,j) * t2(2,i,j)   + QLeft(IMSQRHOW,i,j) * t2(3,i,j))
+            pL = QLeft(IMP,i,j)
+
+            invRhoR     = 1.0_RP / rhoR(i,j)
+            invSqrtRhoR = sqrt(invRhoR)
+            cR = QRight(IMC,i,j)
+            uR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * nHat(1,i,j) + QRight(IMSQRHOV,i,j) * nHat(2,i,j) + QRight(IMSQRHOW,i,j) * nHat(3,i,j))
+            vR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t1(1,i,j)   + QRight(IMSQRHOV,i,j) * t1(2,i,j)   + QRight(IMSQRHOW,i,j) * t1(3,i,j))
+            wR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t2(1,i,j)   + QRight(IMSQRHOV,i,j) * t2(2,i,j)   + QRight(IMSQRHOW,i,j) * t2(3,i,j))
+            pR = QRight(IMP,i,j)
+!  
+!           Compute the Star Region
+!           -----------------------
+            lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR(i,j)))
+            lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR(i,j)))
+
+            lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL(i,j)))
+            lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL(i,j)))
+
+            uStar = (pR-pL+rhoR(i,j)*uR*lambdaMinusR-rhoL(i,j)*uL*lambdaPlusL)/(rhoR(i,j)*lambdaMinusR - rhoL(i,j)*lambdaPlusL)
+            pStar = pR + rhoR(i,j)*lambdaMinusR*(uR-uStar)
+            rhoStarL = (rhoL(i,j)*lambdaPlusL)/(uStar-lambdaMinusL)
+            rhoStarR = (rhoR(i,j)*lambdaMinusR)/(uStar - lambdaPlusR)
+
+            if ( uStar .ge. 0.0_RP ) then
+               rhoStar = rhoStarL
+               vStar   = vL
+               wStar   = wL
+
+            else
+               rhoStar = rhoStarR
+               vStar   = vR
+               wStar   = wR
+
+            end if
+
+            cuStar = 0.5_RP*(cL*uL + cR*uR)
+            halfRhouStar = 0.5_RP*rhoStar*uStar
 !
-!        Rotate the variables to the face local frame using normal and tangent vectors
-!        -----------------------------------------------------------------------------
-         invRhoL     = 1.0_RP / rhoL
-         invSqrtRhoL = sqrt(invRhoL)
-         cL = QLeft(IMC)
-         uL = invSqrtRhoL * (QLeft(IMSQRHOU) * nHat(1) + QLeft(IMSQRHOV) * nHat(2) + QLeft(IMSQRHOW) * nHat(3))
-         vL = invSqrtRhoL * (QLeft(IMSQRHOU) * t1(1)   + QLeft(IMSQRHOV) * t1(2)   + QLeft(IMSQRHOW) * t1(3))
-         wL = invSqrtRhoL * (QLeft(IMSQRHOU) * t2(1)   + QLeft(IMSQRHOV) * t2(2)   + QLeft(IMSQRHOW) * t2(3))
-         pL = QLeft(IMP)
-
-         invRhoR     = 1.0_RP / rhoR
-         invSqrtRhoR = sqrt(invRhoR)
-         cR = QRight(IMC)
-         uR = invSqrtRhoR * (QRight(IMSQRHOU) * nHat(1) + QRight(IMSQRHOV) * nHat(2) + QRight(IMSQRHOW) * nHat(3))
-         vR = invSqrtRhoR * (QRight(IMSQRHOU) * t1(1)   + QRight(IMSQRHOV) * t1(2)   + QRight(IMSQRHOW) * t1(3))
-         wR = invSqrtRhoR * (QRight(IMSQRHOU) * t2(1)   + QRight(IMSQRHOV) * t2(2)   + QRight(IMSQRHOW) * t2(3))
-         pR = QRight(IMP)
+!      -    Add first the common (conservative) part
+            fL(:,i,j) = [cuStar+lambda_mu*(muL(i,j)-muR(i,j)), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, dimensionless % invMa2 * uStar]
+            fR(:,i,j) = fL(:,i,j)
 !
-!        Compute the Star Region
-!        -----------------------
-         lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR))
-         lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR))
-
-         lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL))
-         lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL))
-
-         uStar = (pR-pL+rhoR*uR*lambdaMinusR-rhoL*uL*lambdaPlusL)/(rhoR*lambdaMinusR - rhoL*lambdaPlusL)
-         pStar = pR + rhoR*lambdaMinusR*(uR-uStar)
-         rhoStarL = (rhoL*lambdaPlusL)/(uStar-lambdaMinusL)
-         rhoStarR = (rhoR*lambdaMinusR)/(uStar - lambdaPlusR)
-
-         if ( uStar .ge. 0.0_RP ) then
-            rhoStar = rhoStarL
-            vStar   = vL
-            wStar   = wL
-
-         else
-            rhoStar = rhoStarR
-            vStar   = vR
-            wStar   = wR
-
-         end if
-
-         cuStar = 0.5_RP*(cL*uL + cR*uR)
-         halfRhouStar = 0.5_RP*rhoStar*uStar
+!      -    Add the non--conservative part
+            fL(:,i,j) = fL(:,i,j) + [0.0_RP, cL*0.5_RP*(muR(i,j)-muL(i,j))-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -dimensionless % invMa2*uL]
+            fR(:,i,j) = fR(:,i,j) + [0.0_RP, cR*0.5_RP*(muL(i,j)-muR(i,j))-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -dimensionless % invMa2*uR]
 !
-!      - Add first the common (conservative) part
-         fL = [cuStar+lambda_mu*(muL-muR), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, dimensionless % invMa2 * uStar]
-         fR = fL
+!            ************************************************
+!            Return momentum equations to the cartesian frame
+!            ************************************************
 !
-!      - Add the non--conservative part
-         fL = fL + [0.0_RP, cL*0.5_RP*(muR-muL)-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -dimensionless % invMa2*uL]
-         fR = fR + [0.0_RP, cR*0.5_RP*(muL-muR)-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -dimensionless % invMa2*uR]
-!
-!        ************************************************
-!        Return momentum equations to the cartesian frame
-!        ************************************************
-!
-         fL(2:4) = nHat*fL(2) + t1*fL(3) + t2*fL(4)
-         fR(2:4) = nHat*fR(2) + t1*fR(3) + t2*fR(4)
+            fL(2:4,i,j) = nHat(:,i,j)*fL(2,i,j) + t1(:,i,j)*fL(3,i,j) + t2(:,i,j)*fL(4,i,j)
+            fR(2:4,i,j) = nHat(:,i,j)*fR(2,i,j) + t1(:,i,j)*fR(3,i,j) + t2(:,i,j)*fR(4,i,j)
+      enddo ; enddo
+
 
       end subroutine ExactRiemannSolver
 

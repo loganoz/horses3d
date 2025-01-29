@@ -640,20 +640,26 @@ module SpatialDiscretization
 !        Compute Riemann solver of non-shared faces
 !        ******************************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, size(mesh % faces) 
-            associate( f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_INTERIOR) 
-               CALL computeElementInterfaceFlux_MU( f ) 
- 
-            case (HMESH_BOUNDARY) 
-               CALL computeBoundaryFlux_MU(f, t) 
- 
-            end select 
-            end associate 
-         end do 
-!$omp end do 
+!$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang collapse(2) present(mesh)
+         do iFace = 1, size(mesh % faces_interior) ; do side = 1,2
+            fID = mesh % faces_interior(iFace)
+            call computeElementInterfaceFlux_MUviscous(mesh % faces(fID), side)
+         end do ; end do 
+!$acc end parallel loop
+!$omp end do
+         
+!$omp do schedule(runtime) private(fID)
+!$acc parallel loop gang present(mesh)
+            do iFace = 1, size(mesh % faces_interior)
+               fID = mesh % faces_interior(iFace)
+               call computeElementInterfaceFlux_MU(mesh % faces(fID))
+            end do
+!$acc end parallel loop
+!$omp end do nowait
+
+      call computeBoundaryFlux(mesh, t)
+
 !
 !        *************************************************************************************
 !        Element without shared faces: Surface integrals, scaling of elements with Jacobian, 
@@ -879,98 +885,79 @@ module SpatialDiscretization
 ! 
 !///////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE computeElementInterfaceFlux_MU(f)
+      subroutine computeElementInterfaceFlux_MUviscous(fc, side)
+         !$acc routine vector
          use FaceClass
          use RiemannSolvers_MU
-         IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
+         use EllipticBR1
+         implicit none
+         type(Face)   , intent(inout) :: fc
+         integer,       intent(in)    :: side
+
          integer       :: i, j
-         real(kind=RP) :: inv_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: inv_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: muL, muR
-         real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
-         real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
+         real(kind=RP) :: mu
+         
+         !$acc loop vector collapse(2) 
+         do j = 0, fc % Nf(2) ; do i = 0, fc % Nf(1)
 
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
+            call GetmTwoFluidsViscosity(fc % storage(side) % Q(IMC,i,j), mu)
 
-               call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), muL)
-               call GetmTwoFluidsViscosity(f % storage(2) % Q(IMC,i,j), muR)
+            call mViscousFlux( NCONS, NGRAD, 
+                              fc % storage(side) % Q(:,i,j) , &
+                              fc % storage(side) % U_x(:,i,j)*[1.0_RP,mu,mu,mu,1.0_RP],& 
+                              fc % storage(side) % U_y(:,i,j)*[1.0_RP,mu,mu,mu,1.0_RP],&
+                              fc % storage(side) % U_z(:,i,j)*[1.0_RP,mu,mu,mu,1.0_RP],& 
+                              1,0_RP, & 
+                              multiphase % M0_star, &
+                              0.0_RP, &
+                              fc % storage(side) % unStar(:,:,i,j))
+            
+         end do ; end do
 
-!
-!            - Premultiply velocity gradients by the viscosity
-!              -----------------------------------------------
-               UxL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_x(:,i,j) 
-               UyL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_y(:,i,j) 
-               UzL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_z(:,i,j) 
+ 
+      end subroutine computeElementInterfaceFlux_MUviscous
 
-               UxR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_x(:,i,j) 
-               UyR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_y(:,i,j) 
-               UzR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_z(:,i,j) 
-!      
-!              --------------
-!              Viscous fluxes
-!              --------------
-!      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
-                                                  EllipticFlux = mViscousFlux, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = UxL, &
-                                                  U_yLeft = UyL, &
-                                                  U_zLeft = UzL, &
-                                                  U_xRight = UxR, &
-                                                  U_yRight = UyR, &
-                                                  U_zRight = UzR, &
-                                                  mu_left  = [1.0_RP, multiphase % M0_star, 0.0_RP], &
-                                                  mu_right = [1.0_RP, multiphase % M0_star, 0.0_RP], &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
-                                                  flux  = visc_flux(:,i,j) )
+      SUBROUTINE computeElementInterfaceFlux_MU(fc)
+         use FaceClass
+         use RiemannSolvers_MU
+         use EllipticBR1
+         IMPLICIT NONE
+         TYPE(Face)   , INTENT(inout) :: fc   
+         integer       :: i, j,eq
 
-            end do
-         end do
+         call BR1_RiemannSolver_acc(fc, NCONS, NGRAD, &
+                                    [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], EllipticBR1 % sigma &
+                                    fc % storage(2) % FStar)
 
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-!      
-!              --------------
-!              Invscid fluxes
-!              --------------
-!      
-               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                                  QRight = f % storage(2) % Q(:,i,j), &
-                                  rhoL   = f % storage(1) % rho(i,j), &
-                                  rhoR   = f % storage(2) % rho(i,j), &
-                                  muL    = f % storage(1) % mu(1,i,j), &
-                                  muR    = f % storage(2) % mu(1,i,j), &
-                                  nHat   = f % geom % normal(:,i,j), &
-                                  t1     = f % geom % t1(:,i,j), &
-                                  t2     = f % geom % t2(:,i,j), &
-                                  fL     = inv_fluxL(:,i,j), &
-                                  fR     = inv_fluxR(:,i,j) )
+         !TODO fc % storage(2) % FStar will be overrwritten if it is kept like that
+         ! fc % storage(2) % FStar was dedicated to the viscous flux above
+         call RiemannSolver_Selector(fc % Nf(1), &                         
+                                     fc % Nf(2), &
+                                     fc % storage(1) % Q, &
+                                     fc % storage(2) % Q, &
+                                     fc % storage(1) % rho, &
+                                     fc % storage(2) % rho, &
+                                     fc % storage(1) % mu(1,:,:),&
+                                     fc % storage(2) % mu(1,:,:),&
+                                     fc % geom % normal, &
+                                     fc % geom % t1, &
+                                     fc % geom % t2, &
+                                     fc % storage(1) % FStar,&
+                                     fc % storage(2) % FStar)
 
-               
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               fluxL(:,i,j) = ( inv_fluxL(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               fluxR(:,i,j) = ( inv_fluxR(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               
-            END DO   
-         END DO  
+!        ------------------------
+!        Multiply by the Jacobian
+!        ------------------------
+         !$acc loop vector collapse(3)
+         do j = 0, fc % Nf(2) ; do i = 0, fc % Nf(1) ; do eq = 1, NCONS
+            fc % storage(1) % FStar(eq,i,j) = (fc % storage(1) % FStar(eq,i,j) - fc % storage(2) % FStar(eq,i,j)) * fc % geom % jacobian(i,j)
+         end do ; end do ;  end do
 !
 !        ---------------------------
 !        Return the flux to elements
 !        ---------------------------
-!
-         call f % ProjectFluxToElements(NCONS, fluxL, (/1, HMESH_NONE/))
-         call f % ProjectFluxToElements(NCONS, fluxR, (/2, HMESH_NONE/))
+     call Face_ProjectFluxToElements(fc, NCONS, fc % storage(1) % FStar, 1)
+     call Face_ProjectFluxToElements(fc, NCONS, fc % storage(2) % FStar, 2)
 
       END SUBROUTINE computeElementInterfaceFlux_MU
 
@@ -1073,7 +1060,7 @@ module SpatialDiscretization
 
       end subroutine ComputeMPIFaceFlux_MU
 
-      SUBROUTINE computeBoundaryFlux_MU(f, time)
+      SUBROUTINE computeBoundaryFlux_MU(mesh, time)
       USE ElementClass
       use FaceClass
       USE RiemannSolvers_MU
@@ -1083,82 +1070,115 @@ module SpatialDiscretization
 !     Arguments
 !     ---------
 !
-      type(Face),    intent(inout) :: f
+      type(HexMesh), intent(inout)    :: mesh
       REAL(KIND=RP)                :: time
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      INTEGER                         :: i, j
-      INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: inv_fluxL(NCONS), inv_fluxR(NCONS), fv_3d(NCONS,NDIM)
-      real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
+      INTEGER                         :: i, j, eq
+      INTEGER                         :: nZones, zoneID, zonefID, fID
       real(kind=RP)                   :: mu
 !
 !     -------------------
 !     Get external states
 !     -------------------
 !
-      do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-         f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         f % storage(2) % mu(1,i,j) = f % storage(1) % mu(1,i,j)
-         CALL BCs(f % zone) % bc % FlowState( &
-                                      f % geom % x(:,i,j), &
-                                      time, &
-                                      f % geom % normal(:,i,j), &
-                                      f % storage(2) % Q(:,i,j))
+      ! do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+      !    f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
+      !    f % storage(2) % mu(1,i,j) = f % storage(1) % mu(1,i,j)
+      !    CALL BCs(f % zone) % bc % FlowState( &
+      !                                 f % geom % x(:,i,j), &
+      !                                 time, &
+      !                                 f % geom % normal(:,i,j), &
+      !                                 f % storage(2) % Q(:,i,j))
 
-         f % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*f % storage(2) % Q(IMC,i,j)
-         f % storage(2) % rho(i,j) = min(max(f % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
-!   
-!        --------------
-!        Viscous fluxes
-!        --------------
-!   
-         call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), mu)
+      !    f % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*f % storage(2) % Q(IMC,i,j)
+      !    f % storage(2) % rho(i,j) = min(max(f % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
 
-         call mViscousFlux(NCONS, NCONS, f % storage(1) % Q(:,i,j), &
-                                         f % storage(1) % U_x(:,i,j), &
-                                         f % storage(1) % U_y(:,i,j), &
-                                         f % storage(1) % U_z(:,i,j), &
-                                         mu, multiphase % M0_star, 0.0_RP, fv_3d)
+      !TODOs: TAKE CARE OF FLOW STATE
 
-         visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
-                            + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
-                            + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
+      nZones = size(mesh % zones)
+       do zoneID=1, nZones
+
+          !!!!!$acc parallel loop gang present(mesh) async(1)
+          !$acc parallel loop gang present(mesh)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+             fID =  mesh % zones(zoneID) % faces(zonefID)
+     
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
+               call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), mu)
+
+               call mViscousFlux(NCONS, NCONS, mesh % faces(fID) % storage(1) % Q(:,i,j), &
+                                         mesh % faces(fID) % storage(1) % U_x(:,i,j), &
+                                         mesh % faces(fID) % storage(1) % U_y(:,i,j), &
+                                         mesh % faces(fID) % storage(1) % U_z(:,i,j), &
+                                         mu, multiphase % M0_star, 0.0_RP, mesh % faces(fID) % storage(1) % unStar(:,:,i,j))
+
+            enddo ; enddo
+
+            !TODO fuse with the above loop
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
+               !$acc loop seq
+               do eq = 1, NCONS
+
+                  mesh % faces(fID) % storage(2) % FStar(eq,i,j) = mesh % faces(fID) % storage(1) % unStar(eq,IX,i,j)* mesh % faces(fID) % geom % normal(IX,i,j) &
+                                                             + mesh % faces(fID) % storage(1) % unStar(eq,IY,i,j)* mesh % faces(fID) % geom % normal(IY,i,j) &
+                                                             + mesh % faces(fID) % storage(1) % unStar(eq,IZ,i,j)* mesh % faces(fID) % geom % normal(IZ,i,j)
+               enddo
+            enddo ; enddo
+         end do
+         !$acc end parallel loop 
 
 
-         CALL BCs(f % zone) % bc % FlowNeumann(&
-                                           f % geom % x(:,i,j), &
-                                           time, &
-                                           f % geom % normal(:,i,j), &
-                                           f % storage(1) % Q(:,i,j), &
-                                           f % storage(1) % U_x(:,i,j), &
-                                           f % storage(1) % U_y(:,i,j), &
-                                           f % storage(1) % U_z(:,i,j), visc_flux(:,i,j))
+         CALL BCs(zoneID) % bc % FlowNeumann(mesh, mesh % zones(zoneID))                           
 
-!
-!           Hyperbolic part
-!           -------------
-            CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                               QRight = f % storage(2) % Q(:,i,j), &
-                               rhoL   = f % storage(1) % rho(i,j), &
-                               rhoR   = f % storage(2) % rho(i,j), &
-                               muL    = f % storage(1) % mu(1,i,j), &
-                               muR    = f % storage(2) % mu(1,i,j), &
-                               nHat   = f % geom % normal(:,i,j), &
-                               t1     = f % geom % t1(:,i,j), &
-                               t2     = f % geom % t2(:,i,j), &
-                               fL     = inv_fluxL, &
-                               fR     = inv_fluxR )
+         !!!$acc parallel loop gang present(mesh) async(1)
+         !$acc parallel loop gang present(mesh)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            fID =  mesh % zones(zoneID) % faces(zonefID)
 
-            fStar(:,i,j) = (inv_fluxL - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
-         end do   
-      end do   
-
-      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
+            !TODO fc % storage(2) % FStar will be overrwritten if it is kept like that
+            ! fc % storage(2) % FStar was dedicated to the viscous flux above
+            call RiemannSolver_Selector(fc % Nf(1), &                         
+                                     fc % Nf(2), &
+                                     fc % storage(1) % Q, &
+                                     fc % storage(2) % Q, &
+                                     fc % storage(1) % rho, &
+                                     fc % storage(2) % rho, &
+                                     fc % storage(1) % mu(1,:,:),&
+                                     fc % storage(2) % mu(1,:,:),&
+                                     fc % geom % normal, &
+                                     fc % geom % t1, &
+                                     fc % geom % t2, &
+                                     fc % storage(1) % FStar,&
+                                     fc % storage(2) % FStar)
+!           ------------------------
+!           Multiply by the Jacobian
+!           ------------------------
+            !TODO figure out the storage Fstar
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+               !$acc loop seq
+               do eq = 1, NCONS
+                  mesh % faces(fID) % storage(1) % FStar(eq,i,j) = (mesh % faces(fID) % storage(1) % FStar(eq,i,j)  - &
+                                                                    mesh % faces(fID) % storage(2) % FStar(eq,i,j)) * &
+                                                                    mesh % faces(fID) % geom % jacobian(i,j)
+               enddo
+            end do ;  end do
+            !
+            !           ---------------------------
+            !           Return the flux to elements
+            !           ---------------------------
+            !
+            call Face_ProjectFluxToElements(mesh % faces(fID), NCONS, mesh % faces(fID) % storage(1) % FStar, 1)
+         enddo
+         !$acc end parallel loop 
+         
+      end do 
 
       END SUBROUTINE computeBoundaryFlux_MU
 !
@@ -1578,6 +1598,7 @@ module SpatialDiscretization
             enddo
             !$acc end parallel loop 
 
+            !TODO: NeumanForEqn should be used here to switch
             CALL BCs(zoneID) % bc % FlowNeumann(mesh, mesh % zones(zoneID))                             
          
             !$acc parallel loop gang present(mesh)
