@@ -108,6 +108,10 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_z  ! CHE chemical potential z-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliary storage
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: Q_grad_CH  ! CH state vector to calculate the gradient
+#endif
+#ifdef MULTIPHASE
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: Q_grad_mu  ! Multiphase State vector to calculate the gradient
 #endif
       contains
          procedure   :: Assign              => ElementStorage_Assign
@@ -854,9 +858,11 @@ module StorageClass
          allocate(self % mu_z(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % Q_grad_CH(1:NCOMP, 0:Nx, 0:Ny, 0:Nz))
 #endif
 
 #ifdef MULTIPHASE
+         allocate(self % Q_grad_mu(1:NCONS, 0:Nx, 0:Ny, 0:Nz))
          if ( RKSteps_num .gt. 0 ) then
             allocate(self % RKSteps(RKSteps_num))
 
@@ -1023,6 +1029,11 @@ module StorageClass
          to % v    = from % v
          to % cDot = from % cDot
          to % G_CH = from % G_CH
+         to % Q_grad_CH = from % Q_grad_CH
+#endif
+
+#ifdef MULTIPHASE
+         to % Q_grad_mu = from % Q_grad_mu
 #endif
 
          call to % PointStorage()
@@ -1135,6 +1146,11 @@ module StorageClass
          safedeallocate(self % mu_z)
          safedeallocate(self % G_CH)
          safedeallocate(self % v)
+         safedeallocate(self % Q_grad_CH)
+#endif
+
+#ifdef MULTIPHASE
+         safedeallocate(self % Q_grad_mu)
 #endif
          safedeallocate(self % PrevQ)
 

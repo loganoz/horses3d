@@ -24,6 +24,7 @@ MODULE HexMeshClass
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
       use PartitionedMeshClass            , only: mpi_partition
       use IBMClass
+      use VariableConversion
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -42,6 +43,7 @@ MODULE HexMeshClass
       public      no_of_stats_variables, HexMesh_ProlongSolToFaces, HexMesh_ProlongGradientsToFaces
       public      HexMesh_UpdateMPIFacesSolution, HexMesh_UpdateMPIFacesGradients
       public      HexMesh_GatherMPIFacesSolution, HexMesh_GatherMPIFacesGradients
+      public      HexMesh_ComputeLocalGradientNS, HexMesh_ComputeLocalGradientCH, HexMesh_ComputeLocalGradientMU
 
 !
 !     ---------------
@@ -4426,17 +4428,21 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % elements(eID) % faceSide)
 
 #ifdef CAHNHILLIARD
-         !$acc enter data copyin(self % elements(eID) % c)     ! CHE concentration
-         !$acc enter data copyin(self % elements(eID) % cDot)  ! CHE concentration time derivative
-         !$acc enter data copyin(self % elements(eID) % c_x)   ! CHE concentration x-gradient
-         !$acc enter data copyin(self % elements(eID) % c_y)   ! CHE concentration y-gradient
-         !$acc enter data copyin(self % elements(eID) % c_z)   ! CHE concentration z-gradient
-         !$acc enter data copyin(self % elements(eID) % mu)    ! CHE chemical potential
-         !$acc enter data copyin(self % elements(eID) % mu_x)  ! CHE chemical potential x-gradient
-         !$acc enter data copyin(self % elements(eID) % mu_y)  ! CHE chemical potential y-gradient
-         !$acc enter data copyin(self % elements(eID) % mu_z)  ! CHE chemical potential z-gradient
-         !$acc enter data copyin(self % elements(eID) % v)     ! CHE flow field velocity
-         !$acc enter data copyin(self % elements(eID) % G_CH)  ! CHE auxiliary storage
+         !$acc enter data copyin(self % elements(eID) % storage % c)     ! CHE concentration
+         !$acc enter data copyin(self % elements(eID) % storage % cDot)  ! CHE concentration time derivative
+         !$acc enter data copyin(self % elements(eID) % storage % c_x)   ! CHE concentration x-gradient
+         !$acc enter data copyin(self % elements(eID) % storage % c_y)   ! CHE concentration y-gradient
+         !$acc enter data copyin(self % elements(eID) % storage % c_z)   ! CHE concentration z-gradient
+         !$acc enter data copyin(self % elements(eID) % storage % mu)    ! CHE chemical potential
+         !$acc enter data copyin(self % elements(eID) % storage % mu_x)  ! CHE chemical potential x-gradient
+         !$acc enter data copyin(self % elements(eID) % storage % mu_y)  ! CHE chemical potential y-gradient
+         !$acc enter data copyin(self % elements(eID) % storage % mu_z)  ! CHE chemical potential z-gradient
+         !$acc enter data copyin(self % elements(eID) % storage % v)     ! CHE flow field velocity
+         !$acc enter data copyin(self % elements(eID) % storage % G_CH)  ! CHE auxiliary storage
+         !$acc enter data copyin(self % elements(eID) % storage % Q_grad_CH) !CH state to calculate the gradient
+#endif
+#ifdef MULTIPHASE
+         !$acc enter data copyin(self % elements(eID) % storage % Q_grad_mu) !Multiphase state to calculate the gradient
 #endif
 
       ENDDO
@@ -4481,15 +4487,15 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % geom % Surface)
          
 #ifdef CAHNHILLIARD
-         !$acc enter data copyin(self % faces(iFace) % c)     ! CHE concentration
-         !$acc enter data copyin(self % faces(iFace) % c_x)   ! CHE concentration x-gradient
-         !$acc enter data copyin(self % faces(iFace) % c_y)   ! CHE concentration y-gradient
-         !$acc enter data copyin(self % faces(iFace) % c_z)   ! CHE concentration z-gradient
-         !$acc enter data copyin(self % faces(iFace) % mu)    ! CHE chemical potential
-         !$acc enter data copyin(self % faces(iFace) % mu_x)  ! CHE chemical potential x-gradient
-         !$acc enter data copyin(self % faces(iFace) % mu_y)  ! CHE chemical potential y-gradient
-         !$acc enter data copyin(self % faces(iFace) % mu_z)  ! CHE chemical potential z-gradient
-         !$acc enter data copyin(self % faces(iFace) % v)     ! CHE flow field velocity
+         !$acc enter data copyin(self % faces(iFace) % storage % c)     ! CHE concentration
+         !$acc enter data copyin(self % faces(iFace) % storage % c_x)   ! CHE concentration x-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage % c_y)   ! CHE concentration y-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage % c_z)   ! CHE concentration z-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage % mu)    ! CHE chemical potential
+         !$acc enter data copyin(self % faces(iFace) % storage % mu_x)  ! CHE chemical potential x-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage % mu_y)  ! CHE chemical potential y-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage % mu_z)  ! CHE chemical potential z-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage % v)     ! CHE flow field velocity
 #endif
       enddo
       
@@ -5450,4 +5456,76 @@ end subroutine HexMesh_pAdapt_MPI
 call elementMPIList % destruct 
 
    end subroutine HexMesh_UpdateHOArrays
+
+   subroutine HexMesh_ComputeLocalGradientNS(self, set_mu)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), intent(inout)   :: self
+      logical, intent(in)             :: set_mu
+      !-local-variables-----------------------------------
+      integer :: eID
+
+      !--------------------------------------------------
+!$omp do schedule(runtime)
+      !$acc parallel loop gang vector_length(128) present(self, self % elements)
+         do eID = 1 , size(self % elements)
+            call HexElement_ComputeLocalGradient(self % elements(eID), self % elements(eID) % storage % Q)
+         end do
+      !$acc end parallel loop
+!$omp end do nowait
+
+   end subroutine HexMesh_ComputeLocalGradientNS
+
+   subroutine HexMesh_ComputeLocalGradientCH(self, set_mu)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), intent(inout)   :: self
+      logical, intent(in)             :: set_mu
+      !-local-variables-----------------------------------
+      integer :: eID, i, j, k
+
+      !--------------------------------------------------
+!$omp do schedule(runtime)
+      !$acc parallel loop gang vector_length(128) present(self, self % elements)
+      do eID = 1 , size(self % elements)
+
+         !$acc loop vector collapse(3) 
+         do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
+            call chGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_CH(:,i,j,k))
+            if ( set_mu ) self % elements(eID) % storage % Q_grad_CH(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
+         end do         ; end do         ; end do
+
+         call HexElement_ComputeLocalGradient(self % elements(eID), self % elements(eID) % storage % Q_grad_CH)
+      end do
+   !$acc end parallel loop
+!$omp end do nowait
+
+   end subroutine HexMesh_ComputeLocalGradientCH
+
+   subroutine HexMesh_ComputeLocalGradientMU(self, set_mu)
+      implicit none
+      !-arguments-----------------------------------------
+      class(HexMesh), intent(inout)   :: self
+      logical, intent(in)             :: set_mu
+      !-local-variables-----------------------------------
+      integer :: eID, i, j, k
+
+      !--------------------------------------------------
+!$omp do schedule(runtime)
+      !$acc parallel loop gang vector_length(128) present(self, self % elements)
+      do eID = 1 , size(self % elements)
+
+         !$acc loop vector collapse(3) 
+         do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
+            call mGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_mu(:,i,j,k))
+            if ( set_mu ) self % elements(eID) % storage % Q_grad_mu(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
+         end do         ; end do         ; end do
+
+         call HexElement_ComputeLocalGradient(self % elements(eID), self % elements(eID) % storage % Q_grad_mu)
+      end do
+   !$acc end parallel loop
+!$omp end do nowait
+
+   end subroutine HexMesh_ComputeLocalGradientMU
+
 END MODULE HexMeshClass

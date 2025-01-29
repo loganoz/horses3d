@@ -244,7 +244,7 @@ module SpatialDiscretization
 !        ---------------
 !
          INTEGER :: k, nZones, zoneID, eID
-         logical :: HOElements
+         logical :: HOElements, set_mu
 
          if (present(HO_Elements)) then
             HOElements = HO_Elements
@@ -290,13 +290,17 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-!$omp do schedule(runtime)
-         !$acc parallel loop gang vector_length(128) present(mesh, mesh % elements) async(1)
-         do eID = 1 , size(mesh % elements)
-            call HexElement_ComputeLocalGradient(mesh % elements(eID))
-         end do
-         !$acc end parallel loop
-!$omp end do nowait
+#ifdef MULTIPHASE
+         select case (ViscousDiscretization % eqName)
+         case(ELLIPTIC_MU)
+            set_mu = .true.
+         case default
+            set_mu = .false.
+         end select
+#else
+         set_mu = .false.
+#endif
+         call HexMesh_ComputeLocalGradientNS(mesh, set_mu)
 
          if ( computeGradients ) then
             call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh, time, GetGradients, HO_Elements)

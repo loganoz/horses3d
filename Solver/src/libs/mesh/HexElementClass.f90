@@ -769,7 +769,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ComputeLocalGradient(self)
+      subroutine HexElement_ComputeLocalGradient(self, U_gradsol)
          !$acc routine vector
 !
 !        ****************************************************************
@@ -781,6 +781,7 @@
 !
          implicit none
          type(Element),   intent(in)      :: self
+         real(kind=RP),   intent(in)      :: U_gradsol(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
 !         integer,          intent(in)     :: nEqn
 !         integer,          intent(in)     :: nGradEqn
 !
@@ -789,7 +790,6 @@
 !        ---------------
 !
          integer  :: i, j, k, l, eq
-         real(kind=RP)  :: U_gradsol(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
          real(kind=RP)  :: U_xi(1:NGRAD)
          real(kind=RP)  :: U_eta(1:NGRAD)
          real(kind=RP)  :: U_zeta(1:NGRAD)
@@ -800,43 +800,53 @@
 !        Get gradient variables
 !        **********************
 !
-#ifdef MULTIPHASE
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            call GetGradientValues(NCONS, NGRAD, self % storage % Q(:,i,j,k), U_gradsol(:,i,j,k), self % storage % rho(i,j,k) )
-         end do         ; end do         ; end do
-#else
-         !!$acc loop vector collapse(3)
-         !do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-         !  call NSGradientVariables_STATE(NCONS, NGRAD, self % storage % Q(:,i,j,k), U_gradsol(:,i,j,k))
-         !end do         ; end do         ; end do
-#endif
+! #ifdef MULTIPHASE
+!          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+!             call GetGradientValues(NCONS, NGRAD, self % storage % Q(:,i,j,k), U_gradsol(:,i,j,k), self % storage % rho(i,j,k) )
+!          end do         ; end do         ; end do
+! #else
+!          !!$acc loop vector collapse(3)
+!          !do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
+!          !  call NSGradientVariables_STATE(NCONS, NGRAD, self % storage % Q(:,i,j,k), U_gradsol(:,i,j,k))
+!          !end do         ; end do         ; end do
+! #endif
 
-#ifdef MULTIPHASE
-!
-!        The multiphase solver needs the Chemical potential as first entropy variable
-!        ----------------------------------------------------------------------------
-         if ( set_mu ) U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
-#endif
+! #ifdef MULTIPHASE
+! !
+! !        The multiphase solver needs the Chemical potential as first entropy variable
+! !        ----------------------------------------------------------------------------
+!          if ( set_mu ) U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
+! #endif
 !
          !$acc loop vector collapse(3) private(U_xi, U_eta, U_zeta)
          do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
             
-            U_xi =  self % storage % Q(:,0,j,k) * NodalStorage(self % Nxyz(1)) % D(i,0)
+            !***
+            !Every self % storage % Q is changed to U_gradsol for multiphase compatibility
+            !***
+
+            ! U_xi =  self % storage % Q(:,0,j,k) * NodalStorage(self % Nxyz(1)) % D(i,0)
+            U_xi =  U_gradsol(:,0,j,k) * NodalStorage(self % Nxyz(1)) % D(i,0)
             !$acc loop seq
             do l = 1, self % Nxyz(1)
-               U_xi = U_xi + self % storage % Q(:,l,j,k) * NodalStorage(self % Nxyz(1)) % D(i,l)
+               ! U_xi = U_xi + self % storage % Q(:,l,j,k) * NodalStorage(self % Nxyz(1)) % D(i,l)
+               U_xi = U_xi + U_gradsol(:,l,j,k) * NodalStorage(self % Nxyz(1)) % D(i,l)
             enddo
             
-            U_eta = self % storage % Q(:,i,0,k) * NodalStorage(self % Nxyz(2)) % D(j,0)
+            ! U_eta = self % storage % Q(:,i,0,k) * NodalStorage(self % Nxyz(2)) % D(j,0)
+            U_eta = U_gradsol(:,i,0,k) * NodalStorage(self % Nxyz(2)) % D(j,0)
             !$acc loop seq
             do l = 1, self % Nxyz(2)
-               U_eta = U_eta + self % storage % Q(:,i,l,k) * NodalStorage(self % Nxyz(2)) % D(j,l)
+               ! U_eta = U_eta + self % storage % Q(:,i,l,k) * NodalStorage(self % Nxyz(2)) % D(j,l)
+               U_eta = U_eta + U_gradsol(:,i,l,k) * NodalStorage(self % Nxyz(2)) % D(j,l)
             end do  
 
-            U_zeta = self % storage % Q(:,i,j,0) * NodalStorage(self % Nxyz(3)) % D(k,0)
+            ! U_zeta = self % storage % Q(:,i,j,0) * NodalStorage(self % Nxyz(3)) % D(k,0)
+            U_zeta = U_gradsol(:,i,j,0) * NodalStorage(self % Nxyz(3)) % D(k,0)
             !$acc loop seq
             do l = 1, self % Nxyz(3)
-               U_zeta = U_zeta + self % storage % Q(:,i,j,l) * NodalStorage(self % Nxyz(3)) % D(k,l)
+               ! U_zeta = U_zeta + self % storage % Q(:,i,j,l) * NodalStorage(self % Nxyz(3)) % D(k,l)
+               U_zeta = U_zeta + U_gradsol(:,i,j,l) * NodalStorage(self % Nxyz(3)) % D(k,l)
             end do
 
             inv_jac = self % geom % InvJacobian(i,j,k)

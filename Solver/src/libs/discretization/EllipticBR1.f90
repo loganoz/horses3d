@@ -111,16 +111,6 @@ module EllipticBR1
 !        Volume loops
 !        ************
 !
-#ifdef MULTIPHASE
-         select case (self % eqName)
-         case(ELLIPTIC_MU)
-            set_mu = .true.
-         case default
-            set_mu = .false.
-         end select
-#else
-         set_mu = .false.
-#endif
       !$acc data copyin(self)
 
       if (HOElements) then
