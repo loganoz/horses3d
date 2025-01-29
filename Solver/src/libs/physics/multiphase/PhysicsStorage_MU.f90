@@ -66,7 +66,7 @@
 !    ----------------------------
 !
      logical, protected :: computeGradients   = .true.
-     !$acc declare copyin(flowIsNavierStokes, computeGradients)
+     !$acc declare copyin(computeGradients)
 !
 !    --------------------------
 !!   The sizes of the NS system
