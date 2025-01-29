@@ -152,7 +152,7 @@ module RiemannSolvers_MU
 
          select case (whichRiemannSolver)
          case (RIEMANN_CENTRAL)
-          call CentralRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
+            call CentralRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
          case (RIEMANN_EXACT)
             call ExactRiemannSolver(Nx, Ny, QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
 
@@ -191,7 +191,7 @@ module RiemannSolvers_MU
          integer :: i,j
 
          !$acc loop vector collapse(2)
-            do j = 0, Ny ; do i = 0, Nx 
+         do j = 0, Ny ; do i = 0, Nx 
 !
 !        Left state variables and fluxes
 !        -------------------------------
@@ -243,6 +243,7 @@ module RiemannSolvers_MU
 
             fL(IMSQRHOU:IMSQRHOW,i,j) = nHat(:,i,j)*fL(IMSQRHOU,i,j) + t1(:,i,j)*fL(IMSQRHOV,i,j) + t2(:,i,j)*fL(IMSQRHOW,i,j)
             fR(IMSQRHOU:IMSQRHOW,i,j) = nHat(:,i,j)*fR(IMSQRHOU,i,j) + t1(:,i,j)*fR(IMSQRHOV,i,j) + t2(:,i,j)*fR(IMSQRHOW,i,j)
+            
          enddo ; enddo
          
       end subroutine CentralRiemannSolver

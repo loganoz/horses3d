@@ -35,6 +35,7 @@
      public    CheckPhysicsCHInputIntegrity
 
      integer, parameter    :: NCOMP = 1
+     !$acc declare copyin(NCOMP)
 !
 !    ========
      CONTAINS

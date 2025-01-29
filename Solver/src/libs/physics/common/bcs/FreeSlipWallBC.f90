@@ -631,7 +631,6 @@ module FreeSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
