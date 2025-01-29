@@ -925,9 +925,9 @@ module SpatialDiscretization
          TYPE(Face)   , INTENT(inout) :: fc   
          integer       :: i, j,eq
 
-         call BR1_RiemannSolver_acc(fc, NCONS, NGRAD, 
-                                    fc % storage(2) % FStar, 
-                                    [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP])
+         call BR1_RiemannSolver_acc(fc, NCONS, NGRAD, &
+                                    [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], EllipticBR1 % sigma &
+                                    fc % storage(2) % FStar)
 
          !TODO fc % storage(2) % FStar will be overrwritten if it is kept like that
          ! fc % storage(2) % FStar was dedicated to the viscous flux above
