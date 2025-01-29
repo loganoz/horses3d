@@ -517,53 +517,179 @@ module InflowBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #if defined(CAHNHILLIARD)
-      subroutine InflowBC_PhaseFieldState(self, x, t, nHat, Q)
+
+      subroutine InflowBC_CreateDeviceData(self)
+         implicit none 
+         class(InflowBC_t), intent(in)    :: self
+
+         !$acc enter data copyin(self)
+
+      end subroutine InflowBC_CreateDeviceData
+
+      subroutine InflowBC_ExitDeviceData(self)
+         implicit none 
+         class(InflowBC_t), intent(in)    :: self
+
+         !$acc exit data delete(self)
+
+      end subroutine InflowBC_ExitDeviceData
+
+      subroutine InflowBC_PhaseFieldState(self, mesh, zone)
+         use HexMeshClass
          implicit none
-         class(InflowBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         class(InflowBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: Q(NCONS)
+         integer       :: i,j,zonefID,fID
+         
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q)            
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               
+               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+
+               mesh % faces(fID) % storage(2) % Q(:,i,j) = Q(:)
+            
+            enddo ; enddo
+         enddo
+         !$acc end parallel loop
       end subroutine InflowBC_PhaseFieldState
 
-      subroutine InflowBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine InflowBC_PhaseFieldGradVars(self, mesh, zone)
          implicit none
-         class(InflowBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(NCOMP)
-         real(kind=RP),       intent(in)    :: U_x(NCOMP)
-         real(kind=RP),       intent(in)    :: U_y(NCOMP)
-         real(kind=RP),       intent(in)    :: U_z(NCOMP)
-         real(kind=RP),       intent(inout) :: flux(NCOMP)
+         class(InflowBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
 
-         flux = 0.0_RP
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!        
+         integer        :: i,j,zonefID,fID
+
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2)            
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0    
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0
+               
+            enddo ; enddo
+         enddo
+         !$acc end parallel loop
+         
+      end subroutine InflowBC_PhaseFieldGradVars
+      
+      subroutine InflowBC_PhaseFieldNeumann(self, mesh, zone)
+         use HexMeshClass
+         implicit none
+         class(InflowBC_t),      intent(in)    :: self
+         type(HexMesh),           intent(inout) :: mesh
+         type(Zone_t), intent(in)               :: zone
+
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) independent private(Q,flux)  
+            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
+            enddo 
+          enddo
+         enddo
+         !$acc end parallel loop
 
       end subroutine InflowBC_PhaseFieldNeumann
 
-      subroutine InflowBC_ChemPotState(self, x, t, nHat, Q)
+      subroutine InflowBC_ChemPotState(self, mesh, zone)
+         use HexMeshClass
          implicit none
-         class(InflowBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         class(InflowBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: Q(NCONS)
+         integer       :: i,j,zonefID,fID
+         
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) private(Q)            
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               
+               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+
+               mesh % faces(fID) % storage(2) % Q(:,i,j) = Q(:)
+            
+            enddo ; enddo
+         enddo
+         !$acc end parallel loop
       end subroutine InflowBC_ChemPotState
 
-      subroutine InflowBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine InflowBC_ChemPotGradVars(self, mesh, zone)
+         implicit none
+         class(InflowBC_t), intent(in)    :: self
+         type(HexMesh), intent(inout)           :: mesh
+         type(Zone_t), intent(in)               :: zone
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!        
+         integer        :: i,j,zonefID,fID
+
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2)            
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0    
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0
+               
+            enddo ; enddo
+         enddo
+         !$acc end parallel loop
+         
+      end subroutine InflowBC_ChemPotGradVars
+
+      subroutine InflowBC_ChemPotNeumann(self, mesh, zone)
          implicit none
          class(InflowBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(NCOMP)
-         real(kind=RP),       intent(in)    :: U_x(NCOMP)
-         real(kind=RP),       intent(in)    :: U_y(NCOMP)
-         real(kind=RP),       intent(in)    :: U_z(NCOMP)
-         real(kind=RP),       intent(inout) :: flux(NCOMP)
+         type(HexMesh),           intent(inout) :: mesh
+         type(Zone_t), intent(in)               :: zone
 
-         flux = 0.0_RP
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2) independent private(Q,flux)  
+            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
+            enddo 
+          enddo
+         enddo
+         !$acc end parallel loop
 
       end subroutine InflowBC_ChemPotNeumann
 #endif
