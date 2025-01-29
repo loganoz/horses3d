@@ -53,7 +53,11 @@ module InflowBCClass
       real(kind=RP)              :: AoAPhi
       real(kind=RP)              :: AoATheta
       real(kind=RP)              :: v
-#if defined(CAHNHILLIARD)
+      real(kind=RP)              :: rho
+#endif
+#if defined(MULTIPHASE)
+      real(kind=RP)              :: AoAPhi
+      real(kind=RP)              :: AoATheta
       logical                    :: isLayered  = .false.
       logical                    :: isXLimited = .false.
       logical                    :: isYLimited = .false.
@@ -61,9 +65,7 @@ module InflowBCClass
       real(kind=RP)              :: xLim, yLim, zLim
       real(kind=RP)              :: phase1Vel
       real(kind=RP)              :: phase2Vel
-#else
-      real(kind=RP)              :: rho
-#endif
+      real(kind=RP)              :: c
 #endif
 #if defined(ACOUSTIC)
       real(kind=RP)              :: v
@@ -73,7 +75,7 @@ module InflowBCClass
       contains
          procedure         :: Destruct          => InflowBC_Destruct
          procedure         :: Describe          => InflowBC_Describe
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(ACOUSTIC)
+#if defined(FLOW)
          procedure         :: FlowState         => InflowBC_FlowState
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
          procedure         :: CreateDeviceData  => InflowBC_CreateDeviceData
@@ -216,15 +218,14 @@ module InflowBCClass
          call GetValueWithDefault(bcdict, "velocity", refValues % v, ConstructInflowBC % v)
          call GetValueWithDefault(bcdict, "aoaphi"  , refValues % AoAPhi                     , ConstructInflowBC % AoAPhi  )
          call GetValueWithDefault(bcdict, "aoatheta", refValues % AoATheta                   , ConstructInflowBC % AoATheta)
+         call GetValueWithDefault ( bcdict , "density" , refValues % rho , ConstructInflowBC % rho ) 
 
          ConstructInflowBC % v = ConstructInflowBC % v / refValues % v
          ConstructInflowBC % AoATheta = ConstructInflowBC % AoATheta * PI / 180.0_RP
          ConstructInflowBC % AoAPhi   = ConstructInflowBC % AoAPhi * PI / 180.0_RP
-
-#if (!defined(CAHNHILLIARD))
-         call GetValueWithDefault ( bcdict , "density" , refValues % rho , ConstructInflowBC % rho ) 
          ConstructInflowBC % rho = ConstructInflowBC % rho / refValues % rho
-#else
+#endif
+#if defined(MULTIPHASE)
 !
 !        *********************
 !        Multiphase input data
@@ -275,6 +276,16 @@ module InflowBCClass
             ConstructInflowBC % phase1Vel = ConstructInflowBC % phase1Vel / refValues % v
             ConstructInflowBC % phase2Vel = ConstructInflowBC % phase2Vel / refValues % v
 
+         else
+             ! standard one phase bc
+             call GetValueWithDefault(bcdict, "velocity", refValues % v, ConstructInflowBC % v)
+             call GetValueWithDefault(bcdict, "aoaphi"  , refValues % AoAPhi                     , ConstructInflowBC % AoAPhi  )
+             call GetValueWithDefault(bcdict, "aoatheta", refValues % AoATheta                   , ConstructInflowBC % AoATheta)
+             call GetValueWithDefault ( bcdict , "concentration" , 0.0_RP , ConstructInflowBC % c ) 
+
+             ConstructInflowBC % v = ConstructInflowBC % v / refValues % v
+             ConstructInflowBC % AoATheta = ConstructInflowBC % AoATheta * PI / 180.0_RP
+             ConstructInflowBC % AoAPhi   = ConstructInflowBC % AoAPhi * PI / 180.0_RP
          end if
 #endif
 #endif
@@ -333,6 +344,11 @@ module InflowBCClass
             
             write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Phase 1 velocity: ", self % phase1Vel * refValues % v
             write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Phase 2 velocity: ", self % phase2Vel * refValues % v
+         else
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Concentration: ", self % c
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", "All Phases velocity: ", self % V * refValues % v
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaPhi: ', self % AoAPhi * 180.0_RP / PI
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaTheta: ', self % AoATheta * 180.0_RP / PI
          end if
 #endif
 #elif defined(ACOUSTIC)
@@ -358,12 +374,12 @@ module InflowBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-!        Subroutines for compressible Navier--Stokes equations
-!        -----------------------------------------------------
+!        Subroutines for all flow equations
+!        -----------------------------------
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
+#if defined(FLOW)
 
       subroutine InflowBC_CreateDeviceData(self)
          implicit none 
@@ -380,14 +396,22 @@ module InflowBCClass
          !$acc exit data delete(self)
 
       end subroutine InflowBC_ExitDeviceData
+#endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for compressible Navier--Stokes equations
+!        -----------------------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(NAVIERSTOKES)
 
       subroutine InflowBC_FlowState(self, mesh, zone)
          implicit none
          class(InflowBC_t),   intent(in)    :: self
          type(HexMesh),       intent(inout)    :: mesh
          type(Zone_t), intent(in)               :: zone
-
-!         integer,             intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -402,10 +426,8 @@ module InflowBCClass
          !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,qq,u,v,w)  
+            !$acc loop vector collapse(2) independent private(Q)  
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
-
-               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
 
                qq = self % v
                u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
@@ -566,6 +588,169 @@ module InflowBCClass
          flux = 0.0_RP
 
       end subroutine InflowBC_ChemPotNeumann
+#endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for Multiphase Solver only
+!        --------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(MULTIPHASE)
+      subroutine InflowBC_FlowState(self, mesh, zone)
+         implicit none
+         class(InflowBC_t),  intent(in)        :: self
+         type(HexMesh),       intent(inout)    :: mesh
+         type(Zone_t), intent(in)              :: zone
+!
+!        ---------------
+!        Local variables
+!        ---------------
+
+         real(kind=RP) :: qq, u, v, w, c, rho, sqrtRho
+         real(kind=RP) :: Q(NCONS)
+         integer       :: i,j
+         integer       :: fID
+         integer       :: zonefID
+!
+         if (self % isLayered) then
+
+             ! flow always in the x direction unless is the interphase is normal to x, in that case is in z direction
+            direction_cond:if (isXLimited) then
+                !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+                !$acc parallel loop gang present(mesh, self, zone) private(fID)
+                do zonefID = 1, zone % no_of_faces
+                   fID = zone % faces(zonefID)
+                   !$acc loop vector collapse(2) independent private(Q)  
+                   do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+                      c  = 1.0 - 0.5*(1.0+tanh(2.0*(( mesh % faces(fID) % geom % x(IX,i,j) - self % xLim))/multiphase % eps))
+                      rho = dimensionless % rho(1)*c + dimensionless % rho(2)*(1.0_RP - c)
+                      sqrtRho = sqrt(rho)
+                      u  = 0.0_RP
+                      v  = 0.0_RP
+                      w = self % phase1Vel * c + self % phase2Vel * (1.0_RP - c)
+
+                      Q(IMC) = c
+                      Q(IMSQRHOU) = sqrtRho*u
+                      Q(IMSQRHOV) = sqrtRho*v
+                      Q(IMSQRHOW) = sqrtRho*w
+                      Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
+
+                      mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+                   enddo 
+                 enddo
+                enddo
+                !$acc end parallel loop
+            else if(isYLimited) then
+                !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+                !$acc parallel loop gang present(mesh, self, zone) private(fID)
+                do zonefID = 1, zone % no_of_faces
+                   fID = zone % faces(zonefID)
+                   !$acc loop vector collapse(2) independent private(Q)  
+                   do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+                      c  = 1.0 - 0.5*(1.0+tanh(2.0*(( mesh % faces(fID) % geom % x(IY,i,j) - self % yLim))/multiphase % eps))
+                      rho = dimensionless % rho(1)*c + dimensionless % rho(2)*(1.0_RP - c)
+                      sqrtRho = sqrt(rho)
+                      u = self % phase1Vel * c + self % phase2Vel * (1.0_RP - c)
+                      v  = 0.0_RP
+                      w  = 0.0_RP
+
+                      Q(IMC) = c
+                      Q(IMSQRHOU) = sqrtRho*u
+                      Q(IMSQRHOV) = sqrtRho*v
+                      Q(IMSQRHOW) = sqrtRho*w
+                      Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
+
+                      mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+                   enddo 
+                 enddo
+                enddo
+                !$acc end parallel loop
+            else if(isZLimited) then
+                !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+                !$acc parallel loop gang present(mesh, self, zone) private(fID)
+                do zonefID = 1, zone % no_of_faces
+                   fID = zone % faces(zonefID)
+                   !$acc loop vector collapse(2) independent private(Q)  
+                   do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+                      c  = 1.0 - 0.5*(1.0+tanh(2.0*(( mesh % faces(fID) % geom % x(IZ,i,j) - self % zLim))/multiphase % eps))
+                      rho = dimensionless % rho(1)*c + dimensionless % rho(2)*(1.0_RP - c)
+                      sqrtRho = sqrt(rho)
+                      u = self % phase1Vel * c + self % phase2Vel * (1.0_RP - c)
+                      v  = 0.0_RP
+                      w  = 0.0_RP
+
+                      Q(IMC) = c
+                      Q(IMSQRHOU) = sqrtRho*u
+                      Q(IMSQRHOV) = sqrtRho*v
+                      Q(IMSQRHOW) = sqrtRho*w
+                      Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
+
+                      mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+                   enddo 
+                 enddo
+                enddo
+                !$acc end parallel loop
+            end if direction_cond
+
+             if
+         else
+            !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+            !$acc parallel loop gang present(mesh, self, zone) private(fID)
+            do zonefID = 1, zone % no_of_faces
+               fID = zone % faces(zonefID)
+               !$acc loop vector collapse(2) independent private(Q)  
+               do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+
+                  qq = self % v
+                  u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
+                  v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)
+                  w  = qq*SIN(self % AoAphi)
+                  rho = dimensionless % rho(1)*self % c + dimensionless % rho(2)*(1.0_RP - self % c)
+                  sqrtRho = sqrt(rho)
+
+                  Q(IMC) = self % c
+                  Q(IMSQRHOU) = sqrtRho*u
+                  Q(IMSQRHOV) = sqrtRho*v
+                  Q(IMSQRHOW) = sqrtRho*w
+                  Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
+
+                  mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+               enddo 
+             enddo
+            enddo
+            !$acc end parallel loop
+         end if 
+
+      end subroutine InflowBC_FlowState
+
+      subroutine InflowBC_FlowNeumann(self, mesh, zone)
+         implicit none
+         class(InflowBC_t),   intent(in)    :: self
+         type(HexMesh),       intent(inout) :: mesh
+         type(Zone_t),        intent(in)    :: zone
+
+         integer       :: i,j
+         integer       :: fID
+         integer       :: zonefID
+         
+         ! flux = 0.0_RP directly stored in Fstar
+
+         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         do zonefID = 1, zone % no_of_faces
+            fID = zone % faces(zonefID)
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
+            enddo 
+          enddo
+         enddo
+         !$acc end parallel loop
+
+      end subroutine InflowBC_FlowNeumann
+
 #endif
 !
 !////////////////////////////////////////////////////////////////////////////
