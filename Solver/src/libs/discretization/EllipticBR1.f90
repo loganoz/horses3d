@@ -399,7 +399,7 @@ module EllipticBR1
 !        Local variables
 !        ---------------
 !
-         !real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          !real(kind=RP) :: uStar(nGradEqn)
          real(kind=RP) :: uStar
          !real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
