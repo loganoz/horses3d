@@ -217,12 +217,20 @@ module OutflowBCClass
          class(OutflowBC_t)    :: self
 
       end subroutine OutflowBC_Destruct
-
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for all flow equations
+!        -----------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(FLOW)
 
       subroutine OutflowBC_CreateDeviceData(self)
          implicit none 
          class(OutflowBC_t), intent(in)    :: self
-         
+
          !$acc enter data copyin(self)
 
       end subroutine OutflowBC_CreateDeviceData
@@ -230,10 +238,11 @@ module OutflowBCClass
       subroutine OutflowBC_ExitDeviceData(self)
          implicit none 
          class(OutflowBC_t), intent(in)    :: self
-         
+
          !$acc exit data delete(self)
 
       end subroutine OutflowBC_ExitDeviceData
+#endif
 !
 !////////////////////////////////////////////////////////////////////////////
 !
@@ -243,6 +252,7 @@ module OutflowBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES)
+
 
       subroutine OutflowBC_FlowState(self, mesh, zone)
          use HexMeshClass
@@ -653,9 +663,9 @@ module OutflowBCClass
             !$acc loop vector collapse(2)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
-               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0
-               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0    
-               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0_RP
                
             enddo ; enddo
          enddo

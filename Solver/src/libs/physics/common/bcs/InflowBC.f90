@@ -671,10 +671,10 @@ module InflowBCClass
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
-               
-               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0
-               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0    
-               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0
+   
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0_RP
                
             enddo ; enddo
          enddo

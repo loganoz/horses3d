@@ -58,8 +58,10 @@ module GenericBoundaryConditionClass
 #endif
 #ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => GenericBC_PhaseFieldState
+         procedure         :: PhaseFieldGradVars=> GenericBC_PhaseFieldGradVars
          procedure         :: PhaseFieldNeumann => GenericBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => GenericBC_ChemPotState
+         procedure         :: ChemPotGradVars   => GenericBC_ChemPotGradVars
          procedure         :: ChemPotNeumann    => GenericBC_ChemPotNeumann
 #endif
          procedure         :: StateForEqn
@@ -172,10 +174,10 @@ module GenericBoundaryConditionClass
             call self % FlowGradVars(mesh, zone)
 #endif
          case(C_BC)
-            call self % PhaseFieldState(mesh, zone)
+            call self % PhaseFieldGradVars(mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotState(mesh, zone)
+            call self % ChemPotGradVars(mesh, zone)
 
          end select
 #endif
@@ -346,6 +348,13 @@ module GenericBoundaryConditionClass
          type(Zone_t), intent(in)               :: zone
       end subroutine GenericBC_PhaseFieldState
 
+      subroutine GenericBC_PhaseFieldGradVars(self, mesh, zone)
+         implicit none
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t),        intent(in)     :: zone
+      end subroutine GenericBC_PhaseFieldGradVars
+
       subroutine GenericBC_PhaseFieldNeumann(self, mesh, zone)
          implicit none
          class(GenericBC_t),  intent(in)     :: self
@@ -359,6 +368,13 @@ module GenericBoundaryConditionClass
          type(HexMesh),       intent(inout)  :: mesh
          type(Zone_t),        intent(in)     :: zone
       end subroutine GenericBC_ChemPotState
+
+      subroutine GenericBC_ChemPotGradVars(self, mesh, zone)
+         implicit none
+         class(GenericBC_t),  intent(in)     :: self
+         type(HexMesh),       intent(inout)  :: mesh
+         type(Zone_t),        intent(in)     :: zone
+      end subroutine GenericBC_ChemPotGradVars
 
       subroutine GenericBC_ChemPotNeumann(self, mesh, zone)
          implicit none
