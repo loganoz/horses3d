@@ -172,10 +172,10 @@ module GenericBoundaryConditionClass
             call self % FlowGradVars(mesh, zone)
 #endif
          case(C_BC)
-            call self % PhaseFieldState(mesh, zone)
+            call self % PhaseGradVars(mesh, zone)
    
          case(MU_BC)
-            call self % ChemPotState(mesh, zone)
+            call self % ChemPotGradVars(mesh, zone)
 
          end select
 #endif

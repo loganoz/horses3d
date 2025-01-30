@@ -261,12 +261,12 @@ module NoSlipWallBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-!        Subroutines for compressible Navier--Stokes equations
-!        -----------------------------------------------------
+!        Subroutines for all flow equations
+!        -----------------------------------
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
+#if defined(FLOW)
 
       subroutine NoSlipWallBC_CreateDeviceData(self)
          implicit none 
@@ -279,10 +279,20 @@ module NoSlipWallBCClass
       subroutine NoSlipWallBC_ExitDeviceData(self)
          implicit none 
          class(NoSlipWallBC_t), intent(in)    :: self
-         
+
          !$acc exit data delete(self)
 
       end subroutine NoSlipWallBC_ExitDeviceData
+#endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for compressible Navier--Stokes equations
+!        -----------------------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(NAVIERSTOKES)
 
       subroutine NoSlipWallBC_FlowState(self, mesh, zone)
    !
@@ -518,21 +528,6 @@ module NoSlipWallBCClass
 !
 #ifdef MULTIPHASE
 
-      subroutine NoSlipWallBC_CreateDeviceData(self)
-         implicit none 
-         class(NoSlipWallBC_t), intent(in)    :: self
-
-         !$acc enter data copyin(self)
-
-      end subroutine NoSlipWallBC_CreateDeviceData
-
-      subroutine NoSlipWallBC_ExitDeviceData(self)
-         implicit none 
-         class(NoSlipWallBC_t), intent(in)    :: self
-         
-         !$acc exit data delete(self)
-
-      end subroutine NoSlipWallBC_ExitDeviceData
 
       subroutine NoSlipWallBC_FlowState(self, mesh, zoneID)
 !
@@ -664,21 +659,6 @@ module NoSlipWallBCClass
 !
 #if defined(CAHNHILLIARD)
 
-      subroutine NoSlipWallBC_CreateDeviceData(self)
-         implicit none 
-         class(NoSlipWallBC_t), intent(in)    :: self
-
-         !$acc enter data copyin(self)
-
-      end subroutine NoSlipWallBC_CreateDeviceData
-
-      subroutine NoSlipWallBC_ExitDeviceData(self)
-         implicit none 
-         class(NoSlipWallBC_t), intent(in)    :: self
-         
-         !$acc exit data delete(self)
-
-      end subroutine NoSlipWallBC_ExitDeviceData
 
       subroutine NoSlipWallBC_PhaseFieldState(self, mesh, zone)
          use HexMeshClass
@@ -823,9 +803,9 @@ module NoSlipWallBCClass
             !$acc loop vector collapse(2)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
-               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0
-               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0    
-               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0_RP
                
             enddo ; enddo
          enddo
