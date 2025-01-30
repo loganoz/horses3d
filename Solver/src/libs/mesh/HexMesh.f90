@@ -5515,10 +5515,9 @@ call elementMPIList % destruct
       !$acc parallel loop gang vector_length(128) present(self, self % elements)
       do eID = 1 , size(self % elements)
 
-         !TODO rho
          !$acc loop vector collapse(3) 
          do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
-            call mGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_mu(:,i,j,k))
+            call mGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_mu(:,i,j,k), self % elements(eID) % storage % rho(i,j,k))
             if ( set_mu ) self % elements(eID) % storage % Q_grad_mu(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
          end do         ; end do         ; end do
 
