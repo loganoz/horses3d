@@ -529,7 +529,7 @@ module NoSlipWallBCClass
 #ifdef MULTIPHASE
 
 
-      subroutine NoSlipWallBC_FlowState(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowState(self, mesh, zone)
 !
 !        *************************************************************
 !           Compute the state variables for a general wall
@@ -543,7 +543,7 @@ module NoSlipWallBCClass
          implicit none
          class(NoSlipWallBC_t),   intent(in)    :: self
          type(HexMesh),           intent(inout)    :: mesh
-         integer,                 intent(in)    :: zoneID  
+         type(Zone_t), intent(in)               :: zone
 
    !
    !        ---------------
@@ -559,7 +559,7 @@ module NoSlipWallBCClass
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector private(Q)            
+            !$acc loop vector collapse(2) private(Q)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                   
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
@@ -574,17 +574,17 @@ module NoSlipWallBCClass
 
       end subroutine NoSlipWallBC_FlowState
 
-      subroutine NoSlipWallBC_FlowGradVars(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowGradVars(self, mesh, zone)
          implicit none
          class(NoSlipWallBC_t),  intent(in)    :: self
          type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID
+         type(Zone_t), intent(in)               :: zone
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !        
-         real(kind=RP)  :: Q(NCONS), Q_aux(NCONS)
+         real(kind=RP)  :: Q(NCONS), rho
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
@@ -592,13 +592,13 @@ module NoSlipWallBCClass
          !$acc parallel loop gang present(mesh, self, zone) private(fID) 
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int)            
+            !$acc loop vector collapse(2) private(Q, u_star, u_int)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
 
                rho = dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC))
-               call mGradientVariables(NCONS, NGRAD, Q, u_int,rho)
+               call mGradientVariables(NCONS, NGRAD, Q, u_int, rho)
 
 
                u_star(IMC) = u_int(IMC)
@@ -617,7 +617,7 @@ module NoSlipWallBCClass
 
       end subroutine NoSlipWallBC_FlowGradVars
 
-      subroutine NoSlipWallBC_FlowNeumann(self, mesh, zoneID)
+      subroutine NoSlipWallBC_FlowNeumann(self, mesh, zone)
          !TODO unsure about this one
 !
 !        ************************************************************************
@@ -627,9 +627,8 @@ module NoSlipWallBCClass
          implicit none
          class(NoSlipWallBC_t),   intent(in)    :: self
          type(HexMesh),       intent(inout)    :: mesh
-         integer,             intent(in)    :: zoneID 
+         type(Zone_t), intent(in)               :: zone
 
-         real(kind=RP)  :: flux(NCONS)
          integer       :: i,j
          integer       :: fID
          integer       :: zonefID
@@ -638,11 +637,10 @@ module NoSlipWallBCClass
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) private(flux)  
+            !$acc loop vector collapse(2) independent 
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(IMC,i,j) = 0.0_RP
-            enddo 
-          enddo
+            enddo ; enddo
          enddo
          !$acc end parallel loop
 
@@ -730,25 +728,26 @@ module NoSlipWallBCClass
 !        ---------------
 !  
          real(kind=RP), parameter   :: MIN_ = 1.0e-1_RP
-         real(kind=RP)              :: prod
-         real(kind=RP)              :: prod12, prod13, prod23, c3
+         real(kind=RP)              :: prod, Q(NCOMP)
+         integer                    :: i,j,zonefID,fID
 
          !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,flux)
+            !$acc loop vector collapse(2) independent private(Q, prod)
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
+
+               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
                
-               prod = Q(1,i,j) * (1.0_RP - Q(1,i,j))
+               prod = Q(1) * (1.0_RP - Q(1))
 
                if ( prod .le. MIN_ ) then
                   prod = 0.0_RP
                end if
 
                mesh % faces(fID) % storage(2) % FStar(:,i,j) = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * prod 
-            enddo 
-         enddo
+            enddo ; enddo
         enddo
         !$acc end parallel loop
 

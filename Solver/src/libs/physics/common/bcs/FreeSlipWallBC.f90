@@ -592,7 +592,7 @@ module FreeSlipWallBCClass
 !        Local variables
 !        ---------------
 !        
-         real(kind=RP)  :: Q(NCONS)
+         real(kind=RP)  :: Q(NCONS), rho
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
@@ -724,18 +724,20 @@ module FreeSlipWallBCClass
 !        ---------------
 !  
          real(kind=RP), parameter   :: MIN_ = 1.0e-1_RP
-         real(kind=RP)              :: prod
-         real(kind=RP)              :: prod12, prod13, prod23, c3
+         real(kind=RP)              :: prod, Q(NCOMP)
+         integer                    :: i,j,zonefID,fID
+         
 
 
          !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,flux)
+            !$acc loop vector collapse(2) independent private(Q, prod)
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                
-               prod = Q(1,i,j) * (1.0_RP - Q(1,i,j))
+               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+               prod = Q(1) * (1.0_RP - Q(1))
 
                if ( prod .le. MIN_ ) then
                   prod = 0.0_RP
