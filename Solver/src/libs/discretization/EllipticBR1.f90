@@ -399,7 +399,7 @@ module EllipticBR1
 !        Local variables
 !        ---------------
 !
-         !real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          !real(kind=RP) :: uStar(nGradEqn)
          real(kind=RP) :: uStar
          !real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
@@ -407,31 +407,34 @@ module EllipticBR1
          integer       :: i,j,eq
 
 
-         !$acc loop vector collapse(2)
+         !$acc loop vector collapse(2) private(UL, UR)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+            select case (self % eqName)
+               case (ELLIPTIC_MU)
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR, f % storage(2) % rho(i,j))
+               !
+               !              The multiphase solver needs the Chemical potential as first entropy variable
+               !              ----------------------------------------------------------------------------
+                  UL(IGMU) = f % storage(1) % mu(1,i,j)
+                  UR(IGMU) = f % storage(2) % mu(1,i,j)
+
+               case(ELLIPTIC_CH)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
+            end select
+            
 #else
-            !call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            !call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
 #endif
 
-#ifdef MULTIPHASE
-            select case (self % eqName)
-            case (ELLIPTIC_MU)
-!
-!              The multiphase solver needs the Chemical potential as first entropy variable
-!              ----------------------------------------------------------------------------
-               UL(IGMU) = f % storage(1) % mu(1,i,j)
-               UR(IGMU) = f % storage(2) % mu(1,i,j)
-            end select
-#endif
             !$acc loop seq
             do eq =1, nEqn
-               uStar = 0.5_RP * (f % storage(2) % Q(eq,i,j) - f % storage(1) % Q(eq,i,j)) * f % geom % jacobian(i,j)
+               ! uStar = 0.5_RP * (f % storage(2) % Q(eq,i,j) - f % storage(1) % Q(eq,i,j)) * f % geom % jacobian(i,j)
                
-               !uStar(eq) = 0.5_RP * (UR(eq) - UL(eq)) * f % geom % jacobian(i,j)
+               uStar = 0.5_RP * (UR(eq) - UL(eq)) * f % geom % jacobian(i,j)
                
                f % storage(1) % unStar(eq,IX,i,j) = uStar * f % geom % normal(IX,i,j)
                f % storage(1) % unStar(eq,IY,i,j) = uStar * f % geom % normal(IY,i,j)

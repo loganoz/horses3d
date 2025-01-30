@@ -4857,67 +4857,67 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine HexMesh_ConvertGradientVariables(self, nEqn, nGradEqn)
-      USE Physics
-      USE VariableConversion
-      USE PhysicsStorage
-      implicit none
-      class(HexMesh),   intent(inout)  :: self
-      integer,          intent(in)     :: nEqn
-      integer,          intent(in)     :: nGradEqn
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      integer  :: fID, i, j
+!    subroutine HexMesh_ConvertGradientVariables(self, nEqn, nGradEqn)
+!       USE Physics
+!       USE VariableConversion
+!       USE PhysicsStorage
+!       implicit none
+!       class(HexMesh),   intent(inout)  :: self
+!       integer,          intent(in)     :: nEqn
+!       integer,          intent(in)     :: nGradEqn
+! !
+! !     ---------------
+! !     Local variables
+! !     ---------------
+! !
+!       integer  :: fID, i, j
 
-      select case(grad_vars)
+!       select case(grad_vars)
    
-      case(GRADVARS_STATE)
+!       case(GRADVARS_STATE)
 
-!$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(self)
-         do fID = 1, size(self % faces)
-            !$acc loop collapse(2)
-            do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
-               call NSGradientVariables_STATE(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
-               call NSGradientVariables_STATE(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
-            enddo    ;     enddo
-         end do
-      !$acc end parallel loop
-!$omp end do 
+! !$omp do schedule(runtime) private(fID)
+!          !$acc parallel loop gang present(self)
+!          do fID = 1, size(self % faces)
+!             !$acc loop collapse(2)
+!             do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
+!                call NSGradientVariables_STATE(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
+!                call NSGradientVariables_STATE(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
+!             enddo    ;     enddo
+!          end do
+!       !$acc end parallel loop
+! !$omp end do 
 
-      case(GRADVARS_ENTROPY)
+!       case(GRADVARS_ENTROPY)
 
-!$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(self)
-         do fID = 1, size(self % faces)
-            !$acc loop collapse(2)
-            do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
-               call NSGradientVariables_ENTROPY(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
-               call NSGradientVariables_ENTROPY(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
-            enddo    ;     enddo
-         end do
-      !$acc end parallel loop
-!$omp end do 
+! !$omp do schedule(runtime) private(fID)
+!          !$acc parallel loop gang present(self)
+!          do fID = 1, size(self % faces)
+!             !$acc loop collapse(2)
+!             do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
+!                call NSGradientVariables_ENTROPY(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
+!                call NSGradientVariables_ENTROPY(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
+!             enddo    ;     enddo
+!          end do
+!       !$acc end parallel loop
+! !$omp end do 
 
-      case(GRADVARS_ENERGY)
-!$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(self)
-         do fID = 1, size(self % faces)
-            !$acc loop collapse(2)
-            do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
-               call NSGradientVariables_ENERGY(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
-               call NSGradientVariables_ENERGY(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
-            enddo    ;     enddo
-         end do
-         !$acc end parallel loop
-!$omp end do 
+!       case(GRADVARS_ENERGY)
+! !$omp do schedule(runtime) private(fID)
+!          !$acc parallel loop gang present(self)
+!          do fID = 1, size(self % faces)
+!             !$acc loop collapse(2)
+!             do j = 0, self % faces(fID) % Nf(2) ;  do i = 0, self % faces(fID) % Nf(1)
+!                call NSGradientVariables_ENERGY(nEqn, nGradEqn, self % faces(fID) % storage(1) % Q(:,i,j), self % faces(fID) % storage(1) % Q_aux(:,i,j))
+!                call NSGradientVariables_ENERGY(nEqn, nGradEqn, self % faces(fID) % storage(2) % Q(:,i,j), self % faces(fID) % storage(2) % Q_aux(:,i,j))   
+!             enddo    ;     enddo
+!          end do
+!          !$acc end parallel loop
+! !$omp end do 
 
-      end select
+!       end select
 
-   end subroutine HexMesh_ConvertGradientVariables
+!    end subroutine HexMesh_ConvertGradientVariables
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -5517,7 +5517,7 @@ call elementMPIList % destruct
 
          !$acc loop vector collapse(3) 
          do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
-            call mGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_mu(:,i,j,k))
+            call mGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_mu(:,i,j,k), self % elements(eID) % storage % rho(i,j,k))
             if ( set_mu ) self % elements(eID) % storage % Q_grad_mu(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
          end do         ; end do         ; end do
 

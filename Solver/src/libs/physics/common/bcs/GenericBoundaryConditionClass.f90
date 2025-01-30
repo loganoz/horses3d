@@ -253,7 +253,7 @@ module GenericBoundaryConditionClass
          real(kind=RP)  :: Q_aux(NCONS),Q(NCONS)
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
          real(kind=RP)  :: e_int, U1
-         real(kind=RP)  :: invRho
+         real(kind=RP)  :: invRho, rho
          integer        :: i,j,zonefID,fID
    
    
@@ -266,10 +266,22 @@ module GenericBoundaryConditionClass
                Q     = mesh % faces(fID) % storage(1) % Q(:,i,j)
                Q_aux = mesh % faces(fID) % storage(2) % Q(:,i,j)
 
+#ifdef MULTIPHASE
+
+               ! Set the chemical potential to the interior
+               ! ------------------------------------------
+
+               call mGradientVariables(NCONS, NGRAD, Q, u_int, mesh % faces(fID) % storage(1) % rho(i,j))
+               u_int(IGMU) = Q(IGMU) 
+
+               rho = dimensionless % rho(1) * Q_aux(IMC) + dimensionless % rho(2) * (1.0_RP-Q_aux(IMC))
+               rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
+               call mGradientVariables(NCONS, NGRAD, Q_aux, u_star, rho)
+               u_star(IGMU) = u_int(IGMU)           
+#else
                call NSGradientVariables_STATE(NCONS, NGRAD, Q    , u_int)
                call NSGradientVariables_STATE(NCONS, NGRAD, Q_aux, u_star)
-
-               !TODOs: Fix the flowgradvars for multiphase. Look below for the original code
+#endif
 
                u_star = 0.5_RP* (u_star + u_int)
                
