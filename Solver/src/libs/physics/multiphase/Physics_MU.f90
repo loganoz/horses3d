@@ -134,9 +134,6 @@
 
       end subroutine mViscousFlux
 
-   END Module Physics_MU
-!@mark -
-!
 ! /////////////////////////////////////////////////////////////////////
 !
 !----------------------------------------------------------------------
@@ -146,35 +143,41 @@
 !----------------------------------------------------------------------
 !
       SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
-      USE SMConstants
-      USE PhysicsStorage_MU
-      use FluidData_MU,          only: Thermodynamics
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=Rp), DIMENSION(NCONS) :: Q
-      REAL(KIND=Rp), DIMENSION(3)     :: eigen
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=Rp) :: u, v, w, p, a
-print*, "Get eigenvalues!!"
-errorMessage(STD_OUT)
-error stop
-!      
-!      u = ABS( Q(IMSQRHOU)/Q(IMSQRHO) )
-!      v = ABS( Q(IMSQRHOV)/Q(IMSQRHO) )
-!      w = ABS( Q(IMSQRHOW)/Q(IMSQRHO) )
-!      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(IMSQRHO))
-      
-!      eigen(1) = 0.5_RP * (u + a)
-!      eigen(2) = 0.5_RP * (v + a)
-!      eigen(3) = 0.5_RP * (w + a)
-       eigen = 0.0_RP
-      
+            !$acc routine seq
+            USE SMConstants
+            USE PhysicsStorage_MU
+            use FluidData_MU,          only: Thermodynamics
+            IMPLICIT NONE
+      !
+      !     ---------
+      !     Arguments
+      !     ---------
+      !
+            REAL(KIND=Rp), DIMENSION(NCONS) :: Q
+            REAL(KIND=Rp), DIMENSION(3)     :: eigen
+      !
+      !     ---------------
+      !     Local Variables
+      !     ---------------
+      !
+            ! REAL(KIND=Rp) :: u, v, w, p, a
+      ! print*, "Get eigenvalues!!"
+      ! errorMessage(STD_OUT)
+      ! error stop
+      !      
+      !      u = ABS( Q(IMSQRHOU)/Q(IMSQRHO) )
+      !      v = ABS( Q(IMSQRHOV)/Q(IMSQRHO) )
+      !      w = ABS( Q(IMSQRHOW)/Q(IMSQRHO) )
+      !      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(IMSQRHO))
+            
+      !      eigen(1) = 0.5_RP * (u + a)
+      !      eigen(2) = 0.5_RP * (v + a)
+      !      eigen(3) = 0.5_RP * (w + a)
+            eigen = 0.0_RP
+            
       END SUBROUTINE ComputeEigenvaluesForState
+
+   END Module Physics_MU
+!@mark -
+!
+

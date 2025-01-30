@@ -658,7 +658,7 @@ Module DGSEMClass
 #endif
 
 #ifdef CAHNHILLIARD
-            localc    = maxval(localc, abs(mesh % elements(id) % storage % cDot(:,i,j,k)))
+            localc    = max(localc, abs(mesh % elements(id) % storage % cDot(1,i,j,k)))
 #endif
          end do ; end do ; end do
 
