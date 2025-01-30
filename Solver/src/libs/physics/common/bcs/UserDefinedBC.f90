@@ -10,6 +10,7 @@ module UserDefinedBCClass
    use FluidData
    use VariableConversion, only: GetGradientValues_f
    use HexMeshClass
+   use ZoneClass
    implicit none
 !
 !  *****************************
@@ -208,11 +209,11 @@ module UserDefinedBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #ifdef FLOW
-      subroutine UserDefinedBC_FlowState(self, mesh, zoneID)
+      subroutine UserDefinedBC_FlowState(self, mesh, zone)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
          type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID  
+         type(Zone_t), intent(in)               :: zone 
 
 !         real(kind=RP),       intent(in)    :: x(NDIM)
 !         real(kind=RP),       intent(in)    :: t
@@ -248,11 +249,11 @@ module UserDefinedBCClass
    
       end subroutine UserDefinedBC_FlowState
 
-      subroutine UserDefinedBC_FlowGradVars(self, mesh, zoneID)
+      subroutine UserDefinedBC_FlowGradVars(self, mesh, zone)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
          type(HexMesh), intent(inout)              :: mesh
-         integer,                 intent(in)    :: zoneID 
+         type(Zone_t), intent(in)               :: zone
 
 !         class(UserDefinedBC_t),   intent(in) :: self
 !         real(kind=RP),       intent(in)      :: x(NDIM)
@@ -294,12 +295,11 @@ module UserDefinedBCClass
    
       end subroutine UserDefinedBC_FlowGradVars
 
-      subroutine UserDefinedBC_FlowNeumann(self, mesh, zoneID)
+      subroutine UserDefinedBC_FlowNeumann(self, mesh, zone)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
          type(HexMesh), intent(INOUT)              :: mesh
-         integer,                 intent(in)    :: zoneID 
-
+         type(Zone_t), intent(in)               :: zone
 !         interface
 !            subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
 !            use SMConstants
@@ -338,53 +338,39 @@ module UserDefinedBCClass
 !////////////////////////////////////////////////////////////////////////////
 !
 #if defined(CAHNHILLIARD)
-      subroutine UserDefinedBC_PhaseFieldState(self, x, t, nHat, Q)
+      subroutine UserDefinedBC_PhaseFieldState(self, mesh, zone)
          implicit none
-         class(UserDefinedBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         class(UserDefinedBC_t),   intent(in)    :: self
+         type(HexMesh), intent(INOUT)              :: mesh
+         type(Zone_t), intent(in)               :: zone
       end subroutine UserDefinedBC_PhaseFieldState
 
-      subroutine UserDefinedBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine UserDefinedBC_PhaseFieldNeumann(self, mesh, zone)
          implicit none
-         class(UserDefinedBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(NCOMP)
-         real(kind=RP),       intent(in)    :: U_x(NCOMP)
-         real(kind=RP),       intent(in)    :: U_y(NCOMP)
-         real(kind=RP),       intent(in)    :: U_z(NCOMP)
-         real(kind=RP),       intent(inout) :: flux(NCOMP)
+         class(UserDefinedBC_t),   intent(in)    :: self
+         type(HexMesh), intent(INOUT)              :: mesh
+         type(Zone_t), intent(in)               :: zone
 
-         flux = 0.0_RP
+         ! flux = 0.0_RP
 
       end subroutine UserDefinedBC_PhaseFieldNeumann
 
-      subroutine UserDefinedBC_ChemPotState(self, x, t, nHat, Q)
+      subroutine UserDefinedBC_ChemPotState(self, mesh, zone)
          implicit none
-         class(UserDefinedBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         class(UserDefinedBC_t),   intent(in)    :: self
+         type(HexMesh), intent(INOUT)              :: mesh
+         type(Zone_t), intent(in)               :: zone
+!         
       end subroutine UserDefinedBC_ChemPotState
 
-      subroutine UserDefinedBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+      subroutine UserDefinedBC_ChemPotNeumann(self, mesh, zone)
          implicit none
-         class(UserDefinedBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(in)    :: Q(NCOMP)
-         real(kind=RP),       intent(in)    :: U_x(NCOMP)
-         real(kind=RP),       intent(in)    :: U_y(NCOMP)
-         real(kind=RP),       intent(in)    :: U_z(NCOMP)
-         real(kind=RP),       intent(inout) :: flux(NCOMP)
+         class(UserDefinedBC_t),   intent(in)    :: self
+         type(HexMesh), intent(INOUT)              :: mesh
+         type(Zone_t), intent(in)               :: zone
+!         
 
-         flux = 0.0_RP
+         ! flux = 0.0_RP
 
       end subroutine UserDefinedBC_ChemPotNeumann
 #endif

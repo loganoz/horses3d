@@ -363,10 +363,13 @@ module ProbeClass
 #endif
 #ifdef MULTIPHASE
             case("static-pressure")
+               !$acc parallel loop collapse(3) present(mesh,self) async(self % ID)
                do k = 0, mesh % elements(self % eID) % Nxyz(3) ; do j = 0, mesh % elements(self % eID) % Nxyz(2)  ; do i = 0, mesh % elements(self % eID) % Nxyz(1) 
-                  self % var(i,j,k) = Q(IMP,i,j,k) + Q(IMC,i,j,k)*e % storage % mu(1,i,j,k) - 12.0_RP*multiphase%sigma*multiphase%invEps*(POW2(Q(IMC,i,j,k)*(1.0_RP-Q(IMC,i,j,k)))) &
-                               - 0.25_RP*3.0_RP*multiphase % sigma * multiphase % eps * (POW2(e % storage % c_x(1,i,j,k))+POW2(e % storage % c_y(1,i,j,k))+POW2(e % storage % c_z(1,i,j,k)))
+                  self % var(i,j,k) = mesh % elements(self % eID) % storage % Q(IMP,i,j,k) + mesh % elements(self % eID) % storage % Q(IMC,i,j,k)*mesh % elements(self % eID) % storage % mu(1,i,j,k) &
+                               - 12.0_RP*multiphase%sigma*multiphase%invEps*(POW2(mesh % elements(self % eID) % storage % Q(IMC,i,j,k)*(1.0_RP-mesh % elements(self % eID) % storage % Q(IMC,i,j,k)))) &
+                               - 0.25_RP*3.0_RP*multiphase % sigma * multiphase % eps * (POW2(mesh % elements(self % eID) % storage % c_x(1,i,j,k))+POW2(mesh % elements(self % eID) % storage % c_y(1,i,j,k))+POW2(mesh % elements(self % eID) % storage % c_z(1,i,j,k)))
                end do         ; end do         ; end do
+               !$acc end parallel loop
 #endif 
 #ifdef ACOUSTIC
             case("pressure")
