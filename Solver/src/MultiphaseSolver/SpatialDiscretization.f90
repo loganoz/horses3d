@@ -284,16 +284,9 @@ module SpatialDiscretization
 !        Get concentration (lifted) gradients (also prolong to faces)
 !        ------------------------------------------------------------
 !
-#ifdef MULTIPHASE
-      select case (CHDiscretization % eqName)
-      case(ELLIPTIC_MU)
-         set_mu = .true.
-      case default
+
+         !set_mu is always false for CH
          set_mu = .false.
-      end select
-#else
-      set_mu = .false.
-#endif
          call HexMesh_ComputeLocalGradientCH(mesh, set_mu)
          call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, chGradientVariables)
 !
@@ -387,16 +380,8 @@ module SpatialDiscretization
 !           Get concentration (lifted) gradients (also prolong to faces)
 !           ------------------------------------------------------------
 !
-#ifdef MULTIPHASE
-            select case (CHDiscretization % eqName)
-            case(ELLIPTIC_MU)
-               set_mu = .true.
-            case default
-               set_mu = .false.
-            end select
-#else
+            !set_mu is always false for CH
             set_mu = .false.
-#endif
             call HexMesh_ComputeLocalGradientCH(mesh, set_mu)
             call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, chGradientVariables)
 !
@@ -490,16 +475,8 @@ module SpatialDiscretization
 !        Compute local entropy variables gradient
 !        ----------------------------------------
 !
-#ifdef MULTIPHASE
-         select case (ViscousDiscretization % eqName)
-         case(ELLIPTIC_MU)
-            set_mu = .true.
-         case default
-            set_mu = .false.
-         end select
-#else
-         set_mu = .false.
-#endif
+         !set_mu is always true for MU
+         set_mu = .true.
          call HexMesh_ComputeLocalGradientMU(mesh, set_mu)
          ! call ViscousDiscretization % ComputeLocalGradients( NCONS, NCONS, mesh , time , mGradientVariables)
 !
@@ -606,16 +583,8 @@ module SpatialDiscretization
 !           Get concentration (lifted) gradients (also prolong to faces)
 !           ------------------------------------------------------------
 !
-#ifdef MULTIPHASE
-            select case (CHDiscretization % eqName)
-            case(ELLIPTIC_MU)
-               set_mu = .true.
-            case default
-               set_mu = .false.
-            end select
-#else
+            !set_mu is always false for CH
             set_mu = .false.
-#endif
             call HexMesh_ComputeLocalGradientCH(mesh, set_mu)
             call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, chGradientVariables)
 !

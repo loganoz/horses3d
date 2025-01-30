@@ -9,6 +9,8 @@
          character(len=KEYWORD_LENGTH), parameter :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
          character(len=KEYWORD_LENGTH), parameter :: GRAVITY_DIRECTION_KEY          = "gravity direction"
          character(len=KEYWORD_LENGTH), parameter :: VELOCITY_DIRECTION_KEY         = "velocity direction"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY                  = "aoa theta"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY                    = "aoa phi"
 
          character(len=KEYWORD_LENGTH), parameter :: FLUID1_DENSITY_KEY    =  "fluid 1 density (kg/m^3)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID2_DENSITY_KEY    =  "fluid 2 density (kg/m^3)"
@@ -268,6 +270,33 @@
 !
       dimensionless_ % Ma2 = POW2(refValues_ % V)/(maxval(dimensionless_ % rho) * thermodynamics_ % c02)
       dimensionless_ % invMa2 = maxval(dimensionless_ % rho) * thermodynamics_ % c02 / POW2(refValues_ % V)
+
+!
+!     ***************
+!     Angle of attack
+!     ***************
+!
+      IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
+         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY)
+
+      ELSE
+!
+!        Phi angle of attack is zero by default
+!        --------------------------------------
+         refValues_ % AOAPhi = 0.0_RP
+
+      END IF
+
+      IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
+         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY)
+
+      ELSE
+!
+!        Theta angle of attack is zero by default
+!        ----------------------------------------
+         refValues_ % AOATheta = 0.0_RP
+
+      END IF
 !
 !     ----------------
 !     Density limiters

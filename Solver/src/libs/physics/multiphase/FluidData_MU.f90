@@ -26,6 +26,8 @@ module FluidData_MU
       real(kind=RP) :: p
       real(kind=RP) :: mu
       real(kind=RP) :: g0
+      real(kind=RP) :: AoAPhi 
+      real(kind=RP) :: AoATheta
    end type RefValues_t
 
    type Dimensionless_t
@@ -85,8 +87,11 @@ module FluidData_MU
          refValues % V   = refValues_ % V
          refValues % mu  = refValues_ % mu
          refValues % g0  = refValues_ % g0
+         refValues % AoAPhi  = refValues_ % AoAPhi
+         refValues % AoATheta  = refValues_ % AoATheta
 
          !$acc update device(refValues, refValues % p, refValues % rho, refValues % V, refValues % mu, refValues % g0)
+         !$acc update device(refValues % AoAPhi, refValues % AoATheta)
 
       end subroutine SetRefValues
 

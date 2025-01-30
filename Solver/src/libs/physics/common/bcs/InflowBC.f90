@@ -607,15 +607,17 @@ module InflowBCClass
          type(HexMesh),           intent(inout) :: mesh
          type(Zone_t), intent(in)               :: zone
 
+         !local variables
+         integer        :: i,j,zonefID,fID
+
          !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,flux)  
+            !$acc loop vector collapse(2) independent 
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
-            enddo 
-          enddo
+            enddo ; enddo
          enddo
          !$acc end parallel loop
 
@@ -686,15 +688,17 @@ module InflowBCClass
          type(HexMesh),           intent(inout) :: mesh
          type(Zone_t), intent(in)               :: zone
 
+         !local variables
+         integer        :: i,j,zonefID,fID
+
          !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,flux)  
+            !$acc loop vector collapse(2) independent  
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
-            enddo 
-          enddo
+            enddo ; enddo
          enddo
          !$acc end parallel loop
 
@@ -728,7 +732,7 @@ module InflowBCClass
          if (self % isLayered) then
 
              ! flow always in the x direction unless is the interphase is normal to x, in that case is in z direction
-            direction_cond:if (isXLimited) then
+            direction_cond:if (self % isXLimited) then
                 !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
                 !$acc parallel loop gang present(mesh, self, zone) private(fID)
                 do zonefID = 1, zone % no_of_faces
@@ -752,7 +756,7 @@ module InflowBCClass
                     enddo ; enddo
                  enddo
                 !$acc end parallel loop
-            else if(isYLimited) then
+            else if(self % isYLimited) then
                 !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
                 !$acc parallel loop gang present(mesh, self, zone) private(fID)
                 do zonefID = 1, zone % no_of_faces
@@ -776,7 +780,7 @@ module InflowBCClass
                     enddo ; enddo
                 enddo
                 !$acc end parallel loop
-            else if(isZLimited) then
+            else if(self % isZLimited) then
                 !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
                 !$acc parallel loop gang present(mesh, self, zone) private(fID)
                 do zonefID = 1, zone % no_of_faces

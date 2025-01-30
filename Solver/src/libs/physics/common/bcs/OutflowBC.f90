@@ -217,15 +217,7 @@ module OutflowBCClass
          class(OutflowBC_t)    :: self
 
       end subroutine OutflowBC_Destruct
-!
-!////////////////////////////////////////////////////////////////////////////
-!
-!        Subroutines for compressible Navier--Stokes equations
-!        -----------------------------------------------------
-!
-!////////////////////////////////////////////////////////////////////////////
-!
-#if defined(NAVIERSTOKES)
+
 
       subroutine OutflowBC_CreateDeviceData(self)
          implicit none 
@@ -242,6 +234,15 @@ module OutflowBCClass
          !$acc exit data delete(self)
 
       end subroutine OutflowBC_ExitDeviceData
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for compressible Navier--Stokes equations
+!        -----------------------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(NAVIERSTOKES)
 
       subroutine OutflowBC_FlowState(self, mesh, zone)
          use HexMeshClass
@@ -430,21 +431,6 @@ module OutflowBCClass
 !
 #ifdef MULTIPHASE
 
-      subroutine FreeSlipWallBC_CreateDeviceData(self)
-         implicit none 
-         class(FreeSlipWallBC_t), intent(in)    :: self
-
-         !$acc enter data copyin(self)
-      end subroutine FreeSlipWallBC_CreateDeviceData
-
-      subroutine FreeSlipWallBC_ExitDeviceData(self)
-         implicit none 
-         class(FreeSlipWallBC_t), intent(in)    :: self
-
-         !$acc exit data delete(self)
-
-      end subroutine FreeSlipWallBC_ExitDeviceData
-
       subroutine OutflowBC_FlowState(self, mesh, zone)
          use HexMeshClass
          implicit none
@@ -535,22 +521,6 @@ module OutflowBCClass
 !
 #if defined(CAHNHILLIARD)
 
-      subroutine OutflowBC_CreateDeviceData(self)
-         implicit none 
-         class(OutflowBC_t), intent(in)    :: self
-         
-         !$acc enter data copyin(self)
-
-      end subroutine OutflowBC_CreateDeviceData
-
-      subroutine OutflowBC_ExitDeviceData(self)
-         implicit none 
-         class(OutflowBC_t), intent(in)    :: self
-         
-         !$acc exit data delete(self)
-
-      end subroutine OutflowBC_ExitDeviceData
-
       subroutine OutflowBC_PhaseFieldState(self, mesh, zone)
          use HexMeshClass
          implicit none
@@ -617,11 +587,14 @@ module OutflowBCClass
          type(HexMesh),           intent(inout) :: mesh
          type(Zone_t), intent(in)               :: zone
 
+         !local variables
+         integer        :: i,j,zonefID,fID
+
          !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,flux)  
+            !$acc loop vector collapse(2) independent 
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
             enddo 
@@ -697,11 +670,14 @@ module OutflowBCClass
          type(HexMesh),           intent(inout) :: mesh
          type(Zone_t), intent(in)               :: zone
 
+         !local variables
+         integer        :: i,j,zonefID,fID
+
          !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent private(Q,flux)  
+            !$acc loop vector collapse(2) independent 
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(:,i,j) = 0.0_RP
             enddo 
