@@ -66,6 +66,7 @@ module InflowBCClass
       real(kind=RP)              :: phase1Vel
       real(kind=RP)              :: phase2Vel
       real(kind=RP)              :: c
+      real(kind=RP)              :: v
 #endif
 #if defined(ACOUSTIC)
       real(kind=RP)              :: v
@@ -288,7 +289,7 @@ module InflowBCClass
              ConstructInflowBC % AoAPhi   = ConstructInflowBC % AoAPhi * PI / 180.0_RP
          end if
 #endif
-#endif
+
 #if defined(ACOUSTIC)
          ! by default Acoustic perturbations are assumed to be 0, is a far field BC rather than a real inflow
          call GetValueWithDefault(bcdict, "acoustic pressure", 0.0_RP, ConstructInflowBC % p   )
@@ -748,9 +749,8 @@ module InflowBCClass
                       Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                       mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
-                   enddo 
+                    enddo ; enddo
                  enddo
-                enddo
                 !$acc end parallel loop
             else if(isYLimited) then
                 !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
@@ -773,8 +773,7 @@ module InflowBCClass
                       Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                       mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
-                   enddo 
-                 enddo
+                    enddo ; enddo
                 enddo
                 !$acc end parallel loop
             else if(isZLimited) then
@@ -798,13 +797,11 @@ module InflowBCClass
                       Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                       mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
-                   enddo 
-                 enddo
+                   enddo ; enddo
                 enddo
                 !$acc end parallel loop
             end if direction_cond
 
-             if
          else
             !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
             !$acc parallel loop gang present(mesh, self, zone) private(fID)
@@ -827,8 +824,7 @@ module InflowBCClass
                   Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                   mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
-               enddo 
-             enddo
+               enddo ; enddo
             enddo
             !$acc end parallel loop
          end if 
