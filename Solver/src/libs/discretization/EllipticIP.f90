@@ -443,8 +443,8 @@ module EllipticIP
          !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
+            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 #else
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
@@ -494,8 +494,8 @@ module EllipticIP
          !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
+            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 #else
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
@@ -558,8 +558,8 @@ module EllipticIP
 !           -------------------
 !   
 #ifdef MULTIPHASE
-            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
-            call GetGradients(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j))
+            call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
+            call mGradientVariables(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j))
 #else
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)

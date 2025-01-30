@@ -10,7 +10,7 @@
       implicit none
 
       private
-      public  mEulerFlux, mViscousFlux, mEulerXFlux
+      public  mEulerFlux, mViscousFlux, mEulerXFlux,ComputeEigenvaluesForState
 
       real(kind=RP), parameter :: sigma_P = 0.0_RP
 

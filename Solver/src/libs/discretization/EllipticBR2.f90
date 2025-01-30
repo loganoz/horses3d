@@ -566,7 +566,7 @@ module EllipticBR2
          !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            zcall NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             f % storage(1) % unStar(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
