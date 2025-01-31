@@ -520,80 +520,83 @@ module EllipticBR1
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeInnerFluxes( self , nEqn, nGradEqn, EllipticFlux, GetViscosity, e , contravariantFlux )
-         use ElementClass
-         use PhysicsStorage
-         use Physics
-         implicit none
-         class(BassiRebay1_t) ,     intent (in) :: self
-         integer,                   intent(in)  :: nEqn
-         integer,                   intent(in)  :: nGradEqn
-         procedure(EllipticFlux_f)              :: EllipticFlux
-         procedure(GetViscosity_f)              :: GetViscosity
-         type(Element)                          :: e
-         real(kind=RP)           , intent (out) :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
-!        ---------------
-!        Local variables
-!        ---------------
+! This subroutine is divided in the new version.
 !
-         real(kind=RP)       :: delta
-         real(kind=RP)       :: cartesianFlux(1:nEqn, 1:NDIM)
-         real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         integer             :: i, j, k
+!       subroutine BR1_ComputeInnerFluxes( self , nEqn, nGradEqn, EllipticFlux, GetViscosity, e , contravariantFlux )
+!          use ElementClass
+!          use PhysicsStorage
+!          use Physics
+!          implicit none
+!          class(BassiRebay1_t) ,     intent (in) :: self
+!          integer,                   intent(in)  :: nEqn
+!          integer,                   intent(in)  :: nGradEqn
+!          procedure(EllipticFlux_f)              :: EllipticFlux
+!          procedure(GetViscosity_f)              :: GetViscosity
+!          type(Element)                          :: e
+!          real(kind=RP)           , intent (out) :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+! !
+! !        ---------------
+! !        Local variables
+! !        ---------------
+! !
+!          real(kind=RP)       :: delta
+!          real(kind=RP)       :: cartesianFlux(1:nEqn, 1:NDIM)
+!          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!          real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!          integer             :: i, j, k
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         mu = e % storage % mu_ns(1,:,:,:)
-         kappa = e % storage % mu_ns(2,:,:,:)
-         beta  = 0.0_RP
+! #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+!          mu = e % storage % mu_ns(1,:,:,:)
+!          kappa = e % storage % mu_ns(2,:,:,:)
+!          beta  = 0.0_RP
 
-#elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
-         mu    = e % storage % mu_ns(1,:,:,:)
-         kappa = e % storage % mu_ns(2,:,:,:)
-         beta  = e % storage % mu_ns(3,:,:,:)
+! #elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
+!          mu    = e % storage % mu_ns(1,:,:,:)
+!          kappa = e % storage % mu_ns(2,:,:,:)
+!          beta  = e % storage % mu_ns(3,:,:,:)
 
-#elif defined(INCNS)
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            call GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      
-         end do                ; end do                ; end do
+! #elif defined(INCNS)
+!          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!             call GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      
+!          end do                ; end do                ; end do
 
-         kappa = 0.0_RP
-         beta  = 0.0_RP
+!          kappa = 0.0_RP
+!          beta  = 0.0_RP
 
-#elif defined(MULTIPHASE)
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            call GetViscosity(e % storage % Q(IMC,i,j,k), mu(i,j,k))      
-         end do                ; end do                ; end do
+! #elif defined(MULTIPHASE)
+!          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!             call GetViscosity(e % storage % Q(IMC,i,j,k), mu(i,j,k))      
+!          end do                ; end do                ; end do
 
-         kappa = 0.0_RP
-         beta  = multiphase % M0_star
+!          kappa = 0.0_RP
+!          beta  = multiphase % M0_star
 
-#endif
+! #endif
 
 
-         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            call EllipticFlux( nEqn, nGradEqn, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , & 
-                               e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), mu(i,j,k), beta(i,j,k), kappa(i,j,k), cartesianFlux)
+!          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+!             call EllipticFlux( nEqn, nGradEqn, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , & 
+!                                e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), mu(i,j,k), beta(i,j,k), kappa(i,j,k), cartesianFlux)
             
-            contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+!             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+!                                              +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+!                                              +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IY) =     cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+!             contravariantFlux(:,i,j,k,IY) =     cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+!                                              +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+!                                              +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IZ) =     cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+!             contravariantFlux(:,i,j,k,IZ) =     cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+!                                              +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+!                                              +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
-         end do               ; end do            ; end do
+!          end do               ; end do            ; end do
 
-      end subroutine BR1_ComputeInnerFluxes
+!       end subroutine BR1_ComputeInnerFluxes
 
       subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, EllipticFlux, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                            mu_left, mu_right, nHat , dWall, &

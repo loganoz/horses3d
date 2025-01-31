@@ -274,7 +274,7 @@ module GenericBoundaryConditionClass
                ! ------------------------------------------
 
                call mGradientVariables(NCONS, NGRAD, Q, u_int, mesh % faces(fID) % storage(1) % rho(i,j))
-               u_int(IGMU) = Q(IGMU) 
+               u_int(IGMU) = mesh % faces(fID) % storage(1) % mu(1,i,j)
 
                rho = dimensionless % rho(1) * Q_aux(IMC) + dimensionless % rho(2) * (1.0_RP-Q_aux(IMC))
                rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)

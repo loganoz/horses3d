@@ -597,8 +597,7 @@ module NoSlipWallBCClass
                
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
 
-               rho = dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC))
-               call mGradientVariables(NCONS, NGRAD, Q, u_int, rho)
+               call mGradientVariables(NCONS, NGRAD, Q, u_int, mesh % faces(fID) % storage(1) % rho(i,j))
 
 
                u_star(IMC) = u_int(IMC)

@@ -603,17 +603,23 @@ module FreeSlipWallBCClass
             !$acc loop vector collapse(2) private(Q, u_int)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
-               Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
+               ! Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
 
-               rho = dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC))
-               rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
-               call mGradientVariables(NCONS, NGRAD, Q, u_int, rho )
-               u_star = u_int 
+               ! rho = dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC))
+               ! rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
+               ! call mGradientVariables(NCONS, NGRAD, Q, u_int, rho )
+               ! u_star = u_int 
 
                !! basically unstar = 0 
-               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(1,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
-               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(2,i,j) * mesh % faces(fID) % geom % jacobian(i,j)    
-               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(3,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+               ! mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(1,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+               ! mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(2,i,j) * mesh % faces(fID) % geom % jacobian(i,j)    
+               ! mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(3,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
+
+               !u_star = u_int always
+
+               mesh % faces(fID) % storage(1) % unStar(:,1,i,j) = 0.0_RP
+               mesh % faces(fID) % storage(1) % unStar(:,2,i,j) = 0.0_RP  
+               mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = 0.0_RP
                
             enddo ; enddo
          enddo
