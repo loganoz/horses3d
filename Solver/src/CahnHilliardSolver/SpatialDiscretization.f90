@@ -345,11 +345,11 @@ error stop
 !        Compute the concentration advection
 !        ***********************************
 !
-         if ( enable_speed ) then
+         !if ( enable_speed ) then
 !
 !        Perform the stabilization
 !        -------------------------
-         call StabilizeGradients(mesh, time)
+         !call StabilizeGradients(mesh, time)
 !
 !        Add the velocity field
 !        ----------------------

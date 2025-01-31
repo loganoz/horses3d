@@ -216,6 +216,7 @@ module EllipticIP
          integer :: i, j, k
          integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
          logical :: HOElements
+         character(len=LINE_LENGTH) :: zoneBCName
 
          if (present(HO_Elements)) then
             HOElements = HO_Elements
@@ -260,7 +261,7 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesInterior)
                fID = mesh % HO_FacesInterior(iFace)
-               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn)
+               call IP_GradientInterfaceSolution(self, mesh % faces(fID), nEqn, nGradEqn)
             end do
 !$omp end do 
          else
@@ -268,7 +269,7 @@ module EllipticIP
 !$acc parallel loop gang present(mesh)
             do iFace = 1, size(mesh % faces_interior)
                fID = mesh % faces_interior(iFace)
-               call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn)
+               call IP_GradientInterfaceSolution(self, mesh % faces(fID), nEqn, nGradEqn)
             end do
 !$acc end parallel loop
 !$omp end do 
@@ -278,7 +279,8 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesBoundary)
                fID = mesh % HO_FacesBoundary(iFace)
-               call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time)
+               zoneBCName = mesh % zones (mesh % faces(fID) % zone) % zoneBCName
+               call IP_GradientInterfaceSolutionBoundary(self, mesh % faces(fID), zoneBCName, nEqn, nGradEqn, time)
             end do
 !$omp end do 
          else
@@ -286,7 +288,8 @@ module EllipticIP
 !$acc parallel loop gang present(mesh)
             do iFace = 1, size(mesh % faces_boundary)
                fID = mesh % faces_boundary(iFace)
-               call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time)
+               zoneBCName = mesh % zones (mesh % faces(fID) % zone) % zoneBCName
+               call IP_GradientInterfaceSolutionBoundary(self, mesh % faces(fID), zoneBCName, nEqn, nGradEqn, time)
             end do
 !$acc end parallel loop
 !$omp end do 
@@ -333,7 +336,7 @@ module EllipticIP
 !$acc parallel loop gang present(mesh)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
-            call IP_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn)
+            call IP_GradientInterfaceSolutionMPI(self, mesh % faces(fID), nEqn, nGradEqn)
          end do
 !$acc end parallel loop
 !$omp end do 
@@ -418,7 +421,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn)
+      subroutine IP_GradientInterfaceSolution(self, f, nEqn, nGradEqn)
          !$acc routine vector
          use Physics  
          use ElementClass
@@ -429,6 +432,7 @@ module EllipticIP
 !        Arguments
 !        ---------
 !
+         type(InteriorPenalty_t),   intent(in)  :: self
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
 !
@@ -440,11 +444,18 @@ module EllipticIP
          real(kind=RP) :: Uhat(nGradEqn)
          integer       :: i,j
 
-         !$acc loop vector collapse(2) private(UL,UR,Uhat)
+         !$acc loop vector collapse(2) private(UL,UR)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
-            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
-            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+            select case (self % eqName)
+               case (ELLIPTIC_MU)
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR, f % storage(2) % rho(i,j))
+
+               case(ELLIPTIC_CH)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
+            end select
 #else
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
@@ -469,7 +480,7 @@ module EllipticIP
 
       end subroutine IP_GradientInterfaceSolution   
 
-      subroutine IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn)
+      subroutine IP_GradientInterfaceSolutionMPI(self, f, nEqn, nGradEqn)
          !$acc routine vector
          use Physics  
          use ElementClass
@@ -480,6 +491,7 @@ module EllipticIP
 !        Arguments
 !        ---------
 !
+         type(InteriorPenalty_t),   intent(in)  :: self
          type(Face)                       :: f
          integer,    intent(in)           :: nEqn, nGradEqn
 !
@@ -494,8 +506,15 @@ module EllipticIP
          !$acc loop vector collapse(2) private(UL,UR,Uhat)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
-            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
-            call mGradientVariables(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+            select case (self % eqName)
+               case (ELLIPTIC_MU)
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR, f % storage(2) % rho(i,j))
+
+               case(ELLIPTIC_CH)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
+            end select
 #else
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
@@ -527,12 +546,15 @@ module EllipticIP
          
       end subroutine IP_GradientInterfaceSolutionMPI   
 
-      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time)
+      subroutine IP_GradientInterfaceSolutionBoundary(self, f,zoneBCName, nEqn, nGradEqn, time)
          !$acc routine vector
          use Physics
          use FaceClass
          implicit none
+
+         type(InteriorPenalty_t),   intent(in)  :: self
          type(Face)                       :: f
+         character(len=LINE_LENGTH), intent(in) ::  zoneBCName
          integer,    intent(in)           :: nEqn
          integer,    intent(in)           :: nGradEqn
          real(kind=RP)                    :: time
@@ -547,7 +569,9 @@ module EllipticIP
          real(kind=RP) :: bvExt(nEqn)
 
 #if defined(INCNS) || defined(MULTIPHASE)
-         if ( trim(BCs(f % zone) % bc % BCType) /= "freeslipwall" ) then
+         !if ( BCs(f % zone) % bc % BCType /= "freeslipwall" ) then
+         !if (  BCs(f % zone) % zone % zoneBCName  /= "freeslipwall") then
+         if (  zoneBCName  /= "freeslipwall") then
 #endif
 
          !$acc loop vector collapse(2) private(UL,UR,Uhat)
@@ -558,8 +582,15 @@ module EllipticIP
 !           -------------------
 !   
 #ifdef MULTIPHASE
-            call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
-            call mGradientVariables(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j))
+            select case (self % eqName)
+               case (ELLIPTIC_MU)
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
+                  call mGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR, f % storage(2) % rho(i,j))
+
+               case(ELLIPTIC_CH)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+                  call chGradientVariables(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
+            end select
 #else
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call NSGradientVariables_STATE(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
@@ -583,12 +614,18 @@ module EllipticIP
 
 #if defined(INCNS) || defined(MULTIPHASE)
          else
+
+         !$acc loop vector collapse(2) 
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 !
 !           *****************************
 !           Set W* = W in free slip walls: [[W]] = 0!
 !           *****************************
 
-            f % storage(1) % unStar = 0.0_RP 
+            f % storage(1) % unStar(:,1,i,j) = 0.0_RP
+            f % storage(1) % unStar(:,2,i,j) = 0.0_RP 
+            f % storage(1) % unStar(:,3,i,j) = 0.0_RP 
+         end do ; end do   
          end if 
 #endif
 

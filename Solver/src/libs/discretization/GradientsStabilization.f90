@@ -237,10 +237,10 @@ module GradientsStabilization
 
             bvExt =  f % storage(1) % c(:,i,j)
    
-            call BCs(f % zone) % bc % PhaseFieldState( f % geom % x(:,i,j), & 
-                                time               , &
-                                f % geom % normal(:,i,j)      , &
-                                bvExt              )
+            ! call BCs(f % zone) % bc % PhaseFieldState( f % geom % x(:,i,j), & 
+            !                     time               , &
+            !                     f % geom % normal(:,i,j)      , &
+            !                     bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages
