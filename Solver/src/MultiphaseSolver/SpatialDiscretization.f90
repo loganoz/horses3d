@@ -219,7 +219,7 @@ module SpatialDiscretization
 !        ---------------
 !
          INTEGER                 :: k, eID, fID, i, j
-         real(kind=RP)           :: sqrtRho
+         real(kind=RP)           :: sqrtRho, invMa2
          class(Element), pointer :: e
          logical                 :: set_mu   
 
@@ -498,11 +498,12 @@ module SpatialDiscretization
 !        -------------------------------------
 !
 !$acc parallel loop gang present(mesh)
-!$omp do schedule(runtime) private(i,j,k,e,sqrtRho)
+!$omp do schedule(runtime) private(i,j,k,e,sqrtRho,invMa2)
          do eID = 1, size(mesh % elements)
             !$acc loop vector collapse(3)
             do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
                sqrtRho = sqrt(e % storage % rho(i,j,k))
+               invMa2 = dimensionless % invMa2(1) * min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP)) 
                mesh % elements(eID) % storage % QDot(IMC,i,j,k)      = 0.0_RP
                mesh % elements(eID) % storage % QDot(IMSQRHOU,i,j,k) = -0.5_RP*sqrtRho*( mesh % elements(eID) % storage % Q(IMSQRHOU,i,j,k)*mesh % elements(eID) % storage % U_x(IGU,i,j,k) & 
                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGU,i,j,k) &   
@@ -519,7 +520,7 @@ module SpatialDiscretization
                                                                                        +mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGW,i,j,k) ) &
                                                                                        -mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_z(IGMU,i,j,k)
    
-               mesh % elements(eID) % storage % QDot(IMP,i,j,k) = -dimensionless % invMa2*(  mesh % elements(eID) % storage % U_x(IGU,i,j,k) + mesh % elements(eID) % storage % U_y(IGV,i,j,k) &
+               mesh % elements(eID) % storage % QDot(IMP,i,j,k) = -invMa2*(  mesh % elements(eID) % storage % U_x(IGU,i,j,k) + mesh % elements(eID) % storage % U_y(IGV,i,j,k) &
                                                                                            + mesh % elements(eID) % storage % U_z(IGW,i,j,k))  
 
                mesh % elements(eID) % storage % QDot(:,i,j,k) = mesh % elements(eID) % storage % QDot(:,i,j,k) * mesh % elements(eID) % geom % jacobian(i,j,k)
