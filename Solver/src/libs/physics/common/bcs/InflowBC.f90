@@ -637,7 +637,7 @@ module InflowBCClass
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self, zone) async(1)
+         !$acc parallel loop gang present(mesh, self, zone)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
@@ -665,7 +665,6 @@ module InflowBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
@@ -691,7 +690,6 @@ module InflowBCClass
          !local variables
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)

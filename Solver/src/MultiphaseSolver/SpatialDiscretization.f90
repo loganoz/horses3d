@@ -590,6 +590,7 @@ module SpatialDiscretization
 !$omp end single
             call HexMesh_ProlongSolToFaces(mesh, NCOMP)
 !
+            !TODOs: add stateforeqn here
 !           ------------------------------------------------------------
 !           Get concentration (lifted) gradients (also prolong to faces)
 !           ------------------------------------------------------------
