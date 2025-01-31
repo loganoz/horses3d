@@ -24,7 +24,7 @@ module EllipticBR2
       contains
          procedure      :: Construct          => BR2_Construct
          procedure      :: ComputeGradient    => BR2_ComputeGradient
-         procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
+         ! procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR2_RiemannSolver
          procedure      :: Describe           => BR2_Describe
          procedure      :: CreateDeviceData   => BR2_CreateDeviceData

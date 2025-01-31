@@ -290,16 +290,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-#ifdef MULTIPHASE
-         select case (ViscousDiscretization % eqName)
-         case(ELLIPTIC_MU)
-            set_mu = .true.
-         case default
-            set_mu = .false.
-         end select
-#else
          set_mu = .false.
-#endif
          call HexMesh_ComputeLocalGradientNS(mesh, set_mu)
 
          if ( computeGradients ) then

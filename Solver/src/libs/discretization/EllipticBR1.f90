@@ -23,7 +23,7 @@ module EllipticBR1
          procedure      :: ComputeGradient           => BR1_ComputeGradient
          procedure      :: LiftGradients             => BR1_LiftGradients
          procedure      :: LiftGradientsHO           => BR1_LiftGradientsHO
-         procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
+         ! procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BR1_RiemannSolver
          procedure      :: Describe                  => BR1_Describe
          procedure      :: CreateDeviceData          => BR1_CreateDeviceData

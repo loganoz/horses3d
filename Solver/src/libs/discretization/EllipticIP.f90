@@ -33,7 +33,7 @@ module EllipticIP
       contains
          procedure      :: Construct               => IP_Construct
          procedure      :: ComputeGradient         => IP_ComputeGradient
-         procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
+         ! procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: RiemannSolver           => IP_RiemannSolver
 #if defined(NAVIERSTOKES) && !(SPALARTALMARAS)
          procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians

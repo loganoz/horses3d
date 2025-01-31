@@ -366,6 +366,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call HexMesh_UpdateMPIFacesSolution(mesh, NCOMP)
+         call HexMesh_GatherMPIFacesSolution(mesh, NCOMP)
 !$omp end single
 #endif
          end select
@@ -393,6 +394,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
             call HexMesh_UpdateMPIFacesGradients(mesh, NCOMP)
+            call HexMesh_GatherMPIFacesGradients(mesh, NCOMP)
 !$omp end single
 #endif
 !
@@ -438,6 +440,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call HexMesh_UpdateMPIFacesSolution(mesh, NCONS)
+         call HexMesh_GatherMPIFacesSolution(mesh, NCONS)
 !$omp end single
 #endif
 !
@@ -526,6 +529,14 @@ module SpatialDiscretization
 !$acc end parallel loop
 
          call ViscousDiscretization % LiftGradients( NCONS, NCONS, mesh , time , mGradientVariables)
+
+#ifdef _HAS_MPI_
+!$omp single
+         ! Not sure about the position of this w.r.t the MPI directly above
+         call HexMesh_UpdateMPIFacesGradients(mesh,NCONS)
+         call HexMesh_GatherMPIFacesGradients(mesh,NCONS)
+!$omp end single
+#endif  
 !
 !        -----------------------
 !        Compute time derivative
@@ -1252,7 +1263,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients(NCOMP)
+            call HexMesh_GatherMPIFacesGradients(mesh, NCOMP)
 !$omp end single
 !
 !           **************************************
