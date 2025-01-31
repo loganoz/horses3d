@@ -141,7 +141,7 @@ MODULE HexMeshClass
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
-            procedure :: ConvertGradientVariables      => HexMesh_ConvertGradientVariables
+            !procedure :: ConvertGradientVariables      => HexMesh_ConvertGradientVariables
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -5460,7 +5460,7 @@ call elementMPIList % destruct
    subroutine HexMesh_ComputeLocalGradientNS(self, set_mu)
       implicit none
       !-arguments-----------------------------------------
-      class(HexMesh), intent(inout)   :: self
+      type(HexMesh), intent(inout)    :: self
       logical, intent(in)             :: set_mu
       !-local-variables-----------------------------------
       integer :: eID
@@ -5479,8 +5479,8 @@ call elementMPIList % destruct
    subroutine HexMesh_ComputeLocalGradientCH(self, set_mu)
       implicit none
       !-arguments-----------------------------------------
-      class(HexMesh), intent(inout)   :: self
-      logical, intent(in)             :: set_mu
+      type(HexMesh), intent(inout)   :: self
+      logical, intent(in)            :: set_mu
       !-local-variables-----------------------------------
       integer :: eID, i, j, k
 
@@ -5505,7 +5505,7 @@ call elementMPIList % destruct
    subroutine HexMesh_ComputeLocalGradientMU(self, set_mu)
       implicit none
       !-arguments-----------------------------------------
-      class(HexMesh), intent(inout)   :: self
+      type(HexMesh), intent(inout)   :: self
       logical, intent(in)             :: set_mu
       !-local-variables-----------------------------------
       integer :: eID, i, j, k

@@ -13,7 +13,10 @@ module DGIntegrals
    public ScalarWeakIntegrals  , VectorWeakIntegrals  , ScalarStrongIntegrals
 
    public ScalarWeakIntegrals_StdVolumeGreen, ScalarWeakIntegrals_StdFace
-   public VectorWeakIntegrals_StdFace, ScalarWeakIntegrals_SplitVolumeDivergence
+   public VectorWeakIntegrals_StdFace
+#if defined(NAVIERSTOKES) || defined(INCNS)
+   public   ScalarWeakIntegrals_SplitVolumeDivergence
+#endif
 
 
    type  ScalarWeakIntegrals_t

@@ -5,7 +5,6 @@ module BoundaryConditions
    use FileReaders,                   only: controlFileName
    use SharedBCModule,                only: zoneNameDictionary
    use FileReadingUtilities,          only: GetKeyword, GetValueAsString, PreprocessInputLine
-   ! use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, CheckIfBoundaryNameIsContained
    use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC
    use InflowBCClass,                 only: InflowBC_t
    use OutflowBCClass,                only: OutflowBC_t
