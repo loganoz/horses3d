@@ -278,6 +278,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call HexMesh_UpdateMPIFacesSolution(mesh, NCOMP)
+         call HexMesh_GatherMPIFacesSolution(mesh, NCOMP)
 !$omp end single
 #endif
 !
@@ -297,6 +298,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
+         call HexMesh_UpdateMPIFacesGradients(mesh, NCOMP)
          call HexMesh_UpdateMPIFacesGradients(mesh, NCOMP)
 !$omp end single
 #endif
@@ -771,17 +773,8 @@ module SpatialDiscretization
                   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
                                                                 + sqrtRho * dimensionless % invFr2 * dimensionless % gravity_dir
    
-!   
-!               + Add user defined source terms
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
-   
                end do         ; end do          ; end do 
 
-
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
-               end do         ; end do          ; end do
                end associate
             end do
 !$omp end do
@@ -950,9 +943,8 @@ module SpatialDiscretization
 
          real(kind=RP) :: viscousFlux(1:NCONS,0:fc % Nf(1),0:fc % Nf(2))
 
-         !TODO: This is wrong, it should ViscousDiscretization % sigma instead of 0.0_RP
          call BR1_RiemannSolver_acc(fc, NCONS, NGRAD, [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
-                                    0.0_RP, fc % storage(2) % FStar)
+                                    ViscousDiscretization % sigma, fc % storage(2) % FStar)
 
          call RiemannSolver_Selector(fc % Nf(1), &                         
                                      fc % Nf(2), &
@@ -974,6 +966,7 @@ module SpatialDiscretization
 !        ------------------------
          !$acc loop vector collapse(3)
          do j = 0, fc % Nf(2) ; do i = 0, fc % Nf(1) ; do eq = 1, NCONS
+            !!TODO check this
             fc % storage(1) % FStar(eq,i,j) = (fc % storage(1) % FStar(eq,i,j) - fc % storage(2) % FStar(eq,i,j)) * fc % geom % jacobian(i,j)
             fc % storage(2) % FStar(eq,i,j) = (fc % storage(1) % FStar(eq,i,j) - fc % storage(2) % FStar(eq,i,j)) * fc % geom % jacobian(i,j)
          end do ; end do ;  end do
@@ -1120,8 +1113,6 @@ module SpatialDiscretization
       !                                 f % geom % normal(:,i,j), &
       !                                 f % storage(2) % Q(:,i,j))
 
-      !    f % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*f % storage(2) % Q(IMC,i,j)
-      !    f % storage(2) % rho(i,j) = min(max(f % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
 
       !TODOs: TAKE CARE OF FLOW STATE
 
@@ -1131,7 +1122,13 @@ module SpatialDiscretization
          !$acc parallel loop gang present(mesh)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
              fID =  mesh % zones(zoneID) % faces(zonefID)
-     
+    
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,i,j)
+               mesh % faces(fID) % storage(2) % rho(i,j) = min(max(mesh % faces(fID) % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
+            enddo ; enddo
+
             !$acc loop vector collapse(2)
             do j = 0, mesh % faces(fID) % Nf(2) ;  do i = 0, mesh % faces(fID) % Nf(1)
                call GetmTwoFluidsViscosity(mesh % faces(fID) % storage(1) % Q(IMC,i,j), mu)
@@ -1291,7 +1288,7 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh)
+               call Laplacian_FacesContribution(e, t, mesh)
 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
@@ -1501,7 +1498,7 @@ module SpatialDiscretization
          end do   ;  end do 
 
          !TODO: This should be CHDiscretization % sigma instad of 0.0_RP
-         call BR1_RiemannSolver_acc(f, NCONS, NGRAD, 1.0_RP, 0.0_RP,  f % storage(1) % FStar)
+         !call BR1_RiemannSolver_acc(f, NCONS, NGRAD, 1.0_RP, 0.0_RP,  f % storage(1) % FStar)
 
 !        ------------------------
 !        Multiply by the Jacobian

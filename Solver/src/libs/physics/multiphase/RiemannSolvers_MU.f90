@@ -31,7 +31,7 @@ module RiemannSolvers_MU
    private
    public whichRiemannSolver
    public SetRiemannSolver, DescribeRiemannSolver
-   public RiemannSolver, ExactRiemannSolver
+   public ExactRiemannSolver
    public RiemannSolver_Selector
 
    abstract interface
@@ -186,8 +186,8 @@ module RiemannSolvers_MU
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: cL, uL, vL, wL, pL, invSqrtRhoL
-         real(kind=RP) :: cR, uR, vR, wR, pR, invSqrtRhoR
+         real(kind=RP) :: cL, uL, vL, wL, pL, invSqrtRhoL, invMa2L
+         real(kind=RP) :: cR, uR, vR, wR, pR, invSqrtRhoR, invMa2R
          integer :: i,j
 
          !$acc loop vector collapse(2)
@@ -223,6 +223,10 @@ module RiemannSolvers_MU
             fR(IMSQRHOV,i,j) = 0.5_RP*rhoR(i,j)*uR*vR
             fR(IMSQRHOW,i,j) = 0.5_RP*rhoR(i,j)*uR*wR
             fR(IMP,i,j)      = 0.0_RP
+
+!           Get the left and right face inv Mach^2 
+            invMa2L = dimensionless % invMa2(1) * min(max(cL,0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(cL,0.0_RP),1.0_RP))
+            invMa2R = dimensionless % invMa2(1) * min(max(cR,0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(cR,0.0_RP),1.0_RP))
 !
 !        Perform the average and rotation
 !        --------------------------------
@@ -234,12 +238,12 @@ module RiemannSolvers_MU
             fL(IMSQRHOU,i,j) = fL(IMSQRHOU,i,j) + 0.5_RP*cL*(muR(i,j)-muL(i,j)) + 0.25_RP*rhoL(i,j)*uL*(uR-uL)
             fL(IMSQRHOV,i,j) = fL(IMSQRHOV,i,j) + 0.25_RP*rhoL(i,j)*uL*(vR-vL)
             fL(IMSQRHOW,i,j) = fL(IMSQRHOW,i,j) + 0.25_RP*rhoL(i,j)*uL*(wR-wL)
-            fL(IMP,i,j)      = fL(IMP,i,j)      + 0.5_RP*dimensionless % invMa2*(uR-uL)
+            fL(IMP,i,j)      = fL(IMP,i,j)      + 0.5_RP*invMa2L*(uR-uL)
 
             fR(IMSQRHOU,i,j) = fR(IMSQRHOU,i,j) + 0.5_RP*cR*(muL(i,j)-muR(i,j)) + 0.25_RP*rhoR(i,j)*uR*(uL-uR)
             fR(IMSQRHOV,i,j) = fR(IMSQRHOV,i,j) + 0.25_RP*rhoR(i,j)*uR*(vL-vR)
             fR(IMSQRHOW,i,j) = fR(IMSQRHOW,i,j) + 0.25_RP*rhoR(i,j)*uR*(wL-wR)
-            fR(IMP,i,j)      = fR(IMP,i,j)      + 0.5_RP*dimensionless % invMa2*(uL-uR)
+            fR(IMP,i,j)      = fR(IMP,i,j)      + 0.5_RP*invMa2R*(uL-uR)
 
             fL(IMSQRHOU:IMSQRHOW,i,j) = nHat(:,i,j)*fL(IMSQRHOU,i,j) + t1(:,i,j)*fL(IMSQRHOV,i,j) + t2(:,i,j)*fL(IMSQRHOW,i,j)
             fR(IMSQRHOU:IMSQRHOW,i,j) = nHat(:,i,j)*fR(IMSQRHOU,i,j) + t1(:,i,j)*fR(IMSQRHOV,i,j) + t2(:,i,j)*fR(IMSQRHOW,i,j)
@@ -266,8 +270,8 @@ module RiemannSolvers_MU
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: cL,uL, vL, wL, pL, invRhoL, invSqrtRhoL, lambdaMinusL, lambdaPlusL
-         real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, invSqrtRhoR, lambdaMinusR, lambdaPlusR
+         real(kind=RP)  :: cL,uL, vL, wL, pL, invRhoL, invSqrtRhoL, lambdaMinusL, lambdaPlusL, invMa2L
+         real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, invSqrtRhoR, lambdaMinusR, lambdaPlusR, invMa2R
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: lambda_mu = 0.0_RP
@@ -294,14 +298,18 @@ module RiemannSolvers_MU
             vR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t1(1,i,j)   + QRight(IMSQRHOV,i,j) * t1(2,i,j)   + QRight(IMSQRHOW,i,j) * t1(3,i,j))
             wR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t2(1,i,j)   + QRight(IMSQRHOV,i,j) * t2(2,i,j)   + QRight(IMSQRHOW,i,j) * t2(3,i,j))
             pR = QRight(IMP,i,j)
+
+!           Get the left and right face inv Mach^2 
+            invMa2L = dimensionless % invMa2(1) * min(max(cL,0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(cL,0.0_RP),1.0_RP))
+            invMa2R = dimensionless % invMa2(1) * min(max(cR,0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(cR,0.0_RP),1.0_RP))
 !  
 !           Compute the Star Region
 !           -----------------------
-            lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR(i,j)))
-            lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR(i,j)))
+            lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*invMa2R/rhoR(i,j)))
+            lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*invMa2R/rhoR(i,j)))
 
-            lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL(i,j)))
-            lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL(i,j)))
+            lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*invMa2L/rhoL(i,j)))
+            lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*invMa2L/rhoL(i,j)))
 
             uStar = (pR-pL+rhoR(i,j)*uR*lambdaMinusR-rhoL(i,j)*uL*lambdaPlusL)/(rhoR(i,j)*lambdaMinusR - rhoL(i,j)*lambdaPlusL)
             pStar = pR + rhoR(i,j)*lambdaMinusR*(uR-uStar)
@@ -324,12 +332,12 @@ module RiemannSolvers_MU
             halfRhouStar = 0.5_RP*rhoStar*uStar
 !
 !      -    Add first the common (conservative) part
-            fL(:,i,j) = [cuStar+lambda_mu*(muL(i,j)-muR(i,j)), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, dimensionless % invMa2 * uStar]
+            fL(:,i,j) = [cuStar+lambda_mu*(muL(i,j)-muR(i,j)), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, 0.5*(invMa2L+invMa2R) * uStar]
             fR(:,i,j) = fL(:,i,j)
 !
 !      -    Add the non--conservative part
-            fL(:,i,j) = fL(:,i,j) + [0.0_RP, cL*0.5_RP*(muR(i,j)-muL(i,j))-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -dimensionless % invMa2*uL]
-            fR(:,i,j) = fR(:,i,j) + [0.0_RP, cR*0.5_RP*(muL(i,j)-muR(i,j))-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -dimensionless % invMa2*uR]
+            fL(:,i,j) = fL(:,i,j) + [0.0_RP, cL*0.5_RP*(muR(i,j)-muL(i,j))-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -invMa2L*uL]
+            fR(:,i,j) = fR(:,i,j) + [0.0_RP, cR*0.5_RP*(muL(i,j)-muR(i,j))-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -invMa2R*uR]
 !
 !            ************************************************
 !            Return momentum equations to the cartesian frame

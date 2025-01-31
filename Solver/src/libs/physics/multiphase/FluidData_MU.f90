@@ -17,7 +17,7 @@ module FluidData_MU
    type Thermodynamics_t
       real(kind=RP) :: rho(2)
       real(kind=RP) :: mu(2)
-      real(kind=RP) :: c02
+      real(kind=RP) :: c02(2)
    end type Thermodynamics_t
 
    type RefValues_t
@@ -40,8 +40,8 @@ module FluidData_MU
       real(kind=RP) :: vel_dir(NDIM)
       real(kind=RP) :: rho_max
       real(kind=RP) :: rho_min
-      real(kind=RP) :: Ma2
-      real(kind=RP) :: invMa2
+      real(kind=RP) :: Ma2(2)
+      real(kind=RP) :: invMa2(2)
    end type Dimensionless_t
 !
 !  ---------
