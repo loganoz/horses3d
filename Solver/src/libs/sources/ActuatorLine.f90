@@ -118,11 +118,11 @@ contains
 !        ---------------
 !
          integer     ::  i, j, k, ii, fid, n_aoa, n_airfoil
-         CHARACTER(LEN=LINE_LENGTH) :: arg, char1
-         CHARACTER(LEN=LINE_LENGTH) :: solution_file
-         CHARACTER(LEN=5)           :: file_id
+         character(LEN=LINE_LENGTH) :: arg, char1
+         character(LEN=LINE_LENGTH) :: solution_file
+         character(len=LINE_LENGTH) :: restart_name, restart_operations_name
+         character(LEN=5)           :: file_id
          real(kind=RP), dimension(:), allocatable   :: initial_azimutal
-         character(len=STRING_CONSTANT_LENGTH)  :: restart_name, restart_operations_name
          logical                    :: fileExists
          integer        :: nelem, eID, eIndex
          real(kind=RP)  :: tolerance, r_square
