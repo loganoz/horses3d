@@ -118,11 +118,11 @@ contains
 !        ---------------
 !
          integer     ::  i, j, k, ii, fid, n_aoa, n_airfoil
-         CHARACTER(LEN=LINE_LENGTH) :: arg, char1
-         CHARACTER(LEN=LINE_LENGTH) :: solution_file
-         CHARACTER(LEN=5)           :: file_id
+         character(LEN=LINE_LENGTH) :: arg, char1
+         character(LEN=LINE_LENGTH) :: solution_file
+         character(len=LINE_LENGTH) :: restart_name, restart_operations_name
+         character(LEN=5)           :: file_id
          real(kind=RP), dimension(:), allocatable   :: initial_azimutal
-         character(len=STRING_CONSTANT_LENGTH)  :: restart_name, restart_operations_name
          logical                    :: fileExists
          integer        :: nelem, eID, eIndex
          real(kind=RP)  :: tolerance, r_square
@@ -832,10 +832,25 @@ contains
        isLast = .false.
    end if
 
+   ! for last iteration save average values only, all calculations and comunications were done before
+   if (isLast) then
+      if ( .not. self % save_average ) return
+      if ( .not. MPI_Process % isRoot ) return
+      do kk=1, self%num_turbines
+          write(file_id, '(I3.3)') kk
+          write(arg , '(A,A,A,A)') trim(self%file_name), "_Actuator_Line_average_turb_", trim(file_id) , ".dat"
+          open( newunit = fID , file = trim(arg) , action = "write" , access = "append" , status = "old" )
+          do ii = 1, self % turbine_t(kk) % num_blade_sections
+            write(fid,"(6(2X,ES24.16))") self%turbine_t(kk)%blade_t(1)%r_R(ii), self%turbine_t(kk)%average_conditions(ii,:)
+          end do
+          close(fid)
+      end do
+      return
+    end if
+
    save_instant = self%save_instant .and. ( mod(iter,self % save_iterations) .eq. 0 )
    t = time * Lref / refValues%V
 
-   
    if (self%calculate_with_projection) then
      ! this is necessary for Gaussian weighted sum
      
@@ -899,8 +914,7 @@ contains
    if ( .not. MPI_Process % isRoot ) return
 
    ! save in memory the time step forces for each element blade and the whole blades
-   if (.not. isLast) call FarmUpdateBladeForces(self)
-   ! if (.not. self%calculate_with_projection .and. .not. isLast) call self % FarmUpdateBladeForces()
+   call FarmUpdateBladeForces(self)
 
 !write output torque thrust to file
       do kk=1, self%num_turbines
@@ -919,16 +933,7 @@ contains
         write(fid,"(10(2X,ES24.16))") t, self%turbine_t(kk)%Cp, self%turbine_t(kk)%Ct
         close(fid)
 
-        if (self % save_average .and. isLast) then
-          write(arg , '(A,A,A,A)') trim(self%file_name), "_Actuator_Line_average_turb_", trim(file_id) , ".dat"
-          open( newunit = fID , file = trim(arg) , action = "write" , access = "append" , status = "old" )
-          do ii = 1, self % turbine_t(kk) % num_blade_sections
-            write(fid,"(6(2X,ES24.16))") self%turbine_t(kk)%blade_t(1)%r_R(ii), self%turbine_t(kk)%average_conditions(ii,:)
-          end do
-          close(fid)
-        end if
-
-        if (save_instant .and. .not. isLast) then
+        if (save_instant) then
           do jj = 1, self%turbine_t(kk)%num_blades
             write(arg , '(2A,I3.3,A,I10.10,3A)') trim(self%file_name), "_Actuator_Line_instant_",jj ,"_" ,iter, "_turb_", trim(file_id), ".dat"
             open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 

@@ -789,6 +789,7 @@
          call sem % fwh % writeToFile( force = .TRUE. )
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if

@@ -45,6 +45,7 @@ actuator save average = .false.
 actuator save instant = .false.
 actuator tolerance = 0.7 ! high tolerance for finding elements near the rotor for coarse mesh
 
+Discretization nodes = Gauss-Lobatto ! GL nodes for hardcoded energy conserving
 Riemann solver        = Exact
 Viscous discretization = BR1
 Cahn-Hilliard discretization = BR1
