@@ -1032,7 +1032,7 @@ module SpatialDiscretization
          integer, intent(in)           :: no_of_faces
          integer, intent(in)           :: no_of_sides
          integer, intent(in)           :: face_ids(no_of_faces)
-         type(HexMesh), intent(inout)  :: mesh
+         class(HexMesh), intent(inout) :: mesh
 !
 !        ---------------
 !        Local variables

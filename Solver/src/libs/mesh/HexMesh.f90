@@ -4487,6 +4487,8 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(NodalStorage(i) % D)
          !$acc enter data copyin(NodalStorage(i) % b)
          !$acc enter data copyin(NodalStorage(i) % v)
+         !$acc enter data copyin(NodalStorage(i) % w)
+         !$acc enter data copyin(NodalStorage(i) % x)
       END DO
 
 #ifdef _HAS_MPI_
