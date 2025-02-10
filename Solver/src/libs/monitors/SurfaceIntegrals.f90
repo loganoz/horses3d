@@ -287,9 +287,10 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, i, j, ierr
-         real(kind=RP) :: valx, valy, valz
-         real(kind=RP) :: localx, localy, localz
-         real(kind=RP) :: p, tau(1:NDIM, 1:NDIM)
+          real(kind=RP) :: localval(NDIM)
+         real(kind=RP)  :: valx, valy, valz
+         real(kind=RP)  :: localx, localy, localz
+         real(kind=RP)  :: p, tau(1:NDIM, 1:NDIM)
 !
 !        Initialization
 !        --------------
