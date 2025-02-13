@@ -176,8 +176,8 @@ module StorageClass
       integer                                          :: NDIM
       integer                                          :: currentlyLoaded
       integer                                          :: Nf(2), Nel(2)
-      real(kind=RP), dimension(:,:,:),     pointer, contiguous     :: Q
-      real(kind=RP), dimension(:,:,:),     pointer     :: Qdot
+      real(kind=RP), dimension(:,:,:),     pointer, contiguous :: Q
+      real(kind=RP), dimension(:,:,:),     pointer             :: Qdot
       real(kind=RP), dimension(:,:,:),     pointer, contiguous :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer, contiguous :: FStar
       real(kind=RP), dimension(:),         allocatable :: flux

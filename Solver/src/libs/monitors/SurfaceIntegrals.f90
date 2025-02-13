@@ -61,42 +61,10 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, fIDs(6), ierr
-         class(Element), pointer    :: elements(:)
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
-!
-!        Loop the zone to get faces and elements
-!        ---------------------------------------
-         elements => mesh % elements
-!$omp parallel private(fID, eID, fIDs) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
-!$omp&                                          computeGradients)
-!$omp single
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-
-            eID = mesh % faces(fID) % elementIDs(1)
-            fIDs = mesh % elements(eID) % faceIDs
-
-!$omp task depend(inout:elements(eID))
-            call elements(eID) % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
-                                            mesh % faces(fIDs(2)),&
-                                            mesh % faces(fIDs(3)),&
-                                            mesh % faces(fIDs(4)),&
-                                            mesh % faces(fIDs(5)),&
-                                            mesh % faces(fIDs(6)) )
-            if ( computeGradients ) then
-            !   call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
-            !                                    mesh % faces(fIDs(2)),&
-            !                                    mesh % faces(fIDs(3)),&
-            !                                    mesh % faces(fIDs(4)),&
-            !                                    mesh % faces(fIDs(5)),&
-            !                                    mesh % faces(fIDs(6)) )
-            end if
-!$omp end task
-         end do
-!$omp end single
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
