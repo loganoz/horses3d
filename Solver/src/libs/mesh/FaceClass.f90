@@ -64,7 +64,7 @@
          type Face
          integer, allocatable            :: Mortar(:)                !fID of the slave mortar 
          integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
-         integer                         :: Mortarpos                !Mortar index (only for slave faces, from 1 to 4; 0 if not slave mortar face)
+         integer                         :: Mortarpos                !Mortar index (only for slave faces, from 1 to 2 or 4; 0 if not slave mortar face)
          logical                         :: flat
          integer                         :: ID                       ! face ID
          integer                         :: FaceType                 ! Type of face: 1 = HMESH_INTERIOR, 2 = HMESH_BOUNDARY, 3 = 2 = HMESH_MPI
@@ -99,6 +99,7 @@
                procedure   :: AdaptAviscFluxToMortarFace    => Face_AdaptAviscFluxToMortarFace
 
                procedure   :: ProjectFluxToElements                => Face_ProjectFluxToElements
+               procedure   ::TestMortar                         => Face_TestMortar 
                procedure   :: ProjectMortarFluxToElements          => Face_ProjectMortarFluxToElements
                procedure   :: ProjectGradientFluxToElements        => Face_ProjectGradientFluxToElements
                procedure   :: ProjectMortarGradientFluxToElements  => Face_ProjectMortarGradientFluxToElements
@@ -213,6 +214,7 @@
          real(kind=RP), optional, intent(in)    :: offset(2)
          real(kind=RP), optional, intent(in)    :: s(2)
 
+   
          !real(kind=RP) :: test1(0:3)
          !real(kind=RP) :: test2(0:3)
        !real(kind=RP) :: test3(0:3)
@@ -234,6 +236,21 @@
 #if (!defined(NAVIERSTOKES)) && (!defined(INCNS))
          logical  :: computeGradients = .true.
 #endif
+real(kind=RP) :: oo(4)
+real(kind=RP) :: ss(4)
+real(kind=RP) :: x 
+
+x=-1.0_RP/3.0_RP
+oo(1)=(x-1.0_rp)/2.0_rp 
+oo(2)=(x+1.0_rp)/2.0_rp 
+oo(3)=(1.0_rp-x)/2.0_rp 
+oo(4)=(-x-1.0_rp)/2.0_rp 
+ss(1)=oo(1)+1.0_rp 
+ss(2)=1.0_rp-oo(2)
+ss(3)=1.0_rp-oo(3)
+ss(4)=oo(4)+1.0_rp 
+
+if (self % ID==288) write(*,*) 'linking face 288' 
    !     i
    !     -------------------------------------------------------------
    !     First, get face elements polynomial orders (without rotation)
@@ -287,32 +304,56 @@
             call Tset(self % Nf(2), self % NfLeft(2)) % construct(self % Nf(2), self % NfLeft(2))
 
          end if 
-         if (present(offset) .and. (.not.present(s))) then 
-            call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 0.5_RP, 1)
-            call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP, 0.5_RP, 2)
+         if (present(offset) .and. (.not.present(s))) then !4:1
+            call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 0.5_RP, 1)  !0.5_RP, 0.5_RP
+            call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP, 0.5_RP, 2)  !0.5_RP, 0.5_RP
    
-            call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP, 0.5_RP, 1)
-            call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP, 0.5_RP, 2)
+            call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP, 0.5_RP, 1) !-0.5_RP, 0.5_RP
+            call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP, 0.5_RP, 2) !-0.5_RP, 0.5_RP
             
-            call TsetM(self % NfLeft(2), self % Nf(2), 2, 1) % construct(self % NfLeft(2), self % Nf(2), 0.5_RP, 0.5_RP, 1)
-            call TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % construct(self % Nf(2), self % NfLeft(2), 0.5_RP, 0.5_RP, 2)
+            call TsetM(self % NfLeft(2), self % Nf(2), 2, 1) % construct(self % NfLeft(2), self % Nf(2), 0.5_RP, 0.5_RP, 1)  !0.5_RP, 0.5_RP
+            call TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % construct(self % Nf(2), self % NfLeft(2), 0.5_RP, 0.5_RP, 2)  !0.5_RP, 0.5_RP
    
-            call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 0.5_RP, 1)
-            call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 0.5_RP, 2)
+            call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 0.5_RP, 1)  !-0.5_RP, 0.5_RP
+            call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 0.5_RP, 2)  !-0.5_RP, 0.5_RP
+
+            !call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 0.5_RP, 1)  !0.5_RP, 0.5_RP
+            !call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP, 0.5_RP, 2)  !0.5_RP, 0.5_RP
+   
+            !call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP, 0.5_RP, 1) !-0.5_RP, 0.5_RP
+            !call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP, 0.5_RP, 2) !-0.5_RP, 0.5_RP
+            
+            !call TsetM(self % NfLeft(2), self % Nf(2), 3, 1) % construct(self % NfLeft(2), self % Nf(2), -0.25_RP, 0.75_RP, 1)  !0.5_RP, 0.5_RP
+            !call TsetM(self % Nf(2), self % NfLeft(2), 3, 2) % construct(self % Nf(2), self % NfLeft(2), -0.25_RP, 0.75_RP, 2)  !0.5_RP, 0.5_RP
+   
+            !call TsetM(self % NfLeft(2), self % Nf(2), 4, 1) % construct(self % NfLeft(2), self % Nf(2), 0.75_RP, 0.25_RP, 1)  !-0.5_RP, 0.5_RP
+            !call TsetM(self % Nf(2), self % NfLeft(2), 4, 2) % construct(self % Nf(2), self % NfLeft(2), 0.75_RP, 0.25_RP, 2)  !-0.5_RP, 0.5_RP
+
          end if 
-         if (present(offset) .and. present(s)) then
+         if (present(offset) .and. present(s)) then !Sliding
+            !write(*,*) 'sliding mortars projections'
             if (MOD(self% ID, 2)==1) then 
-               call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)
-               call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)
-
-               call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)
+               call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)!in    !o=-0.5
+               call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)!out
+              ! write(*,*)'tset 1, offset :', offset(1), 'scale:',s(1)
+               call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)      !o=0.5
                call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(2), 2)
+              ! write(*,*)'tset 2, offset :', offset(2), 'scale:',s(2)
+               !write(*,*) "TsetM 1 1 ", TsetM(self % NfLeft(1), self % Nf(1), 1, 1)%T
+               !write(*,*) "TsetM 1 2 ", TsetM(self % Nf(1), self % NfLeft(1), 1, 2)%T
+               !write(*,*) "TsetM 2 1 ", TsetM(self % NfLeft(1), self % Nf(1), 2, 1)%T
+               !write(*,*) "TsetM 2 2 ", TsetM(self % Nf(1), self % NfLeft(1), 2, 2)%T
             else if (MOD(self% ID, 2)==0)  then
-               call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)
+               call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)       !o=0.5
                call TsetM(self % Nf(1), self % NfLeft(1), 3, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)
-
-               call TsetM(self % NfLeft(1), self % Nf(1), 4, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)
+             !  write(*,*)'tset 3, offset :', offset(1), 'scale:',s(1)
+               call TsetM(self % NfLeft(1), self % Nf(1), 4, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)     !o=-0.5
                call TsetM(self % Nf(1), self % NfLeft(1), 4, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(2), 2)
+             !  write(*,*)'tset 4, offset :', offset(2), 'scale:',s(2)
+               !write(*,*) "TsetM 3 1 ", TsetM(self % NfLeft(1), self % Nf(1), 3, 1)%T
+               !write(*,*) "TsetM 3 2 ", TsetM(self % Nf(1), self % NfLeft(1), 3, 2)%T
+               !write(*,*) "TsetM 4 1 ", TsetM(self % NfLeft(1), self % Nf(1), 4, 1)%T
+               !write(*,*) "TsetM 4 2 ", TsetM(self % Nf(1), self % NfLeft(1), 4, 2)%T 
             end if 
          end if 
          
@@ -380,7 +421,12 @@
          else
              prolongQdot = .FALSE.
          end if
-   
+        ! write(*,*) 'self % Nf(2)', self % Nf(2)
+        ! write(*,*) 'self % NfLeft(1)', self % NfLeft(1)
+        ! write(*,*) 'self % Nf(1)', self % Nf(1)
+        ! write(*,*) 'Qe in conf 1', SIZE(Qe(:,1,1))
+         !(*,*) 'Qe in conf 2', SIZE(Qe(1,:,1))
+         !write(*,*) 'Qe in conf 3', SIZE(Qe(1,1,:))
          ! if (prolongQdot) then
          !     print *, "side: ", side
          !     ! print *, "projectionType 1: ",  self % projectionType(1)
@@ -465,7 +511,7 @@
 
       end subroutine Face_AdaptSolutionToFace
 
-      subroutine Face_AdaptSolutionToMortarFace(self, nEqn,Nelx,Nely, Qe, side, QdotE, computeQdot, fma)
+      subroutine Face_AdaptSolutionToMortarFace(self, nEqn,Nelx,Nely, Qe, side, QdotE, computeQdot, fma, sliding)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)              :: self
@@ -476,41 +522,76 @@
          real(kind=RP), intent(in), optional       :: QdotE(1:nEqn, 0:Nelx, 0:Nely)
          logical,       intent(in), optional       :: computeQdot
          type(Face), intent(inout)      ::fma
+         logical,       intent(in), optional       :: sliding
 
          
-         integer       :: i, j, l, m
+         integer       :: i, j, l, m, ii, jj
          real(kind=RP) :: MInt(0:fma%Nf(1),0:fma%Nf(1),1:2) 
-
-            if(side .ne. 1) then 
-               write(*,*)'problem big mortar on wrong side'
-            end if 
-            if ((fma % IsMortar.ne.2) ) then 
+         real(kind=RP)  :: Qe_rot(1:nEqn, 0:Nelx, 0:Nely)
+         real(kind=RP)  :: xx(NDIM,0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP)  :: xxrot(NDIM,0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP)  :: dSrot      (NDIM,0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP)  :: GradXiRot  (NDIM,0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP)  :: GradEtaRot (NDIM,0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP)  :: GradZetaRot(NDIM,0:fma%Nf(1),0:fma%Nf(1))
+         Qe_rot=0.0_rp
+         dSrot=0.0_rp
+         xx=0.0_rp 
+            !if(side .ne. 1) then 
+               !write(*,*)'problem big mortar on wrong side'
+            !end if 
+            if ((fma % IsMortar.ne.2) .and. .not.present(sliding)) then 
                write(*,*) 'problem mortar slave projection sol to face'
             end if 
-
+         if (.not.present(sliding)) then 
             select case (fma%Mortarpos)
             case (1)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-                !write(*,*) 'mortar1 1', Mint(:,:,1)
-                !write(*,*) 'mortar1 2', Mint(:,:,2)
+               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
+              !write(*,*)'fma%pos==1, corresponding element:', fma%elementIDs
             case (2)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-                !write(*,*) 'mortar2 1', Mint(:,:,1)
-               ! write(*,*) 'mortar2 2', Mint(:,:,2)
+               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)  
+               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
+
+              ! write(*,*)'fma%pos==2, corresponding element:', fma%elementIDs
             case (3)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               ! write(*,*) 'mortar3 1', Mint(:,:,1)
-               ! write(*,*) 'mortar3 2', Mint(:,:,2)
+               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
+               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
+!write(*,*)'fma%pos==3, corresponding element:', fma%elementIDs
             case (4)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               ! write(*,*) 'mortar4 1', Mint(:,:,1)
-               ! write(*,*) 'mortar4 2', Mint(:,:,2)
+               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)  
+               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
+!write(*,*)'fma%pos==4, corresponding element:', fma%elementIDs
             end select 
-        
+         else 
+            if (MOD(fma% ID, 2)==1) then 
+               MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)   !1;1
+               MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)   !2;1
+            end if 
+            if (MOD(fma% ID, 2)==0) then  
+               MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)   !3;1
+               MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)   !4;1
+            end if 
+         end if 
+        ! if (present(sliding)) then
+           ! write(*,*) 'MOD(fma% ID, 2)',MOD(fma% ID, 2)
+            !write(*,*)'side', side
+            !write(*,*) 'Tset',TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T  
+           ! do j = 0, fma %Nf(2) ; do i = 0,fma %Nf(1)
+             !  write(*,*) 'Mint i,j',i,j, MInt(i,j,1)
+            !end do                 ; end do                 
+            !write(*,*) 'Mint 2', MInt(:,:,2)
+            !(*,*) 'QE 2', Qe
+         !end if 
+         if (.not.present(sliding)) then 
             associate(Qf => fma % storage(1) % Q)
                 Qf=0.0_RP
             do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   
@@ -520,8 +601,37 @@
         
                 end do                 ; end do
              end do                  ; end do
-             !write(*,*) 'sol on mortar ',fma % Mortarpos, Qf
              end associate 
+  
+         else
+            !write(*,*)'prolong sol to moratr face line 672, side=', side 
+            if (side==1) then 
+               associate(Qf => fma % storage(1) % Q)
+                  Qf=0.0_RP
+
+               !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+                  do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+                  Qf(:,i,j) = Qf(:,i,j)  + MInt(j,l,1) * Qe(:,i,l)
+               end do                  ; end do                   ; end do
+               end associate
+            else 
+    
+                  do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                     !if (self % rotation .NE. 7) write(*,*) 'line 592 rotation nn equal 7...', self % rotation
+                    ! call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                     call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
+                     Qe_rot(:,i,j) = Qe(:,ii,jj) 
+                  end do                        ; end do
+               !end associate 
+               associate(Qf => fma % storage(2) % Q)
+                  Qf=0.0_RP
+              ! do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+                  do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+                  Qf(:,i,j) = Qf(:,i,j)  + MInt(j,l,2) *  Qe_rot(:,i,l)
+               end do                  ; end do                   ; end do
+               end associate
+            end if 
+         end if  
       end subroutine Face_AdaptSolutionToMortarFace
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -660,7 +770,8 @@
       
       end subroutine Face_AdaptGradientsToFace
 
-      subroutine Face_AdaptGradientsToMortarFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side, fma)
+
+      subroutine Face_AdaptGradientsToMortarFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side, fma, sliding)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)  :: self
@@ -671,54 +782,119 @@
          real(kind=RP), intent(in)     :: Uze(nEqn, 0:Nelx, 0:Nely)
          integer,       intent(in)     :: side
          type(Face), intent(inout)      ::fma
+         logical,       intent(in), optional       :: sliding
 
 
-         integer       :: i, j, l, m
+         integer       :: i, j, l, m, ii, jj 
          real(kind=RP) :: MInt(0:fma%Nf(1),0:fma%Nf(1),1:2)
-
-            if(side .ne. 1) then 
-               write(*,*)'problem big mortar on wrong side'
-            end if 
-            if ((fma % IsMortar.ne.2) ) then 
+         real(kind=RP) :: Uxe_rot(nEqn, 0:Nelx, 0:Nely)
+         real(kind=RP)     :: Uye_rot(nEqn, 0:Nelx, 0:Nely)
+         real(kind=RP)     :: Uze_rot(nEqn, 0:Nelx, 0:Nely)
+         Uxe_rot=0.0_RP
+         Uye_rot=0.0_RP
+         Uze_rot=0.0_RP
+            !if(side .ne. 1) then 
+               !write(*,*)'problem big mortar on wrong side'
+            !end if 
+            if ((fma % IsMortar.ne.2) .and. .not.present(sliding) ) then 
                write(*,*) 'problem mortar slave projection sol to face'
             end if 
-   
-            select case (fma%Mortarpos)
-            case (1)
-                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-            case (2)
-                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
-                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-            case (3)
-                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-            case (4)
-                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-            end select 
-   
-            associate(Uxf => fma % storage(1) % U_x, &
-               Uyf => fma % storage(1) % U_y, &
-               Uzf => fma % storage(1) % U_z   )
-               Uxf=0.0_RP
-               Uyf=0.0_RP
-               Uzf=0.0_RP
-               do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   
-                  do m = 0, fma % NfLeft(1) ; do i = 0, fma % Nf(1)
-                     Uxf(:,i,j) =  Uxf(:,i,j) +  Mint(i,m,1) * Mint(j,l,2) &
-                                                            * Uxe(:,m,l)
-     
-                     Uyf(:,i,j) =  Uyf(:,i,j) +  Mint(i,m,1) * Mint(j,l,2) &
-                                                            * Uye(:,m,l)
-     
-                     Uzf(:,i,j) =  Uzf(:,i,j) +  Mint(i,m,1) * Mint(j,l,2) &
-                                                            * Uze(:,m,l)
-          
-                  end do                 ; end do
-               end do                  ; end do
+            if (.not.present(sliding)) then 
+               select case (fma%Mortarpos)
+               case (1)
+                  MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+                  MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+                 !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+                 !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
+              case (2)
+                  MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
+                  MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)  
+               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
+
+              case (3)
+                  MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+                  MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
+               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
+              case (4)
+                  MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+                  MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+                 !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)  
+                 !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
+              end select 
+            else 
+               if (MOD(fma% ID, 2)==1) then 
+                  MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+                  MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+               elseif (MOD(fma% ID, 2)==0) then  
+                  MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
+                  MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
+               end if 
+            end if 
+         
+            if (.not.present(sliding)) then 
+               associate(Uxf => fma % storage(1) % U_x, &
+                  Uyf => fma % storage(1) % U_y, &
+                  Uzf => fma % storage(1) % U_z   )
+                  Uxf=0.0_RP
+                  Uyf=0.0_RP
+                  Uzf=0.0_RP
+                  do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   
+                     do m = 0, fma % NfLeft(1) ; do i = 0, fma % Nf(1)
+                        Uxf(:,i,j) =  Uxf(:,i,j) +  Mint(i,m,1) * Mint(j,l,2) &
+                                                               * Uxe(:,m,l)
+      
+                        Uyf(:,i,j) =  Uyf(:,i,j) +  Mint(i,m,1) * Mint(j,l,2) &
+                                                               * Uye(:,m,l)
+      
+                        Uzf(:,i,j) =  Uzf(:,i,j) +  Mint(i,m,1) * Mint(j,l,2) &
+                                                               * Uze(:,m,l)
+            
+                     end do                 ; end do
+                  end do                  ; end do
 
             end associate
+            else 
+
+               if (side==1) then 
+               associate(Uxf => fma % storage(side) % U_x, &
+                  Uyf => fma % storage(side) % U_y, &
+                  Uzf => fma % storage(side) % U_z   )
+                  Uxf=0.0_RP
+                  Uyf=0.0_RP
+                  Uzf=0.0_RP
+                  do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+                 ! do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
+                     Uxf(:,i,j) = Uxf(:,i,j) + MInt(j,l,side) * Uxe(:,i,l)
+                     Uyf(:,i,j) = Uyf(:,i,j) + MInt(j,l,side) * Uye(:,i,l)
+                     Uzf(:,i,j) = Uzf(:,i,j) + MInt(j,l,side) * Uze(:,i,l)
+                  end do                  ; end do                   ; end do
+               end associate 
+               else 
+                  do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                    ! if (self % rotation .NE. 7) write(*,*) 'line 838 rotation nn equal 7...', self % rotation
+                    ! call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                     call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
+                     Uxe_rot(:,i,j) = Uxe(:,ii,jj) 
+                     Uye_rot(:,i,j) = Uye(:,ii,jj) 
+                     Uze_rot(:,i,j) = Uze(:,ii,jj) 
+                  end do                        ; end do
+                  associate(Uxf => fma % storage(side) % U_x, &
+                     Uyf => fma % storage(side) % U_y, &
+                     Uzf => fma % storage(side) % U_z   )
+                     Uxf=0.0_RP
+                     Uyf=0.0_RP
+                     Uzf=0.0_RP
+                     do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+                     !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
+                        Uxf(:,i,j) = Uxf(:,i,j) + MInt(j,l,side) * Uxe_rot(:,i,l)
+                        Uyf(:,i,j) = Uyf(:,i,j) + MInt(j,l,side) * Uye_rot(:,i,l)
+                        Uzf(:,i,j) = Uzf(:,i,j) + MInt(j,l,side) * Uze_rot(:,i,l)
+                     end do                  ; end do                   ; end do
+                  end associate 
+               end if 
+            end if 
       end subroutine Face_AdaptGradientsToMortarFace
    
    
@@ -938,9 +1114,9 @@
                      end do                  ; end do
                   end select
                   end associate
-               end if 
- 
-   
+               end if
+               
+         
             case (2)    ! Prolong to right element
    !      
    !           *********
@@ -993,12 +1169,121 @@
                      
                      end associate
                   end if 
+   
                end select
          end do
    
       end subroutine Face_ProjectFluxToElements
 
-      subroutine Face_ProjectMortarFluxToElements(self, nEqn, whichElements, fma, flux_M1)
+
+      subroutine Face_TestMortar (self, fma, fmb, nEqn)
+         class(Face)       :: self
+         type(Face), intent(in)      ::fma
+         type(Face), intent(in)      ::fmb
+         integer,       intent(in)  :: nEqn
+
+         real(kind=RP) :: flux_M1(1:nEqn, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP) :: fstar_rot(1:nEqn, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP) :: t(1:nEqn, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP) :: t2(1:nEqn, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP) :: testa(0:fma % Nf(1))
+         real(kind=RP) :: testb(0:fma % Nf(1))
+         real(kind=RP) :: testc(0:fma % Nf(1))
+         real(kind=RP) :: testd(0:fma % Nf(1))
+
+         integer :: i,j,l,ii,jj
+         t=0.0_RP 
+         flux_M1=0.0_RP 
+         fstar_rot=0.0_RP
+         write(*,*)'fma mortar=', fma%IsMortar
+         associate (fStar => fma % storage(1) % Fstar)
+         !do j = 0, fma % NfRight(2)   ; do i = 0, fma % NfRight(1)
+          !  call leftIndexes2Right(i,j,fma % NfRight(1), fma % NfRight(2), fma % rotation, ii, jj)
+           ! fstar_rot(:,i,j) = fStar(:,ii,jj) 
+            fstar_rot=fStar
+         !end do  ; end do 
+         end associate 
+
+
+   
+            do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   ; do i = 0, fma % Nf(1)
+               t(1:nEqn,i,j)= t(1:nEqn,i,j) + TsetM(fma % Nf(2), fma % NfLeft(2), 2, 1) % T(j,l) * fstar_rot(1:nEqn,i,l)
+
+               
+            end do                  ; end do                   ; end do
+
+            write(*,*) 'first flu fma without rotation', 2.0_RP*t
+   
+
+         flux_M1=flux_M1+t
+         t=0.0_RP
+         fstar_rot=0.0_RP
+         write(*,*)'fmb mortar=', fmb%IsMortar
+         associate (fStar => fmb % storage(1) % Fstar)
+           ! do j = 0, fma % NfRight(2)   ; do i = 0, fma % NfRight(1)
+            !   call leftIndexes2Right(i,j,fmb % NfRight(1), fmb % NfRight(2), fmb % rotation, ii, jj)
+              !! fstar_rot(:,i,j) = fStar(:,ii,jj) 
+            fstar_rot=fStar
+          !  end do  ; end do 
+         end associate 
+   
+            do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   ; do i = 0, fma % Nf(1)
+               t(1:nEqn,i,j)= t(1:nEqn,i,j) + TsetM(fma % Nf(2), fma % NfLeft(2), 4, 1) % T(j,l) * fstar_rot(1:nEqn,i,l)
+            end do                  ; end do                   ; end do
+ 
+         flux_M1=flux_M1+t
+         write(*,*) 'first flu fmb without rotation', 2.0_RP*t
+         write(*,*)'projected FLUX of element 387 and 440 LINE 1332 of faceclass', 2.0_RP*flux_M1
+
+
+         associate (fStar => fma % storage(1) % Fstar)
+            !do j = 0, fma % NfRight(2)   ; do i = 0, fma % NfRight(1)
+             !  call leftIndexes2Right(i,j,fma % NfRight(1), fma % NfRight(2), fma % rotation, ii, jj)
+              ! fstar_rot(:,i,j) = fStar(:,ii,jj) 
+               fstar_rot=fStar
+            !end do  ; end do 
+            end associate 
+            t=0.0_RP
+            do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   ; do i = 0, fma % Nf(1)
+               t(1:nEqn,i,j)= t(1:nEqn,i,j) + TsetM(fma % Nf(2), fma % NfLeft(2), 2, 1) % T(j,l) * fstar_rot(1:nEqn,i,l)
+            end do                  ; end do                   ; end do
+            write(*,*) 'flux of element 387 projected back to mortar 1', t
+            associate (fStar => fma % storage(1) % Fstar)
+               !do j = 0, fma % NfRight(2)   ; do i = 0, fma % NfRight(1)
+                !  call leftIndexes2Right(i,j,fma % NfRight(1), fma % NfRight(2), fma % rotation, ii, jj)
+                 ! fstar_rot(:,i,j) = fStar(:,ii,jj) 
+                  fstar_rot=fStar
+               !end do  ; end do 
+               end associate 
+               t2=0.0_RP
+               do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   ; do i = 0, fma % Nf(1)
+                  t(1:nEqn,i,j)= t(1:nEqn,i,j) + TsetM(fma % Nf(2), fma % NfLeft(2), 4, 1) % T(j,l) * fstar_rot(1:nEqn,i,l)
+               end do                  ; end do                   ; end do
+               write(*,*) 'flux of element 387 projected back to mortar 2', t
+               write(*,*) 'diff t1 t2', t-t2
+               write(*,*)'**************************************************************'
+               write(*,*) 'tsem   2   1', TsetM(fma % Nf(2), fma % NfLeft(2), 2, 1) % T
+               write(*,*) 'tsem   4   1', TsetM(fma % Nf(2), fma % NfLeft(2), 4, 1) % T
+
+
+
+               write(*,*) 'last test '
+               testa=0.5_RP
+               CALL RANDOM_NUMBER(testa)
+               testb=MATMUL(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 1) % T, testa)
+               testc=MATMUL(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 1) % T, testa)
+               testd=MATMUL(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T, testb) + MATMUL(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T, testc)
+               write(*,*)'testa', testa
+               write(*,*)'testb', testb
+               write(*,*)'testc', testc
+               write(*,*)'testd', testd
+               write(*,*)'testd x 1/2', testd*0.5_RP
+
+
+
+      end subroutine Face_TestMortar
+
+      subroutine Face_ProjectMortarFluxToElements(self, nEqn, whichElements, fma, flux_M1, sliding)
          use MappedGeometryClass
          use PhysicsStorage
          implicit none
@@ -1007,38 +1292,53 @@
          integer,       intent(in)  :: whichElements(2)
          type(Face), intent(inout)      ::fma
          real(kind=RP), intent(in)  :: flux_M1(1:nEqn, 0:fma % Nf(1), 0:fma % Nf(2))
+         logical, intent(in), optional     :: sliding 
      
          integer           :: i, j, ii, jj, l, m, side, q, p, lm
          real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
-         real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-         
-         select case (fma%Mortarpos)
-         case (1)
+         real(kind=RP)     :: fStarAux(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+         real(kind=RP)     :: ff(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+         real(kind=RP)     :: fff(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+         real(kind=RP)     :: fStarAux2(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+         real(kind=RP)     :: tmp(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+         real(kind=RP)     :: tmp2(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+
+         if (.not.present(sliding)) then 
+            select case (fma%Mortarpos)
+            case (1)
+               Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+               Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+               !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+               !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 2) % T)
+           case (2)
+               Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)  
+               Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)  
+            !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 2) % T)
  
-             Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-             Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
-             !write(*,*) 'mortar1 1 out', Mout(:,:,1)
-             !write(*,*) 'mortar1 2 out', Mout(:,:,2)
-         case (2)
-            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)
-            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
-             !write(*,*) 'mortar2 1 out', Mout(:,:,1)
-             !write(*,*) 'mortar2 2 out', Mout(:,:,2)
-         case (3)
-            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
-            ! write(*,*) 'mortar3 1 out', Mout(:,:,1)
-             !write(*,*) 'mortar3 2 out', Mout(:,:,2)
-         case (4)
-            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)
-            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
-            ! write(*,*) 'mortar4 1 out', Mout(:,:,1)
-            ! write(*,*) 'mortar4 2 out', Mout(:,:,2)
-         end select 
-     
-     
+           case (3)
+               Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+               Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)  
+            !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
+           case (4)
+               Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+               Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)  
+            !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
+           end select 
+         else 
+            if (MOD(fma% ID, 2)==1) then 
+               Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)    !1;2
+               Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)   !2,2
+            elseif (MOD(fma% ID, 2)==0) then  
+               Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 3, 2) % T)    !3;2
+               Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T)   !4,2
+            end if 
+         end if 
+         if (.not.present(sliding)) then 
              fStarAux(1:nEqn,:,:) = 0.0_RP 
-     
+             fStarAux2(1:nEqn,:,:) = 0.0_RP 
              do l = 0, fma % Nf(2)  ; do j = 0, fma % NfRight(2)   
                  do m = 0, fma % Nf(1) ; do i = 0, fma % NfRight(1)
                      fStarAux(1:nEqn,i,j) =  fStarAux(1:nEqn,i,j) +  Mout(i,m,1) * Mout(j,l,2) &
@@ -1050,17 +1350,70 @@
      
               associate(fStar => self % storage(1) % Fstar)
                  fStar=fStar + fStarAux
-                  !if (fma%Mortarpos==4) write(*,*) 'flux after projection', fStar
-                  !write(*,*) '+++++++++++++++++++++++++++++'
               end associate 
               associate(fStar => self % storage(2) % Fstar)
-                 !do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                     !call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-                     !fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
-                 ! end do                        ; end do
                  fStar=fStar + (-fStarAux)
               end associate 
-     
+         else
+           ! write(*,*)'mod mortar',MOD(fma% ID, 2), 'fma%s(1)=', fma%s(1)
+
+            fStarAux(1:nEqn,:,:) = 0.0_RP 
+            if (whichElements(1)==1) then 
+               !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
+               do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+                  fStarAux(1:nEqn,i,j)= fStarAux(1:nEqn,i,j) + Mout(j,l,1) * flux_M1(1:nEqn,i,l)
+               end do                  ; end do                   ; end do
+               associate(fStar => self % storage(1) % Fstar)
+                  !fStar=fStar + (fStarAux)
+                  fStar=fStar + fma%s(1) * fStarAux
+                  !fStar=fStar + sqrt(2.0_RP)*fStarAux
+               end associate 
+               associate(fStar => self % storage(2) % Fstar)
+                  !fStar=fStar +(-fStarAux)
+                  fStar=fStar + fma%s(1) * (-fStarAux)
+                  !fStar=fStar +sqrt(2.0_RP)*(-fStarAux)
+               end associate 
+                
+            else 
+               fStarAux(1:nEqn,:,:) = 0.0_RP 
+               do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+              ! do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
+                  fStarAux(1:nEqn,i,j)= fStarAux(1:nEqn,i,j) + Mout(j,l,2) * flux_M1(1:nEqn,i,l)
+               end do     
+               
+               ; end do                   ; end do    
+
+               fStarAux2=0._RP
+                 ! if (self % rotation .NE. 7) write(*,*) ' line 1430rotation nn equal 7...', self % rotation
+               !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+               fStarAux=fma%s(1) * (fStarAux)
+               associate(fStar => self % storage(2) % Fstar)
+                  do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                     !call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                     call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
+                     fStarAux2(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
+                  end do                        ; end do
+                  fStar=fStar+(-fStarAux)
+               end associate
+
+               associate(fStar => self % storage(1) % Fstar)
+                  do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                     !call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                     call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
+                     fStarAux2(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
+                  end do                        ; end do
+                  fStar=fStar+(-fStarAux)
+               end associate
+               !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+               !associate(fStar => self % storage(1) % Fstar)
+               !   fStar=fStar + fma%s(1) * (fStarAux)
+               !end associate  
+               !associate(fStar => self % storage(2) % Fstar)
+               !   fStar=fStar + fma%s(1) * (fStarAux)
+               !end associate
+            end if 
+         end if  
      end subroutine Face_ProjectMortarFluxToElements
 #if defined(NAVIERSTOKES) 
    !
@@ -1083,7 +1436,7 @@
    !     ---------------
    !
          integer                :: i, j, l, m
-         
+         write(*,*)'line 1498 of faceclass progectBCjacobian'
    !     Always project to left element (this is only for boundaries)
    !     ------------------------------------------------------------
          associate(BCJac => self % storage(1) % BCJac)
@@ -1140,7 +1493,7 @@
          real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
 
          fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
-   
+         write(*,*)'line 1555 of faceclass projectingflujacobianto'
          select case ( whichElement )
             case (LEFT)    ! Prolong to left element
                if (self % IsMortar== 0) then 
@@ -1358,7 +1711,24 @@
                   end do                  ; end do
                end select
                end associate
-            end if 
+            end if
+
+                !  if (self%ID==1419) then 
+                 ! associate(unStar => self % storage(1) % unStar)
+                  !   write(*,*) 'face 1419, elemntiDs(1)=',self%elementIDs(1),'value of flux before projection', Hflux
+                  !write(*,*)'face 1419, elemntiDs(1)=',self%elementIDs(1), 'flux:',unStar
+                  !end associate
+               !end if 
+                
+               !if (self%ID==1392) then 
+               !associate(unStar => self % storage(1) % unStar)
+               !      write(*,*) 'face 1419, elemntiDs(1)=',self%elementIDs(1),'value of flux before projection', Hflux
+               !write(*,*)'face 1419, elemntiDs(1)=',self%elementIDs(1), 'flux:',unStar
+               !   end associate
+               !end if 
+
+
+
    
             case (2)    ! Prolong from right element
    !      
@@ -1410,13 +1780,27 @@
                unStar = factor * unStar
    
                end associate
+               !if (self%ID==1419) then 
+               !   associate(unStar => self % storage(2) % unStar)
+               !      write(*,*) 'face 1419, elemntiDs(2)=',self%elementIDs(2),'value of flux before projection', Hflux
+                !  write(*,*)'face 1419, elemntiDs(2)=',self%elementIDs(2), 'flux:',unStar
+              !!!    end associate
+               !end if 
+                
+               !if (self%ID==1392) then 
+               !associate(unStar => self % storage(2) % unStar)
+               !      write(*,*) 'face 1419, elemntiDs(2)=',self%elementIDs(2),'value of flux before projection', Hflux
+               !write(*,*)'face 1419, elemntiDs(2)=',self%elementIDs(2), 'flux:',unStar
+               !   end associate
+               !end if 
+
             end if 
             end select
          end do
    
       end subroutine Face_ProjectGradientFluxToElements
 
- subroutine Face_ProjectMortarGradientFluxToElements(self, nEqn, fma, Hflux, whichElements, factor)  
+ subroutine Face_ProjectMortarGradientFluxToElements(self, nEqn, fma, Hflux, whichElements, factor, sliding)  
          use MappedGeometryClass
       use PhysicsStorage
       implicit none
@@ -1426,43 +1810,120 @@
       real(kind=RP), intent(in), optional  :: Hflux(nEqn, NDIM, 0:fma % Nf(1), 0:fma % Nf(2))
       integer,       intent(in)  :: whichElements(2)
       integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
+      logical, optional, intent(in) :: sliding
 
-      real(kind=RP)     :: hStarAux(nEqn, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP)     :: hStarAux(nEqn, NDIM, 0:fma % NfRight(1), 0:fma % NfRight(2))
+      real(kind=RP)     :: hStarAux2(nEqn, NDIM, 0:fma % NfRight(1), 0:fma % NfRight(2))
+      real(kind=RP)     :: ff(nEqn, NDIM, 0:fma % NfRight(1), 0:fma % NfRight(2))
       real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
-      integer           :: i, j, l, m
+      integer           :: i, j, l, m, ii, jj
+   
+      if (.not.present(sliding)) then 
+         select case (fma%Mortarpos)
+         case (1)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 2) % T)
+        case (2)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)  
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+         !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)  
+         !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 2) % T)
 
-      select case (fma%Mortarpos)
-      case (1)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
-      case (2)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)  
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 1, 2) % T)
-      case (3)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
-      case (4)
-          Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 2, 2) % T)
-          Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
-      end select 
+        case (3)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+         !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)  
+         !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
+        case (4)
+            Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+         !Mout(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)  
+         !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
+        end select 
+      else 
+         if (MOD(fma% ID, 2)==1) then 
+            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
+         elseif (MOD(fma% ID, 2)==0) then  
+            Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 3, 2) % T)
+            Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T)
+         end if 
+      end if 
 
       hStarAux = 0.0_RP 
+      if (.not.present(sliding)) then 
+         do l = 0, fma % Nf(2)  ; do j = 0, fma % NfRight(2)   
+               do m = 0, fma % Nf(1) ; do i = 0, fma % NfRight(1)
+                  hStarAux(:,:,i,j) =  hStarAux(:,:,i,j) +  Mout(i,m,1) * Mout(j,l,2) &
+                                                         * Hflux(:,:,m,l)
+      
+               end do                 ; end do
+            end do                  ; end do
+            associate(unStar => self % storage(1) % unStar)
+               unStar=unStar+hStarAux
+               !if (fma%Mortarpos==4) write(*,*) 'gradflux after projection', unStar 
+         end associate 
 
-     do l = 0, fma % Nf(2)  ; do j = 0, fma % NfRight(2)   
-         do m = 0, fma % Nf(1) ; do i = 0, fma % NfRight(1)
-             hStarAux(:,:,i,j) =  hStarAux(:,:,i,j) +  Mout(i,m,1) * Mout(j,l,2) &
-                                                   * Hflux(:,:,m,l)
- 
-         end do                 ; end do
-      end do                  ; end do
-      associate(unStar => self % storage(1) % unStar)
-         unStar=unStar+hStarAux
-         !if (fma%Mortarpos==4) write(*,*) 'gradflux after projection', unStar 
-     end associate 
+         associate(unStar => self % storage(2) % unStar)
+               unStar=unStar+ factor * hStarAux
+         end associate
+      else 
+      if (whichElements(1)==1) then
+         hStarAux = 0.0_RP 
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+            hStarAux(:,:,i,j)= hStarAux(:,:,i,j) + Mout(j,l,whichElements(1)) * Hflux(:,:,i,l)
+         end do                  ; end do                   ; end do 
 
-     associate(unStar => self % storage(2) % unStar)
-         unStar=unStar+ factor * hStarAux
-     end associate
+
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         hStarAux=fma%s(1) * (hStarAux)
+         associate(unStar => self % storage(1) % unStar)
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
+            end do                        ; end do
+            unStar=unStar+(-hStarAux)
+         end associate
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+               !associate(unStar => self % storage(whichElements(1)) % unStar)
+               ! unStar=unStar + fma%s(1) * hStarAux
+               ! end associate 
+
+                !associate(unStar => self % storage(2) % unStar)
+                !  unStar=unStar + fma%s(1) * (hStarAux)
+                !  end associate 
+
+    
+
+
+            end if
+            if (whichElements(1)==2) then 
+               hStarAux = 0.0_RP 
+               do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               hStarAux(:,:,i,j)= hStarAux(:,:,i,j) + Mout(j,l,whichElements(1)) * Hflux(:,:,i,l)
+                   end do                  ; end do                   ; end do 
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                   hStarAux=fma%s(1) * (hStarAux)
+                   associate(unStar => self % storage(2) % unStar)
+                      do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                         call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                         hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
+                      end do                        ; end do
+                      unStar=unStar+(-hStarAux)
+                   end associate
+                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              ! associate(unStar => self % storage(1) % unStar)
+              !    unStar=unStar + fma%s(1) * (hStarAux)
+              !    end associate 
+              ! associate(unStar => self % storage(whichElements(1)) % unStar)
+              !    unStar=unStar + fma%s(1) * (hStarAux)
+              ! end associate
+  
+
+            end if 
+      end if 
 
 end subroutine Face_ProjectMortarGradientFluxToElements
 
@@ -1666,7 +2127,7 @@ END SUBROUTINE Face_Interpolatesmall2biggrad
    
          
          fluxDeriv(1:,1:,1:,0:,0:) => self % storage(whichderiv) % dFv_dGradQF
-         
+         !write(*,*)'line 2168 of faceclass projectgradjacobian'
          select case ( whichElement )
             case (LEFT)    ! Prolong to left element
             if (self % IsMortar==0) then 
@@ -1840,7 +2301,7 @@ END SUBROUTINE Face_Interpolatesmall2biggrad
 !
       integer       :: i, j, k, l, m, ii, jj
       real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-
+      !write(*,*)'line 2342 of faceclass adaptbasesolutiontoface'
       select case (side)
       case(1)
          associate(Qf => self % storage(1) % Qbase)

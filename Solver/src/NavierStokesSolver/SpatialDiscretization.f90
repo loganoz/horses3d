@@ -373,10 +373,12 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, m  
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, m  , ii, jj 
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
          real(kind=RP), allocatable :: Source_HO(:,:,:,:)
          integer,       allocatable :: i_(:), j_(:), k_(:)
+         real(kind=RP) :: fStarAux(1:NCONS,0:mesh%faces(1)%NfRight(1),0:mesh%faces(1)%NfRight(1))
+
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -447,6 +449,14 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
+            if (mesh % faces(fID) % IsMortar==3) then 
+               associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                  fstar=0.0_RP
+               end associate
+               associate(fstar=>mesh% faces(fID)%storage(2)%fStar)
+                  fstar=0.0_RP
+               end associate
+            end if 
             if (mesh % faces(fID) % IsMortar==1) then 
                associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
                   fstar=0.0_RP
@@ -466,12 +476,76 @@ module SpatialDiscretization
          end do
 !$omp end do nowait
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         if (mesh%sliding) then 
+!$omp do schedule(runtime) private(fID)
+            do iFace = 1, size(mesh % mortar_faces)
+               fID = mesh % mortar_faces(iFace)%ID
+               associate(fstar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(1))%storage(1)%fStar)
+                  fstar=0.0_RP
+               end associate
+               associate(fstar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(1))%storage(2)%fStar)
+                  fstar=0.0_RP
+               end associate
+               associate(fstar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(2))%storage(1)%fStar)
+                  fstar=0.0_RP
+               end associate
+               associate(fstar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(2))%storage(2)%fStar)
+                  fstar=0.0_RP
+               end associate
+            end do  
+!$omp end do nowait
+         end if 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+         if (mesh%sliding) then 
+!$omp do schedule(runtime) private(fID)
+            do iFace = 1, size(mesh % mortar_faces)
+               fID = mesh % mortar_faces(iFace)%ID
+               if (fID .ne. iFace) write(*,*)'line497 spatialdisc fID ne Iface'
+               call computeElementInterfaceFlux(fma=mesh % faces(mesh % mortar_faces(fID)%Mortar(1)), fmb=mesh % faces(mesh % mortar_faces(fID)%Mortar(2)), &
+               f=mesh % mortar_faces(iFace), m=m,sliding=.true.)
+            end do 
+!$omp end do nowait
+         end if 
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
             fID = mesh % faces_boundary(iFace)
             call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
 !$omp end do
+  !  if (mesh%sliding) then 
+  !     fStarAux=0.0_RP
+  !     do iFace=1, size(mesh%elements)
+  !        if (mesh%elements(iFace)%sliding_newnodes) then 
+  !           associate(fStar=>mesh%faces(mesh%elements(iFace)%faceIDs(5))%storage(2)%fStar)
+  !             fStarAux=fStar
+   !            fstar=0.0_RP
+  !!           do j = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2)   ; do i = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1)   
+   !             call leftIndexes2Right(i,j,mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1), mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2), &
+  !!              mesh%faces(mesh%elements(iFace)%faceIDs(5)) % rotation, ii, jj)
+   !             fstar(1:NCONS,ii,jj) = fStarAux(1:NCONS,i,j) 
+   !          end do                        ; end do
+   !          fStar=-fStar
+   !          end associate
+
+
+   !          associate(fStar=>mesh%faces(mesh%elements(iFace)%faceIDs(5))%storage(1)%fStar)
+   !            fStarAux=fStar
+   !            fstar=0.0_RP
+   !          do j = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2)   ; do i = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1)   
+   !             call leftIndexes2Right(i,j,mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1), mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2), &
+   !             mesh%faces(mesh%elements(iFace)%faceIDs(5)) % rotation, ii, jj)
+   !             fstar(1:NCONS,ii,jj) = fStarAux(1:NCONS,i,j) 
+   !          end do                        ; end do
+   !          fStar=-fStar
+   !          end associate
+   !       end if 
+   !    end do
+   ! end if 
+
+         !call mesh % faces(1)%TestMortar(mesh%faces(mesh%elements(387)%faceIDs(5)), mesh%faces(mesh%elements(440)%faceIDs(5)),NCONS)
+
 !
 !        ***************************************************************
 !        Surface integrals and scaling of elements with non-shared faces
@@ -738,6 +812,7 @@ module SpatialDiscretization
 !        Compute the viscosity at the elements and faces
 !        ***********************************************
 !
+         write(*,*)'HO element spatial discretization line 774'
          if (flowIsNavierStokes) then
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, size(mesh % HO_Elements)
@@ -805,6 +880,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
       do iFace = 1, size(mesh % HO_FacesInterior)
          fID = mesh % HO_FacesInterior(iFace)
+         write(*,*)'HOOOOOO L842'
          call computeElementInterfaceFlux(mesh % faces(fID))
       end do
 !$omp end do nowait
@@ -1047,9 +1123,10 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
-                  if (f % IsMortar==1) cycle  
+                  if (f % IsMortar==1 .OR. f % IsMortar==3) cycle  
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                   do side = 1, no_of_sides
+                     !write(*,*) 'Q(1)',f % storage(side) % Q(1,i,j)
                       call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
                   end do
                end do              ; end do
@@ -1058,13 +1135,31 @@ module SpatialDiscretization
 !$omp end do
          end if
 
+         if (mesh%sliding) then 
+!$omp do schedule(runtime) private(i,j)
+            do iFace = 1, size(mesh%mortar_faces)
+               associate(f => mesh % mortar_faces(iFace))  
+               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                  do side = 1, no_of_sides
+                     !write(*,*) 'Q1 mortar_faces', f % storage(side) % Q(1,i,j)
+                     !write(*,*) 'Q2 mortar_faces', f % storage(side) % Q(2,i,j)
+                     !write(*,*) 'Q3 mortar_faces', f % storage(side) % Q(3,i,j)
+                     !write(*,*) 'Q4 mortar_faces', f % storage(side) % Q(4,i,j)
+                     !write(*,*) 'Q5 mortar_faces', f % storage(side) % Q(5,i,j)
+                      call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
+                  end do
+               end do              ; end do
+               end associate
+            end do
+!$omp end do
+         end if 
          if ( LESModel % Active ) then
 !$omp do schedule(runtime) private(i,j,delta,mu_smag)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
 
                delta = sqrt(f % geom % surface / product(f % Nf + 1))
-               if (f % IsMortar==1) cycle 
+               if (f % IsMortar==1 .OR. f % IsMortar==3) cycle 
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                   do side = 1, no_of_sides
                      call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
@@ -1081,7 +1176,27 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-
+         if ( LESModel % Active .and. mesh%sliding) then
+!$omp do schedule(runtime) private(i,j,delta,mu_smag)
+                        do iFace = 1, size(mesh%mortar_faces)
+                           associate(f => mesh % mortar_faces(iFace))
+            
+                           delta = sqrt(f % geom % surface / product(f % Nf + 1))
+                           do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                              do side = 1, no_of_sides
+                                 call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
+                                                                                                f % storage(side) % U_x(:,i,j), &
+                                                                                                f % storage(side) % U_y(:,i,j), &
+                                                                                                f % storage(side) % U_z(:,i,j), &
+                                                                                                mu_smag)
+                                 f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
+                                 f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
+                              end do
+                           end do              ; end do
+                           end associate
+                        end do
+!$omp end do
+                     end if
 
 
       end subroutine compute_viscosity_at_faces
@@ -1395,13 +1510,15 @@ module SpatialDiscretization
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine computeElementInterfaceFlux(f, fma, m)
+      subroutine computeElementInterfaceFlux(f, fma, fmb, m, sliding )
         use FaceClass
         use RiemannSolvers_NS
         implicit none
         type(Face)   , intent(inout) :: f
         type(Face), optional, intent(inout) :: fma 
-        integer, optional :: m 
+        type(Face), optional, intent(inout) :: fmb
+        integer, optional, intent(in) :: m 
+        logical, optional , intent(in) :: sliding
         !type(Face), optional, intent(inout) :: fmb 
         !type(Face), optional, intent(inout) :: fmc 
         !type(Face), optional, intent(inout) :: fmd 
@@ -1433,6 +1550,7 @@ module SpatialDiscretization
   !        Viscous fluxes
   !        --------------
   !
+          ! write(*,*)'face',f%ID,'h in line 1511', f%geom%h,'is mortar',f%ismortar
            if (flowIsNavierStokes) then
               do j = 0, f % Nf(2)
                  do i = 0, f % Nf(1)
@@ -1493,18 +1611,29 @@ module SpatialDiscretization
   !        Return the flux to elements
   !        ---------------------------
   !
-      if (f % IsMortar==0) then 
-           Sidearray = (/1,2/)
-           call f % ProjectFluxToElements(NCONS, flux, Sidearray)
-     end if 
-     if (f % IsMortar==2 .and. present(fma)) then 
+      if (.not.present(sliding)) then     
+         if (f % IsMortar==0) then 
+            Sidearray = (/1,2/)
+            call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+         end if 
+         if (f % IsMortar==2 .and. present(fma)) then 
+            Sidearray = (/1,0/)
+            call fma % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=Sidearray, &
+               fma=f, flux_M1=flux)
+               Sidearray = (/0,2/)
+               call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+         end if 
+      else 
+         !write(*,*) 'projecting flux of mortr',f%ID,'to faces fma',fma%ID,'and fmb', fmb%ID
+         !write(*,*)'element of face',fma%ID,'=',fma%elementIDs(1)
+         !write(*,*)'element of face',fmb%ID,'=',fmb%elementIDs(1)
          Sidearray = (/1,0/)
          call fma % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=Sidearray, &
-            fma=f, flux_M1=flux)
-            Sidearray = (/0,2/)
-            call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+         fma=f, flux_M1=flux, sliding= .true.) 
+         Sidearray = (/2,0/)
+         call fmb % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=Sidearray, &
+         fma=f, flux_M1=flux,  sliding=.true.) 
      end if 
-     !end if 
 
      end subroutine computeElementInterfaceFlux
 
