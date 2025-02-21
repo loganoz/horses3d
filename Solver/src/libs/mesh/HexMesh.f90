@@ -6324,14 +6324,7 @@ write(*,*)'mine 6127 of hexmesh'
     write(*,*) 'rotating nodes'
     allocate (Xpatch(3,numBFacePoints,numBFacePoints))
     z=1
-    write(*,*) 'before rotation, we rotate the geomtry of the faces to compare and see'
-    do i=0,1
-      do j=0,1
-         xxx(:,i,j)=MATMUL(ROT, self%faces(self%elements(70)%faceIDs(3))%geom%x(:,i,j))
-      end do 
-   end do 
-   write(*,*) 'this is x of face 3 of element 70 after the rotation bitch'
-   write(*,*) xxx
+
     do i=1, self % no_of_elements 
       if (self%elements(i)%sliding) then 
          if (self % elements(i) % SurfInfo % IsHex8 ) then 
