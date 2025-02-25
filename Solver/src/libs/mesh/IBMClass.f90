@@ -118,7 +118,6 @@ module IBMClass
    end type
 
    public :: expCoeff, EXPONENTIAL, GetPointState, GetPointGrads
-   public :: ComputeBulkVelocity_Re
 
    real(kind=RP)      :: expCoeff
    integer, parameter :: EXPONENTIAL = 1, IDW = 2
@@ -1809,8 +1808,8 @@ module IBMClass
             call spA_s% construct(GAUSS, M) 
 
             eID = f% elementIDs(maxloc(f% elementIDs, dim=1))
-            h   = hGeom(2._RP) 
-            L   = hgeom(1._RP)
+            h   = hGeom(150._RP) 
+            L   = hgeom(10._RP)
 
             do i = 0, f% Nf(1); do j = 0, f% Nf(2)
                
@@ -3209,38 +3208,5 @@ module IBMClass
       end do
 
    end subroutine TECtriangle_3points
-
-   subroutine ComputeBulkVelocity_Re( elements )
-      use NodalStorageClass
-      use FluidData
-      implicit none 
-
-      type(element), intent(in) :: elements(:)
-
-      real(kind=RP) :: UUb, Ab, u
-      integer       :: i, j, k, eID  
-      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-
-      UUb = 0.0_RP; Ab = 0.0_RP 
-      do eID = 1, size(elements)
-         associate( spAxi   => NodalStorage(elements(eID) % Nxyz(1)), &
-                    spAeta  => NodalStorage(elements(eID) % Nxyz(2)), &
-                    spAzeta => NodalStorage(elements(eID) % Nxyz(3))  )
-         do i = 0, elements(eID)% Nxyz(1); do j = 0, elements(eID)% Nxyz(2); do k = 0, elements(eID)% Nxyz(3)
-#if defined(NAVIERSTOKES)
-            u   = elements(eID)% storage% Q(IRHOU,i,j,k)/elements(eID)% storage% Q(IRHO,i,j,k)
-#endif
-            UUb = UUb + spAxi% w(i) * spAeta% w(j) * spAzeta% w(k) * u * elements(eID)% geom% jacobian(i,j,k) 
-         end do; end do ; end do 
-         Ab  = Ab  + elements(eID)% geom% Volume
-         end associate
-      end do
-
-      write(*,*) ' Bulk Velocity = ', UUb/Ab  
-      write(*,*) ' Computed Area = ', 4.0_RP*Ab, ' Area =', 2.0_RP*PI * (PI)
-#if defined(NAVIERSTOKES)
-      write(*,*) ' Bulk Reynolds = ',refValues% rho * refValues% V * UUb/Ab / refValues% mu 
-#endif
-   end subroutine ComputeBulkVelocity_Re 
 
 end module IBMClass
