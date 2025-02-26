@@ -20,7 +20,6 @@ module SpatialDiscretization
       use NodalStorageClass
       use ElementConnectivityDefinitions, only: axisMap, normalAxis
       use FaceClass, only: Face
-    ! use AnalyticalJacobianPoisson, only: ComputeSourceRHSIntegral
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -284,7 +283,6 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
             fID = mesh % faces_boundary(iFace)
-            ! write (*,*) "fID === ",fID
             call computeBoundaryFlux_SLR(mesh % faces(fID), time, mesh)
          end do
 !$omp end do
@@ -321,10 +319,7 @@ module SpatialDiscretization
                                                       + dt * beta0 * e % storage % QDot  (1:N_INS,i,j,k) / e % geom % jacobian(i,j,k)  &
                                                       + dt * beta1 * e % storage % Nterm2(1:N_INS,i,j,k) / e % geom % jacobian(i,j,k)  &
                                                       )
-
-                     ! e % storage % Q(1:N_INS,i,j,k) =  e % storage % slr1(1:N_INS,i,j,k) &
-                                                ! + dt * e % storage % QDot(1:N_INS,i,j,k) / e % geom % jacobian(i,j,k)
-                     
+ 
                   end do             
                end do                
             end do
