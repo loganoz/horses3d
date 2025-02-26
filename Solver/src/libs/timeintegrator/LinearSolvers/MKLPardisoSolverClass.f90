@@ -41,6 +41,8 @@ MODULE MKLPardisoSolverClass
       INTEGER, ALLOCATABLE                       :: perm(:)
       INTEGER, POINTER                           :: Pardiso_iparm(:) => NULL()         ! Parameters for mkl version of pardiso
       INTEGER(KIND=AddrInt), POINTER             :: Pardiso_pt(:)    => NULL()  
+      ! //////////////////////////Zhang Yu /////////////////////////////////////////
+      ! procedure(MatrixShift_FCN), pointer :: MatrixShift_T
    CONTAINS
       !Subroutines:
       PROCEDURE :: construct                    => ConstructMKLContext
@@ -58,6 +60,12 @@ MODULE MKLPardisoSolverClass
       procedure :: ComputeJacobianMKL
       procedure :: FactorizeJacobian            => MKL_FactorizeJacobian
       procedure :: SetJacobian                  => MKL_SetJacobian
+
+      ! ////////////////////////////////////////////////////////////////////
+      ! //////////////////////////Zhang Yu /////////////////////////////////////////
+      procedure :: MatrixShift_T
+      ! procedure(MatrixShift_FCN), pointer :: MatrixShift_T
+      ! ////////////////////////////////////////////////////////////////////
       !Functions:
       PROCEDURE :: Getxnorm                     => MKL_GetXnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
@@ -124,7 +132,10 @@ MODULE MKLPardisoSolverClass
          this % p_sem => sem
       end if
       
+      ! write (*,*) "MatrixShiftFunc = ", MatrixShiftFunc(1.0_RP)
       MatrixShift => MatrixShiftFunc
+      ! //////////////////////////Zhang Yu /////////////////////////////////////////
+      ! this % MatrixShift_T => MatrixShiftFunc
       
       this % DimPrb = DimPrb
       
@@ -235,7 +246,12 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,ComputeA) 
+   subroutine solve(this, nEqn, nGradEqn, &
+      ComputeTimeDerivative,tol,maxiter,time,dt,ComputeA           &
+#if defined(SCALAR_INS_V04)
+      ,startNum  &
+#endif
+) 
       implicit none
 !
 !     ----------------------------------------------------
@@ -246,7 +262,16 @@ MODULE MKLPardisoSolverClass
       class(MKLPardisoSolver_t), target, intent(inout) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
-      procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
+
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional  ,      intent(in)                :: startNum
+      procedure(ComputeNonlinearStep1_f)       :: ComputeTimeDerivative
+#else
+   procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+#endif
+
+      ! procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
       real(kind=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       real(kind=RP), OPTIONAL                  :: time
@@ -264,11 +289,21 @@ MODULE MKLPardisoSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn, &
+#if defined(SCALAR_INS_V04)
+            startNum, &
+#endif
+            ComputeTimeDerivative)
+
             ComputeA = .FALSE.
          end if
       else
-         call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,  &
+#if defined(SCALAR_INS_V04)
+            startNum,                                 &
+#endif
+          ComputeTimeDerivative)
+
       end if
       
       call this % SolveLUDirect(error)
@@ -288,7 +323,12 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ComputeJacobianMKL(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+   subroutine ComputeJacobianMKL(this,dt,time,nEqn,nGradEqn,  &
+#if defined(SCALAR_INS_V04)
+      startNum,                     &
+#endif     
+      ComputeTimeDerivative)
+
       use DenseBlockDiagonalMatrixClass
       implicit none
       !-----------------------------------------------------------
@@ -297,20 +337,39 @@ MODULE MKLPardisoSolverClass
       real(kind=RP), intent(in)                :: time
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
+
+#if defined(SCALAR_INS_V04)
+      procedure(ComputeNonlinearStep1_f)       :: ComputeTimeDerivative
+      integer,   optional  ,      intent(in)                :: startNum
+#else
       procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+#endif
+
       !-----------------------------------------------------------
       type(csrMat_t) :: B, Cmat !debug
+
+      write (*,*) "this % AIsPetsc =========== ", this % AIsPetsc
       
       if (this % AIsPetsc) then
-         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % PETScA, ComputeTimeDerivative, ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % PETScA, &
+                                             TimeDerivative=ComputeTimeDerivative, &
+                                             TimeDerivativeIsolated=ComputeTimeDerivative &
+#if defined(SCALAR_INS_V04)
+                                          , startNum = startNum             &
+#endif
+         )
          
          call this % PETScA % GetCSRMatrix(this % A)
+
          call this % SetOperatorDt(dt)
          this % AIsPetsc = .FALSE.
          call this % PETScA % destruct
       else
-         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative, ComputeTimeDerivative)
-         
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative, ComputeTimeDerivative &
+#if defined(SCALAR_INS_V04)
+                                          ,startNum = startNum                &
+#endif
+)
 !~         !<debug
          
 !~         call this % A % Visualize('AnJac_visu.dat')
@@ -399,6 +458,21 @@ MODULE MKLPardisoSolverClass
       this % AIsPrealloc = .FALSE.
       
     end subroutine MKL_destroy
+
+
+    subroutine MatrixShift_T(this,shiftVariable)       
+      implicit none
+      !-----------------------------------------------------------
+      class(MKLPardisoSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: shiftVariable
+      !-----------------------------------------------------------
+      
+      ! //////////////////////////Zhang Yu /////////////////////////////////////////
+      this % Ashift = shiftVariable
+      ! this % Ashift = this % MatrixShift_T(dt)
+ 
+      
+    end subroutine MatrixShift_T
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -409,7 +483,10 @@ MODULE MKLPardisoSolverClass
       real(kind=RP)            , intent(in)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = MatrixShift(dt)
+      ! this % Ashift = MatrixShift(dt)
+      ! //////////////////////////Zhang Yu /////////////////////////////////////////
+      ! this % Ashift = this % MatrixShift_T(dt)
+      write (*,*) "this % Ashift = MatrixShift(dt) == ", this % Ashift
       if (this % AIsPetsc) THEN
          call this % PETScA % shift(this % Ashift)
       else
@@ -491,7 +568,11 @@ MODULE MKLPardisoSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 
-   subroutine MKL_ComputeAndFactorizeJacobian(self,nEqn, nGradEqn, F_J, dt, eps, mode_in)
+   subroutine MKL_ComputeAndFactorizeJacobian(self,nEqn, nGradEqn,   & 
+#if defined(SCALAR_INS_V04)
+            startNum, &
+#endif
+      F_J, dt, eps, mode_in)
 !
 !     *************************************************************************************
 !     This subroutine performs the following:
@@ -505,17 +586,29 @@ MODULE MKLPardisoSolverClass
       implicit none
       class(MKLPardisoSolver_t), intent(inout) :: self
       integer,                   intent(in)    :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)       :: F_J
       real(kind=RP), intent(in)                :: dt
       real(kind=RP), intent(in)                :: eps
       integer,       intent(in)                :: mode_in
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)     :: startNum
+      procedure(ComputeNonlinearStep1_f)       :: F_J
+#else
+      procedure(ComputeTimeDerivative_f)       :: F_J
+
+#endif
+
 
 
 !
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
       if ( self % AIsPetsc) then
-         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % PETScA, F_J, eps_in = eps)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % PETScA, F_J, &
+#if defined(SCALAR_INS_V04)
+         startNum = startNum, &
+#endif       
+         eps_in = eps)
 !
 !        Transform the Jacobian to CSRMatrix
 !        -----------------------------------
@@ -527,7 +620,12 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, F_J, eps, .false., mode_in)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, F_J, &
+#if defined(SCALAR_INS_V04)
+            startNum = startNum, &
+#endif
+            eps_in= eps, BlockDiagonalized=.false., mode=mode_in)
+
          call self % SetOperatorDt(dt)
          
          self % A % values = -dt * self % A % values

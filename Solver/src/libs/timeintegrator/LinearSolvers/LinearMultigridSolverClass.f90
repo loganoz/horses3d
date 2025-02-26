@@ -650,7 +650,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine MG_Solve(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+   subroutine MG_Solve(this, nEqn, nGradEqn, &
+                   ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA &
+#if defined(SCALAR_INS_V04)
+                  ,startNum  &
+#endif
+)
 !  ---------------------------------------------------------
 !  Constructor. 
 !  ---------------------------------------------------------
@@ -659,12 +664,23 @@ contains
       class(LinearMultigridSolver_t), target   , intent(inout) :: this
       type(LinearMultigridSolver_t) , pointer                  :: pMG     
       integer                            , intent(in)    :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)                 :: ComputeTimeDerivative
       real(kind=rp)           , optional                 :: tol
       integer                 , optional                 :: maxiter
       real(kind=rp)           , optional                 :: time
       real(kind=rp)           , optional                 :: dt
       logical                 , optional , intent(inout) :: ComputeA
+
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)     :: startNum
+      procedure(ComputeNonlinearStep1_f)                 :: ComputeTimeDerivative
+#else
+   procedure(ComputeTimeDerivative_f)                 :: ComputeTimeDerivative
+
+#endif
+
+
+
 !-----Local-Variables-----------------------------------------------------
       class(csrMat_t), pointer :: pA
       integer                  :: niter
@@ -677,6 +693,8 @@ contains
 
       call MG_UpdateInfo(this,no_levels, dt, time)
 
+#if defined(SCALAR_INS_V04)
+#else
       if ( present(ComputeA)) then
          if (ComputeA) then
             call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
@@ -685,6 +703,7 @@ contains
       else
          call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
       end if
+#endif
 
       call this % child % p_sem % mesh % storage % local2globalq (this % child % p_sem % mesh % storage % NDOF)
 

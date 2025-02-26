@@ -10,7 +10,7 @@ module PetscSolverClass
    use GenericLinSolverClass
    use MatrixClass   
    use SMConstants
-   use DGSEMClass             , only: DGSem, computetimederivative_f
+   use DGSEMClass        
    use MPI_Process_Info       , only: MPI_Process
 #ifdef HAS_PETSC
    use petsc
@@ -214,15 +214,31 @@ module PetscSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine PETSc_solve(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA)
+   subroutine PETSc_solve(this, nEqn, nGradEqn, &
+            ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA  &
+#if defined(SCALAR_INS_V04)
+            ,startNum  &
+#endif
+            )
+
       implicit none
       !-arguments-----------------------------------------------------------
       class(PetscKspLinearSolver_t), target, intent(inout)  :: this
       integer,       intent(in)                             :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
       real(kind=RP), optional                               :: time
       real(kind=RP), optional                               :: dt
       logical      , optional               , intent(inout) :: ComputeA
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)     :: startNum
+      procedure(ComputeNonlinearStep1_f)                    :: ComputeTimeDerivative
+#else
+      procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
+
+#endif
+
+
+
 #ifdef HAS_PETSC
       PetscReal    , optional                               :: tol
       PetscInt     , optional                               :: maxiter

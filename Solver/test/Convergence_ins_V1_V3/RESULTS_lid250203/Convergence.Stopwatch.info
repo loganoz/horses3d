@@ -1,0 +1,9 @@
+#Stopwatch information file
+# Event                                            Elapsed time(s)    CPU-Time (s)
+TotalTime                                              1.22189E+02     1.17598E+02
+Preprocessing                                          3.20000E-02     3.16630E-02
+Solver                                                 1.22154E+02     1.17563E+02
+Analytical Jacobian Poisson construction               0.00000E+00     0.00000E+00
+Sparse LU-Factorization                                3.68000E-01     3.66975E-01
+Sparse LU-Factorization                                0.00000E+00     0.00000E+00
+SplitSteps Newton-Solve                                0.00000E+00     0.00000E+00

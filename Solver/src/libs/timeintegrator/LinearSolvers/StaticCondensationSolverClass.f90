@@ -467,7 +467,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SCS_solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
+   subroutine SCS_solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA&
+#if defined(SCALAR_INS_V04)
+            ,startNum  &
+#endif
+               )
       use CSRMatrixClass ! debug
       implicit none
       !-arguments-----------------------------------------------------------
@@ -480,6 +484,13 @@ contains
       real(kind=RP), optional                  :: time
       real(kind=RP), optional                  :: dt
       logical      , optional  , intent(inout) :: computeA
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)     :: startNum
+#endif
+
+
+
       !-local-variables-----------------------------------------------------
       logical        :: subCompA
       real(kind=RP)  :: xb(this % A % size_b)

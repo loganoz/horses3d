@@ -1,0 +1,102 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = MESH_FILE_NAME
+                      Solution file name = SOLUTION_FILE_NAME.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = 3D
+                                 Restart = .false.
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS  ! Euler
+                             Mach number = 0.1
+                         Reynolds number = 1000.0
+                           Froude number = 1.0d+300
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Gravity direction = [x,y,z]
+                       Compute gradients = .true.
+
+!                        ** Cahn-Hilliard
+                           Peclet number = 1.0
+                          Capilar number = 1.0
+         Interface width (dimensionless) = 1.0
+               Density ratio (rho2/rho1) = 1.0
+               Viscosity ratio (mu2/mu1) = 1.0
+                      Wall contact angle = 0.0
+
+!------------------------- Discretization:-
+                        Polynomial order = 5
+                    Discretization nodes = Gauss  ! Gauss-Lobatto
+                          Riemann solver = Roe  ! Standard Roe/Low dissipation Roe
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Standard  ! Split-form
+                              Split form = Ducros   ! Pirozzoli/Morinishi/Kennedy-Gruber/Entropy conserving/Entropy and energy conserving
+                  Viscous discretization = BR1   ! IP/BR2
+            Cahn-Hilliard discretization = IP   ! BR1/BR2
+                       Penalty parameter = 1.0
+                Interior penalty variant = SIPG   ! IIPG/NIPG
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+                                     CFL = 0.4
+                                    dCFL = 0.4
+                                      dt = 0.01
+                    Number of time steps = 100
+                         Output interval = 1
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = steady-state   ! time-accurate
+                              Final time = 1.0
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 100   ! 1.0
+
+!-------------------- Boundary conditions:-
+                    Number of boundaries = 8
+bname1 0.0 freeslipwall
+bname2 0.0 noslipadiabaticwall
+bname3 0.0 noslipisothermalwall
+bname4 0.0 inflow
+bname5 0.0 outflow
+bname6 0.0 periodic+
+bname7 0.0 periodic-
+bname8 0.0 user-defined
+
+
+
+!#define probe 1
+!                Name = Probe example
+!            Position = [x,y,z]
+!            Variable = pressure/velocity/u/v/w/mach/K
+!#end
+
+!#define surface monitor 1
+!                Name = Surface monitor example
+!              Marker = bnameX
+!            Variable = mass-flow/flow/pressure-force/viscous-force/force/lift/drag/pressure-average
+!           Direction = [x,y,z]
+!   Reference surface = 1.0
+!#end
+
+!#define volume monitor 1
+!                Name = Surface monitor example
+!            Variable = kinetic energy/kinetic energy rate/enstrophy/entropy/entropy rate/mean velocity
+!#end
+
+!#define statistics
+!            Variable = kinetic energy/kinetic energy rate/enstrophy/entropy/entropy rate/mean velocity
+!   Sampling interval = 10
+!  Starting iteration = 0
+!       Starting time = 0.0
+!!Real time control commands:
+!@start
+!@stop
+!@pause
+!@reset
+!@dump
+!#end

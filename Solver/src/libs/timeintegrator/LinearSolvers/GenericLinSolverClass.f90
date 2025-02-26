@@ -12,6 +12,9 @@ module GenericLinSolverClass
    use MatrixClass            , only: Matrix_t
    use AnalyticalJacobian     , only: AnJacobian_t
    use NumericalJacobian      , only: NumJacobian_t
+   !================###################################======================================
+   use AnalyticalJacobianPoisson      , only: AnPoissonJacobian_t
+   !================###################################======================================
    use JacobianComputerClass  , only: JacobianComputer_t, GetJacobianFlag
    use MPI_Process_Info       , only: MPI_Process
    implicit none
@@ -32,7 +35,8 @@ module GenericLinSolverClass
       integer                          :: DimPrb                ! Dimension of the (local) problem
       integer                          :: globalDimPrb          ! Dimension of the (global) problem
       integer                          :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
-      integer                          :: JacobianComputation = NUMERICAL_JACOBIAN
+      integer                          :: JacobianComputation = ANALYTICAL_JACOBIAN
+      ! integer                          :: JacobianComputation = NUMERICAL_JACOBIAN
       type(DGSem), pointer             :: p_sem => null()
    contains
       !Subroutines:
@@ -48,6 +52,8 @@ module GenericLinSolverClass
       procedure :: ReSetOperatorDt
       procedure :: AssemblyRHS
       procedure :: SetJacobian
+
+      procedure :: MatrixShift_T
       !Functions:
       procedure :: Getxnorm    !Get solution norm
       procedure :: Getrnorm    !Get residual norm
@@ -107,11 +113,19 @@ contains
       end if
       
       this % JacobianComputation = GetJacobianFlag()
+      write (*,*) "090900000000--------===========", this % JacobianComputation
       
       select case (this % JacobianComputation)
-         case (NOTDEF_JACOBIAN )    ; allocate(this % Jacobian)
-         case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: this % Jacobian)
-         case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: this % Jacobian)
+         case (NOTDEF_JACOBIAN )  
+            allocate(this % Jacobian)
+         case (NUMERICAL_JACOBIAN )
+            allocate(NumJacobian_t :: this % Jacobian)
+            ! write (*,*) "090900000000----NumJacobian_t----===========", this % JacobianComputation
+         case (ANALYTICAL_JACOBIAN)
+            
+            allocate(anpoissonjacobian_t  :: this % Jacobian)
+            ! allocate(AnJacobian_t  :: this % Jacobian)
+            ! write (*,*) "090900000000-----ANALYTICAL_JACOBIAN---===========", this % JacobianComputation
          case default
             error stop 'Invalid jacobian type'
       end select
@@ -173,12 +187,22 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
+   subroutine solve(this,nEqn, nGradEqn, &
+                     ComputeTimeDerivative,tol,maxiter,time,dt,computeA   &
+#if defined(SCALAR_INS_V04)
+                     , startNum  &
+#endif
+                        )
       implicit none
       class(GenericLinSolver_t), target, intent(inout) :: this
-      integer,       intent(in)                :: nEqn
-      integer,       intent(in)                :: nGradEqn
-      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+      integer,                    intent(in)                :: nEqn
+      integer,                    intent(in)                :: nGradEqn
+#if defined(SCALAR_INS_V04)
+      integer,   optional  ,      intent(in)                :: startNum
+      procedure(ComputeNonlinearStep1_f)       :: ComputeTimeDerivative
+#else
+   procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+#endif
       real(kind=RP), optional                  :: tol
       integer      , optional                  :: maxiter
       real(kind=RP), optional                  :: time
@@ -227,6 +251,15 @@ contains
       
       write(STD_OUT,*) 'WARNING :: SetOperatorDt not implemented for desired linear solver'
    end subroutine SetOperatorDt
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Zhang Yu
+   subroutine MatrixShift_T(this, shiftVariable)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: shiftVariable
+      
+      write(STD_OUT,*) 'WARNING :: MatrixShift_T not implemented for desired linear solver'
+   end subroutine MatrixShift_T
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

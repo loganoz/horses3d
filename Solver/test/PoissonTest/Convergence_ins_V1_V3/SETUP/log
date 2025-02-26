@@ -1,0 +1,14 @@
+####################################################################################################
+#                                                                                                  #
+#                                                                                                  #
+#               HORSES3D High-Order (DG) Spectral Element Sequential Scalar Solver                 #
+#                                                                                                  #
+#                                                                                                  #
+####################################################################################################
+Compiled Oct 28 2024, 18:22:53
+ ---!           Create the array of linked lists   ---
+ ---!           Create the array of linked lists   ---
+
+
+*** ERROR: Wrong control file "ConvergenceBDF.control".
+*** ERROR: Stopping.

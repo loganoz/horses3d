@@ -111,6 +111,7 @@ CONTAINS
          CASE('Block-Jacobi')
             nelem = SIZE(sem % mesh % elements)
             NCONS = SIZE(sem % mesh % elements(1) % storage % Q,4)
+            write (*,*) "----========= nelem, NCONS =========----------", nelem, NCONS
             ALLOCATE (this % BlockPreco(nelem))
             DO k = 1, nelem
                Nx = sem % mesh % elements(k) % Nxyz(1)
@@ -170,7 +171,13 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
+   SUBROUTINE solve(this, nEqn, nGradEqn, &
+      ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA &
+#if defined(SCALAR_INS_V04)
+      ,startNum  &
+#endif
+         )
+
       IMPLICIT NONE
       CLASS(IterativeSolver_t), target, INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
@@ -180,6 +187,11 @@ CONTAINS
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
       logical      , optional      , intent(inout) :: ComputeA
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)     :: startNum
+#endif
+
       !-------------------------------------------------
       INTEGER                                 :: i
       !-------------------------------------------------
@@ -189,6 +201,10 @@ CONTAINS
       if ( present(ComputeA)) then
          if (ComputeA) then
             call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+   !                    NumJacobian_Compute(this, 
+                                          !   sem,        nEqn, time, Matrix,  TimeDerivative,  
+                                             ! TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode )
+            
             call this % SetOperatorDt(dt) ! Block preco computed inside
             ComputeA = .FALSE.
          end if
@@ -199,17 +215,27 @@ CONTAINS
       
       timesolve= time
       dtsolve  = dt
+
+
+      write(*,*) "--=_+_+_+_-=-+_+ b ===", this % b
       
+
+
       ! Initialize x
       DO i=1, this % DimPrb
          this % x(i) = this % b(i) / this % A % Values(this%A%Diag(i))
       END DO
+
+
+      write (*,*) "this % Smoother ============== ", this % Smoother
       
       
       SELECT CASE (this % Smoother)
          CASE('WeightedJacobi')
+            write(*,*) "weightedJacobi =========="
             CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter, ComputeTimeDerivative)
          CASE('Block-Jacobi')
+            write(*,*) "Block-Jacobi =========="
             CALL BlockJacobiSmoother(this, maxiter, tol, this % niter, ComputeTimeDerivative)
       END SELECT
       
@@ -412,7 +438,8 @@ CONTAINS
 !~      print*, 'bnorm = ', bnorm
 !~      print*, '    iter      residual'
       
-      DO i=1,SmoothIters
+      ! DO i=1,500
+         DO i=1,SmoothIters
           r = CSR_MatVecMul(this%A,x) ! CSR matrix product
          
 !$omp parallel do

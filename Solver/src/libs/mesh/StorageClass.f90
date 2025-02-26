@@ -18,7 +18,7 @@ module StorageClass
    public   GetStorageEquations
 
    enum, bind(C)
-      enumerator :: OFF = 0, NS, C, MU, NSSA
+      enumerator :: OFF = 0, NS, C, MU, NSSA, SLR, SLR_INS_V04
    end enum
 
    type Statistics_t
@@ -32,12 +32,18 @@ module StorageClass
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
-      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q ! Pointers to the appropriate storage (NS or CH)
-#ifdef FLOW
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q ! Pointers to the appropriate storage (NS or CH or SLR or SLR_INS_V04)
+#ifdef FLOW 
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: QNS
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: c
+#endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:,:,:,:),  allocatable     :: slr
+#endif
+#ifdef SCALAR_INS_V04
+      real(kind=RP), dimension(:,:,:,:),  allocatable     :: slr
 #endif
    end type ElementPrevSol_t
 
@@ -51,6 +57,7 @@ module StorageClass
    type ElementStorage_t
       logical                                         :: computeGradients
       logical                                         :: anJacobian = .FALSE.    ! Does we need analytical Jacobian specific storage?
+      logical                                         :: AnPoissonJacobian = .FALSE.    ! Does we need analytical AnPoissonJacobian specific storage?
       integer                                         :: prevSol_num
       integer                                         :: RKSteps_num
       integer                                         :: currentlyLoaded
@@ -60,7 +67,7 @@ module StorageClass
       integer                                         :: first_sensed      ! Time-steps since the element was first sensed
       real(kind=RP)                                   :: prev_sensor       ! Previous value of the sensor
       real(kind=RP)                                   :: sensor            ! Value of the sensor
-      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH or SLR or SLR_INS_V04)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_y         !
@@ -83,6 +90,40 @@ module StorageClass
       type(Statistics_t)                   :: stats                ! NSE statistics
       real(kind=RP)                        :: artificialDiss
 #endif
+! ===============================================##############################================================
+#ifdef SCALAR
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr     ! SCALAR
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slrDot  ! SCALAR time derivative
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_x   ! SCALAR x-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_y   ! SCALAR y-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_z   ! SCALAR z-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_SLR  ! SCALAR auxiliary storage
+      real(kind=RP),                       allocatable :: S_SLR(:,:,:,:) ! SCALAR source term
+      real(kind=RP),                       allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! SCALAR Jacobian with respect to gradQ
+#endif
+! ===============================================##############################================================
+#ifdef SCALAR_INS_V04
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr     ! SCALAR
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slrDot  ! SCALAR time derivative
+      ! ===============================================================================================
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr1     ! slr1 time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr2     ! slr2 time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slrDot1  ! SCALAR time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: Nterm1  ! Nterm1 time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: Nterm2  ! Nterm2 time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: pressINS  ! pressINS time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: vel__INS  ! vel__INS time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: pre_source  ! pre_source time source_
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: vel_source  ! vel_source time source_
+      ! ===============================================================================================
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_x   ! SCALAR x-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_y   ! SCALAR y-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: slr_z   ! SCALAR z-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_SLR  ! SCALAR auxiliary storage
+      real(kind=RP),                       allocatable :: S_SLR(:,:,:,:) ! SCALAR source term
+      real(kind=RP),                       allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! SCALAR Jacobian with respect to gradQ
+#endif
+! ===============================================##############################================================
 #ifdef SPALARTALMARAS
       real(kind=RP),           allocatable ::  S_SA(:,:,:,:)
       real(kind=RP),           allocatable :: mu_SA(:,:,:,:)         ! EddyViscocityVector, EddyetaVector
@@ -100,6 +141,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliary storage
 #endif
+
       contains
          procedure   :: Assign              => ElementStorage_Assign
          generic     :: assignment(=)       => Assign
@@ -115,6 +157,12 @@ module StorageClass
          procedure   :: SetStorageToCH_c  => ElementStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => ElementStorage_SetStorageToCH_mu
 #endif
+#ifdef SCALAR
+         procedure   :: SetStorageToSLR_slr  => ElementStorage_SetStorageToSLR_slr
+#endif
+#ifdef SCALAR_INS_V04
+         procedure   :: SetStorageToSLR_slr  => ElementStorage_SetStorageToSLR_slr
+#endif
    end type ElementStorage_t
 
 !
@@ -126,6 +174,7 @@ module StorageClass
       logical                                    :: AdaptedQdot  = .FALSE.
       logical                                    :: AdaptedPrevQ = .FALSE.
       logical                                    :: anJacobian   = .FALSE.
+      logical                                    :: AnPoissonJacobian   = .FALSE.
       integer                                    :: prevSol_num    = -1
       integer                      , allocatable :: prevSol_index(:)           ! Indexes for the previous solutions
 
@@ -143,6 +192,31 @@ module StorageClass
       real(kind=RP), dimension(:)  , allocatable :: c
       real(kind=RP), dimension(:,:), allocatable :: Prevc(:,:)
 #endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:)  , allocatable :: slrDot
+      real(kind=RP), dimension(:)  , allocatable :: slr
+      real(kind=RP), dimension(:,:), allocatable :: Prevslr(:,:)
+      ! real(kind=RP), dimension(:)  , allocatable :: slrNS
+#endif
+
+#ifdef SCALAR_INS_V04
+      real(kind=RP), dimension(:)  , allocatable :: slrDot
+      ! ===============================================================================================
+      real(kind=RP), dimension(:)  , allocatable :: slr1
+      real(kind=RP), dimension(:)  , allocatable :: slr2
+      real(kind=RP), dimension(:)  , allocatable :: slrDot1
+      real(kind=RP), dimension(:)  , allocatable :: Nterm1
+      real(kind=RP), dimension(:)  , allocatable :: Nterm2
+      real(kind=RP), dimension(:)  , allocatable :: pressINS
+      real(kind=RP), dimension(:)  , allocatable :: vel__INS
+      real(kind=RP), dimension(:)  , allocatable :: pre_source
+      real(kind=RP), dimension(:)  , allocatable :: vel_source
+      ! ===============================================================================================
+      real(kind=RP), dimension(:)  , allocatable :: slr
+      real(kind=RP), dimension(:,:), allocatable :: Prevslr(:,:)
+      ! real(kind=RP), dimension(:)  , allocatable :: slrNS
+#endif
+
       contains
          procedure :: construct        => SolutionStorage_Construct
          procedure :: local2GlobalQ    => SolutionStorage_local2GlobalQ
@@ -154,7 +228,26 @@ module StorageClass
          procedure :: SignalAdaptation => SolutionStorage_SignalAdaptation
          procedure :: PointStorage     => SolutionStorage_PointStorage
          procedure :: copy             => SolutionStorage_Assign
+         
+         procedure :: SolutionStorage_local2Global_Qdot1
+
+
+#ifdef SCALAR_INS_V04
+         procedure :: SolutionStorage_global2LocalPress
+         procedure :: SolutionStorage_global2LocalVelINS
+         procedure :: SolutionStorage_global2LocalPress_source
+         procedure :: SolutionStorage_global2LocalVelocity_source
+
+         
+
+         procedure :: SolutionStorage_local2Global_pressINS
+         procedure :: SolutionStorage_local2Global_vel__INS
+         procedure :: SolutionStorage_local2Global_pre_source
+         procedure :: SolutionStorage_local2Global_vel_source
+#endif
+
          generic   :: assignment(=)    => copy
+
    end type SolutionStorage_t
 !
 !  Class for storing variables in the faces
@@ -164,6 +257,7 @@ module StorageClass
       logical                                          :: computeGradients
       logical                                          :: computeQdot
       logical                                          :: anJacobian =.FALSE.         ! Has Jacobian storage?
+      logical                                          :: AnPoissonJacobian =.FALSE.         ! Has Jacobian storage?
       integer                                          :: NDIM
       integer                                          :: currentlyLoaded
       integer                                          :: Nf(2), Nel(2)
@@ -246,6 +340,36 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),   allocatable :: mu_z
       real(kind=RP), dimension(:,:,:),   allocatable :: v
 #endif
+#ifdef SCALAR
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_x
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_y
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_z
+
+!     * Jacobian of the boundary condition (only needs to be stored on boundary faces for viscous physics to apply the BC to the grad equation):
+      real(kind=RP), allocatable :: BCJac(:,:,:,:)
+!                                         |_| |_|
+!                                          |   |
+!                                          |   |__Coordinate indexes in face
+!                                          |______Jacobian for this component
+
+#endif
+
+#ifdef SCALAR_INS_V04
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_x
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_y
+      real(kind=RP), dimension(:,:,:),   allocatable :: slr_z
+
+!     * Jacobian of the boundary condition (only needs to be stored on boundary faces for viscous physics to apply the BC to the grad equation):
+      real(kind=RP), allocatable :: BCJac(:,:,:,:)
+!                                         |_| |_|
+!                                          |   |
+!                                          |   |__Coordinate indexes in face
+!                                          |______Jacobian for this component
+
+#endif
+
       contains
          procedure   :: Construct      => FaceStorage_Construct
          procedure   :: Destruct       => FaceStorage_Destruct
@@ -258,6 +382,14 @@ module StorageClass
          procedure   :: SetStorageToCH_c  => FaceStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => FaceStorage_SetStorageToCH_mu
 #endif
+#ifdef SCALAR
+         procedure   :: SetStorageToSLR_slr => FaceStorage_SetStorageToSLR_slr
+#endif
+
+#ifdef SCALAR_INS_V04
+         procedure   :: SetStorageToSLR_slr => FaceStorage_SetStorageToSLR_slr
+#endif
+
          procedure :: copy             => FaceStorage_Assign
          generic   :: assignment(=)    => copy
    end type FaceStorage_t
@@ -294,6 +426,8 @@ module StorageClass
          self % NDOF = NDOF
          self % anJacobian = analyticalJac
 
+         write (*,*) "SolutionStorage_Construct, self % anJacobian = analyticalJac"
+
          if ( present(prevSol_num) ) then
             self % prevSol_num = prevSol_num
             if ( prevSol_num > 0 ) then
@@ -306,6 +440,14 @@ module StorageClass
 #ifdef CAHNHILLIARD
                allocate ( self % Prevc  (NCOMP*NDOF, prevSol_num) )
                self % PrevQ    => self % Prevc
+#endif
+#ifdef SCALAR
+               allocate ( self % Prevslr  (NCONS*NDOF, prevSol_num) )
+               self % PrevQ    => self % Prevslr
+#endif
+#ifdef SCALAR_INS_V04
+               allocate ( self % Prevslr  (NCONS*NDOF, prevSol_num) )
+               self % PrevQ    => self % Prevslr
 #endif
             end if
             if ( prevSol_num >= 0 ) then
@@ -320,6 +462,30 @@ module StorageClass
                allocate ( self % cDot  (NCOMP*NDOF) )
                self % Q    => self % c
                self % Qdot => self % cDot
+#endif
+#ifdef SCALAR
+               allocate ( self % slr     (NCONS*NDOF) )
+               allocate ( self % slrDot  (NCONS*NDOF) )
+               self % Q    => self % slr
+               self % Qdot => self % slrDot
+#endif
+#ifdef SCALAR_INS_V04
+               allocate ( self % slr     (NCONS*NDOF) )
+               allocate ( self % slrDot  (NCONS*NDOF) )
+! ============================================================
+               allocate ( self % slr1  (N_INS*NDOF) )
+               allocate ( self % slr2  (N_INS*NDOF) )
+               allocate ( self % slrDot1 (N_INS*NDOF) )
+               allocate ( self % Nterm1  (N_INS*NDOF) )
+               allocate ( self % Nterm2  (N_INS*NDOF) )
+               allocate ( self % pressINS  (1    *NDOF) )
+               allocate ( self % pre_source(1    *NDOF) )
+               allocate ( self % vel__INS  (N_INS*NDOF) )
+               allocate ( self % vel_source(N_INS*NDOF) )
+               
+! ============================================================
+               self % Q    => self % slr
+               self % Qdot => self % slrDot
 #endif
             end if
          end if
@@ -362,7 +528,8 @@ module StorageClass
 !     --------------------------------------------
 !     Load the local solutions into a global array
 !     --------------------------------------------
-      pure subroutine SolutionStorage_local2GlobalQ(self, NDOF)
+      subroutine SolutionStorage_local2GlobalQ(self, NDOF)
+      ! pure subroutine SolutionStorage_local2GlobalQ(self, NDOF)
          implicit none
          !----------------------------------------------
          class(SolutionStorage_t), target, intent(inout) :: self
@@ -391,6 +558,28 @@ module StorageClass
             self % AdaptedQ = .FALSE.
          end if
 #endif
+#ifdef SCALAR
+         if (self % AdaptedQ .or. (.not. allocated(self % slr) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % slr)
+            allocate ( self % slr(NCONS*NDOF) )
+
+            write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(NCONS*NDOF) )====", NCONS*NDOF
+
+            self % AdaptedQ = .FALSE.
+         end if
+#endif
+#ifdef SCALAR_INS_V04
+         if (self % AdaptedQ .or. (.not. allocated(self % slr) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % slr)
+            allocate ( self % slr(NCONS*NDOF) )
+
+            ! write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(NCONS*NDOF) )====", NCONS*NDOF
+
+            self % AdaptedQ = .FALSE.
+         end if
+#endif
 !
 !        Load solution
 !        *************
@@ -411,9 +600,68 @@ module StorageClass
             firstIdx = lastIdx
          end do
 #endif
+#ifdef SCALAR
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % slr (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slr , (/ self % elements(eID) % NDOF *NCONS /) )
+            write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+            firstIdx = lastIdx
+         end do
+#endif
+#ifdef SCALAR_INS_V04
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % slr (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slr , (/ self % elements(eID) % NDOF *NCONS /) )
+            ! write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+            firstIdx = lastIdx
+         end do
+#endif
 
       end subroutine SolutionStorage_local2GlobalQ
+
+
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!     --------------------------------------------
+!     Load the local solutions into a global array
+!     --------------------------------------------
+   subroutine SolutionStorage_local2Global_Qdot1(self ,NDOF)
+            implicit none
+            !----------------------------------------------
+            class(SolutionStorage_t), target, intent(inout) :: self
+            integer                 , intent(in)    :: NDOF
+            !----------------------------------------------
+            integer :: firstIdx, lastIdx, eID
+            !----------------------------------------------
+   
+#ifdef SCALAR_INS_V04
+            if (self % AdaptedQ .or. (.not. allocated(self % slrDot1) ) ) then
+               self % NDOF = NDOF
+               safedeallocate (self % slrDot1)
+               allocate ( self % slrDot1(N_INS*NDOF) )
+   
+               ! write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(N_INS*NDOF) )====", N_INS*NDOF
+   
+               self % AdaptedQ = .FALSE.
+            end if
+
+   !        Load solution
+   !        *************
+
+            firstIdx = 1
+            do eID=1, size(self % elements)
+               lastIdx = firstIdx + self % elements(eID) % NDOF * N_INS
+               self % slrDot1 (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slrDot1 , (/ self % elements(eID) % NDOF *N_INS /) )
+               ! write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+               firstIdx = lastIdx
+            end do
+#endif
+   
+   end subroutine SolutionStorage_local2Global_Qdot1
+   !
+      !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !     ---------------------------------------
@@ -442,6 +690,18 @@ module StorageClass
             allocate ( self % cDot(NCOMP*NDOF) )
          end if
 #endif
+#ifdef SCALAR
+         if (self % AdaptedQdot .or. (.not. allocated(self % slrDot) ) ) then
+            safedeallocate (self % slrDot)
+            allocate ( self % slrDot(NCONS*NDOF) )
+         end if
+#endif
+#ifdef SCALAR_INS_V04
+         if (self % AdaptedQdot .or. (.not. allocated(self % slrDot) ) ) then
+            safedeallocate (self % slrDot)
+            allocate ( self % slrDot(NCONS*NDOF) )
+         end if
+#endif
          self % AdaptedQdot = .FALSE.
 
 !
@@ -461,6 +721,22 @@ module StorageClass
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
             self % cDot (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % cDot , (/ self % elements(eID) % NDOF * NCOMP /) )
+            firstIdx = lastIdx
+         end do
+#endif
+#ifdef SCALAR
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % slrDot (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slrDot , (/ self % elements(eID) % NDOF * NCONS /) )
+            firstIdx = lastIdx
+         end do
+#endif
+#ifdef SCALAR_INS_V04
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % slrDot (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % slrDot , (/ self % elements(eID) % NDOF * NCONS /) )
             firstIdx = lastIdx
          end do
 #endif
@@ -504,6 +780,26 @@ module StorageClass
             ! TODO: Adapt previous solutions...
          end if
 #endif
+#ifdef SCALAR
+         if (self % AdaptedPrevQ .or. (.not. allocated(self % Prevslr) ) ) then
+            safedeallocate (self % Prevslr)
+            allocate ( self % Prevslr(NCONS * self % NDOF, self % prevSol_num) )
+
+            self % AdaptedPrevQ = .FALSE.
+
+            ! TODO: Adapt previous solutions...
+         end if
+#endif
+#ifdef SCALAR_INS_V04
+         if (self % AdaptedPrevQ .or. (.not. allocated(self % Prevslr) ) ) then
+            safedeallocate (self % Prevslr)
+            allocate ( self % Prevslr(NCONS * self % NDOF, self % prevSol_num) )
+
+            self % AdaptedPrevQ = .FALSE.
+
+            ! TODO: Adapt previous solutions...
+         end if
+#endif
 
 !
 !        Load solutions
@@ -540,6 +836,14 @@ module StorageClass
 #ifdef CAHNHILLIARD
                nEqn = NCOMP
 #endif
+            case (SLR)
+#ifdef SCALAR
+               nEqn = NCONS
+#endif
+            case (SLR_INS_V04)
+#ifdef SCALAR_INS_V04
+               nEqn = NCONS
+#endif
          end select
 
          firstIdx = 1
@@ -552,7 +856,233 @@ module StorageClass
          end do
 
       end subroutine SolutionStorage_global2LocalQ
+
+
+#ifdef SCALAR_INS_V04
+      pure subroutine SolutionStorage_global2LocalPress(self)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout)    :: self
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
+         !----------------------------------------------
+
+         nEqn = 1
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            associate ( N => self % elements(eID) % Nxyz )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % Q(4:4,0:N(1),0:N(2),0:N(3)) = reshape ( self % pressINS (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            self % elements(eID) % pressINS(1:1,0:N(1),0:N(2),0:N(3)) = reshape ( self % pressINS (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            firstIdx = lastIdx
+            end associate
+         end do
+      end subroutine SolutionStorage_global2LocalPress
+
+      pure subroutine SolutionStorage_global2LocalPress_source(self)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout)    :: self
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
+         !----------------------------------------------
+
+         nEqn = 1
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            associate ( N => self % elements(eID) % Nxyz )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % pre_source(1:1,0:N(1),0:N(2),0:N(3)) = reshape ( self % pre_source (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            firstIdx = lastIdx
+            end associate
+         end do
+      end subroutine SolutionStorage_global2LocalPress_source
+
+      pure subroutine SolutionStorage_global2LocalVelocity_source(self)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout)    :: self
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
+         !----------------------------------------------
+
+         nEqn = N_INS
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            associate ( N => self % elements(eID) % Nxyz )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % vel_source(1:N_INS,0:N(1),0:N(2),0:N(3)) = reshape ( self % vel_source (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            firstIdx = lastIdx
+            end associate
+         end do
+      end subroutine SolutionStorage_global2LocalVelocity_source
+
+      pure subroutine SolutionStorage_global2LocalVelINS(self)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout)    :: self
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
+         !----------------------------------------------
+
+         nEqn = N_INS
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            associate ( N => self % elements(eID) % Nxyz )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % Q(5:7,0:N(1),0:N(2),0:N(3)) = reshape ( self % vel__INS(firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            firstIdx = lastIdx
+            end associate
+         end do
+
+      end subroutine SolutionStorage_global2LocalVelINS
+
+
+      !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!     --------------------------------------------
+!     Load the local solutions into a global array
+!     --------------------------------------------
+      subroutine SolutionStorage_local2Global_pressINS(self ,NDOF)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         !----------------------------------------------
+
+         if (self % AdaptedQ .or. (.not. allocated(self % pressINS) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % pressINS)
+            allocate ( self % pressINS(1*NDOF) )
+
+            ! write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(N_INS*NDOF) )====", N_INS*NDOF
+
+            self % AdaptedQ = .FALSE.
+         end if
+
+   !        Load solution
+   !        *************
+
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * 1
+            self % pressINS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % pressINS , (/ self % elements(eID) % NDOF *1 /) )
+            ! write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+            firstIdx = lastIdx
+         end do
+
+      end subroutine SolutionStorage_local2Global_pressINS
+!
+!     --------------------------------------------
+!     Load the local solutions into a global array
+!     --------------------------------------------
+      subroutine SolutionStorage_local2Global_vel__INS(self ,NDOF)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         !----------------------------------------------
+
+         if (self % AdaptedQ .or. (.not. allocated(self % vel__INS) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % vel__INS)
+            allocate ( self % vel__INS(N_INS * NDOF) )
+
+            ! write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(N_INS*NDOF) )====", N_INS*NDOF
+
+            self % AdaptedQ = .FALSE.
+         end if
+
+   !        Load solution
+   !        *************
+
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * N_INS
+            self % vel__INS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % vel__INS , (/ self % elements(eID) % NDOF * N_INS /) )
+            ! write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+            firstIdx = lastIdx
+         end do
+
+      end subroutine SolutionStorage_local2Global_vel__INS
+!
+!     --------------------------------------------
+!     Load the local solutions into a global array
+!     --------------------------------------------
+      subroutine SolutionStorage_local2Global_pre_source(self ,NDOF)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         !----------------------------------------------
+
+         if (self % AdaptedQ .or. (.not. allocated(self % pre_source) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % pre_source)
+            allocate ( self % pre_source(1*NDOF) )
+
+            ! write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(N_INS*NDOF) )====", N_INS*NDOF
+
+            self % AdaptedQ = .FALSE.
+         end if
+
+   !        Load solution
+   !        *************
+
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * 1
+            self % pre_source (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % pre_source , (/ self % elements(eID) % NDOF *1 /) )
+            ! write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+            firstIdx = lastIdx
+         end do
+
+      end subroutine SolutionStorage_local2Global_pre_source
+
+      subroutine SolutionStorage_local2Global_vel_source(self ,NDOF)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         !----------------------------------------------
+
+         if (self % AdaptedQ .or. (.not. allocated(self % vel_source) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % vel_source)
+            allocate ( self % vel_source(N_INS*NDOF) )
+
+            ! write (*,*) "======SolutionStorage_local2GlobalQ====allocate ( self % slr(N_INS*NDOF) )====", N_INS*NDOF
+
+            self % AdaptedQ = .FALSE.
+         end if
+
+   !        Load solution
+   !        *************
+
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * N_INS
+            self % vel_source (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % vel_source , (/ self % elements(eID) % NDOF *N_INS /) )
+            ! write (*,*) "======SolutionStorage_local2GlobalQ========", firstIdx,lastIdx
+            firstIdx = lastIdx
+         end do
+
+      end subroutine SolutionStorage_local2Global_vel_source
+#endif
+
+      !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine SolutionStorage_global2LocalQdot(self)
@@ -573,6 +1103,14 @@ module StorageClass
             case (C,MU)
 #ifdef CAHNHILLIARD
                nEqn = NCOMP
+#endif
+            case (SLR)
+#ifdef SCALAR
+               nEqn = NCONS
+#endif
+            case (SLR_INS_V04)
+#ifdef SCALAR_INS_V04
+               nEqn = NCONS
 #endif
          end select
 
@@ -624,6 +1162,18 @@ module StorageClass
                self % Qdot  => self % cDot
                self % PrevQ => self % Prevc
 #endif
+#ifdef SCALAR
+            case (SLR)
+               self % Q     => self % slr
+               self % Qdot  => self % slrDot
+               self % PrevQ => self % Prevslr
+#endif
+#ifdef SCALAR_INS_V04
+            case (SLR_INS_V04)
+               self % Q     => self % slr
+               self % Qdot  => self % slrDot
+               self % PrevQ => self % Prevslr
+#endif
          end select
 
 !
@@ -656,6 +1206,25 @@ module StorageClass
          safedeallocate(self % c)
          safedeallocate(self % cDot)
          safedeallocate(self % PrevC)
+#endif
+#ifdef SCALAR
+         safedeallocate(self % slr)
+         safedeallocate(self % slrDot)
+         safedeallocate(self % Prevslr)
+#endif
+#ifdef SCALAR_INS_V04
+         safedeallocate(self % slr)
+         safedeallocate(self % slrDot)
+         safedeallocate(self % slr1)
+         safedeallocate(self % slr2)
+         safedeallocate(self % slrDot1)
+         safedeallocate(self % Nterm1)
+         safedeallocate(self % Nterm2)
+         safedeallocate(self % pressINS)
+         safedeallocate(self % pre_source)
+         safedeallocate(self % vel_source)
+         safedeallocate(self % vel__INS)
+         safedeallocate(self % Prevslr)
 #endif
 
          if ( allocated(self % elements) ) then
@@ -711,6 +1280,14 @@ module StorageClass
             allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
             to % Prevc        =  from % Prevc
 #endif
+#ifdef SCALAR
+            allocate ( to % Prevslr ( size(from % Prevslr,1),size(from % Prevslr,2) ) )
+            to % Prevslr        =  from % Prevslr
+#endif
+#ifdef SCALAR_INS_V04
+            allocate ( to % Prevslr ( size(from % Prevslr,1),size(from % Prevslr,2) ) )
+            to % Prevslr        =  from % Prevslr
+#endif
          end if
 
          if ( to % prevSol_num >= 0 ) then
@@ -727,6 +1304,50 @@ module StorageClass
 
             allocate ( to % c ( size(from % c) ) )
             to % c            =  from % c
+#endif
+#ifdef SCALAR
+            allocate ( to % slrDot ( size(from % slrDot) ) )
+            to % slrDot         =  from % slrDot
+
+            allocate ( to % slr ( size(from % slr) ) )
+            to % slr           =  from % slr
+#endif
+#ifdef SCALAR_INS_V04
+            allocate ( to % slrDot ( size(from % slrDot) ) )
+            to % slrDot         =  from % slrDot
+
+            allocate ( to % slr1 ( size(from % slr1) ) )
+            to % slr1         =  from % slr1
+
+            allocate ( to % slr2 ( size(from % slr2) ) )
+            to % slr2         =  from % slr2
+            
+            allocate ( to % slrDot1 ( size(from % slrDot1) ) )
+            to % slrDot1         =  from % slrDot1
+
+
+
+            allocate ( to % Nterm1 ( size(from % Nterm1) ) )
+            to % Nterm1         =  from % Nterm1
+
+            allocate ( to % Nterm2 ( size(from % Nterm2) ) )
+            to % Nterm2         =  from % Nterm2
+
+            allocate ( to % pressINS ( size(from % pressINS) ) )
+            to % pressINS         =  from % pressINS
+
+            allocate ( to % vel__INS ( size(from % vel__INS) ) )
+            to % vel__INS         =  from % vel__INS
+
+            allocate ( to % pre_source ( size(from % pre_source) ) )
+            to % pre_source         =  from % pre_source
+
+            allocate ( to % vel_source ( size(from % vel_source) ) )
+            to % vel_source         =  from % vel_source
+
+
+            allocate ( to % slr ( size(from % slr) ) )
+            to % slr           =  from % slr
 #endif
          end if
 
@@ -831,6 +1452,62 @@ module StorageClass
          ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
 #endif
+#ifdef SCALAR
+
+         allocate ( self % slr   (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % slrDot(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         ! Previous solution
+         if ( prevSol_num /= 0 ) then
+            if ( .not. allocated(self % PrevQ)) then
+               allocate ( self % PrevQ(prevSol_num) )
+            end if
+         end if
+
+         do k=1, prevSol_num
+            allocate ( self % PrevQ(k) % slr(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         end do
+
+         allocate(self % slr_x (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % slr_y (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % slr_z (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         ALLOCATE( self % G_SLR   (NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate( self % S_SLR   (NCONS,0:Nx,0:Ny,0:Nz) )
+
+#endif
+
+#ifdef SCALAR_INS_V04
+
+         allocate ( self % slr   (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % slrDot(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         ! ==============================================================
+         allocate ( self % slr1 (1:N_INS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % slr2 (1:N_INS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % slrDot1 (1:N_INS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % Nterm1  (1:N_INS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % Nterm2  (1:N_INS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % pressINS(1,      0:Nx,0:Ny,0:Nz) )
+         allocate ( self % pre_source(1,      0:Nx,0:Ny,0:Nz) )
+         allocate ( self % vel__INS(1:N_INS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % vel_source(1:N_INS,0:Nx,0:Ny,0:Nz) )
+         ! ==============================================================
+         ! Previous solution
+         if ( prevSol_num /= 0 ) then
+            if ( .not. allocated(self % PrevQ)) then
+               allocate ( self % PrevQ(prevSol_num) )
+            end if
+         end if
+
+         do k=1, prevSol_num
+            allocate ( self % PrevQ(k) % slr(1:NCONS,0:Nx,0:Ny,0:Nz) )
+         end do
+
+         allocate(self % slr_x (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % slr_y (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % slr_z (NCONS, 0:Nx, 0:Ny, 0:Nz))
+         ALLOCATE( self % G_SLR   (NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate( self % S_SLR   (NCONS,0:Nx,0:Ny,0:Nz) )
+
+#endif
 
 #ifdef MULTIPHASE
          if ( RKSteps_num .gt. 0 ) then
@@ -880,6 +1557,23 @@ module StorageClass
          self % G_CH  = 0.0_RP
          self % v     = 0.0_RP
 #endif
+#ifdef SCALAR
+         self % slr     = 0.0_RP
+         self % slr_x   = 0.0_RP
+         self % slr_y   = 0.0_RP
+         self % slr_z   = 0.0_RP
+         self % G_SLR   = 0.0_RP
+         self % S_SLR   = 0.0_RP
+#endif
+
+#ifdef SCALAR_INS_V04
+         self % slr     = 0.0_RP
+         self % slr_x   = 0.0_RP
+         self % slr_y   = 0.0_RP
+         self % slr_z   = 0.0_RP
+         self % G_SLR   = 0.0_RP
+         self % S_SLR   = 0.0_RP
+#endif
 
          self % first_sensed = huge(1)
          self % prev_sensor = 1.0_RP
@@ -892,12 +1586,13 @@ module StorageClass
 !     ElementStorage_ConstructAnJac:
 !     Construct analytical Jacobian (specific) storage
 !
+      ! elemental subroutine ElementStorage_ConstructAnJac(self)
       elemental subroutine ElementStorage_ConstructAnJac(self)
          implicit none
          !-arguments----------------------------------------
          class(ElementStorage_t), intent(inout) :: self
          !--------------------------------------------------
-#ifdef FLOW
+#if defined(FLOW)
          self % anJacobian = .TRUE.
 
 !        Allocation
@@ -907,7 +1602,39 @@ module StorageClass
 !        Zero storage
 !        ------------
          self % dF_dgradQ = 0._RP
-#endif
+#elif defined(SCALAR)
+
+         self % anJacobian = .TRUE.
+
+!        Allocation
+!        ----------
+         allocate( self % dF_dgradQ( NCONS, NCONS, NDIM, NDIM, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3) ) )
+
+
+
+
+!        Zero storage
+!        ------------
+         ! self % dF_dgradQ = 0._RP
+         self % dF_dgradQ = 10._RP
+         ! self % dF_dgradQ = NCONS*NCONS*NDIM*NDIM*self % Nxyz(1)*self % Nxyz(2)* self % Nxyz(3)
+#elif defined(SCALAR_INS_V04)
+
+         self % anJacobian = .TRUE.
+
+!        Allocation
+!        ----------
+         ! allocate( self % dF_dgradQ( NCONS, NCONS, NDIM, NDIM, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3) ) )
+
+
+
+
+!        Zero storage
+!        ------------
+         ! self % dF_dgradQ = 0._RP
+         ! self % dF_dgradQ = 10._RP
+         ! self % dF_dgradQ = NCONS*NCONS*NDIM*NDIM*self % Nxyz(1)*self % Nxyz(2)* self % Nxyz(3)
+#endif 
       end subroutine ElementStorage_ConstructAnJac
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -981,6 +1708,33 @@ module StorageClass
          to % cDot = from % cDot
          to % G_CH = from % G_CH
 #endif
+#ifdef SCALAR
+         to % slr    = from % slr
+         to % slr_x  = from % slr_x
+         to % slr_y  = from % slr_y
+         to % slr_z  = from % slr_z
+         to % slrDot = from % slrDot
+         to % G_SLR   = from % G_SLR
+         to % S_SLR   = from % S_SLR
+#endif
+#ifdef SCALAR_INS_V04
+         to % slr    = from % slr
+         to % slr_x  = from % slr_x
+         to % slr_y  = from % slr_y
+         to % slr_z  = from % slr_z
+         to % slrDot = from % slrDot
+         to % slr1 = from % slr1
+         to % slr2 = from % slr2
+         to % slrDot1 = from % slrDot1
+         to % Nterm1 = from % Nterm1
+         to % Nterm2 = from % Nterm2
+         to % pressINS = from % pressINS
+         to % pre_source = from % pre_source
+         to % vel__INS = from % vel__INS
+         to % vel_source = from % vel_source
+         to % G_SLR   = from % G_SLR
+         to % S_SLR   = from % S_SLR
+#endif
 
          call to % PointStorage()
 
@@ -1009,6 +1763,14 @@ module StorageClass
 
             case (MU)
                call self % SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+            case (SLR)
+               call self % SetStorageToSLR_slr
+#endif
+#ifdef SCALAR_INS_V04
+            case (SLR_INS_V04)
+               call self % SetStorageToSLR_slr
 #endif
          end select
       end subroutine ElementStorage_PointStorage
@@ -1082,6 +1844,49 @@ module StorageClass
          safedeallocate(self % mu_z)
          safedeallocate(self % G_CH)
          safedeallocate(self % v)
+#endif
+#ifdef SCALAR
+         safedeallocate(self % slr)
+         safedeallocate(self % slrDot)
+
+         if ( allocated(self % PrevQ) ) then
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               safedeallocate( self % PrevQ(k) % slr )
+            end do
+         end if
+
+         safedeallocate(self % slr_x)
+         safedeallocate(self % slr_y)
+         safedeallocate(self % slr_z)
+         safedeallocate(self % G_SLR)
+         safedeallocate(self % S_SLR)
+#endif
+#ifdef SCALAR_INS_V04
+         safedeallocate(self % slr)
+         safedeallocate(self % slrDot)
+         safedeallocate(self % slr1)
+         safedeallocate(self % slr2)
+         safedeallocate(self % slrDot1)
+         safedeallocate(self % Nterm1)
+         safedeallocate(self % Nterm2)
+         safedeallocate(self % pressINS)
+         safedeallocate(self % vel__INS)
+         safedeallocate(self % pre_source)
+         safedeallocate(self % vel_source)
+
+         if ( allocated(self % PrevQ) ) then
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               safedeallocate( self % PrevQ(k) % slr )
+            end do
+         end if
+
+         safedeallocate(self % slr_x)
+         safedeallocate(self % slr_y)
+         safedeallocate(self % slr_z)
+         safedeallocate(self % G_SLR)
+         safedeallocate(self % S_SLR)
 #endif
          safedeallocate(self % PrevQ)
 
@@ -1186,6 +1991,78 @@ module StorageClass
          end do
 
       end subroutine ElementStorage_SetStorageToCH_mu
+#endif
+
+#ifdef SCALAR
+      pure subroutine ElementStorage_SetStorageToSLR_slr(self)
+!
+!        *********************************************
+!        This subroutine selects the scalar as
+!        current storage.
+!        *********************************************
+!
+         implicit none
+         class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
+
+         self % currentlyLoaded = SLR
+!
+!        Point to the one dimensional pointers with generic arrays
+!        ---------------------------------------------------------
+         self % Q   (1:,0:,0:,0:) => self % slr
+         self % U_x (1:,0:,0:,0:) => self % slr_x
+         self % U_y (1:,0:,0:,0:) => self % slr_y
+         self % U_z (1:,0:,0:,0:) => self % slr_z
+         self % QDot(1:,0:,0:,0:) => self % slrDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % slr
+         end do
+
+
+      end subroutine ElementStorage_SetStorageToSLR_slr
+
+#endif
+
+#ifdef SCALAR_INS_V04
+      pure subroutine ElementStorage_SetStorageToSLR_slr(self)
+!
+!        *********************************************
+!        This subroutine selects the scalar as
+!        current storage.
+!        *********************************************
+!
+         implicit none
+         class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
+
+         self % currentlyLoaded = SLR_INS_V04
+!
+!        Point to the one dimensional pointers with generic arrays
+!        ---------------------------------------------------------
+         self % Q   (1:,0:,0:,0:) => self % slr
+         self % U_x (1:,0:,0:,0:) => self % slr_x
+         self % U_y (1:,0:,0:,0:) => self % slr_y
+         self % U_z (1:,0:,0:,0:) => self % slr_z
+         self % QDot(1:,0:,0:,0:) => self % slrDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % slr
+         end do
+
+
+      end subroutine ElementStorage_SetStorageToSLR_slr
+
 #endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1332,6 +2209,24 @@ module StorageClass
 !        -----------------------------------------------------------------------
          interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCOMP*nDIM*product(Nf+1))
 #endif
+
+#ifdef SCALAR
+         allocate(self % slr   (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_x (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_y (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_z (NCONS , 0:Nf(1), 0:Nf(2)))
+
+         interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCONS*nDIM*product(Nf+1))
+#endif
+
+#ifdef SCALAR_INS_V04
+         allocate(self % slr   (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_x (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_y (NCONS , 0:Nf(1), 0:Nf(2)))
+         allocate(self % slr_z (NCONS , 0:Nf(1), 0:Nf(2)))
+
+         interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCONS*nDIM*product(Nf+1))
+#endif
 !
 !        Reserve memory for the interface fluxes
 !        ---------------------------------------
@@ -1383,6 +2278,21 @@ module StorageClass
          self % mu_z  = 0.0_RP
          self % v     = 0.0_RP
 #endif
+
+#ifdef SCALAR
+         self % slr     = 0.0_RP
+         self % slr_x   = 0.0_RP
+         self % slr_y   = 0.0_RP
+         self % slr_z   = 0.0_RP
+#endif
+
+#ifdef SCALAR_INS_V04
+         self % slr     = 0.0_RP
+         self % slr_x   = 0.0_RP
+         self % slr_y   = 0.0_RP
+         self % slr_z   = 0.0_RP
+#endif
+
          self % constructed = .TRUE.
       end subroutine FaceStorage_Construct
 !
@@ -1403,19 +2313,20 @@ module StorageClass
 
 !        Allocate memory
 !        ---------------
-         allocate( self % dFStar_dqF  (NCONS,NCONS, 0: self % Nf(1), 0: self % Nf(2)) )
-         allocate( self % dFStar_dqEl (NCONS,NCONS, 0:self % Nel(1), 0:self % Nel(2),2) )
+         allocate( self % dFStar_dqF  (NCONS,NCONS, 0: self % Nf(1) , 0: self % Nf (2)   ) )
+         allocate( self % dFStar_dqEl (NCONS,NCONS, 0: self % Nel(1), 0: self % Nel(2), 2) )
 
          if (self % computeGradients) then
-            allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: self % Nf(1),0: self % Nf(2)) )
-            allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
+            allocate( self % dFv_dGradQF (NCONS, NCONS, NDIM, 0: self % Nf (1), 0: self % Nf (2)   ) )
+            allocate( self % dFv_dGradQEl(NCONS, NCONS, NDIM, 0: self % Nel(1), 0: self % Nel(2), 2) )
          end if
 
 !        TODO: AMR, if Boundary
-         allocate( self % BCJac       (NCONS,NCONS,0:self % Nel(1),0:self % Nel(2)) )
+         allocate( self % BCJac          (NCONS, NCONS, 0:self % Nel(1), 0:self % Nel(2)) )
 
 !        Zero memory
 !        -----------
+
          self % dFStar_dqF   = 0.0_RP
          self % dFStar_dqEl  = 0.0_RP
          if (self % computeGradients) then
@@ -1424,6 +2335,21 @@ module StorageClass
          end if
          self % BCJac        = 0.0_RP
 #endif
+
+#ifdef SCALAR
+
+         allocate( self % BCJac          (NCONS, NCONS, 0:self % Nel(1), 0:self % Nel(2)) )
+         self % BCJac        = 0.0_RP
+
+#endif
+
+#ifdef SCALAR_INS_V04
+
+         ! allocate( self % BCJac          (NCONS, NCONS, 0:self % Nel(1), 0:self % Nel(2)) )
+         ! self % BCJac        = 0.0_RP
+
+#endif
+
       end subroutine
 
       elemental subroutine FaceStorage_Destruct(self)
@@ -1472,6 +2398,25 @@ module StorageClass
          safedeallocate(self % mu_z)
          safedeallocate(self % v)
 #endif
+
+#ifdef SCALAR
+         safedeallocate(self % slr)
+         safedeallocate(self % slr_x)
+         safedeallocate(self % slr_y)
+         safedeallocate(self % slr_z)
+         safedeallocate(self % BCJac )
+
+#endif
+
+#ifdef SCALAR_INS_V04
+         safedeallocate(self % slr)
+         safedeallocate(self % slr_x)
+         safedeallocate(self % slr_y)
+         safedeallocate(self % slr_z)
+         safedeallocate(self % BCJac )
+
+#endif
+
          safedeallocate(self % genericInterfaceFluxMemory)
 
          self % Q      => NULL()
@@ -1551,6 +2496,51 @@ module StorageClass
 
       end subroutine FaceStorage_SetStorageToCH_mu
 #endif
+#ifdef SCALAR
+      pure subroutine FaceStorage_SetStorageToSLR_slr(self)
+         implicit none
+         class(FaceStorage_t), intent(inout), target  :: self
+
+         self % currentlyLoaded = SLR
+!
+!        Get sizes
+!        ---------
+         self % Q(1:,0:,0:)   => self % slr
+         self % U_x(1:,0:,0:) => self % slr_x
+         self % U_y(1:,0:,0:) => self % slr_y
+         self % U_z(1:,0:,0:) => self % slr_z
+
+         self % fStar(1:NCONS ,         0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         self % unStar(1:NCONS, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+
+         self % genericInterfaceFluxMemory = 0.0_RP
+
+      end subroutine FaceStorage_SetStorageToSLR_slr
+
+#endif
+
+#ifdef SCALAR_INS_V04
+      pure subroutine FaceStorage_SetStorageToSLR_slr(self)
+         implicit none
+         class(FaceStorage_t), intent(inout), target  :: self
+
+         self % currentlyLoaded = SLR_INS_V04
+!
+!        Get sizes
+!        ---------
+         self % Q(1:,0:,0:)   => self % slr
+         self % U_x(1:,0:,0:) => self % slr_x
+         self % U_y(1:,0:,0:) => self % slr_y
+         self % U_z(1:,0:,0:) => self % slr_z
+
+         self % fStar(1:NCONS ,         0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         self % unStar(1:NCONS, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+!
+         self % genericInterfaceFluxMemory = 0.0_RP
+
+      end subroutine FaceStorage_SetStorageToSLR_slr
+
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1576,6 +2566,14 @@ module StorageClass
 
             case (MU)
                call self % SetStorageToCH_mu
+#endif
+#ifdef SCALAR
+            case (SLR)
+               call self % SetStorageToSLR_slr
+#endif
+#ifdef SCALAR_INS_V04
+            case (SLR_INS_V04)
+               call self % SetStorageToSLR_slr
 #endif
          end select
       end subroutine FaceStorage_PointStorage
@@ -1633,6 +2631,20 @@ module StorageClass
          to % mu_z = from % mu_z
          to % v = from % v
 #endif
+#ifdef SCALAR
+         to % slr = from % slr
+         to % slr_x = from % slr_x
+         to % slr_y = from % slr_y
+         to % slr_z = from % slr_z
+         to % BCJac = from % BCJac
+#endif
+#ifdef SCALAR_INS_V04
+         to % slr = from % slr
+         to % slr_x = from % slr_x
+         to % slr_y = from % slr_y
+         to % slr_z = from % slr_z
+         to % BCJac = from % BCJac
+#endif
          call to % PointStorage
       end subroutine FaceStorage_Assign
 !
@@ -1664,15 +2676,17 @@ module StorageClass
 
       end subroutine Statistics_Destruct
 
-      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_)
+      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_, slr_, slr_ins_v04_)
          implicit none
-         integer, intent(out) :: off_, ns_, c_, mu_, nssa_
+         integer, intent(out) :: off_, ns_, c_, mu_, nssa_, slr_, slr_ins_v04_
 
          off_ = OFF
          ns_  = NS
          c_   = C
          mu_  = MU
          nssa_= NSSA
+         slr_ = SLR
+         slr_ins_v04_ = SLR_INS_V04
 
       end subroutine GetStorageEquations
 

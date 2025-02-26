@@ -10,6 +10,7 @@ MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/AnalyticalJacobian.o \
+		./build_ns/AnalyticalJacobianPoisson.o \
 		./build_ns/GenericLinSolverClass.o \
 		./build_ns/PetscSolverClass.o \
 		./build_ns/MatrixFreeSmootherClass.o \
@@ -35,6 +36,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 
 LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		./build_nssa/AnalyticalJacobian.o \
+		./build_nssa/AnalyticalJacobianPoisson.o \
 		./build_nssa/GenericLinSolverClass.o \
 		./build_nssa/PetscSolverClass.o \
 		./build_nssa/MatrixFreeSmootherClass.o \
@@ -60,6 +62,7 @@ LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		
 LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/AnalyticalJacobian.o \
+		./build_ins/AnalyticalJacobianPoisson.o \
 		./build_ins/GenericLinSolverClass.o \
 		./build_ins/PetscSolverClass.o \
 		./build_ins/MatrixFreeSmootherClass.o \
@@ -86,6 +89,7 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 
 LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/AnalyticalJacobian.o \
+		./build_ch/AnalyticalJacobianPoisson.o \
 		./build_ch/GenericLinSolverClass.o \
 		./build_ch/PetscSolverClass.o \
 		./build_ch/MatrixFreeSmootherClass.o \
@@ -111,6 +115,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 
 LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/AnalyticalJacobian.o \
+		./build_mu/AnalyticalJacobianPoisson.o \
 		./build_mu/GenericLinSolverClass.o \
 		./build_mu/PetscSolverClass.o \
 		./build_mu/MatrixFreeSmootherClass.o \
@@ -134,6 +139,75 @@ LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/pAdaptationClassRL.o \
 		./build_mu/TimeIntegrator.o 
 
+# LIBOBJS_SLR =  ./build_slr/TimeIntegratorDefinitions.o \
+# 		./build_slr/AnalyticalJacobian.o \
+# 		./build_slr/AnalyticalJacobianPoisson.o \
+# 		./build_slr/GenericLinSolverClass.o \
+# 		./build_slr/PetscSolverClass.o \
+# 		./build_slr/MatrixFreeSmootherClass.o \
+# 		./build_slr/LinearMultigridSolverClass.o \
+# 		./build_slr/MKLPardisoSolverClass.o \
+# 		./build_slr/IterativeSolverClass.o \
+# 		./build_slr/MatrixFreeGMRESClass.o \
+# 		./build_slr/StaticCondensationSolverClass.o \
+# 		./build_slr/LinearSolverClass.o \
+# 		./build_slr/IMEXMethods.o \
+# 		./build_slr/BDFTimeIntegrator.o \
+# 		./build_slr/RosenbrockTimeIntegrator.o \
+# 		./build_slr/MultigridTypes.o \
+# 		./build_slr/TruncationErrorClass.o \
+# 		./build_slr/ExplicitMethods.o \
+# 		./build_slr/AnisFASMultigridClass.o \
+# 		./build_slr/FASMultigridClass.o \
+# 		./build_slr/MultiTauEstimationClass.o \
+# 		./build_slr/pAdaptationClass.o \
+# 		./build_slr/pAdaptationClassTE.o \
+# 		./build_slr/pAdaptationClassRL.o \
+# 		./build_slr/TimeIntegrator.o 
+
+# LIBOBJS_SLR_INS_V04 =  ./build_slr_ins_v04/TimeIntegratorDefinitions.o \
+# 		./build_slr_ins_v04/AnalyticalJacobian.o \
+# 		./build_slr_ins_v04/AnalyticalJacobianPoisson.o \
+# 		./build_slr_ins_v04/GenericLinSolverClass.o \
+# 		./build_slr_ins_v04/PetscSolverClass.o \
+# 		./build_slr_ins_v04/MatrixFreeSmootherClass.o \
+# 		./build_slr_ins_v04/LinearMultigridSolverClass.o \
+# 		./build_slr_ins_v04/MKLPardisoSolverClass.o \
+# 		./build_slr_ins_v04/IterativeSolverClass.o \
+# 		./build_slr_ins_v04/MatrixFreeGMRESClass.o \
+# 		./build_slr_ins_v04/StaticCondensationSolverClass.o \
+# 		./build_slr_ins_v04/LinearSolverClass.o \
+# 		./build_slr_ins_v04/IMEXMethods.o \
+# 		./build_slr_ins_v04/BDFTimeIntegrator.o \
+# 		./build_slr_ins_v04/RosenbrockTimeIntegrator.o \
+# 		./build_slr_ins_v04/MultigridTypes.o \
+# 		./build_slr_ins_v04/TruncationErrorClass.o \
+# 		./build_slr_ins_v04/ExplicitMethods.o \
+# 		./build_slr_ins_v04/AnisFASMultigridClass.o \
+# 		./build_slr_ins_v04/FASMultigridClass.o \
+# 		./build_slr_ins_v04/MultiTauEstimationClass.o \
+# 		./build_slr_ins_v04/pAdaptationClass.o \
+# 		./build_slr_ins_v04/pAdaptationClassTE.o \
+# 		./build_slr_ins_v04/pAdaptationClassRL.o \
+# 		./build_slr_ins_v04/SplitStepsTimeIntegrator.o \
+# 		./build_slr_ins_v04/TimeIntegrator.o 
+LIBOBJS_SLR_INS_V04 =  ./build_slr_ins_v04/TimeIntegratorDefinitions.o \
+		./build_slr_ins_v04/AnalyticalJacobian.o \
+		./build_slr_ins_v04/AnalyticalJacobianPoisson.o \
+		./build_slr_ins_v04/GenericLinSolverClass.o \
+		./build_slr_ins_v04/PetscSolverClass.o \
+		./build_slr_ins_v04/MKLPardisoSolverClass.o \
+		./build_slr_ins_v04/LinearSolverClass.o \
+		./build_slr_ins_v04/IMEXMethods.o \
+		./build_slr_ins_v04/MultigridTypes.o \
+		./build_slr_ins_v04/TruncationErrorClass.o \
+		./build_slr_ins_v04/ExplicitMethods.o \
+		./build_slr_ins_v04/AnisFASMultigridClass.o \
+		./build_slr_ins_v04/MultiTauEstimationClass.o \
+		./build_slr_ins_v04/pAdaptationClass.o \
+		./build_slr_ins_v04/SplitStepsTimeIntegrator.o \
+		./build_slr_ins_v04/TimeIntegrator.o 
+
 LIB = timeintegrator
 
 ############################################
@@ -141,7 +215,7 @@ LIB = timeintegrator
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a lib$(LIB)_slr.a  lib$(LIB)_slr_ins_v04.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -193,6 +267,26 @@ all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu
 	@echo $<
 	$(FC) $(FFLAGS) -DMULTIPHASE -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $<  -o $@ $(MOD_FLAG) ./include_mu
 
+# ./build_slr/%.o: %.f90
+# 	@echo
+# 	@echo $<
+# 	$(FC) $(FFLAGS) -DSCALAR -I./include_slr $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_slr -c $< -o $@ $(MOD_FLAG) ./include_slr
+
+# ./build_slr/%.o: **/%.f90
+# 	@echo
+# 	@echo $<
+# 	$(FC) $(FFLAGS) -DSCALAR -I./include_slr $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_slr -c $< -o $@ $(MOD_FLAG) ./include_slr
+
+./build_slr_ins_v04/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DSCALAR_INS_V04 -I./include_slr_ins_v04 $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_slr_ins_v04 -c $< -o $@ $(MOD_FLAG) ./include_slr_ins_v04
+
+./build_slr_ins_v04/%.o: **/%.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DSCALAR_INS_V04 -I./include_slr_ins_v04 $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_slr_ins_v04 -c $< -o $@ $(MOD_FLAG) ./include_slr_ins_v04
+
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) 
 	@echo
 	@echo "---------------------------------"
@@ -238,17 +332,39 @@ lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_MU) 
 	@$(RANLIB) $@
 
+# lib$(LIB)_slr.a: header mkdirs $(LIBOBJS_SLR)
+# 	@echo
+# 	@echo "---------------------------------"
+# 	@echo "| Linking library" $@ "|"
+# 	@echo "---------------------------------"
+# 	@$(RM) $@
+# 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_SLR) 
+# 	@$(RANLIB) $@
+
+lib$(LIB)_slr_ins_v04.a: header mkdirs $(LIBOBJS_SLR_INS_V04)
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_SLR_INS_V04) 
+	@$(RANLIB) $@
+
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_nssa.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_slr_ins_v04.a $(INSTALL_DIR)/lib/
+	
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
 	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
+	cp -p ./include_slr_ins_v04/*.mod $(INSTALL_DIR)/include_slr_ins_v04/
+
 	@echo
 	@echo
 
@@ -279,16 +395,18 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu
-	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu
+	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu  
+	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu 
+	@mkdir -p ./include_slr_ins_v04 ./build_slr_ins_v04
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a  lib$(LIB)_slr_ins_v04.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
 	$(RM) ./build_nssa/*.o ./include_nssa/*.mod
 	$(RM) ./build_ins/*.o ./include_ins/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
 	$(RM) ./build_mu/*.o ./include_mu/*.mod
+	$(RM) ./build_slr_ins_v04/*.o ./include_slr_ins_v04/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #

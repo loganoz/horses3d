@@ -1,0 +1,139 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+     !                           Mesh file name = MESH/meshTest1128_0608__oneElement.msh
+      !                         Mesh file name = MESH/meshTest1024_length1_4x4.msh
+                                 Mesh file name = MESH/meshTestPeriodic.msh
+                                 Mesh file name = MESH/meshTestEle01.msh
+                                 Mesh file name = MESH/meshTest1207_UNSTR.msh
+                                        Mesh file name = MESH/meshTest1127_nonUni_strag.msh
+                                        Mesh file name = MESH/meshTest1127_nonUni.msh
+                                       
+                      Solution file name = RESULTS/Convergence.hsol
+              Save gradients to solution = .false.
+                                 Restart = .false.
+                   2D mesh offset direction = y
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+                          Flow equations = "SCALAR_INS_V04"
+                          
+!------------------------- Discretization:-
+                        Polynomial order = 3
+     Discretization nodes = Gauss-Lobatto
+   Discretization nodes = Gauss  
+                   Viscous discretization = BR1  !IP   ! IP/BR2   ! For abbas3d00
+!                  Viscous discretization = IP   ! IP/BR2
+         Simulation type = time-accurate
+!         Simulation type = steady
+                    
+!----------------------- Time integration:-
+
+
+!----------------------- Time integration:-
+                        Time integration = split time steps   ! IMEX/Implicit
+                               bdf order = 2
+                           linear solver = pardiso
+!  linear solver = smooth
+!                                  smoother=WeightedJacobi
+jacobian by convergence = .false.
+print newton info       = .TRUE.
+newton tolerance        = 1.d-5
+newton max iter         = 3000
+
+compute jacobian every = 1000
+#define jacobian
+   type = 2
+   print info = .TRUE.
+   preallocate = .false.
+   implicit adaptive dt = .TRUE.
+   newton max iter = 300
+#end
+!			Time integration = Explicit
+                                      dt = 0.0001
+                    Number of time steps = 500 !100
+                         Output interval = 2
+                   Convergence tolerance = 1.0e-5
+                           Autosave mode = iteration
+                       Autosave interval = 100
+
+
+
+
+!                                      dt = 0.0001
+!                    Number of time steps = 5000 !100
+!                         Output interval = 2
+!                   Convergence tolerance = 1.0e-5
+!                           Autosave mode = iteration
+!                       Autosave interval = 1
+
+!-------------------- Boundary conditions:-
+
+       !    ¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡   x dir  ''''''''''' down and up running
+
+       !    ¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡   z dir  '''''''''''left and right running
+
+#define boundary bottom
+!   type = user-defined
+   type = zydiydirichletbc
+   wall values = [0,0,0,0,0,0,0]
+!   type = zydiyfreeslipwall
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+!   type = user-defined
+   type = zydiydirichletbc
+   wall values = [0,0,5,0,0,0,5]
+!   type = zydiyfreeslipwall
+   type = periodic
+   coupled boundary = bottom
+#end
+
+
+
+#define boundary front
+!   type = user-defined
+!   type = zydiyfreeslipwall
+!   wall values = [0,0,0,50,0,0,0]
+   type = zydiydirichletbc
+   wall values = [0,0,0,0,0,0,0]
+!   type = zydiyfreeslipwall
+!
+   type = periodic
+   coupled boundary = back
+#end
+
+#define boundary back
+!   type = user-defined
+!   type = zydiyfreeslipwall
+!   wall values = [0,0,0,0,0,0,0]
+   type = zydiydirichletbc
+   wall values = [0,0,0,0,0,0,0]
+!!   type = zydiyfreeslipwall
+   type = periodic
+   coupled boundary = front 
+#end
+ 
+
+#define boundary left
+!   type = zydiydirichletbc
+!   wall values = [0,0,0,0,0,0,0]
+!   type = zydiyfreeslipwall
+   type = periodic
+   coupled boundary = Right
+#endif
+
+#define boundary Right
+!   type = zydiydirichletbc
+!   wall values = [0,0,0,0,0,0,0]
+!   type = zydiyfreeslipwall
+   type = periodic
+   coupled boundary = left
+#endif
+
+ 

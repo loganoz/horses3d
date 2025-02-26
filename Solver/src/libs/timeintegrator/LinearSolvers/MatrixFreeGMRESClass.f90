@@ -587,7 +587,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-      recursive subroutine GMRES_Solve(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
+      recursive subroutine GMRES_Solve(this, nEqn, nGradEqn,&
+                  ComputeTimeDerivative, tol, maxiter,time,dt,computeA   &
+#if defined(SCALAR_INS_V04)
+      ,startNum  &
+#endif
+      )
          implicit none
          !----------------------------------------------------
          class(MatFreeGMRES_t), target, intent(inout)      :: this
@@ -599,6 +604,11 @@ contains
          real(kind=RP), optional                   :: time
          real(kind=RP), optional                   :: dt
          logical      , optional  , intent(inout)  :: computeA                !<> In case of block preconditioning, this tells the solver if the block preconditioner should be calculated
+         
+#if defined(SCALAR_INS_V04)
+         integer,   optional,      intent(in)     :: startNum
+#endif
+
          !----------------------------------------------------
          integer                                :: i
          real(kind=RP) :: xnorm
@@ -704,7 +714,11 @@ contains
          !---------------------------------------------------------
           
          CALL this % PCSolver % SetRHS(v)
-         CALL this % PCSolver % Solve(NCONS, NGRAD, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
+         CALL this % PCSolver % Solve(NCONS, NGRAD, &
+! #if defined(SCALAR_INS_V04)
+!                      startNum,  &
+! #endif
+         ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
          CALL this % PCSolver % Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
          Pv = this % PCSolver % x
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed

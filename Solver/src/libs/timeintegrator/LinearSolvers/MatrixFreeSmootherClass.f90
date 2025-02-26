@@ -169,17 +169,32 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
+   SUBROUTINE solve(this, nEqn, nGradEqn, &
+             ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA &
+#if defined(SCALAR_INS_V04)
+            ,startNum  &
+#endif
+)
+
       use DenseMatUtilities
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t), target, INTENT(INOUT) :: this
       integer, intent(in)                     :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
       logical      , optional      , intent(inout) :: ComputeA
+
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)     :: startNum
+      procedure(ComputeNonlinearStep1_f)              :: ComputeTimeDerivative
+#else
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
+
+#endif
+
+
       !-------------------------------------------------
       INTEGER                                 :: i, k
       logical :: TolPresent
@@ -217,7 +232,10 @@ CONTAINS
       
       SELECT CASE (this % Smoother)
          CASE('Block-Jacobi')
+#if defined(SCALAR_INS_V04)
+#else
             CALL BlockJacobiSmoother(this, maxiter, this % niter, ComputeTimeDerivative, TolPresent, tol)
+#endif
       END SELECT
       
       this % p_sem % mesh % storage % Q = this % Ur
