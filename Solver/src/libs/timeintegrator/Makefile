@@ -215,7 +215,7 @@ LIB = timeintegrator
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a lib$(LIB)_slr.a  lib$(LIB)_slr_ins_v04.a
+all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a  lib$(LIB)_slr_ins_v04.a
 
 ./build_ns/%.o: %.f90
 	@echo

@@ -21,6 +21,12 @@ MODULE ExplicitMethods
    public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY, EULER_RK3_KEY
    public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep
    public   TakeSSPRK33Step, TakeSSPRK43Step, TakeEulerRK3Step
+   
+   ! --------------------------------------------------------------------------------------------
+   ! public   Adams_Bashforth_INS_NAME, Adams_Bashforth_INS_KEY
+   ! public   TakeExplicitAdmasBashforthStep
+   ! --------------------------------------------------------------------------------------------
+
    public   Enable_CTD_AFTER_STEPS, Enable_limiter, CTD_AFTER_STEPS, LIMITED, LIMITER_MIN
 
    integer,  protected :: eBDF_order = 3
@@ -40,6 +46,8 @@ MODULE ExplicitMethods
    character(len=*), parameter :: SSPRK33_NAME = "ssprk33"
    character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
    character(len=*), parameter :: EULER_RK3_NAME = "euler rk3"
+   character(len=*), parameter :: Adams_Bashforth_INS_NAME = "adams bashforth ins"
+
 
    integer, parameter :: EULER_KEY   = 1
    integer, parameter :: RK3_KEY     = 2
@@ -48,6 +56,7 @@ MODULE ExplicitMethods
    integer, parameter :: SSPRK33_KEY = 5
    integer, parameter :: SSPRK43_KEY = 6
    integer, parameter :: EULER_RK3_KEY = 7
+   integer, parameter :: Adams_Bashforth_INS_KEY = 8
 !========
  CONTAINS
 !
@@ -69,7 +78,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -120,6 +129,12 @@ MODULE ExplicitMethods
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                   mesh % elements(eID) % storage % c = mesh % elements(eID) % storage % c + dt_vec(eID)*mesh % elements(eID) % storage % cDot
 #endif
+#ifdef SCALAR
+                  mesh % elements(eID) % storage % slr = mesh % elements(eID) % storage % slr + dt_vec(eID)*mesh % elements(eID) % storage % slrDot
+#endif
+#ifdef SCALAR_INS_V04
+                  mesh % elements(eID) % storage % slr = mesh % elements(eID) % storage % slr + dt_vec(eID)*mesh % elements(eID) % storage % slrDot
+#endif
                end do ! id
 !$omp end parallel do
             end if
@@ -136,6 +151,16 @@ MODULE ExplicitMethods
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                mesh % elements(eID) % storage % G_CH = a(k)*mesh % elements(eID) % storage % G_CH + mesh % elements(eID) % storage % cDot
                mesh % elements(eID) % storage % c    = mesh % elements(eID) % storage % c         + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_CH
+#endif
+
+#ifdef SCALAR
+               mesh % elements(eID) % storage % G_SLR = a(k)*mesh % elements(eID) % storage % G_SLR   + mesh % elements(eID) % storage % slrDot
+               mesh % elements(eID) % storage % slr   = mesh % elements(eID) % storage % slr          + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_SLR
+#endif
+
+#ifdef SCALAR_INS_V04
+               mesh % elements(eID) % storage % G_SLR = a(k)*mesh % elements(eID) % storage % G_SLR   + mesh % elements(eID) % storage % slrDot
+               mesh % elements(eID) % storage % slr   = mesh % elements(eID) % storage % slr          + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_SLR
 #endif
             end do ! id
 !$omp end parallel do
@@ -167,6 +192,14 @@ MODULE ExplicitMethods
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                   mesh % elements(eID) % storage % c = mesh % elements(eID) % storage % c + deltaT*mesh % elements(eID) % storage % cDot
 #endif
+
+#ifdef SCALAR
+                  mesh % elements(eID) % storage % slr = mesh % elements(eID) % storage % slr + deltaT*mesh % elements(eID) % storage % slrDot
+#endif
+
+#ifdef SCALAR_INS_V04
+                  mesh % elements(eID) % storage % slr = mesh % elements(eID) % storage % slr + deltaT*mesh % elements(eID) % storage % slrDot
+#endif
                end do ! id
 !$omp end parallel do
             end if
@@ -184,6 +217,19 @@ MODULE ExplicitMethods
                mesh % elements(eID) % storage % G_CH = a(k)*mesh % elements(eID) % storage % G_CH + mesh % elements(eID) % storage % cDot
                mesh % elements(eID) % storage % c    = mesh % elements(eID) % storage % c         + c(k)*deltaT* mesh % elements(eID) % storage % G_CH
 #endif
+
+#ifdef SCALAR
+               mesh % elements(eID) % storage % G_SLR = a(k)*mesh % elements(eID) % storage % G_SLR   + mesh % elements(eID) % storage % slrDot
+               mesh % elements(eID) % storage % slr   = mesh % elements(eID) % storage % slr          + c(k)*deltaT* mesh % elements(eID) % storage % G_SLR
+
+#endif
+
+#ifdef SCALAR_INS_V04
+               mesh % elements(eID) % storage % G_SLR = a(k)*mesh % elements(eID) % storage % G_SLR   + mesh % elements(eID) % storage % slrDot
+               mesh % elements(eID) % storage % slr   = mesh % elements(eID) % storage % slr          + c(k)*deltaT* mesh % elements(eID) % storage % G_SLR
+
+#endif
+
             end do ! id
 !$omp end parallel do
 
@@ -214,7 +260,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -257,6 +303,12 @@ MODULE ExplicitMethods
                   mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
                   mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
 #endif
+
+#ifdef SCALAL
+                  mesh % elements(id) % storage % G_SLR = a(k)*mesh % elements(id) % storage % G_SLR + mesh % elements(id) % storage % slrDot
+                  mesh % elements(id) % storage % slr   = mesh % elements(id) % storage % slr         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_SLR
+#endif
+
             end do ! id
 !$omp end parallel do
 
@@ -282,6 +334,17 @@ MODULE ExplicitMethods
                   mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
                   mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
+
+#ifdef SCALAR
+                  mesh % elements(id) % storage % G_SLR = a(k)*mesh % elements(id) % storage % G_SLR + mesh % elements(id) % storage % slrDot
+                  mesh % elements(id) % storage % slr   = mesh % elements(id) % storage % slr        + c(k)*deltaT* mesh % elements(id) % storage % G_SLR
+
+#endif
+#ifdef SCALAR_INS_V04
+                  mesh % elements(id) % storage % G_SLR = a(k)*mesh % elements(id) % storage % G_SLR + mesh % elements(id) % storage % slrDot
+                  mesh % elements(id) % storage % slr   = mesh % elements(id) % storage % slr        + c(k)*deltaT* mesh % elements(id) % storage % G_SLR
+
+#endif
             end do ! id
 !$omp end parallel do
 
@@ -305,7 +368,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -402,7 +465,7 @@ MODULE ExplicitMethods
 !     ----------------
 !
       type(HexMesh)                               :: mesh
-#if defined(FLOW)
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)                           :: particles
 #else
       logical                                     :: particles
@@ -527,7 +590,7 @@ MODULE ExplicitMethods
 !     ----------------
 !
       type(HexMesh)                               :: mesh
-#if defined(FLOW)
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)                           :: particles
 #else
       logical                                     :: particles
@@ -650,7 +713,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -697,7 +760,7 @@ MODULE ExplicitMethods
    subroutine TakeExplicitBDFStep(mesh, particles, t, deltaT, ComputeTimeDerivative)
       implicit none
       type(HexMesh)                      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)                  :: particles
 #else
       logical                            :: particles
@@ -851,7 +914,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -954,6 +1017,66 @@ MODULE ExplicitMethods
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
    end subroutine TakeRKOptStep
+
+
+   ! ====================================================================================================
+   ! Zhang Yu
+   ! ====================================================================================================
+
+
+!    SUBROUTINE TakeExplicitAdmasBashforthStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+! !
+! !        *****************************************************************************************
+! !         Adams-Bashforth sec-ond order scheme
+! !        *****************************************************************************************
+! !
+!       implicit none
+!       type(HexMesh)                   :: mesh
+! #if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
+!       type(Particles_t)  :: particles
+! #else
+!       logical            :: particles
+! #endif
+!       REAL(KIND=RP)                   :: t, deltaT, tk
+!       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+!       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+!       logical, intent(in), optional :: dts
+!       real(kind=RP), intent(in), optional :: global_dt
+!       integer, intent(in), optional :: iter
+! !
+! !     ---------------
+! !     Local variables
+! !     ---------------
+! !
+!       integer                    :: id, k
+
+!       CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
+!       if ( present(dts) ) then
+!          if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+!       end if
+
+!       if (present(dt_vec)) then
+! !$omp parallel do schedule(runtime)
+!          DO id = 1, SIZE( mesh % elements )
+!             mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + dt_vec(id)*mesh % elements(id) % storage % QDot
+!          END DO
+! !$omp end parallel do
+!       else
+! !$omp parallel do schedule(runtime)
+!          DO id = 1, SIZE( mesh % elements )
+!             mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+!          END DO
+! !$omp end parallel do
+!       end if
+
+!       call checkForNan(mesh, t)
+! !
+! !     To obtain the updated residuals
+!       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+
+!    end subroutine TakeExplicitAdmasBashforthStep
+
+   ! ====================================================================================================
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

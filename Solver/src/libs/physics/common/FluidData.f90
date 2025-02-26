@@ -7,6 +7,10 @@ module FluidData
    use FluidData_iNS
 #elif defined(MULTIPHASE)
    use FluidData_MU
+#elif defined(SCALAR)
+   use FluidData_SLR
+#elif defined(SCALAR_INS_V04)
+   use FluidData_SLR_INS_V04
 #endif
 #if defined(CAHNHILLIARD)
    use FluidData_CH

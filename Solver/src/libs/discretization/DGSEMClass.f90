@@ -40,6 +40,10 @@ Module DGSEMClass
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
    public   hnRange
 
+#ifdef SCALAR_INS_V04
+   public   ComputeNonlinearStep1_f
+#endif
+
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
       integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
@@ -55,7 +59,7 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
       type(Spalart_Almaras_t), private    :: SAModel
 #endif
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       type(Particles_t)                                       :: particles
 #else
       logical                                                 :: particles
@@ -70,13 +74,13 @@ Module DGSEMClass
    END TYPE DGSem
 
    abstract interface
-      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode, HO_Elements)
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode, HO_Elements)     
          use SMConstants
          use HexMeshClass
          use ParticlesClass
          IMPLICIT NONE
          type(HexMesh), target           :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR)|| defined(SCALAR_INS_V04)
          type(Particles_t)               :: particles
 #else
          logical                         :: particles
@@ -84,7 +88,44 @@ Module DGSEMClass
          REAL(KIND=RP)                   :: time
          integer,             intent(in) :: mode
          logical, intent(in), optional   :: HO_Elements
-      end subroutine ComputeTimeDerivative_f
+
+   end subroutine ComputeTimeDerivative_f
+
+#ifdef SCALAR_INS_V04  
+      SUBROUTINE ComputeNonlinearStep1_f( mesh, particles, time, dt, mode, gamma, alpha0, alpha1, beta0, beta1, HO_Elements)
+
+         
+         use SMConstants
+         use HexMeshClass
+         use ParticlesClass
+         IMPLICIT NONE
+         type(HexMesh), target           :: mesh
+ 
+         type(Particles_t)               :: particles
+ 
+         REAL(KIND=RP)                   :: time
+         REAL(KIND=RP)                   :: dt
+         integer,   optional,  intent(in) :: mode
+         real(kind=RP), optional,  intent(in)       :: gamma, alpha0, alpha1, beta0, beta1         
+         logical, intent(in), optional   :: HO_Elements
+      END SUBROUTINE ComputeNonlinearStep1_f
+#endif
+
+!       SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode, HO_Elements)
+!          use SMConstants
+!          use HexMeshClass
+!          use ParticlesClass
+!          IMPLICIT NONE
+!          type(HexMesh), target           :: mesh
+! #if defined(FLOW) || defined(SCALAR)|| defined(SCALAR_INS_V04)
+!          type(Particles_t)               :: particles
+! #else
+!          logical                         :: particles
+! #endif
+!          REAL(KIND=RP)                   :: time
+!          integer,             intent(in) :: mode
+!          logical, intent(in), optional   :: HO_Elements
+!       end subroutine ComputeTimeDerivative_f
    END INTERFACE
 
    CONTAINS
@@ -108,13 +149,13 @@ Module DGSEMClass
 !     Constructor for the class.
 !     --------------------------
 !
-      CLASS(DGSem)                       :: self                               !<> Class to be constructed
-      character(len=*),         optional :: meshFileName_
-      class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
-      INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
-      INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
-      LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
-      logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
+      CLASS(DGSem)                               :: self                   !<> Class to be constructed
+      character(len=*),         optional         :: meshFileName_
+      class(FTValueDictionary)                   :: controlVariables       !<  Name of mesh file
+      INTEGER,                  OPTIONAL         :: polynomialOrder(3)     !<  Uniform polynomial order
+      INTEGER,                  OPTIONAL, TARGET :: Nx_(:), Ny_(:), Nz_(:) !<  Non-uniform polynomial order
+      LOGICAL,                  OPTIONAL         :: success                !>  Construction finalized correctly?
+      logical,                  optional         :: ChildSem               !<  Is this a (multigrid) child sem?
 !
 !     ---------------
 !     Local variables
@@ -123,7 +164,7 @@ Module DGSEMClass
       INTEGER                     :: i,j,k,el,bcset                     ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       integer                     :: NelL(2), NelR(2)
-      INTEGER                     :: nTotalElem                              ! Number of elements in mesh
+      INTEGER                     :: nTotalElem                         ! Number of elements in mesh
       INTEGER                     :: fUnit
       integer                     :: dir2D
       integer                     :: ierr
@@ -309,6 +350,8 @@ Module DGSEMClass
       DO k=1, self % mesh % no_of_elements
          associate(e => self % mesh % elements(k))
          self % NDOF = self % NDOF + (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
+         write (*,*) "**************self % NDOF, e % Nxyz(1), e % Nxyz(2), e % Nxyz(3) = ", &
+                                    self % NDOF, e % Nxyz(1),e % Nxyz(2),e % Nxyz(3)
          end associate
       END DO
 !
@@ -568,8 +611,8 @@ Module DGSEMClass
 !
       INTEGER       :: id , eq, ierr
       REAL(KIND=RP) :: localMaxResidual(NCONS)
-      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
-      real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
+      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc, localslr
+      real(kind=RP) :: R1, R2, R3, R4, R5, R6, c, slr
 
       maxResidual = 0.0_RP
       R1 = 0.0_RP
@@ -578,10 +621,11 @@ Module DGSEMClass
       R4 = 0.0_RP
       R5 = 0.0_RP
       R6 = 0.0_RP
-      c    = 0.0_RP
+      c  = 0.0_RP
+      slr = 0.0_RP
 
-!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
+!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, slr, mesh) default(private)
+!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c, slr) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
 #if defined FLOW && !(SPALARTALMARAS)
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
@@ -589,13 +633,21 @@ Module DGSEMClass
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
-#else
+#elif defined(SPALARTALMARAS)
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
          localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
          localR6 = maxval(abs(mesh % elements(id) % storage % QDot(6,:,:,:)))
+#endif
+
+#ifdef SCALAR
+         localslr    = maxval(abs(mesh % elements(id) % storage % slrDot(:,:,:,:)))
+#endif
+
+#ifdef SCALAR_INS_V04
+         localslr    = maxval(abs(mesh % elements(id) % storage % slrDot(1,:,:,:)))
 #endif
 
 #ifdef CAHNHILLIARD
@@ -617,6 +669,14 @@ Module DGSEMClass
          R6 = max(R6,localR6)
 #endif
 
+#ifdef SCALAR
+         slr    = max(slr, localslr)
+#endif
+
+#ifdef SCALAR_INS_V04
+         slr    = max(slr, localslr)
+#endif
+
 #ifdef CAHNHILLIARD
          c    = max(c, localc)
 #endif
@@ -629,6 +689,15 @@ Module DGSEMClass
 #elif defined(SPALARTALMARAS)
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5, R6]
 #endif
+
+#if  defined(SCALAR)
+      maxResidual(NCONS) = slr
+#endif
+
+#if  defined(SCALAR_INS_V04)
+      maxResidual(NCONS) = slr
+#endif
+
 
 #if  defined(CAHNHILLIARD) && (!defined(FLOW))
       maxResidual(NCONS) = c

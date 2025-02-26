@@ -85,6 +85,12 @@ module ResidualsMonitorClass
 #elif defined(MULTIPHASE)
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "concentration" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
+#elif defined(SCALAR)
+            write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "slr"
+
+#elif defined(SCALAR_INS_V04)
+            write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "slr_ins_v04"
+
 #elif defined(CAHNHILLIARD)
             write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "concentration"
 
@@ -149,7 +155,10 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "div-v"
-
+#elif defined(SCALAR)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "slr"
+#elif defined(SCALAR_INS_V04)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "slr_ins_v04"
 #elif defined(CAHNHILLIARD)
          write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
 
@@ -223,6 +232,8 @@ module ResidualsMonitorClass
 #if defined(FLOW)
 111 format(6(2X,ES24.16))
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+111 format(2(2X,ES24.16))
+#else
 111 format(2(2X,ES24.16))
 #endif
       end subroutine Residuals_WriteToFile

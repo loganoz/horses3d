@@ -46,6 +46,13 @@ module UserDefinedBCClass
          procedure         :: FlowGradVars      => UserDefinedBC_FlowGradVars
          procedure         :: FlowNeumann       => UserDefinedBC_FlowNeumann
 #endif
+
+#ifdef SCALAR_INS_V04
+         procedure         :: ScalarState         => UserDefinedBC_ScalarState
+         procedure         :: ScalarGradVars      => UserDefinedBC_ScalarGradVars
+         procedure         :: ScalarNeumann       => UserDefinedBC_ScalarNeumann
+#endif
+
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => UserDefinedBC_PhaseFieldState
          procedure         :: PhaseFieldNeumann => UserDefinedBC_PhaseFieldNeumann
@@ -206,6 +213,7 @@ module UserDefinedBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
+#ifdef FLOW
       subroutine UserDefinedBC_FlowState(self, x, t, nHat, Q)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
@@ -219,16 +227,7 @@ module UserDefinedBCClass
 !        ---------------
 !
          interface
-         subroutine UserDefinedState1(x, t, nHat, Q & 
-#ifdef FLOW
-            , thermodynamics_ &
-            , dimensionless_  &
-            , refValues_ & 
-#endif
-#ifdef CAHNHILLIARD
-            , multiphase_ &
-#endif
-         )
+            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
                use SMConstants
                use PhysicsStorage
                use FluidData
@@ -237,35 +236,21 @@ module UserDefinedBCClass
                real(kind=RP)  :: t
                real(kind=RP)  :: nHat(NDIM)
                real(kind=RP)  :: Q(NCONS)
-#ifdef FLOW
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-            type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
             end subroutine UserDefinedState1
          end interface
 
          select case(self % udf_no)
          case(1)
-#if defined(FLOW) && !defined(CAHNHILLIARD) 
             call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
-#endif
-#if defined(FLOW) && defined(CAHNHILLIARD) 
-            call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues, multiphase)
-#endif
-#if defined(CAHNHILLIARD) 
-!            call UserDefinedState1(x, t, nHat, Q,  multiphase)
-#endif
          case default
             print*, "Unrecognized UDF number for boundary", self % bname
          end select
    
       end subroutine UserDefinedBC_FlowState
 
-#ifdef FLOW
       subroutine UserDefinedBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(UserDefinedBC_t),   intent(in) :: self
@@ -407,4 +392,128 @@ module UserDefinedBCClass
 
       end subroutine UserDefinedBC_ChemPotNeumann
 #endif
+
+
+#ifdef SCALAR_INS_V04
+      subroutine UserDefinedBC_ScalarState(self, x, t, nHat, Q)
+         implicit none
+         class(UserDefinedBC_t),   intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         interface
+            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               use FluidData
+               implicit none
+               real(kind=RP)  :: x(NDIM)
+               real(kind=RP)  :: t
+               real(kind=RP)  :: nHat(NDIM)
+               real(kind=RP)  :: Q(NCONS)
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            end subroutine UserDefinedState1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+   
+      end subroutine UserDefinedBC_ScalarState
+
+      subroutine UserDefinedBC_ScalarGradVars(self, x, t, nHat, Q, U, GetGradients)
+         implicit none
+         class(UserDefinedBC_t),   intent(in) :: self
+         real(kind=RP),       intent(in)      :: x(NDIM)
+         real(kind=RP),       intent(in)      :: t
+         real(kind=RP),       intent(in)      :: nHat(NDIM)
+         real(kind=RP),       intent(in)      :: Q(NCONS)
+         real(kind=RP),       intent(inout)   :: U(NGRAD)
+         procedure(GetGradientValues_f)       :: GetGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         interface
+            subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               use FluidData
+               use VariableConversion, only: GetGradientValues_f
+               implicit none
+               real(kind=RP), intent(in)          :: x(NDIM)
+               real(kind=RP), intent(in)          :: t
+               real(kind=RP), intent(in)          :: nHat(NDIM)
+               real(kind=RP), intent(in)          :: Q(NCONS)
+               real(kind=RP), intent(inout)       :: U(NGRAD)
+               procedure(GetGradientValues_f)     :: GetGradients
+               type(Thermodynamics_t), intent(in) :: thermodynamics_
+               type(Dimensionless_t),  intent(in) :: dimensionless_
+               type(RefValues_t),      intent(in) :: refValues_
+            end subroutine UserDefinedGradVars1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics, dimensionless, refValues)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+   
+      end subroutine UserDefinedBC_ScalarGradVars
+
+      subroutine UserDefinedBC_ScalarNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(UserDefinedBC_t),   intent(in) :: self
+         real(kind=RP),       intent(in)      :: x(NDIM)
+         real(kind=RP),       intent(in)      :: t
+         real(kind=RP),       intent(in)      :: nHat(NDIM)
+         real(kind=RP),       intent(in)      :: Q(NCONS)
+         real(kind=RP),       intent(in)      :: U_x(NGRAD)
+         real(kind=RP),       intent(in)      :: U_y(NGRAD)
+         real(kind=RP),       intent(in)      :: U_z(NGRAD)
+         real(kind=RP),       intent(inout)   :: flux(NCONS)
+         interface
+            subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
+            use SMConstants
+            use PhysicsStorage
+            use FluidData
+            implicit none
+            real(kind=RP), intent(in)    :: x(NDIM)
+            real(kind=RP), intent(in)    :: t
+            real(kind=RP), intent(in)    :: nHat(NDIM)
+            real(kind=RP), intent(in)    :: Q(NCONS)
+            real(kind=RP), intent(in)    :: U_x(NGRAD)
+            real(kind=RP), intent(in)    :: U_y(NGRAD)
+            real(kind=RP), intent(in)    :: U_z(NGRAD)
+            real(kind=RP), intent(inout) :: flux(NCONS)
+            type(Thermodynamics_t), intent(in) :: thermodynamics_
+            type(Dimensionless_t),  intent(in) :: dimensionless_
+            type(RefValues_t),      intent(in) :: refValues_
+            end subroutine UserDefinedNeumann1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics, dimensionless, refValues)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+
+      end subroutine UserDefinedBC_ScalarNeumann
+#endif
+!
+
 end module UserDefinedBCClass

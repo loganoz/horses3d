@@ -27,7 +27,7 @@ module ProblemFileFunctions
       end subroutine UserDefinedStartup_f
    
       SUBROUTINE UserDefinedFinalSetup_f(mesh &
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
                                      , thermodynamics_ &
                                      , dimensionless_  &
                                      , refValues_ & 
@@ -40,7 +40,7 @@ module ProblemFileFunctions
          use FluidData
          IMPLICIT NONE
          CLASS(HexMesh)                      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
@@ -51,7 +51,7 @@ module ProblemFileFunctions
       END SUBROUTINE UserDefinedFinalSetup_f
 
       subroutine UserDefinedInitialCondition_f(mesh &
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
                                      , thermodynamics_ &
                                      , dimensionless_  &
                                      , refValues_ & 
@@ -66,7 +66,7 @@ module ProblemFileFunctions
          use fluiddata
          implicit none
          class(hexmesh)                      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
@@ -75,7 +75,7 @@ module ProblemFileFunctions
          type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
       end subroutine UserDefinedInitialCondition_f
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       subroutine UserDefinedState_f(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
@@ -130,39 +130,20 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors & 
-#ifdef FLOW
-         , thermodynamics_ &
-         , dimensionless_  &
-         , refValues_ & 
-#endif   
-#ifdef CAHNHILLIARD
-         , multiphase_ &
-#endif
-      )
+      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors)
          use SMConstants
          USE HexMeshClass
          use MonitorsClass
-         use fluiddata
-         use physicsstorage
          IMPLICIT NONE
          CLASS(HexMesh)               :: mesh
          REAL(KIND=RP)                :: time
          REAL(KIND=RP)                :: dt
          type(Monitor_t), intent(in) :: monitors
-#ifdef FLOW
-         type(Thermodynamics_t), intent(in)    :: thermodynamics_
-         type(Dimensionless_t),  intent(in)    :: dimensionless_
-         type(RefValues_t),      intent(in)    :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-         type(Multiphase_t),     intent(in)    :: multiphase_
-#endif
       END SUBROUTINE UserDefinedPeriodicOperation_f
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 ,multiphase_ &
@@ -189,7 +170,7 @@ module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE UserDefinedFinalize_f(mesh, time, iter, maxResidual &
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
                                                  , thermodynamics_ &
                                                  , dimensionless_  &
                                                  , refValues_ & 
@@ -209,7 +190,7 @@ module ProblemFileFunctions
          REAL(KIND=RP)                         :: time
          integer                               :: iter
          real(kind=RP)                         :: maxResidual
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
          type(Thermodynamics_t), intent(in)    :: thermodynamics_
          type(Dimensionless_t),  intent(in)    :: dimensionless_
          type(RefValues_t),      intent(in)    :: refValues_
@@ -241,7 +222,7 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalSetup(mesh &
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
                                         , thermodynamics_ &
                                         , dimensionless_  &
                                         , refValues_ & 
@@ -261,7 +242,7 @@ end module ProblemFileFunctions
             use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -274,7 +255,7 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          subroutine UserDefinedInitialCondition(mesh &
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
                                         , thermodynamics_ &
                                         , dimensionless_  &
                                         , refValues_ & 
@@ -296,7 +277,7 @@ end module ProblemFileFunctions
             use fluiddata
             implicit none
             class(hexmesh)                      :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -388,17 +369,8 @@ end module ProblemFileFunctions
 #endif
 
          end subroutine UserDefinedInitialCondition
-
-         subroutine UserDefinedState1(x, t, nHat, Q & 
-#ifdef FLOW
-            , thermodynamics_ &
-            , dimensionless_  &
-            , refValues_ & 
-#endif
-#ifdef CAHNHILLIARD
-            , multiphase_ &
-#endif
-            )
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -407,17 +379,10 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
             real(kind=RP), intent(inout)  :: Q(NCONS)
-#ifdef FLOW
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-            type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
          end subroutine UserDefinedState1
-
-#ifdef FLOW
 
          subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
@@ -457,16 +422,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors &
-#ifdef FLOW
-         , thermodynamics_ &
-         , dimensionless_  &
-         , refValues_ & 
-#endif   
-#ifdef CAHNHILLIARD
-         , multiphase_ &
-#endif
-      )
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called before every time-step to allow periodic operations
@@ -476,26 +432,17 @@ end module ProblemFileFunctions
             use SMConstants
             USE HexMeshClass
             use MonitorsClass
-            use fluiddata
-            use physicsstorage
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
             REAL(KIND=RP)                :: dt
             type(Monitor_t), intent(in) :: monitors
-#ifdef FLOW
-            type(Thermodynamics_t), intent(in)    :: thermodynamics_
-            type(Dimensionless_t),  intent(in)    :: dimensionless_
-            type(RefValues_t),      intent(in)    :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-            type(Multiphase_t),     intent(in)    :: multiphase_
-#endif
+            
          END SUBROUTINE UserDefinedPeriodicOperation
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 , multiphase_ &
@@ -538,7 +485,7 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
                                                     , thermodynamics_ &
                                                     , dimensionless_  &
                                                     , refValues_ & 
@@ -565,7 +512,7 @@ end module ProblemFileFunctions
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
-#ifdef FLOW
+#if defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
             type(Thermodynamics_t), intent(in)    :: thermodynamics_
             type(Dimensionless_t),  intent(in)    :: dimensionless_
             type(RefValues_t),      intent(in)    :: refValues_

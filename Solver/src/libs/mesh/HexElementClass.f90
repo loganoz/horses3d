@@ -94,6 +94,11 @@
             procedure   :: EvaluateGradientAtPoint => HexElement_EvaluateGradientAtPoint
             procedure   :: ConstructIBM            => HexElement_ConstructIBM
             generic     :: assignment(=)           => copy
+
+#if defined(SCALAR_INS_V04)
+            procedure   :: HexElement_ComputeLocalGradient_SLR
+#endif
+         !
       END TYPE Element
 
       CONTAINS
@@ -265,30 +270,45 @@
              QdotBOT = 0.0_RP     ; QdotT   = 0.0_RP
          ! end if
 
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,LEFT  )
-            QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,RIGHT )
-            QFR (:,i,k)= QFR (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta % v (j,FRONT )
-            QBK (:,i,k)= QBK (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta % v (j,BACK  )
-            QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,BOTTOM)
-            QT  (:,i,j)= QT  (:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,TOP   )
-            if (prolongQdot) then
-                QdotL  (:,j,k)= QdotL  (:,j,k)+ self % storage % Qdot(:,i,j,k)* spAxi % v  (i,LEFT  )
-                QdotR  (:,j,k)= QdotR  (:,j,k)+ self % storage % Qdot(:,i,j,k)* spAxi % v  (i,RIGHT )
-                QdotFR (:,i,k)= QdotFR (:,i,k)+ self % storage % Qdot(:,i,j,k)* spAeta % v (j,FRONT )
-                QdotBK (:,i,k)= QdotBK (:,i,k)+ self % storage % Qdot(:,i,j,k)* spAeta % v (j,BACK  )
-                QdotBOT(:,i,j)= QdotBOT(:,i,j)+ self % storage % Qdot(:,i,j,k)* spAzeta % v(k,BOTTOM)
-                QdotT  (:,i,j)= QdotT  (:,i,j)+ self % storage % Qdot(:,i,j,k)* spAzeta % v(k,TOP   )
-            end if
-         end do                   ; end do                   ; end do
+         do k = 0, N(3)
+            do j = 0, N(2)
+               do i = 0, N(1)
+                  ! write (*, *) "bug op propose 02, 1_RP/(i-2) ----------", prolongQdot, 1_RP/(i-2)
+                  ! write (*, *) "HexElement_ProlongSolutionToFaces =====LEFT  ==== ", i,j,k, self % storage % Q(:,i,j,k), spAxi   % v(i,LEFT  )
+                  ! write (*, *) "HexElement_ProlongSolutionToFaces =====RIGHT ==== ", i,j,k, self % storage % Q(:,i,j,k), spAxi   % v(i,RIGHT )
+                  ! write (*, *) "HexElement_ProlongSolutionToFaces =====FRONT ==== ", i,j,k, self % storage % Q(:,i,j,k), spAeta  % v(j,FRONT )
+                  ! write (*, *) "HexElement_ProlongSolutionToFaces =====BACK  ==== ", i,j,k, self % storage % Q(:,i,j,k), spAeta  % v(j,BACK  )
+                  ! write (*, *) "HexElement_ProlongSolutionToFaces =====BOTTOM==== ", i,j,k, self % storage % Q(:,i,j,k), spAzeta % v(k,BOTTOM)
+                  ! write (*, *) "HexElement_ProlongSolutionToFaces =====TOP   ==== ", i,j,k, self % storage % Q(:,i,j,k), spAzeta % v(k,TOP   )
+                  QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi   % v(i,LEFT  )
+                  QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi   % v(i,RIGHT )
+                  QFR (:,i,k)= QFR (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta  % v(j,FRONT )
+                  QBK (:,i,k)= QBK (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta  % v(j,BACK  )
+                  QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,BOTTOM)
+                  QT  (:,i,j)= QT  (:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,TOP   )
+                  if (prolongQdot) then
+                      QdotL  (:,j,k)= QdotL  (:,j,k)+ self % storage % Qdot(:,i,j,k)* spAxi   % v(i,LEFT  )
+                      QdotR  (:,j,k)= QdotR  (:,j,k)+ self % storage % Qdot(:,i,j,k)* spAxi   % v(i,RIGHT )
+                      QdotFR (:,i,k)= QdotFR (:,i,k)+ self % storage % Qdot(:,i,j,k)* spAeta  % v(j,FRONT )
+                      QdotBK (:,i,k)= QdotBK (:,i,k)+ self % storage % Qdot(:,i,j,k)* spAeta  % v(j,BACK  )
+                      QdotBOT(:,i,j)= QdotBOT(:,i,j)+ self % storage % Qdot(:,i,j,k)* spAzeta % v(k,BOTTOM)
+                      QdotT  (:,i,j)= QdotT  (:,i,j)+ self % storage % Qdot(:,i,j,k)* spAzeta % v(k,TOP   )
+                     ! write (*, *) "HexElement_ProlongSolutionToFaces =====prolongQdot= ", i,j,k, self % storage % Q(:,i,j,k), spAxi   % v(i,LEFT  )
+               end if
+               end do
+            end do
+         end do
+
+
+
          nullify (spAxi, spAeta, spAzeta)
 
-         call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
-         call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
-         call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ), QdotFR, computeQdot)
-         call fBK  % AdaptSolutionToFace(nEqn, N(1), N(3), QBK  , self % faceSide(EBACK  ), QdotBK, computeQdot)
+         call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL  , computeQdot)
+         call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR  , computeQdot)
+         call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ), QdotFR , computeQdot)
+         call fBK  % AdaptSolutionToFace(nEqn, N(1), N(3), QBK  , self % faceSide(EBACK  ), QdotBK , computeQdot)
          call fBOT % AdaptSolutionToFace(nEqn, N(1), N(2), QBOT , self % faceSide(EBOTTOM), QdotBOT, computeQdot)
-         call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ), QdotT, computeQdot)
+         call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ), QdotT  , computeQdot)
 
       end subroutine HexElement_ProlongSolutionToFaces
 
@@ -456,9 +476,14 @@
             call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k), self % storage % rho(i,j,k) )
          end do         ; end do         ; end do
 #else
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k))
-         end do         ; end do         ; end do
+         do k = 0, N(3)
+            do j = 0, N(2)
+               do i = 0, N(1)
+                  call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k))
+                  ! U(:,i,j,k)=1._RP
+               end do
+            end do
+         end do
 #endif
 
 #ifdef MULTIPHASE
@@ -473,27 +498,51 @@
 !        ************
 !
          U_xi = 0.0_RP
-         do k = 0, N(3)   ; do j = 0, N(2) ; do l = 0, N(1) ; do i = 0, N(1)
-            U_xi(:,i,j,k) = U_xi(:,i,j,k) + U(:,l,j,k) * spAxi % D(i,l)
-         end do           ; end do         ; end do         ; end do
+         ! ******************* U_xi = D*U
+         do k = 0, N(3)
+            do j = 0, N(2)
+               do l = 0, N(1)
+                  do i = 0, N(1)
+                     U_xi(:,i,j,k) = U_xi(:,i,j,k) + U(:,l,j,k) * spAxi % D(i,l)
+                  end do
+               end do
+            end do
+         end do
 !
 !        *************
 !        Compute U_eta
 !        *************
 !
          U_eta = 0.0_RP
-         do k = 0, N(3)   ; do l = 0, N(2) ; do j = 0, N(2) ; do i = 0, N(1)
-            U_eta(:,i,j,k) = U_eta(:,i,j,k) + U(:,i,l,k) * spAeta % D(j,l)
-         end do           ; end do         ; end do         ; end do
+         do k = 0, N(3)
+            do l = 0, N(2)
+               do j = 0, N(2)
+                  do i = 0, N(1)
+                     U_eta(:,i,j,k) = U_eta(:,i,j,k) + U(:,i,l,k) * spAeta % D(j,l)
+                  end do
+               end do
+            end do
+         end do
 !
 !        **************
 !        Compute U_zeta
 !        **************
 !
          U_zeta = 0.0_RP
-         do l = 0, N(3)   ; do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * spAzeta % D(k,l)
-         end do           ; end do         ; end do         ; end do
+         do l = 0, N(3)
+            do k = 0, N(3)
+               do j = 0, N(2)
+                  do i = 0, N(1)
+                     U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * spAzeta % D(k,l)
+                  end do
+               end do
+            end do
+         end do
+
+         ! write (*,*) "====U     =======", U
+         ! write (*,*) "====U_xi  =======", U_xi
+         ! write (*,*) "====U_eta =======", U_eta
+         ! write (*,*) "====U_zeta=======", U_zeta
 
          nullify (spAxi, spAeta, spAzeta)
 !
@@ -501,25 +550,185 @@
 !        Project to the cartesian basis
 !        ******************************
 !
-         do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
-            self % storage % U_x(:,i,j,k) = (   U_xi(:,i,j,k) * self % geom % jGradXi(1,i,j,k) &
-                                              + U_eta(:,i,j,k) * self % geom % jGradEta(1,i,j,k) &
-                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(1,i,j,k))&
-                                             * self % geom % InvJacobian(i,j,k)
+         do k = 0, N(3) ; 
+            do j = 0, N(2)  ; 
+               do i = 0, N(1)
+                  self % storage % U_x(:,i,j,k) = (   U_xi(:,i,j,k) * self % geom % jGradXi(1,i,j,k) &
+                                                    + U_eta(:,i,j,k) * self % geom % jGradEta(1,i,j,k) &
+                                                    + U_zeta(:,i,j,k) * self % geom % jGradZeta(1,i,j,k))&
+                                                   * self % geom % InvJacobian(i,j,k)
 
-            self % storage % U_y(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(2,i,j,k) &
-                                              + U_eta(:,i,j,k) * self % geom % jGradEta(2,i,j,k) &
-                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(2,i,j,k))&
-                                            * self % geom % InvJacobian(i,j,k)
+                  self % storage % U_y(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(2,i,j,k) &
+                                                    + U_eta(:,i,j,k) * self % geom % jGradEta(2,i,j,k) &
+                                                    + U_zeta(:,i,j,k) * self % geom % jGradZeta(2,i,j,k))&
+                                                  * self % geom % InvJacobian(i,j,k)
 
-            self % storage % U_z(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(3,i,j,k) &
-                                              + U_eta(:,i,j,k) * self % geom % jGradEta(3,i,j,k) &
-                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))&
-                                            * self % geom % InvJacobian(i,j,k)
-         end do         ; end do          ; end do
+                  self % storage % U_z(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(3,i,j,k) &
+                                                    + U_eta(:,i,j,k) * self % geom % jGradEta(3,i,j,k) &
+                                                    + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))&
+                                                  * self % geom % InvJacobian(i,j,k)
+               end do         ; 
+            end do          ; 
+         end do
+         ! write (*,*) "====self % geom % jGradXi(1,:,:,:)      =======", self % geom % jGradXi(1,:,:,:)   
+         ! write (*,*) "====self % geom % jGradEta(1,:,:,:)     =======", self % geom % jGradEta(1,:,:,:)  
+         ! write (*,*) "====self % geom % jGradZeta(1,:,:,:))   =======", self % geom % jGradZeta(1,:,:,:)
+         ! write (*,*) "====self % geom % jGradXi(2,:,:,:)      =======", self % geom % jGradXi(2,:,:,:)   
+         ! write (*,*) "====self % geom % jGradEta(2,:,:,:)     =======", self % geom % jGradEta(2,:,:,:)  
+         ! write (*,*) "====self % geom % jGradZeta(2,:,:,:))   =======", self % geom % jGradZeta(2,:,:,:)
+         ! write (*,*) "====self % geom % jGradXi(3,:,:,:)      =======", self % geom % jGradXi(3,:,:,:)   
+         ! write (*,*) "====self % geom % jGradEta(3,:,:,:)     =======", self % geom % jGradEta(3,:,:,:)  
+         ! write (*,*) "====self % geom % jGradZeta(3,:,:,:))   =======", self % geom % jGradZeta(3,:,:,:)
+         ! write (*,*) "====self % geom % InvJacobian           =======", self % geom % InvJacobian 
+         ! write (*,*) "====self % geom % jacobian              =======", self % geom % jacobian 
+         ! write (*,*) "====self % geom % x1                     =======", self % geom % x(1,:,:,:)
+         ! write (*,*) "====self % geom % x2                     =======", self % geom % x(2,:,:,:)
+         ! write (*,*) "====self % geom % x3                     =======", self % geom % x(3,:,:,:)
+         ! write (*,*) "====self % geom % volume                =======", self % geom % volume 
+         ! ! REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! Contravariant vectors times Jacobian!
+         ! ! REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
+         ! ! REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian
+         ! ! real(kind=RP)                                   :: volume
+         ! write (*,*) "====U_x   =======", self % storage % U_x
+         ! write (*,*) "====U_y   =======", self % storage % U_y
+         ! write (*,*) "====U_z   =======", self % storage % U_z
          end associate
 
+         ! write (*,*) "*************** hello compute gradient ********************88888"
+
       end subroutine HexElement_ComputeLocalGradient
+
+
+
+#if defined(SCALAR_INS_V04)
+      subroutine HexElement_ComputeLocalGradient_SLR(self, nEqn, nGradEqn, startVarNum, set_mu)
+!
+!        ****************************************************************
+!           This subroutine computes local gradients as:
+!
+!              nabla U = (1/J) \sum_i Ja^i \cdot \partial(u)/ \partial \xi^i
+!
+!        ****************************************************************
+!
+         implicit none
+         class(Element),   intent(inout)  :: self
+         integer,          intent(in)     :: nEqn
+         integer,          intent(in)     :: nGradEqn
+         integer,          intent(in)     :: startVarNum
+         ! procedure(GetGradientValues_f)   :: GetGradientValues
+         logical,          intent(in)     :: set_mu
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l
+         real(kind=RP)  :: U(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_xi(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_eta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_zeta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+
+         associate( N => self % Nxyz )
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
+!
+!        **********************
+!        Get gradient variables
+!        **********************
+
+
+         do k = 0, N(3)
+            do j = 0, N(2)
+               do i = 0, N(1)
+                  ! call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k))
+                  U(1:nGradEqn,i,j,k) = self % storage % Q(startVarNum:startVarNum+nGradEqn-1, i,j,k)
+                  ! U(:,i,j,k)=1._RP
+               end do
+            end do
+         end do
+
+!
+!        ************
+!        Compute U_xi
+!        ************
+!
+         U_xi = 0.0_RP
+         ! ******************* U_xi = D*U
+         do k = 0, N(3)
+            do j = 0, N(2)
+               do l = 0, N(1)
+                  do i = 0, N(1)
+                     U_xi(:,i,j,k) = U_xi(:,i,j,k) + U(:,l,j,k) * spAxi % D(i,l)
+                  end do
+               end do
+            end do
+         end do
+!
+!        *************
+!        Compute U_eta
+!        *************
+!
+         U_eta = 0.0_RP
+         do k = 0, N(3)
+            do l = 0, N(2)
+               do j = 0, N(2)
+                  do i = 0, N(1)
+                     U_eta(:,i,j,k) = U_eta(:,i,j,k) + U(:,i,l,k) * spAeta % D(j,l)
+                  end do
+               end do
+            end do
+         end do
+!
+!        **************
+!        Compute U_zeta
+!        **************
+!
+         U_zeta = 0.0_RP
+         do l = 0, N(3)
+            do k = 0, N(3)
+               do j = 0, N(2)
+                  do i = 0, N(1)
+                     U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * spAzeta % D(k,l)
+                  end do
+               end do
+            end do
+         end do
+
+         nullify (spAxi, spAeta, spAzeta)
+!
+!        ******************************
+!        Project to the cartesian basis
+!        ******************************
+!
+         do k = 0, N(3) ; 
+            do j = 0, N(2)  ; 
+               do i = 0, N(1)
+                  self % storage % U_x(startVarNum:startVarNum+nGradEqn-1,i,j,k) = (   U_xi(:,i,j,k) * self % geom % jGradXi(1,i,j,k) &
+                                                                                     + U_eta(:,i,j,k) * self % geom % jGradEta(1,i,j,k) &
+                                                                                     + U_zeta(:,i,j,k) * self % geom % jGradZeta(1,i,j,k))&
+                                                                                    * self % geom % InvJacobian(i,j,k)
+
+                  self % storage % U_y(startVarNum:startVarNum+nGradEqn-1,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(2,i,j,k) &
+                                                                                      + U_eta(:,i,j,k) * self % geom % jGradEta(2,i,j,k) &
+                                                                                      + U_zeta(:,i,j,k) * self % geom % jGradZeta(2,i,j,k))&
+                                                                                    * self % geom % InvJacobian(i,j,k)
+
+                  self % storage % U_z(startVarNum:startVarNum+nGradEqn-1,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(3,i,j,k) &
+                                                                                      + U_eta(:,i,j,k) * self % geom % jGradEta(3,i,j,k) &
+                                                                                      + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))&
+                                                                                    * self % geom % InvJacobian(i,j,k)
+               end do         ; 
+            end do          ; 
+         end do
+      
+         end associate
+
+         ! write (*,*) "*************** hello compute gradient ********************88888"
+
+      end subroutine HexElement_ComputeLocalGradient_SLR
+#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !

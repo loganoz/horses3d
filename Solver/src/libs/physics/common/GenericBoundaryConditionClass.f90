@@ -59,6 +59,19 @@ module GenericBoundaryConditionClass
          procedure         :: ChemPotState      => GenericBC_ChemPotState
          procedure         :: ChemPotNeumann    => GenericBC_ChemPotNeumann
 #endif
+
+#ifdef SCALAR
+         procedure         :: ScalarState         => GenericBC_ScalarState
+         procedure         :: ScalarGradVars      => GenericBC_ScalarGradVars
+         procedure         :: ScalarNeumann       => GenericBC_ScalarNeumann
+#endif
+
+#ifdef SCALAR_INS_V04
+         procedure         :: ScalarState         => GenericBC_ScalarState
+         procedure         :: ScalarGradVars      => GenericBC_ScalarGradVars
+         procedure         :: ScalarNeumann       => GenericBC_ScalarNeumann
+#endif
+
          procedure         :: StateForEqn
          procedure         :: GradVarsForEqn
          procedure         :: NeumannForEqn
@@ -136,10 +149,23 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(in)    :: nHat(NDIM)
          real(kind=RP),       intent(inout) :: Q(nEqn)
 
+! ------------
 #ifndef CAHNHILLIARD
-         call self % FlowState(x, t, nHat, Q)
+! ------------
 
+#ifdef FLOW
+         call self % FlowState(x, t, nHat, Q)
+#endif
+#ifdef SCALAR
+         call self % ScalarState(x, t, nHat, Q)
+#endif
+#ifdef SCALAR_INS_V04
+         call self % ScalarState(x, t, nHat, Q)
+#endif
+
+! ------------
 #else
+! ------------
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
@@ -152,7 +178,9 @@ module GenericBoundaryConditionClass
             call self % ChemPotState(x, t, nHat, Q)
 
          end select
+! ------------
 #endif
+! ------------
 
       end subroutine StateForEqn
 
@@ -168,10 +196,24 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: U(nGradEqn)
          procedure(GetGradientValues_f)     :: GetGradients
 
+! --------------------
 #ifndef CAHNHILLIARD
-         call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
+! --------------------
 
+#ifdef SCALAR
+         call self % ScalarGradVars(x, t, nHat, Q, U, GetGradients)
+#endif
+#ifdef SCALAR_INS_V04
+         call self % ScalarGradVars(x, t, nHat, Q, U, GetGradients)
+#endif
+#ifdef FLOW
+         call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
+#endif
+
+! --------------------
 #else
+! --------------------
+
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
@@ -184,7 +226,10 @@ module GenericBoundaryConditionClass
             call self % ChemPotState(x, t, nHat, U)
 
          end select
+
+! --------------------
 #endif
+! --------------------
 
       end subroutine GradVarsForEqn
 
@@ -342,6 +387,101 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(in)    :: U_z(NCOMP)
          real(kind=RP),       intent(inout) :: flux(NCOMP)
       end subroutine GenericBC_ChemPotNeumann
+#endif
+
+
+
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for Navier--Stokes equations
+!        ----------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#ifdef SCALAR
+      subroutine GenericBC_ScalarState(self, x, t, nHat, Q)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+      end subroutine GenericBC_ScalarState
+
+      subroutine GenericBC_ScalarGradVars(self, x, t, nHat, Q, U, GetGradients)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)     :: GetGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD), rho
+
+
+      end subroutine GenericBC_ScalarGradVars
+
+      subroutine GenericBC_ScalarNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
+      end subroutine GenericBC_ScalarNeumann
+#endif
+!
+#ifdef SCALAR_INS_V04
+      subroutine GenericBC_ScalarState(self, x, t, nHat, Q)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+      end subroutine GenericBC_ScalarState
+
+      subroutine GenericBC_ScalarGradVars(self, x, t, nHat, Q, U, GetGradients)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)     :: GetGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD), rho
+
+
+      end subroutine GenericBC_ScalarGradVars
+
+      subroutine GenericBC_ScalarNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
+      end subroutine GenericBC_ScalarNeumann
 #endif
 
       subroutine GenericBC_Describe(self)

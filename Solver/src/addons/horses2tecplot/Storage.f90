@@ -553,6 +553,10 @@ module Storage
                   NVARS = 1
               case ("mu")
                   NVARS = 5
+              case ("slr")
+                  NVARS = 1
+              case ("slr_ins_v04")
+                  NVARS = 4
               case default
                   NVARS = 5
           end select

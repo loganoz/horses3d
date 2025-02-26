@@ -40,7 +40,7 @@ module EllipticBR1
          if (MPI_Process % isRoot) write(STD_OUT,'(/)')
 
          select case (self % eqName)
-         case (ELLIPTIC_NS,ELLIPTIC_NSSA,ELLIPTIC_iNS,ELLIPTIC_MU)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA,ELLIPTIC_iNS,ELLIPTIC_MU,ELLIPTIC_SLR)
             call Subsection_Header("Viscous discretization")
       
          case (ELLIPTIC_CH)
@@ -117,6 +117,7 @@ module EllipticBR1
             call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
          end do
 !$omp end do nowait
+         write (*,*) " ========LiftGradientsHO=========== "
          call self % LiftGradientsHO(nEqn, nGradEqn, mesh, time, GetGradients)
       else
 !$omp do schedule(runtime)
@@ -124,7 +125,8 @@ module EllipticBR1
             call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
          end do
 !$omp end do nowait
-         call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients)
+         ! write (*,*) " ========LiftGradients     =========== "
+         ! call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients)
       end if
    
       end subroutine BR1_ComputeGradient
@@ -593,6 +595,23 @@ module EllipticBR1
 
          kappa = 0.0_RP
          beta  = multiphase % M0_star
+
+#elif defined(SCALAR)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call GetViscosity(e % storage % Q(1,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
+
+         kappa = 0.0_RP
+         beta  = 0.0_RP
+
+! #endif
+#elif defined(SCALAR_INS_V04)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call GetViscosity(e % storage % Q(1,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
+
+         kappa = 0.0_RP
+         beta  = 0.0_RP
 
 #endif
 

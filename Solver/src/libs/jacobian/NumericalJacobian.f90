@@ -9,7 +9,8 @@ module NumericalJacobian
    use MatrixClass
    use ColorsClass            , only: Colors_t
    use HexMeshClass           , only: HexMesh, Neighbor_t, NUM_OF_NEIGHBORS
-   use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
+   use DGSEMClass    
+   ! use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
    use ElementClass
    use JacobianDefinitions    , only: JACEPS
    use JacobianComputerClass  , only: local2ijk, Look_for_neighbour, JacobianComputer_t
@@ -84,18 +85,32 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode )
+   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated,&
+   eps_in, BlockDiagonalized, mode &
+#if defined(SCALAR_INS_V04)
+      ,startNum                     &        
+#endif
+      )
       !-------------------------------------------------------------------
       class(NumJacobian_t)      , intent(inout)          :: this
       type(DGSem),                intent(inout)          :: sem
       integer,                    intent(in)             :: nEqn
       real(kind=RP),              intent(in)             :: time
       class(Matrix_t)          ,  intent(inout)          :: Matrix
-      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative
-      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivativeIsolated
+
       real(kind=RP),   optional, intent(in)              :: eps_in
       logical, optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
       integer, optional, intent(in)                      :: mode
+
+#if defined(SCALAR_INS_V04)
+      integer, optional, intent(in)        :: startNum   
+      procedure(ComputeNonlinearStep1_f), optional       :: TimeDerivative
+      procedure(ComputeNonlinearStep1_f), optional       :: TimeDerivativeIsolated
+#else
+      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative
+      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivativeIsolated            
+#endif
+
       !-------------------------------------------------------------------
       integer                                            :: nelm
       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
@@ -133,9 +148,6 @@ contains
 !     --------------------------------------------------------------------
 !     Initialize variables that will be used throughout all the simulation
 !     --------------------------------------------------------------------
-!
-      
-      call Stopwatch % Start("Numerical Jacobian construction")
 
 #ifdef _HAS_MPI_
       withMPI = .true.
@@ -157,6 +169,8 @@ contains
 
       nelm = size(sem % mesh % elements)
       Gloabl_nelm = sem % mesh % no_of_allElements
+
+      write (*,*) "----------NumJacobian_Compute------,nelm,Gloabl_nelm-----------",nelm,Gloabl_nelm
 
 !
 !     Initialize the colorings structure
@@ -322,40 +336,17 @@ contains
       
 #if defined(CAHNHILLIARD)
       CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+#elif defined(SCALAR_INS_V04)
+
+      ! Q0    = sem % mesh % storage % Q
 #else
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
 
-#if defined(NAVIERSTOKES)
-!$omp do schedule(runtime) private(ii,jj,kk)
-      do eID = 1, sem % mesh % no_of_elements
-         associate ( e => sem % mesh % elements(eID) )
-         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
-         end do                  ; end do                ; end do
-         end associate
-      end do
-!$omp end do
-#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-!$omp do schedule(runtime) private(ii,jj,kk)
-      do eID = 1, sem % mesh % no_of_elements
-         associate ( e => sem % mesh % elements(eID) )
-         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
-         end do                  ; end do                ; end do
-         end associate
-      end do
-!$omp end do
-#endif
 
-!
-!     Save base state in Q0 and QDot0
-!     -------------------------------
-#if defined(CAHNHILLIARD)
-      call sem % mesh % SetStorageToEqn(C_BC)
-#endif
-      
       call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
+      write (*,*) "==========SolutionStorage_local2GlobalQdot==========,sem % NDOF = ",sem % NDOF
+
       call sem % mesh % storage % local2GlobalQ    (sem % NDOF)
       QDot0 = sem % mesh % storage % QDot
       Q0    = sem % mesh % storage % Q
@@ -367,107 +358,6 @@ contains
       call progress_bar % initialize(" Constructing numerical Jacobian...")
       if (withMPI) then
 
-         select type(Matrix_p => Matrix)
-            type is(DenseBlockDiagMatrix_t)
-               ! all good
-            type is(CSRMat_t)
-               error stop "NumericalJacobian :: Full CSR Jacobian computation not compatible with MPI."
-            class default
-               error stop "NumericalJacobian :: Unknown matrix type."
-         end select
-
-!        Go through every color to obtain its elements' contribution to the Jacobian
-!        ***************************************************************************
-         do thiscolor = 1 , ecolors % num_of_colors
-            if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
-
-            ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
-            felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
-
-!           Iterate through the DOFs in thiscolor
-!              ( Computes one column for each dof within an element )
-!           ********************************************************
-            do thisdof = 1, ndofcol(thiscolor)
-
-!              Perturb the current degree of freedom in all elements within current color
-!              --------------------------------------------------------------------------
-               do thiselmidx = ielm, felm-1              
-                  thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
-                  thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
-
-                  if (thiselm .gt. 0) then
-                  if (this % ndofelm(thiselm)<thisdof) cycle    ! Do nothing if the DOF exceeds the NDOF of thiselm
-
-                     ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
-                     sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                         sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
-
-                  end if
-               end do ! thiselmidx = ielm, felm-1 
-!  
-!              Compute the time derivative
-!              ---------------------------
-#if defined(CAHNHILLIARD)
-               CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
-#else
-               CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
-#endif
-
-#if defined(NAVIERSTOKES)
-!$omp do schedule(runtime) private(ii,jj,kk)
-         do eID = 1, sem % mesh % no_of_elements
-            associate ( e => sem % mesh % elements(eID) )
-            do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-               e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
-            end do                  ; end do                ; end do
-            end associate
-         end do
-!$omp end do
-#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-!$omp do schedule(runtime) private(ii,jj,kk)
-         do eID = 1, sem % mesh % no_of_elements
-            associate ( e => sem % mesh % elements(eID) )
-            do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-               e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
-            end do                  ; end do                ; end do
-            end associate
-         end do
-!$omp end do
-#endif
-
-               call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
-               sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
-               call sem % mesh % storage % global2LocalQdot
-               
-   !
-   !           Add the contributions to the Jacobian
-   !           -------------------------------------
-               do thiselmidx = ielm, felm-1
-                  thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
-                  thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
-
-                  if (thiselm .gt. 0) then
-
-                     IF (this % ndofelm(thiselm)<thisdof) CYCLE
-
-                     pbuffer(1:this % ndofelm(thiselm)) => sem % mesh % storage % elements(thiselm) % QDot 
-
-                     do j=1, this % ndofelm(thiselm)
-                        call Matrix % AddToBlockEntry (sem % mesh % elements(thiselm) % GlobID, sem % mesh % elements(thiselm) % GlobID, &
-                           j, thisdof, pbuffer(j) )
-                     end do
-                     
-                  end if
-
-               end do ! thiselmidx = ielm, felm-1      
-   !
-   !           Restore original values for Q (TODO: this can be improved)
-   !           ----------------------------------------------------------
-               sem % mesh % storage % Q = Q0
-               call sem % mesh % storage % global2LocalQ
-
-            ENDDO ! thisdof = 1, ndofcol(thiscolor)
-         ENDDO ! thiscolor = 1 , ecolors % num_of_colors
 
       else ! NOMPI
 
@@ -500,31 +390,34 @@ contains
 !           ---------------------------
 #if defined(CAHNHILLIARD)
             CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+#elif defined(SCALAR_INS_V04)
+
+            ! Q0    = sem % mesh % storage % Q
 #else
             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
 
-#if defined(NAVIERSTOKES)
-!$omp do schedule(runtime) private(ii,jj,kk)
-      do eID = 1, sem % mesh % no_of_elements
-         associate ( e => sem % mesh % elements(eID) )
-         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
-         end do                  ; end do                ; end do
-         end associate
-      end do
-!$omp end do
-#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-!$omp do schedule(runtime) private(ii,jj,kk)
-      do eID = 1, sem % mesh % no_of_elements
-         associate ( e => sem % mesh % elements(eID) )
-         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
-         end do                  ; end do                ; end do
-         end associate
-      end do
-!$omp end do
-#endif
+! #if defined(NAVIERSTOKES)
+! !$omp do schedule(runtime) private(ii,jj,kk)
+!       do eID = 1, sem % mesh % no_of_elements
+!          associate ( e => sem % mesh % elements(eID) )
+!          do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+!             e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+!          end do                  ; end do                ; end do
+!          end associate
+!       end do
+! !$omp end do
+! #elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+! !$omp do schedule(runtime) private(ii,jj,kk)
+!       do eID = 1, sem % mesh % no_of_elements
+!          associate ( e => sem % mesh % elements(eID) )
+!          do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+!             e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+!          end do                  ; end do                ; end do
+!          end associate
+!       end do
+! !$omp end do
+! #endif
 
             call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
@@ -568,10 +461,503 @@ contains
       call sem % mesh % SetStorageToEqn(NS_BC)
 #endif
       
-      ! call Matrix % Visualize('Jacobian.txt')
+      call Matrix % Visualize('Jacobian.txt')
       ! error stop "TBC"
    end subroutine NumJacobian_Compute
 !
+
+
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! !
+!    subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode )
+!       !-------------------------------------------------------------------
+!       class(NumJacobian_t)      , intent(inout)          :: this
+!       type(DGSem),                intent(inout)          :: sem
+!       integer,                    intent(in)             :: nEqn
+!       real(kind=RP),              intent(in)             :: time
+!       class(Matrix_t)          ,  intent(inout)          :: Matrix
+!       procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative
+!       procedure(ComputeTimeDerivative_f), optional       :: TimeDerivativeIsolated
+!       real(kind=RP),   optional, intent(in)              :: eps_in
+!       logical, optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
+!       integer, optional, intent(in)                      :: mode
+!       !-------------------------------------------------------------------
+!       integer                                            :: nelm
+!       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
+!       integer                                            :: thisdof                           ! specific counters
+!       integer                                            :: ielm, felm                      
+!       integer, save                                      :: nnz, totalnnz
+!       integer                           , save           :: maxndofel
+!       integer, allocatable, dimension(:), save           :: Nx, Ny, Nz                             ! Polynomial orders
+!       integer, allocatable, dimension(:), save           :: ndofcol                                ! Maximum number of degrees of freedom in each color        
+!       integer, allocatable                               :: cols(:)
+!       integer, allocatable                               :: rows(:)
+!       integer, allocatable                               :: diag(:)
+!       real(kind=RP), allocatable, save                   :: Q0(:)
+!       real(kind=RP), allocatable, save                   :: QDot0(:)
+      
+!       integer :: i, j, ii, jj, kk, eID ! General counters
+!       integer, dimension(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
+!       real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
+      
+!       logical, save                                      :: isfirst = .TRUE.
+! #if (!defined(NAVIERSTOKES))
+!       logical                                            :: computeGradients = .true.
+! #endif
+!       integer                         :: rank, ierror, mpisize
+!       integer, parameter :: faces_and_one = 7 ! hard coded number of faces for HEXA + 1
+!       integer :: Gloabl_nelm, thiselm_g
+!       real(kind=RP), pointer :: pbuffer(:)
+!       integer, allocatable, dimension(:) :: counts_recv, displacements
+!       type(TProgressBar) :: progress_bar
+!       integer, allocatable, dimension(:) :: el_reordering, el_reordering_idx
+!       !-------------------------------------------------------------------
+      
+!       if(.not. present(TimeDerivative) ) error stop 'NumJacobian_Compute needs the time-derivative procedure'
+! !
+! !     --------------------------------------------------------------------
+! !     Initialize variables that will be used throughout all the simulation
+! !     --------------------------------------------------------------------
+! !
+      
+!       call Stopwatch % Start("Numerical Jacobian construction")
+
+! #ifdef _HAS_MPI_
+!       withMPI = .true.
+! #else
+!       withMPI = .false.
+! #endif
+
+!       if (.NOT. isfirst) then 
+!          deallocate(nbr)
+!          deallocate(Nx)
+!          deallocate(Ny)
+!          deallocate(Nz)
+!          deallocate(used)
+!          deallocate(ndofcol)
+!          deallocate(QDot0)
+!          deallocate(Q0)
+!          deallocate(nbr_g)
+!       end if
+
+!       nelm = size(sem % mesh % elements)
+!       Gloabl_nelm = sem % mesh % no_of_allElements
+
+! !
+! !     Initialize the colorings structure
+! !     ----------------------------------
+!       allocate(nbr(nelm))
+!       CALL Look_for_neighbour(nbr, sem % mesh)
+!       allocate(nbr_g(Gloabl_nelm))
+
+! #ifdef _HAS_MPI_
+!       call mpi_comm_rank(MPI_COMM_WORLD, rank, ierror)
+!       call mpi_comm_size(MPI_COMM_WORLD, mpisize, ierror)
+!       allocate(counts_recv(mpisize))
+!       allocate(displacements(mpisize))
+
+!       call mpi_allgather(nelm, 1, MPI_INT, counts_recv, 1, MPI_INT, MPI_COMM_WORLD, ierror)
+
+!       counts_recv = counts_recv * faces_and_one
+!       displacements(1) = 0
+!       if (mpisize .ge. 2) then
+!          do i = 2, mpisize
+!             displacements(i) = displacements(i-1) + counts_recv(i-1)
+!          end do
+!       end if
+
+!       call mpi_allgatherv(nbr, nelm*faces_and_one, MPI_INT, nbr_g, counts_recv, displacements, MPI_INT, MPI_COMM_WORLD, ierror)
+
+!       deallocate(counts_recv)
+!       deallocate(displacements)
+! #else
+!       nbr_g = nbr
+! #endif
+
+! !
+! !     Re-order neighbours
+! !     -------------------
+!       allocate(el_reordering(Gloabl_nelm))
+!       allocate(el_reordering_idx(Gloabl_nelm))
+
+!       do i = 1, Gloabl_nelm
+!          el_reordering(i) = nbr_g(i) % elmnt(7)
+!       end do
+
+!       do i = 1, Gloabl_nelm
+!          el_reordering_idx(i) = my_findloc(el_reordering, i, 1)
+!       end do
+
+!       nbr_g = nbr_g(el_reordering_idx)
+
+!       deallocate(el_reordering)
+!       deallocate(el_reordering_idx)
+
+! !
+! !     Assemble colors
+! !     ---------------
+
+!       call ecolors % construct(nbr_g, num_of_neighbor_levels)       
+! !
+! !     Allocate storage
+! !     ----------------
+!       allocate(Nx(nelm), Ny(nelm), Nz(nelm))
+      
+!       do i = 1, nelm
+!          Nx(i) = sem % mesh % elements(i) % Nxyz(1)
+!          Ny(i) = sem % mesh % elements(i) % Nxyz(2)
+!          Nz(i) = sem % mesh % elements(i) % Nxyz(3)
+!       end do         
+
+!       maxndofel = MAXVAL(this % ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed         
+! !
+! !     ---------------------------------------------------------------------------------
+! !     Get the maximum number of neighbors ["of neighbors" * (num_of_neighbor_levels-1)] 
+! !     that are needed for the Jacobian computation (mesh dependent)
+! !     ---------------------------------------------------------------------------------
+! !
+!       max_num_of_neighbors = 0 ! Initialize to minimum possible value
+!       if (.not. withMPI) then
+!          do i=1, nelm
+!             max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
+!          end do
+!       end if
+      
+! !
+! !     ---------------------------------------------------------------
+! !     Allocate the used array that will contain the information about
+! !     which neighbor elements were already used in the numerical
+! !     computation of the Jacobian matrix entries
+! !     -> The neighbors (including itself) and a last entry that will be 0 always (boundary index)
+! !     ---------------------------------------------------------------
+! !
+!       allocate ( used(max_num_of_neighbors+1) )
+! !
+! !     -------------------------------------------------------------------------
+! !     Set max number of nonzero values expected in a row of the Jacobian matrix    TODO: if there's p-adaptation, this has to be recomputed
+! !           Assumes Legendre-Gauss quadrature and neglects zero values in each 
+! !              block (taken into account later when assembling)
+! !           For Legendre-Gauss-Lobatto much less entries are expected (a node on the
+! !              interface has more cols than an interior node)
+! !           IMPORTANT: These numbers assume conforming meshes!
+! !     -------------------------------------------------------------------------
+! !
+!       nnz = maxndofel * max_num_of_neighbors
+! !
+! !     --------------------------------------------------------------
+! !     Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
+! !     --------------------------------------------------------------
+! !    
+!       allocate(ndofcol(ecolors % num_of_colors))
+!       ndofcol = 0
+!       DO thiscolor = 1 , ecolors % num_of_colors
+!          ielm = ecolors%bounds(thiscolor)             
+!          felm = ecolors%bounds(thiscolor+1)
+!          DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
+!             thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+!             thiselm = thiselm_g
+!             if (thiselm .gt. 0) ndofcol(thiscolor) = MAX(ndofcol(thiscolor),this % ndofelm(thiselm))
+!          END DO
+!       END DO
+      
+!       allocate(QDot0(size(sem % mesh % storage % QDot)))
+!       allocate(Q0   (size(sem % mesh % storage % QDot)))
+      
+!       ! All initializations done!
+!       isfirst = .FALSE.
+! !
+! !     ---------------------------------------------
+! !     Set value of eps (currently using Mettot et al. approach with L2 norm because it seems to work)
+! !        See:
+! !           > Mettot, Clément, Florent Renac, and Denis Sipp. "Computation of eigenvalue sensitivity to base flow modifications in a discrete framework: Application to open-loop control." Journal of Computational Physics 269 (2014): 234-258.
+! !           > Knoll, Dana A., and David E. Keyes. "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." Journal of Computational Physics 193.2 (2004): 357-397.
+! !     --------------------------------------------
+! !
+!       if (present(eps_in)) then
+!          eps = eps_in
+!       else
+!          call sem % mesh % storage % local2GlobalQ (sem % NDOF)
+!          associate (Q => sem % mesh % storage % Q)
+!          eps = sqrt(EPSILON(eps))*(NORM2(Q)+1._RP) ! 1.e-8_RP: Sometimes gives better results
+!          end associate
+!       end if
+! !
+! !     *************************************************
+! !     If Jacobian matrix was not preallocated, allocate
+! !     *************************************************
+! !
+!       if (.not. this % preAllocate) then
+!          select type(Matrix_p => Matrix)
+!             type is(DenseBlockDiagMatrix_t)
+!                call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
+!             type is(SparseBlockDiagMatrix_t)
+!                call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
+!             type is(CSRMat_t)
+! !~                call GetRowsAndColsVector(sem, nbr, nEqn, Matrix_p % num_of_Rows, totalnnz, this % firstIdx, rows, cols, diag)
+! !~                call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
+!                call Matrix_p % Preallocate()
+!             class default ! Construct with nonzeros in each row
+!                call Matrix_p % Preallocate(nnz)
+!          end select
+         
+!          call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
+!       end if
+      
+!       call Matrix % Reset(ForceDiagonal = .TRUE.)
+      
+! #if defined(CAHNHILLIARD)
+!       CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+! #else
+!       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
+! #endif
+
+! #if defined(NAVIERSTOKES)
+! !$omp do schedule(runtime) private(ii,jj,kk)
+!       do eID = 1, sem % mesh % no_of_elements
+!          associate ( e => sem % mesh % elements(eID) )
+!          do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+!             e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+!          end do                  ; end do                ; end do
+!          end associate
+!       end do
+! !$omp end do
+! #elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+! !$omp do schedule(runtime) private(ii,jj,kk)
+!       do eID = 1, sem % mesh % no_of_elements
+!          associate ( e => sem % mesh % elements(eID) )
+!          do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+!             e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+!          end do                  ; end do                ; end do
+!          end associate
+!       end do
+! !$omp end do
+! #endif
+
+! !
+! !     Save base state in Q0 and QDot0
+! !     -------------------------------
+! #if defined(CAHNHILLIARD)
+!       call sem % mesh % SetStorageToEqn(C_BC)
+! #endif
+      
+!       call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
+!       write (*,*) "==========SolutionStorage_local2GlobalQdot==========,sem % NDOF = ",sem % NDOF
+
+!       call sem % mesh % storage % local2GlobalQ    (sem % NDOF)
+!       QDot0 = sem % mesh % storage % QDot
+!       Q0    = sem % mesh % storage % Q
+! !
+! !     ------------------------------------------
+! !     Compute numerical Jacobian using colorings
+! !     ------------------------------------------
+! !
+!       call progress_bar % initialize(" Constructing numerical Jacobian...")
+!       if (withMPI) then
+
+!          select type(Matrix_p => Matrix)
+!             type is(DenseBlockDiagMatrix_t)
+!                ! all good
+!             type is(CSRMat_t)
+!                error stop "NumericalJacobian :: Full CSR Jacobian computation not compatible with MPI."
+!             class default
+!                error stop "NumericalJacobian :: Unknown matrix type."
+!          end select
+
+! !        Go through every color to obtain its elements' contribution to the Jacobian
+! !        ***************************************************************************
+!          do thiscolor = 1 , ecolors % num_of_colors
+!             if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
+
+!             ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
+!             felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
+
+! !           Iterate through the DOFs in thiscolor
+! !              ( Computes one column for each dof within an element )
+! !           ********************************************************
+!             do thisdof = 1, ndofcol(thiscolor)
+
+! !              Perturb the current degree of freedom in all elements within current color
+! !              --------------------------------------------------------------------------
+!                do thiselmidx = ielm, felm-1              
+!                   thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+!                   thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
+
+!                   if (thiselm .gt. 0) then
+!                   if (this % ndofelm(thiselm)<thisdof) cycle    ! Do nothing if the DOF exceeds the NDOF of thiselm
+
+!                      ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+!                      sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
+!                                                          sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
+
+!                   end if
+!                end do ! thiselmidx = ielm, felm-1 
+! !  
+! !              Compute the time derivative
+! !              ---------------------------
+! #if defined(CAHNHILLIARD)
+!                CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+! #else
+!                CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
+! #endif
+
+! #if defined(NAVIERSTOKES)
+! !$omp do schedule(runtime) private(ii,jj,kk)
+!          do eID = 1, sem % mesh % no_of_elements
+!             associate ( e => sem % mesh % elements(eID) )
+!             do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+!                e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+!             end do                  ; end do                ; end do
+!             end associate
+!          end do
+! !$omp end do
+! #elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+! !$omp do schedule(runtime) private(ii,jj,kk)
+!          do eID = 1, sem % mesh % no_of_elements
+!             associate ( e => sem % mesh % elements(eID) )
+!             do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+!                e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+!             end do                  ; end do                ; end do
+!             end associate
+!          end do
+! !$omp end do
+! #endif
+
+!                call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
+!                sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
+!                call sem % mesh % storage % global2LocalQdot
+               
+!    !
+!    !           Add the contributions to the Jacobian
+!    !           -------------------------------------
+!                do thiselmidx = ielm, felm-1
+!                   thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+!                   thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
+
+!                   if (thiselm .gt. 0) then
+
+!                      IF (this % ndofelm(thiselm)<thisdof) CYCLE
+
+!                      pbuffer(1:this % ndofelm(thiselm)) => sem % mesh % storage % elements(thiselm) % QDot 
+
+!                      do j=1, this % ndofelm(thiselm)
+!                         call Matrix % AddToBlockEntry (sem % mesh % elements(thiselm) % GlobID, sem % mesh % elements(thiselm) % GlobID, &
+!                            j, thisdof, pbuffer(j) )
+!                      end do
+                     
+!                   end if
+
+!                end do ! thiselmidx = ielm, felm-1      
+!    !
+!    !           Restore original values for Q (TODO: this can be improved)
+!    !           ----------------------------------------------------------
+!                sem % mesh % storage % Q = Q0
+!                call sem % mesh % storage % global2LocalQ
+
+!             ENDDO ! thisdof = 1, ndofcol(thiscolor)
+!          ENDDO ! thiscolor = 1 , ecolors % num_of_colors
+
+!       else ! NOMPI
+
+! !     Go through every color to obtain its elements' contribution to the Jacobian
+! !     ***************************************************************************
+!       do thiscolor = 1 , ecolors % num_of_colors
+!          ! if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+!          if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
+!          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
+!          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
+! !         
+! !        Iterate through the DOFs in thiscolor
+! !           ( Computes one column for each dof within an element )
+! !        ********************************************************
+!          do thisdof = 1, ndofcol(thiscolor)
+            
+! !           Perturb the current degree of freedom in all elements within current color
+! !           --------------------------------------------------------------------------
+!             DO thiselmidx = ielm, felm-1              
+!                thiselm = ecolors%elmnts(thiselmidx)
+!                IF (this % ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
+               
+!                ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               
+!                sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
+!                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
+!             ENDDO
+! !
+! !           Compute the time derivative
+! !           ---------------------------
+! #if defined(CAHNHILLIARD)
+!             CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+! #else
+!             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
+! #endif
+
+! ! #if defined(NAVIERSTOKES)
+! ! !$omp do schedule(runtime) private(ii,jj,kk)
+! !       do eID = 1, sem % mesh % no_of_elements
+! !          associate ( e => sem % mesh % elements(eID) )
+! !          do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+! !             e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+! !          end do                  ; end do                ; end do
+! !          end associate
+! !       end do
+! ! !$omp end do
+! ! #elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+! ! !$omp do schedule(runtime) private(ii,jj,kk)
+! !       do eID = 1, sem % mesh % no_of_elements
+! !          associate ( e => sem % mesh % elements(eID) )
+! !          do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+! !             e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+! !          end do                  ; end do                ; end do
+! !          end associate
+! !       end do
+! ! !$omp end do
+! ! #endif
+
+!             call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
+!             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
+!             call sem % mesh % storage % global2LocalQdot
+            
+! !
+! !           Add the contributions to the Jacobian
+! !           -------------------------------------
+!             do thiselmidx = ielm, felm-1
+!                thiselm = ecolors%elmnts(thiselmidx)
+!                IF (this % ndofelm(thiselm)<thisdof) CYCLE
+!                ! Redefine used array and counter
+!                used    = 0
+!                usedctr = 1
+               
+!                call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
+               
+!             END DO           
+! !
+! !           Restore original values for Q (TODO: this can be improved)
+! !           ----------------------------------------------------------
+!             sem % mesh % storage % Q = Q0
+!             call sem % mesh % storage % global2LocalQ
+!          ENDDO
+!       ENDDO
+
+!       end if ! MPI
+
+!       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
+      
+!       call Stopwatch % Pause("Numerical Jacobian construction")
+      
+!       IF (this % verbose) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
+
+! !
+! !     --------------------
+! !     Return storage to NS
+! !     --------------------
+! !
+! #if defined(FLOW) && defined(CAHNHILLIARD)
+!       call sem % mesh % SetStorageToEqn(NS_BC)
+! #endif
+      
+!       call Matrix % Visualize('Jacobian.txt')
+!       ! error stop "TBC"
+!    end subroutine NumJacobian_Compute
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -------------------------------------------------------------------------------------------------------
@@ -609,6 +995,13 @@ contains
             
             do j=1, this % ndofelm(elmnbr)
                call Matrix % AddToBlockEntry (mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID, j, thisdof, pbuffer(j) )
+               
+               ! write (*,*) "==j, this % ndofelm(elmnbr), mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID====",&
+               !                j, this % ndofelm(elmnbr), mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID
+               ! write (*,*) ndof
+               ! write (*,*) pbuffer(1:ndof)
+               ! write (*,*) mesh % storage % elements(elmnbr) % QDot
+
             end do
             
             used(usedctr) = elmnbr

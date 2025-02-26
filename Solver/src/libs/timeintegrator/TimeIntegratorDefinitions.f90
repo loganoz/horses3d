@@ -12,12 +12,12 @@ module TimeIntegratorDefinitions
          use SMConstants
          use HexMeshClass
          use DGSEMClass
-#ifdef FLOW
+#if defined(FLOW) || defined (SCALAR) || defined (SCALAR_INS_V04) 
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
          type(HexMesh)              :: mesh
-#ifdef FLOW
+#if defined(FLOW) || defined (SCALAR)  || defined (SCALAR_INS_V04) 
          type(Particles_t)          :: particles
 #else
          logical                    :: particles

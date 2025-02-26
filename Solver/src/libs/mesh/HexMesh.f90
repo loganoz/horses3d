@@ -102,7 +102,7 @@ MODULE HexMeshClass
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
             procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
@@ -120,7 +120,7 @@ MODULE HexMeshClass
             procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
-            procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
+            procedure :: SetStorageToEqn               => HexMesh_SetStorageToEqn
 #if defined(INCNS) && defined(CAHNHILLIARD)
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
@@ -904,6 +904,7 @@ slavecoord:             DO l = 1, 4
             do i = 1, size(self % HO_Elements)
                eID = self % HO_Elements(i)
                fIDs = self % elements(eID) % faceIDs
+               write (*,*) "if (HOElements) then, , eID, fIDs", eID, fIDs
                call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
                                                                   self % faces(fIDs(1)),&
                                                                   self % faces(fIDs(2)),&
@@ -924,6 +925,11 @@ slavecoord:             DO l = 1, 4
                                                                   self % faces(fIDs(4)),&
                                                                   self % faces(fIDs(5)),&
                                                                   self % faces(fIDs(6)) )
+
+               ! *************************************************** use this condition
+               ! write (*,*) "if no (HOElements) then,, eID", eID / (1.0_RP - 0)
+               ! write (*,*) "if no (HOElements) then,, fIDs", fIDs
+               ! write (*,*) "if no (HOElements) then, , eID, fIDs", eID / (1.0_RP - 1), fIDs
             end do
 !$omp end do
          end if
@@ -2130,6 +2136,10 @@ slavecoord:             DO l = 1, 4
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS)
 #elif defined(INCNS)
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
+#elif defined(SCALAR)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
+#elif defined(SCALAR_INS_V04)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
 #endif
@@ -2958,7 +2968,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
          logical                          :: saveSensor, saveLES
-#if (!defined(NAVIERSTOKES) || !defined(INCNS))
+#if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
 !
@@ -3033,6 +3043,12 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
+#if defined(SCALAR)
+            Q(NCONS,:,:,:) = e % storage % slr(1,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+            Q(1:NCONS,:,:,:) = e % storage % slr(1:NCONS,:,:,:)
+#endif
 
             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO * SIZEOF_RP
             if (saveSensor) pos = pos + (e % globID - 1) * SIZEOF_RP
@@ -3049,6 +3065,12 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                Q(NGRAD,:,:,:) = e % storage % c_x(1,:,:,:)
 #endif
+#if defined(SCALAR)
+               Q(NGRAD,:,:,:) = e % storage % slr_x(1,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+               Q(1:NCONS,:,:,:) = e % storage % slr_x(1:NCONS,:,:,:)
+#endif
                write(fid) Q
 
 #ifdef FLOW
@@ -3057,6 +3079,12 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                Q(NGRAD,:,:,:) = e % storage % c_y(1,:,:,:)
 #endif
+#if defined(SCALAR)
+               Q(NGRAD,:,:,:) = e % storage % slr_y(1,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+               Q(1:NCONS,:,:,:) = e % storage % slr_y(1:NCONS,:,:,:)
+#endif
                write(fid) Q
 
 #ifdef FLOW
@@ -3064,6 +3092,12 @@ slavecoord:             DO l = 1, 4
 #endif
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                Q(NGRAD,:,:,:) = e % storage % c_z(1,:,:,:)
+#endif
+#if defined(SCALAR)
+               Q(NGRAD,:,:,:) = e % storage % slr_z(1,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+               Q(1:NCONS,:,:,:) = e % storage % slr_z(1:NCONS,:,:,:)
 #endif
                write(fid) Q
 
@@ -3164,82 +3198,6 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveStatistics
-
-#endif
-
-#if defined(INCNS) 
-      subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
-         use SolutionFile
-         implicit none
-         class(HexMesh),      intent(in)        :: self
-         integer,             intent(in)        :: iter
-         real(kind=RP),       intent(in)        :: time
-         character(len=*),    intent(in)        :: name
-         logical,             intent(in)        :: saveGradients
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer                          :: fid, eID
-         integer                          :: no_stat_s
-         integer(kind=AddrInt)            :: pos
-         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
-         real(kind=RP), allocatable       :: Q(:,:,:,:)
-!
-!        Gather reference quantities (//# I COPIED THESE VERBATIM. Do I reaaly need these?)
-!        ---------------------------
-
-         refs(GAMMA_REF) = 0.0_RP
-         refs(RGAS_REF)  = 0.0_RP
-         refs(RHO_REF)   = refValues      % rho
-         refs(V_REF)     = refValues      % V
-         refs(T_REF)     = 0.0_RP
-         refs(MACH_REF)  = 0.0_RP
-
-!        Create new file
-!        ---------------
-         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
-!
-!        Write arrays
-!        ------------
-         fID = putSolutionFileInWriteDataMode(trim(name))
-         do eID = 1, self % no_of_elements
-            associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
-            no_stat_s = 9
-            call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
-            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-         !    ! write(fid) e%storage%stats%data(7:,:,:,:)
-             Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
-             write(fid) Q
-             deallocate(Q)
-            if ( saveGradients .and. computeGradients ) then
-               allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-               ! UX
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
-               write(fid) Q
-               ! UY
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
-               write(fid) Q
-               ! UZ
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:,:,:,:)
-               write(fid) Q
-               deallocate(Q)
-            end if
-            end associate
-         end do
-         close(fid)
-!
-!        Close the file
-!        --------------
-         call SealSolutionFile(trim(name))
-
-      end subroutine HexMesh_SaveStatistics
-
-#endif
-
-#if defined(NAVIERSTOKES) || defined(INCNS)
 
       subroutine HexMesh_ResetStatistics(self)
          implicit none
@@ -3539,6 +3497,12 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
             e % storage % c(1,:,:,:) = Q(NCONS,:,:,:)
 #endif
+#if defined(SCALAR)
+            e % storage % slr(1,:,:,:) = Q(NCONS,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+            e % storage % slr(1:NCONS,:,:,:) = Q(1:NCONS,:,:,:)
+#endif
 
             deallocate(Q)
 
@@ -3551,6 +3515,12 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_x(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
+#if defined(SCALAR)
+               e % storage % slr_x(1,:,:,:) = Q(NGRAD,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+               e % storage % slr_x(1:NCONS,:,:,:) = Q(1:NCONS,:,:,:)
+#endif
 
                read(fID) Q
 #ifdef FLOW
@@ -3559,6 +3529,14 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_y(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
+
+#if defined(SCALAR)
+               e % storage % slr_y(1,:,:,:) = Q(NGRAD,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+               e % storage % slr_y(1:NCONS,:,:,:) = Q(1:NCONS,:,:,:)
+#endif
+
                read(fID) Q
 #ifdef FLOW
                e % storage % U_z = Q(1:NCONS,:,:,:)
@@ -3566,6 +3544,13 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
+#if defined(SCALAR)
+               e % storage % slr_z(1,:,:,:) = Q(NGRAD,:,:,:)
+#endif
+#if defined(SCALAR_INS_V04)
+               e % storage % slr_z(1:NCONS,:,:,:) = Q(1:NCONS,:,:,:)
+#endif
+
                deallocate(Q)
             end if
 
@@ -4069,10 +4054,10 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu, nssa
+      integer  :: off, ns, c, mu, nssa, slr, slr_ins_v04
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu, nssa)
+      call GetStorageEquations(off, ns, c, mu, nssa, slr, slr_ins_v04)
 
       if ( which .eq. ns ) then
 #ifdef FLOW
@@ -4137,6 +4122,39 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(1) % SetStorageToCH_mu
             call self % faces(fID) % storage(2) % SetStorageToCH_mu
          end do
+#endif
+      elseif ( which .eq. slr ) then
+
+#if defined(SCALAR)
+         self % storage % Q => self % storage % slr
+         self % storage % QDot => self % storage % slrDot
+         self % storage % PrevQ => self % storage % Prevslr
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToSLR_slr
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % faces(fID) % storage(1) % SetStorageToSLR_slr
+            call self % faces(fID) % storage(2) % SetStorageToSLR_slr
+         end do
+
+#endif
+
+#if defined(SCALAR_INS_V04)
+         self % storage % Q => self % storage % slr
+         self % storage % QDot => self % storage % slrDot
+         self % storage % PrevQ => self % storage % Prevslr
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToSLR_slr
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % faces(fID) % storage(1) % SetStorageToSLR_slr
+            call self % faces(fID) % storage(2) % SetStorageToSLR_slr
+         end do
+
 #endif
       end if
 
@@ -4262,7 +4280,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    type(Element)   , pointer :: e
    type(Face)      , pointer :: f
 
-#if (!defined(NAVIERSTOKES) || !defined(INCNS))
+#if (!defined(NAVIERSTOKES))
    logical, parameter            :: computeGradients = .true.
 #endif
    !---------------------------------------------------
@@ -4424,7 +4442,7 @@ end subroutine HexMesh_pAdapt_MPI
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
       type(Face)      , pointer :: f
-#if (!defined(NAVIERSTOKES) || !(defined(INCNS)))
+#if (!defined(NAVIERSTOKES))
       logical, parameter            :: computeGradients = .true.
 #endif
       !---------------------------------------------------

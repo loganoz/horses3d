@@ -10,7 +10,7 @@ module EllipticDiscretizationClass
 !
    private
    public   EllipticDiscretization_t, EllipticFlux_f, GetViscosity_f
-   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
+   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_SLR
 
    public BaseClass_ComputeGradient
 
@@ -55,7 +55,7 @@ module EllipticDiscretizationClass
    end interface
 
    enum, bind(C)
-      enumerator :: ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS
+      enumerator :: ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS, ELLIPTIC_SLR
    end enum
 !
 !  ========
@@ -102,6 +102,9 @@ module EllipticDiscretizationClass
          
          case(ELLIPTIC_iNS)
             self % eqName = ELLIPTIC_iNS
+
+         case(ELLIPTIC_SLR)
+            self % eqName = ELLIPTIC_SLR
 
          case default
             print*, "Unrecognized equation"

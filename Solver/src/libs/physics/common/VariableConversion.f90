@@ -8,6 +8,10 @@ module VariableConversion
    use VariableConversion_iNS
 #elif defined(MULTIPHASE)
    use VariableConversion_MU
+#elif defined(SCALAR)
+   use VariableConversion_SLR 
+#elif defined(SCALAR_INS_V04)
+   use VariableConversion_SLR_INS_V04 
 #endif
 #if defined(CAHNHILLIARD)
    use VariableConversion_CH

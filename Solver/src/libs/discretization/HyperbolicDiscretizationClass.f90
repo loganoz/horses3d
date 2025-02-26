@@ -1,6 +1,9 @@
 #include "Includes.h"
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+! #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)  || defined(SCALAR_INS_V04)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)  
+! #if defined(FLOW) || defined(SCALAR_INS_V04)
+
 module HyperbolicDiscretizationClass
    use SMConstants
 #if defined(SPALARTALMARAS)
@@ -11,6 +14,8 @@ module HyperbolicDiscretizationClass
    use RiemannSolvers_iNS
 #elif defined(MULTIPHASE)
    use RiemannSolvers_MU
+#elif defined(SCALAR_INS_V04)
+   use RiemannSolvers_SLR_INS_V04
 #endif
    implicit none
 
@@ -92,6 +97,10 @@ module HyperbolicDiscretizationClass
 
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+! #if defined(SCALAR_INS_V04)
+!             call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), e % storage % rho(i,j,k))
+
+! #endif
             call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), e % storage % rho(i,j,k))
 
             contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -99,12 +108,12 @@ module HyperbolicDiscretizationClass
                                              + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IY) =    cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
                                              + cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
                                              + cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IZ) =    cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
                                              + cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
                                              + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 

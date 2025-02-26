@@ -11,6 +11,8 @@ module BoundaryConditions
    use FreeSlipWallBCClass,           only: FreeSlipWallBC_t
    use PeriodicBCClass,               only: PeriodicBC_t
    use UserDefinedBCClass,            only: UserDefinedBC_t
+   use ZYDIYFreeSlipWallBCClass,      only: ZYDIYFreeSlipWallBC_t
+   use ZYDIYDirichletBCClass,         only: ZYDIYDirichletBC_t
    use Utilities, only: toLower, almostEqual
    implicit none
 
@@ -22,17 +24,22 @@ module BoundaryConditions
       enumerator :: INFLOW_BC = 1 , OUTFLOW_BC
       enumerator :: NOSLIPWALL_BC , FREESLIPWALL_BC
       enumerator :: PERIODIC_BC   , USERDEFINED_BC
+      enumerator :: ZYDIYFREESLIPWALL_BC 
+      enumerator :: ZYDIYDirichletBC 
    end enum
 
-   character(len=BC_STRING_LENGTH), dimension(8)  :: implementedBCNames = [&
+   character(len=BC_STRING_LENGTH), dimension(10)  :: implementedBCNames = [&
                 "inflow              ",  &
                 "outflow             ",  &
                 "noslipwall          ",  &
                 "freeslipwall        ",  &
                 "periodic            ",  &
                 "user-defined        ",  &
+                "zydiyfreeslipwall   ",  &  ! this is the 9th add by ZY
+                "zydiydirichletbc    ",  &  ! this is the 10th add by ZY
                 "manufacturedsol     ",  &
-                "msoutflowspecifyp   "]
+                "msoutflowspecifyp   "  &
+                ]
 
    type BCSet_t
       class(GenericBC_t), allocatable :: bc
@@ -108,6 +115,22 @@ module BoundaryConditions
                type is (UserDefinedBC_t)
                   bc = UserDefinedBC_t(trim(zoneNames(zID)))
                end select
+! ========================================================================
+! ========================================================================
+            case(ZYDIYFREESLIPWALL_BC)
+               allocate(ZYDIYFreeSlipWallBC_t :: BCs(zID) % bc)
+               select type(bc => BCs(zID) % bc)
+               type is (ZYDIYFreeSlipWallBC_t)
+                  bc = ZYDIYFreeSlipWallBC_t(trim(zoneNames(zID)))
+               end select
+! ========================================================================
+            case(ZYDIYDirichletBC)
+               allocate(ZYDIYDirichletBC_t :: BCs(zID) % bc)
+               select type(bc => BCs(zID) % bc)
+               type is (ZYDIYDirichletBC_t)
+                  bc = ZYDIYDirichletBC_t(trim(zoneNames(zID)))
+               end select
+! ========================================================================
             case default
                print*, "Unrecognized BC option"
                errorMessage(STD_OUT)
@@ -249,6 +272,8 @@ module BoundaryConditions
             print*, "   * FreeSlipWall"
             print*, "   * Periodic"
             print*, "   * User-defined"
+            print*, "   * zydiyfreeslipwall"
+            print*, "   * zydiydirichletbc"
             errorMessage(STD_OUT)
             error stop
          end if

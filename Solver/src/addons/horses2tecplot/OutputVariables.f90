@@ -39,6 +39,8 @@ module OutputVariables
       enumerator :: RHOEDOT_V, CDOT_V, T_V, Mach_V, S_V, Vabs_V
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Cp_V, Nxi_V, Neta_V
+      enumerator :: SLR_V
+      enumerator :: SLR1_V, SLR2_V, SLR3_V, SLR4_V, SLR5_V, SLR6_V, SLR7_V
       enumerator :: Nzeta_V, Nav_V, N_V
       enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V
       enumerator :: MPIRANK_V
@@ -83,6 +85,14 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: RHOWKey       = "rhow"
    character(len=STR_VAR_LEN), parameter  :: RHOEKey       = "rhoe"
    character(len=STR_VAR_LEN), parameter  :: cKey          = "c"
+   character(len=STR_VAR_LEN), parameter  :: slrKey        = "slr"
+   character(len=STR_VAR_LEN), parameter  :: slr1_Key        = "veloT_x"
+   character(len=STR_VAR_LEN), parameter  :: slr2_Key        = "veloT_y"
+   character(len=STR_VAR_LEN), parameter  :: slr3_Key        = "veloT_z"
+   character(len=STR_VAR_LEN), parameter  :: slr4_Key        = "slr_4"
+   character(len=STR_VAR_LEN), parameter  :: slr5_Key        = "velo_x"
+   character(len=STR_VAR_LEN), parameter  :: slr6_Key        = "velo_y"
+   character(len=STR_VAR_LEN), parameter  :: slr7_Key        = "velo_z"
    character(len=STR_VAR_LEN), parameter  :: CpKey         = "Cp"
    character(len=STR_VAR_LEN), parameter  :: NxiKey        = "Nxi"
    character(len=STR_VAR_LEN), parameter  :: NetaKey       = "Neta"
@@ -145,7 +155,10 @@ module OutputVariables
                                                                             PKey, P0Key, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
                                                                             CDOTKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
-                                                                            RHOEKey, cKey, CpKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
+                                                                            RHOEKey, cKey, CpKey, NxiKey, NetaKey,   &
+                                                                            slrKey, &
+                                                                            slr1_Key, slr2_Key, slr3_Key, slr4_Key, slr5_Key, slr6_Key, slr7_Key, &
+                                                                            NzetaKey, NavKey, NKey, & 
                                                                             XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, &
                                                                             mpiRankKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
@@ -760,7 +773,39 @@ module OutputVariables
                      output(var,i,j,k) = U_z(size(U_z,1),i,j,k)
                   end do         ; end do         ; end do
 !
-!              **************
+               case(SLR_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(size(Q,1),i,j,k)
+                  end do         ; end do         ; end do
+               case(SLR1_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(1,i,j,k)
+                  end do         ; end do         ; end do
+               case(SLR2_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(2,i,j,k)
+                  end do         ; end do         ; end do
+               case(SLR3_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(3,i,j,k)
+                  end do         ; end do         ; end do
+               case(SLR4_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(4,i,j,k)
+                  end do         ; end do         ; end do   
+               case(SLR5_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(5,i,j,k)
+                  end do         ; end do         ; end do   
+               case(SLR6_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(6,i,j,k)
+                  end do         ; end do         ; end do   
+               case(SLR7_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(7,i,j,k)
+                  end do         ; end do         ; end do   
+                  !              **************
 !              Element sensor
 !              **************
 !
@@ -877,7 +922,14 @@ module OutputVariables
                output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V, C_V/)
 
             elseif ( NVARS .eq. 1 ) then
-               output = (/C_V/)
+               !output = (/C_V/) !//#
+               output = (/SLR_V/)
+            elseif ( NVARS .eq. 4 ) then
+                  !output = (/C_V/) !//#
+                  output = (/SLR1_V, SLR2_V, SLR3_V, SLR4_V/)
+            elseif ( NVARS .eq. 7 ) then
+                  !output = (/C_V/) !//#
+                  output = (/SLR1_V, SLR2_V, SLR3_V, SLR4_V, SLR5_V, SLR6_V, SLR7_V/)
 
             end if
 

@@ -17,7 +17,12 @@ module PhysicsStorage
    use PhysicsStorage_iNS
 #elif defined(MULTIPHASE)
    use PhysicsStorage_MU
+#elif defined(SCALAR_INS_V04)
+   use  PhysicsStorage_SLR_INS_V04
+#elif defined(SCALAR)
+   use  PhysicsStorage_SLR
 #endif
+
 #ifdef CAHNHILLIARD
    use PhysicsStorage_CH
 #endif
@@ -85,6 +90,10 @@ module PhysicsStorage
          call ConstructPhysicsStorage_iNS( controlVariables, Lref, timeRef_NS, success )
 #elif defined(MULTIPHASE)
          call ConstructPhysicsStorage_MU( controlVariables, Lref, timeRef_NS, success )
+#elif defined(SCALAR)
+         call ConstructPhysicsStorage_SLR( controlVariables, Lref, timeRef_NS, success )
+#elif defined(SCALAR_INS_V04)
+         call ConstructPhysicsStorage_SLR_INS_V04( controlVariables, Lref, timeRef_NS, success )
 #endif
 
 !        Navier--Stokes equations set the reference time
@@ -116,6 +125,10 @@ module PhysicsStorage
          call DescribePhysicsStorage_iNS()
 #elif defined(MULTIPHASE)
          call DescribePhysicsStorage_MU()
+#elif defined(SCALAR)
+         call DescribePhysicsStorage_SLR()
+#elif defined(SCALAR_INS_V04)
+         call DescribePhysicsStorage_SLR_INS_V04()
 #endif
 
 #ifdef CAHNHILLIARD

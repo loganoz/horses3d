@@ -1,6 +1,7 @@
 #include "Includes.h"
 module ParticlesClass
-#ifdef FLOW
+#if  defined(FLOW) || defined(SCALAR) || defined(SCALAR_INS_V04)
+! #ifdef FLOW
    use SMConstants
    use ParticleClass
    use FluidData

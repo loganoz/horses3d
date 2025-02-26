@@ -16,7 +16,8 @@ module AnalyticalJacobian
    use JacobianDefinitions             , only: JACEPS
    use JacobianComputerClass           , only: JacobianComputer_t
    use MatrixClass
-   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
+   use DGSEMClass            
+   ! use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use StopWatchClass
    use MeshTypes
    use EllipticDiscretizations
@@ -118,7 +119,13 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, &
+      eps_in, BlockDiagonalized, mode               &
+#if defined(SCALAR_INS_V04)
+      ,startNum  &
+#endif     
+      )
+      
       implicit none
       !-arguments----------------------------------
       class(AnJacobian_t)      , intent(inout)     :: this
@@ -126,12 +133,22 @@ contains
       integer,                   intent(in)        :: nEqn
       real(kind=RP)            , intent(in)        :: time
       class(Matrix_t)          , intent(inout)     :: Matrix
-      procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
-      procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated
+
       real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
       integer        , optional, intent(in)        :: mode
-#if defined(NAVIERSTOKES) 
+      
+#if defined(SCALAR_INS_V04)
+      integer,   optional,      intent(in)                :: startNum
+      procedure(ComputeNonlinearStep1_f), optional :: TimeDerivative    ! Not needed here...
+      procedure(ComputeNonlinearStep1_f), optional :: TimeDerivativeIsolated
+#else
+   procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
+   procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated
+#endif
+
+#if defined(NAVIERSTOKES)
+! #if defined(NAVIERSTOKES) 
       !--------------------------------------------
       integer :: nnz
       integer :: nelem, ierr
@@ -215,7 +232,7 @@ contains
 !     ******************************************************************
 !
       if (flowIsNavierStokes) then
-         call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientVariables_STATE)
+         call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientVariables_STATE)  !U_x, U_y, U_z
 #ifdef _HAS_MPI_
 !$omp single
          call sem % mesh % UpdateMPIFacesGradients(NGRAD)
@@ -268,7 +285,7 @@ contains
       error stop ':: Analytical Jacobian only for NS'
 #endif
 
-   ! call Matrix % Visualize('Jacobian.txt')
+   call Matrix % Visualize('Jacobian.txt')
    end subroutine AnJacobian_Compute
 #if defined(NAVIERSTOKES) 
 !
@@ -293,6 +310,7 @@ contains
 !     ----------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
+         write (*,*) "0000000000000==============", 1./(1-fID)
          call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
          if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
       end do
@@ -304,7 +322,7 @@ contains
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
             call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT, LEFT)   ! dF/dQL to the left element 
-            if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+          if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
          end do
 !$omp end do
       end if
@@ -606,7 +624,7 @@ contains
                                  side = LEFT)
          call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
                                  qr   = f % storage(RIGHT) % Q(:,i,j), &
-                                 nHat = f % geom % normal (:,i,j)    , &
+                                 nHat = f % geom % normal (:,i,j)    , & 
                                  dfdq_num = f % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
                                  side = RIGHT)
 !

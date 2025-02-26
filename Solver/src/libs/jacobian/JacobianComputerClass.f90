@@ -13,7 +13,8 @@ module JacobianComputerClass
    use PhysicsStorage 
    use MPI_Process_Info                , only: MPI_Process
    use Utilities                       , only: QsortWithFriend
-   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
+   use DGSEMClass                     
+   ! use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use GenericMatrixClass              , only: Matrix_t
    use ParamfileRegions                , only: readValueInRegion
    use DenseBlockDiagonalMatrixClass   , only: DenseBlockDiagMatrix_t
@@ -45,6 +46,14 @@ module JacobianComputerClass
          procedure :: GetCSRAllocVectors  => Jacobian_GetCSRVectorsForAllocation
          procedure :: Destruct            => Jacobian_Destruct
          procedure :: Compute             => Jacobian_Compute
+                 
+#if defined(SCALAR_INS_V04)
+         procedure :: TimeDerivative_ComputeRHS
+         procedure :: TimeDerivative_ComputeRHS_pressure_specific
+         procedure :: TimeDerivative_ComputeRHS_velocity_specific
+         
+#endif
+
    end type JacobianComputer_t
    
 !  ========
@@ -86,7 +95,7 @@ module JacobianComputerClass
 !     ------------------------------------
       subroutine Jacobian_Construct(this, mesh, nEqn, controlVariables)
          implicit none
-         !-arguments-----------------------------------------
+         !-arguments----------------------------------------
          class(JacobianComputer_t), intent(inout) :: this
          type(HexMesh)            , intent(inout) :: mesh
          integer                  , intent(in)    :: nEqn
@@ -120,6 +129,8 @@ module JacobianComputerClass
 !
          do eID=1, mesh % no_of_elements
             this % ndofelm_l(eID)  = nEqn * (mesh % Nx(eID)+1) * (mesh % Ny(eID)+1) * (mesh % Nz(eID)+1)
+            write(*,*) "mesh % no_of_elements, mesh % no_of_allElements, .., this % ndofelm_l(eID) ", &
+                        mesh % no_of_elements, mesh % no_of_allElements,     this % ndofelm_l(eID) 
          end do
 !
 !        ***********
@@ -253,7 +264,13 @@ module JacobianComputerClass
 !     ----------------------------------------------------
 !     Generic subroutine for computing the Jacobian matrix
 !     ----------------------------------------------------
-      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
+      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, &
+            TimeDerivativeIsolated,&
+            eps_in, BlockDiagonalized, mode                 &
+#if defined(SCALAR_INS_V04)
+            ,startNum                                     &
+#endif
+      )
          implicit none
          !-arguments----------------------------------
          class(JacobianComputer_t)        , intent(inout)     :: this
@@ -261,17 +278,84 @@ module JacobianComputerClass
          integer,                   intent(in)        :: nEqn               ! TODO:  Deprecate
          real(kind=RP)            , intent(in)        :: time
          class(Matrix_t)          , intent(inout)     :: Matrix
+#if defined(SCALAR_INS_V04)
+         integer, optional, intent(in)        :: startNum               ! indentify the equations
+         procedure(ComputeNonlinearStep1_f), optional :: TimeDerivative
+         procedure(ComputeNonlinearStep1_f), optional :: TimeDerivativeIsolated 
+#else
          procedure(ComputeTimeDerivative_f), optional :: TimeDerivative
          procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated 
+#endif
          real(kind=RP)  , optional, intent(in)        :: eps_in
          logical        , optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
          integer        , optional, intent(in)        :: mode
-         !--------------------------------------------
+
+!--------------------------------------------
          
          error stop 'JacobianComputer_t must be cast to an extended type (e.g. AnJacobian_r or NumJacobian_t) for computation'
          
       end subroutine Jacobian_Compute
 !
+! ==========================================================================
+
+#if defined(SCALAR_INS_V04)
+
+   subroutine TimeDerivative_ComputeRHS(this,  mesh, nEqn,t, RHS, AllNDOF )
+       implicit none
+       class(JacobianComputer_t), intent(inout)     :: this
+       type(HexMesh), target    , intent(inout) :: mesh
+ !      type(HexMesh)              :: mesh
+       integer, intent(in)    :: AllNDOF    !
+       real(kind=RP)              :: t
+       integer, intent(in)        :: nEqn
+       ! real(kind=RP)                       :: RHS( size(e_plus % storage % Q) )
+      real(kind=RP)                       :: RHS(nEqn * AllNDOF)
+       !
+      error stop 'TimeDerivative_ComputeRHS must be cast to an extended type (e.g. AnJacobian_r) for computation'
+      !       
+   end subroutine TimeDerivative_ComputeRHS
+
+   subroutine TimeDerivative_ComputeRHS_pressure_specific(this,  mesh, nEqn,t, RHS, AllNDOF, startVarNum )
+      implicit none
+      class(JacobianComputer_t), intent(inout)     :: this
+      type(HexMesh), target    , intent(inout) :: mesh
+!      type(HexMesh)              :: mesh
+      integer, intent(in)    :: AllNDOF    !
+      real(kind=RP)              :: t
+      integer, intent(in)        :: nEqn
+      ! real(kind=RP)                       :: RHS( size(e_plus % storage % Q) )
+     real(kind=RP)                       :: RHS(nEqn * AllNDOF)
+
+   !   REAL(kind=RP), intent(inout)       :: variable(nEqn,e_plus % Nxyz(3), dim1, dim2, dim3 )
+     integer, intent(in)             :: startVarNum
+   
+     error stop 'TimeDerivative_ComputeRHS_pressure_specific must be cast to an extended type (e.g. AnJacobian_r) for computation'
+     !       
+  end subroutine TimeDerivative_ComputeRHS_pressure_specific
+
+   subroutine TimeDerivative_ComputeRHS_velocity_specific(this,  mesh, nEqn,t, RHS, AllNDOF, startVarNum )
+      implicit none
+      class(JacobianComputer_t), intent(inout)     :: this
+      type(HexMesh), target    , intent(inout) :: mesh
+!      type(HexMesh)              :: mesh
+      integer, intent(in)    :: AllNDOF    !
+      real(kind=RP)              :: t
+      integer, intent(in)        :: nEqn
+      ! real(kind=RP)                       :: RHS( size(e_plus % storage % Q) )
+     real(kind=RP)                       :: RHS(nEqn * AllNDOF)
+
+   !   REAL(kind=RP), intent(inout)       :: variable(nEqn,e_plus % Nxyz(3), dim1, dim2, dim3 )
+     integer, intent(in)             :: startVarNum
+   
+     error stop 'TimeDerivative_ComputeRHS_velocity_specific must be cast to an extended type (e.g. AnJacobian_r) for computation'
+     !       
+  end subroutine TimeDerivative_ComputeRHS_velocity_specific
+
+
+
+#endif
+! ===================================================================================
+
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !     ---------------------------------------------------------------
