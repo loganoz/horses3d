@@ -537,6 +537,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
          Qe_rot=0.0_rp
          dSrot=0.0_rp
          xx=0.0_rp 
+        ! write(*,*) 'adapting sol to mortar face'
             !if(side .ne. 1) then 
                !write(*,*)'problem big mortar on wrong side'
             !end if 
@@ -1347,7 +1348,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                  end do                 ; end do
               end do                  ; end do
      
-     
+              write(*,*) 'fstar'
               associate(fStar => self % storage(1) % Fstar)
                  fStar=fStar + fStarAux
               end associate 
@@ -1393,7 +1394,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                      call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
                      fStarAux2(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
                   end do                        ; end do
-                  fStar=fStar+(-fStarAux)
+                  fStar=fStar+(-fStarAux2)
                end associate
 
                associate(fStar => self % storage(1) % Fstar)
@@ -1402,7 +1403,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                      call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
                      fStarAux2(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
                   end do                        ; end do
-                  fStar=fStar+(-fStarAux)
+                  fStar=fStar+(-fStarAux2)
                end associate
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1880,10 +1881,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          hStarAux=fma%s(1) * (hStarAux)
          associate(unStar => self % storage(1) % unStar)
-            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
-            end do                        ; end do
+         !   do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+         !      call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+         !      hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
+         !   end do                        ; end do
             unStar=unStar+(-hStarAux)
          end associate
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1908,10 +1909,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
                    hStarAux=fma%s(1) * (hStarAux)
                    associate(unStar => self % storage(2) % unStar)
                       do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                         call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                         call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
                          hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
                       end do                        ; end do
-                      unStar=unStar+(-hStarAux)
+                      unStar=unStar+(-hStarAux2)
                    end associate
                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
               ! associate(unStar => self % storage(1) % unStar)
