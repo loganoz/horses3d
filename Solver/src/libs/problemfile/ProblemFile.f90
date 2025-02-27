@@ -187,7 +187,7 @@ module ProblemFileFunctions
 #endif
 
 #ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, GetVelocity, UpdatePosition )
+      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
          use SMConstants
          use FluidData
          use PhysicsStorage
@@ -566,7 +566,7 @@ end module ProblemFileFunctions
 #endif
 
 #ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, GetVelocity, UpdatePosition )
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
          use SMConstants
          use FluidData
          use PhysicsStorage

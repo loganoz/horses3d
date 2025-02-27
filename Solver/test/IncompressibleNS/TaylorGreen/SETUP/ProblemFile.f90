@@ -129,7 +129,7 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES)
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          USE HexMeshClass
@@ -149,16 +149,16 @@ module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 !
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      subroutine UserDefinedIBMKinematicsNS_f( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
+      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
          use SMConstants
          use FluidData
          use PhysicsStorage
          IMPLICIT NONE
-         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),          intent(in)    :: t, cL, cD, dt
-         logical,                intent(in)    :: computeX, computeV
-         integer,                intent(in)    :: STLNum
-         type(RefValues_t),      intent(in)    :: refValues_
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
       end subroutine UserDefinedIBMKinematicsNS_f
 #endif
 !
@@ -422,23 +422,23 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 !
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      subroutine UserDefinedIBMKinematicsNS( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
-         use SMConstants
-         use FluidData
-         use PhysicsStorage
-         IMPLICIT NONE
-         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),          intent(in)    :: t, cL, cD, dt
-         logical,                intent(in)    :: computeX, computeV
-         integer,                intent(in)    :: STLNum
-         type(RefValues_t),      intent(in)    :: refValues_
+         subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
+            use SMConstants
+            use FluidData
+            use PhysicsStorage
+            IMPLICIT NONE
+            real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+            real(kind=RP),           intent(in)    :: t, dt
+            real(kind=RP),           intent(in)    :: cL, cD 
+            type(RefValues_t),       intent(in)    :: refValues_
+            logical,                 intent(in)    :: GetVelocity, UpdatePosition
 
-         if( computeX ) then
-         end if 
-         if( computeV ) then 
-         end if 
+            if( computeX ) then
+            end if 
+            if( computeV ) then 
+            end if 
 
-      end subroutine UserDefinedIBMKinematicsNS
+         end subroutine UserDefinedIBMKinematicsNS
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 

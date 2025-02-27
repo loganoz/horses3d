@@ -252,17 +252,17 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
+#if defined(NAVIERSTOKES)
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
          use SMConstants
          use FluidData
          use PhysicsStorage
          IMPLICIT NONE
-         real(kind=RP),          intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),          intent(in)    :: t, cL, cD, dt
-         logical,                intent(in)    :: computeX, computeV
-         integer,                intent(in)    :: STLNum
-         type(RefValues_t),      intent(in)    :: refValues_
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
 
          if( computeX ) then
          end if 
