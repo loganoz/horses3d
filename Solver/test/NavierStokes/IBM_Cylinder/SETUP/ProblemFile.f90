@@ -508,12 +508,8 @@ end module ProblemFileFunctions
          type(RefValues_t),      intent(in)    :: refValues_
 
          if( computeX ) then
-            !POSITION 
-            !x = sin(pi*t) + cos(pi*t)
          end if 
          if( computeV ) then 
-            !VELOCITY
-            ! V = cos(pi*t) * pi - si 
          end if 
 
       end subroutine UserDefinedIBMKinematicsNS
@@ -636,7 +632,6 @@ end module ProblemFileFunctions
             CALL FTAssertEqual(expectedValue = iterations(N), &
                                actualValue   = iter, &
                                msg           = "Number of time steps to tolerance")
-
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    

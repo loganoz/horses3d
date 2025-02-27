@@ -174,7 +174,7 @@ module ProblemFileFunctions
          logical,                intent(in)    :: computeX, computeV
          integer,                intent(in)    :: STLNum
          type(RefValues_t),      intent(in)    :: refValues_
-      end subroutine UserDefinedIBMKinematicsNS_f
+      end subroutine UserDefinedIBMKinematicsNS_f 
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 

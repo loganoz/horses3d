@@ -580,7 +580,8 @@ end module ProblemFileFunctions
 #endif
    
          end subroutine UserDefinedSourceTermNS
-#endif
+#endif 
+
 #ifdef FLOW
       subroutine UserDefinedIBMKinematicsNS( x, computeX, V, computeV, cL, cD, t, dt, STLNum, refValues_ )
          use SMConstants
