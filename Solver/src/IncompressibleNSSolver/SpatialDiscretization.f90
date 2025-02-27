@@ -535,7 +535,7 @@ module SpatialDiscretization
                         if( e% isInsideBody(i,j,k) ) then
                            ! only without moving for now in INCNS
                            if( .not. mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                              call mesh% IBM% SourceTerm( NCONS, eID, e% geom% x(:,i,j,k), t, mesh% IBM% dt, e % storage % Q(:,i,j,k), e% STL(i,j,k), Source )
                            end if 
                            e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                         end if

@@ -543,7 +543,7 @@ module SurfaceIntegrals
             end do          ;    end do
 
          case ( MASS_FLOW )
-
+#if defined(NAVIERSTOKES)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 
                val = val -  (f% stencil(i,j)% Qb(IRHOU) * f% stencil(i,j) % normal(1)  &
@@ -552,9 +552,9 @@ module SurfaceIntegrals
                      * spAxi % w(i) * spAeta % w(j) * f% geom % jacobian(i,j)
 
             end do          ;    end do
-
+#endif
          case ( FLOW_RATE )
-
+#if defined(NAVIERSTOKES)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 
                val = val - (1.0_RP / f% stencil(i,j)% Qb(IRHO))*(f% stencil(i,j)% Qb(IRHOU) * f% stencil(i,j) % normal(1)  &
@@ -562,7 +562,7 @@ module SurfaceIntegrals
                                              + f% stencil(i,j)% Qb(IRHOW) * f% stencil(i,j) % normal(3) ) &
                                           * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
             end do          ;    end do
-
+#endif
          case ( PRESSURE_FORCE )
 
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
@@ -950,13 +950,13 @@ module SurfaceIntegrals
       select case( integralType )
 
          case( MASS_FLOW )
-               
+#if defined(NAVIERSTOKES)               
             outvalue = (1.0_RP / Q(IRHO))*(Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ))       
-            
+#endif
          case ( FLOW_RATE )
-
+#if defined(NAVIERSTOKES)
             outvalue = (Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ)) 
-               
+#endif           
          case( PRESSURE_DISTRIBUTION )
 
             outvalue = pressure( Q )

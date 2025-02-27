@@ -460,16 +460,16 @@ module SurfaceMonitorClass
             if (.true.) then 
                if( self% IBM ) then 
                   STLNum = self% marker
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave, dt )
-                  F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
+                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
+                  F = IBMVectorIntegral( mesh% IBM, STLNum )
                else
                   F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
                end if
             else
                if( self% IBM ) then 
                   STLNum = self% marker
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements,STLNum, TOTAL_FORCE, iter, autosave, dt )
-                  F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
+                  call VectorDataReconstruction( mesh% IBM, mesh% elements,STLNum, TOTAL_FORCE, iter, autosave )
+                  F = IBMVectorIntegral( mesh% IBM, STLNum )
                else
                   F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
                end if 

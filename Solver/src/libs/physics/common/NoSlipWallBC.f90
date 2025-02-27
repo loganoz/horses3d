@@ -906,6 +906,47 @@ module NoSlipWallBCClass
          flux = 0.0_RP
 
       end subroutine NoSlipWallBC_FlowNeumann
+
+      subroutine NoSlipWallBC_FlowState_VPIBM( self, Q, x, Qsb )   
+         implicit none
+         class(NoSlipWallBC_t),    intent(in)    :: self
+         real(kind=RP),            intent(in)    :: Q(NCONS)
+         real(kind=RP),            intent(in)    :: x(NDIM)
+         real(kind=RP),            intent(inout) :: Qsb(NCONS)  
+      end subroutine NoSlipWallBC_FlowState_VPIBM
+
+      subroutine NoSlipWallBC_FlowState_HOIBM( self, Q, xb, xsb, nodes, N, x, time, nHat, Qsb )   
+         implicit none
+         class(NoSlipWallBC_t),    intent(in)    :: self
+         real(kind=RP),            intent(inout) :: Q(NCONS,0:N)
+         real(kind=RP),            intent(in)    :: xb, xsb, nodes(0:N), x(NDIM), time, nHat(NDIM)
+         integer,                  intent(in)    :: N
+         real(kind=RP),            intent(inout) :: Qsb(NCONS)
+      end subroutine NoSlipWallBC_FlowState_HOIBM
+
+      subroutine NoSlipWallBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
+         implicit none
+         class(NoSlipWallBC_t),    intent(in)    :: self
+         real(kind=RP),            intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),            intent(in)    :: nHat(NDIM)
+         real(kind=RP),            intent(inout) :: Qsb_weak(NCONS)
+      end subroutine NoSlipWallBC_FlowStateWeak_HOIBM
+
+      subroutine NoSlipWallBC_FlowGradVars_HOIBM( self, QIn, Qsb, x, time, nHat, Usb, GetGradients )    
+         implicit none
+         class(NoSlipWallBC_t),     intent(in)    :: self
+         real(kind=RP),             intent(in)    :: QIn(NCONS), Qsb(NCONS), x(NDIM), time, nHat(NDIM)
+         real(kind=RP),             intent(inout) :: Usb(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
+      end subroutine NoSlipWallBC_FlowGradVars_HOIBM
+
+      subroutine NoSlipWallBC_FlowNeumann_HOIBM( self, QIn, UIn_x, UIn_y, UIn_z, Qsb, x, time, nHat, flux )    
+         implicit none
+         class(NoSlipWallBC_t),    intent(in)    :: self
+         real(kind=RP),            intent(in)    :: QIn(NCONS), Qsb(NCONS), x(NDIM), time, nHat(NDIM)
+         real(kind=RP),            intent(in)    :: UIn_x(NGRAD), UIn_y(NGRAD), UIn_z(NGRAD)
+         real(kind=RP),            intent(inout) :: flux(NCONS)
+      end subroutine NoSlipWallBC_FlowNeumann_HOIBM      
 #endif
 !
 end module NoSlipWallBCClass
