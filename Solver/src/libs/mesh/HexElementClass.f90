@@ -180,6 +180,8 @@
          if( allocated(self% isForcingPoint) ) deallocate(self% isForcingPoint)
          if( allocated(self% STL) )            deallocate(self% STL)
 
+         self% IBMConstruct   = .false.
+
       END SUBROUTINE HexElement_Destruct
 !
 !////////////////////////////////////////////////////////////////////////

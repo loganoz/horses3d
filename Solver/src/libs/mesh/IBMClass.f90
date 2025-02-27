@@ -1096,7 +1096,7 @@ module IBMClass
          end if 
       end if 
 
-      call this% DestroyKDtree( STLNum, isChild )
+      !call this% DestroyKDtree( STLNum, isChild ) a TAG is need --> if pAdapt, do not destroy, otherwise yes
 
    end subroutine IBM_build
 
@@ -2437,6 +2437,7 @@ module IBMClass
 
       NumOfIntersections = 0; OnBoundary_1 = 0; OnBoundary_2 = 0; lastIndex = -1
       Integer_List = ObjsDataLinkedList_t()
+
       do
 
          call this% root(STLNum)% FindLeaf( direction, tree, .false. )
