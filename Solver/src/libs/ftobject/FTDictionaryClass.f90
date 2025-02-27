@@ -441,15 +441,46 @@
             CHARACTER(LEN=*)                     :: key
             CLASS(FTObject)       , POINTER      :: objectForKey
             INTEGER                              :: h
-            
-            INTEGER, EXTERNAL                    :: b3hs_hash_key_jenkins
-           
+            CLASS(FTLinkedListRecord)     , POINTER :: listRecordPtr => NULL()
+            CHARACTER(LEN=FTDICT_KWD_STRING_LENGTH) :: keyString
+            INTEGER, EXTERNAL                   :: b3hs_hash_key_jenkins
+
             objectForKey => NULL()
             IF(self % COUNT() == 0)     RETURN 
-            
+!
+
+!           -------------
+!           Find the hash
+!           -------------
+!
             h = b3hs_hash_key_jenkins(key,SIZE(self % entries))
+            
             IF ( self % entries(h) % COUNT() > 0 )     THEN
-               objectForKey => objectForKeyInList(key,self % entries(h))
+!
+!              -----------------------
+!              Search through the list
+!              -----------------------
+!
+               listRecordPtr => self % entries(h) % head
+               DO WHILE(ASSOCIATED(listRecordPtr))
+!
+!                 --------------------------------------------
+!                 The list's recordObject is a FTKeyObjectPair
+!                 --------------------------------------------
+!
+                  SELECT TYPE (pair => listRecordPtr % recordObject)
+                     TYPE is (FTKeyObjectPair)
+                        keyString = pair % keyString
+                        IF ( TRIM(keyString) == TRIM(key) .AND.         &
+                             ASSOCIATED( pair % valueObject) )     THEN
+                           objectForKey => pair % valueObject
+                           EXIT 
+                        END IF 
+                     CLASS DEFAULT
+                  END SELECT
+                  listRecordPtr  => listRecordPtr % next
+               END DO
+               
             END IF 
  
          END FUNCTION ObjectForKey

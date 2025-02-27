@@ -113,12 +113,13 @@ module pAdaptationClassTE
 !  ----------------------------------------
 !  Routine for constructing the p-adaptator
 !  ----------------------------------------
-   subroutine pAdaptation_Construct(this,controlVariables,t0)
+   subroutine pAdaptation_Construct(this, controlVariables, t0, mesh)
       implicit none
       !--------------------------------------
       class(pAdaptationTE_t) , intent(inout) :: this             !>  P-Adaptator
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
+      class(HexMesh)         , intent(inout) :: mesh
       !--------------------------------------
       ! For block reading
       character(LINE_LENGTH)         :: paramFile
@@ -587,7 +588,7 @@ module pAdaptationClassTE
 !     Overenrich specified regions
 !     ----------------------------
 !
-      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax)
+      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax, NMIN)
 !
 !     ---------------------------------------------------
 !     Restrict polynomial order decrease in every element
@@ -685,6 +686,13 @@ module pAdaptationClassTE
 !     ----------------
 !
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+
+!
+!     ---------------------
+!     Update HO arrays
+!     ---------------------
+!
+      call sem % mesh % UpdateHOArrays()
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 

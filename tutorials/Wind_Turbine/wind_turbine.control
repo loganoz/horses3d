@@ -1,0 +1,78 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/domain.msh"
+Polynomial order      = 1
+Number of time steps  = 50000
+Convergence tolerance = 1.0e-13
+Output Interval       = 2000
+cfl                   = 0.5
+dcfl                  = 0.5
+mach number           = 0.02934
+Reynolds number       = 666666.67
+AOA theta             = 0.0
+AOA phi               = 0.0
+
+solution file name    = "RESULTS/actuatorP1.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/actuatorP1.hsol"
+
+!restart polorder      = 1 ! you can later restart a P2 simulation using the P1 restart file
+
+! ACTUATOR LINE
+use actuatorline = .true.
+actuator epsilon type = 2
+actuator calculate with projection = .false.
+actuator save average = .true.
+
+riemann solver         = "lax-friedrichs"
+
+!-- TIME discret--
+simulation type       = time-accurate
+final time            = 20
+autosave mode         = "time"
+autosave interval     = 3.0
+
+!---TURB---
+LES model             = Vreman
+
+!------------
+! IBM
+!------------
+stl file name   = "WindTurbineNoBlades_shift"
+#define IBM
+    name = tower
+    active = .true.
+    semi implicit = .true.
+    number of objects = 3
+    number of interpolation points = 5
+    penalization = 1.0d-4
+    !plot mask = .true.
+    describe = .true.
+#end
+
+!------------
+! BC
+!------------
+
+#define boundary inlet
+      type = Inflow
+#end
+
+#define boundary sideA__sideB
+      type = FreeSlipWall
+#end
+
+#define boundary top__bottom
+      type = FreeSlipWall
+#end
+
+#define boundary outlet
+      type = Outflow
+#end
+
+#define boundary tower
+      type = NoSlipWall
+#end
+!#define statistics
+!   sampling interval = 1
+!#end

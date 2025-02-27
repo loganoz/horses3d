@@ -95,6 +95,9 @@
             procedure   :: copy                    => HexElement_Assign
             procedure   :: EvaluateGradientAtPoint => HexElement_EvaluateGradientAtPoint
             procedure   :: ConstructIBM            => HexElement_ConstructIBM
+#if defined(ACOUSTIC)
+            procedure   :: ProlongBaseSolutionToFaces  => HexElement_ProlongBaseSolutionToFaces
+#endif
             generic     :: assignment(=)           => copy
       END TYPE Element
 
@@ -937,4 +940,55 @@
 
       end subroutine HexElement_ConstructIBM
 
+#if defined(ACOUSTIC)
+      subroutine HexElement_ProlongBaseSolutionToFaces(self, nEqn, fFR, fBK, fBOT, fR, fT, fL)
+         use FaceClass
+         implicit none
+         class(Element),   intent(in)  :: self
+         integer,          intent(in)  :: nEqn
+         class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l, N(3)
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+
+         N = self % Nxyz
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
+!
+!        *************************
+!        Prolong solution to faces
+!        *************************
+!
+         QL   = 0.0_RP     ; QR   = 0.0_RP
+         QFR  = 0.0_RP     ; QBK  = 0.0_RP
+         QBOT = 0.0_RP     ; QT   = 0.0_RP
+
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            QL  (:,j,k)= QL  (:,j,k)+ self % storage % Qbase(:,i,j,k)* spAxi % v  (i,LEFT  )
+            QR  (:,j,k)= QR  (:,j,k)+ self % storage % Qbase(:,i,j,k)* spAxi % v  (i,RIGHT )
+            QFR (:,i,k)= QFR (:,i,k)+ self % storage % Qbase(:,i,j,k)* spAeta % v (j,FRONT )
+            QBK (:,i,k)= QBK (:,i,k)+ self % storage % Qbase(:,i,j,k)* spAeta % v (j,BACK  )
+            QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Qbase(:,i,j,k)* spAzeta % v(k,BOTTOM)
+            QT  (:,i,j)= QT  (:,i,j)+ self % storage % Qbase(:,i,j,k)* spAzeta % v(k,TOP   )
+         end do                   ; end do                   ; end do
+         nullify (spAxi, spAeta, spAzeta)
+
+         call fL   % AdaptBaseSolutionToFace(nEqn, N(2), N(3), QL  , self % faceSide(ELEFT  ) )
+         call fR   % AdaptBaseSolutionToFace(nEqn, N(2), N(3), QR  , self % faceSide(ERIGHT ) )
+         call fFR  % AdaptBaseSolutionToFace(nEqn, N(1), N(3), QFR , self % faceSide(EFRONT ) )
+         call fBK  % AdaptBaseSolutionToFace(nEqn, N(1), N(3), QBK , self % faceSide(EBACK  ) )
+         call fBOT % AdaptBaseSolutionToFace(nEqn, N(1), N(2), QBOT, self % faceSide(EBOTTOM) )
+         call fT   % AdaptBaseSolutionToFace(nEqn, N(1), N(2), QT  , self % faceSide(ETOP   ) )
+
+      end subroutine HexElement_ProlongBaseSolutionToFaces
+#endif
+!
       END Module ElementClass

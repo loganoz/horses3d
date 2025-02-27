@@ -219,7 +219,6 @@ module UserDefinedBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#ifdef FLOW
       subroutine UserDefinedBC_FlowState(self, x, t, nHat, Q)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
@@ -233,7 +232,16 @@ module UserDefinedBCClass
 !        ---------------
 !
          interface
-            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedState1(x, t, nHat, Q & 
+#ifdef FLOW
+            , thermodynamics_ &
+            , dimensionless_  &
+            , refValues_ & 
+#endif
+#ifdef CAHNHILLIARD
+            , multiphase_ &
+#endif
+         )
                use SMConstants
                use PhysicsStorage
                use FluidData
@@ -242,21 +250,35 @@ module UserDefinedBCClass
                real(kind=RP)  :: t
                real(kind=RP)  :: nHat(NDIM)
                real(kind=RP)  :: Q(NCONS)
-               type(Thermodynamics_t), intent(in)  :: thermodynamics_
-               type(Dimensionless_t),  intent(in)  :: dimensionless_
-               type(RefValues_t),      intent(in)  :: refValues_
+#ifdef FLOW
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+#endif
+#ifdef CAHNHILLIARD
+            type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
             end subroutine UserDefinedState1
          end interface
 
          select case(self % udf_no)
          case(1)
+#if defined(FLOW) && !defined(CAHNHILLIARD) 
             call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
+#endif
+#if defined(FLOW) && defined(CAHNHILLIARD) 
+            call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues, multiphase)
+#endif
+#if defined(CAHNHILLIARD) 
+!            call UserDefinedState1(x, t, nHat, Q,  multiphase)
+#endif
          case default
             print*, "Unrecognized UDF number for boundary", self % bname
          end select
    
       end subroutine UserDefinedBC_FlowState
 
+#ifdef FLOW
       subroutine UserDefinedBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(UserDefinedBC_t),   intent(in) :: self

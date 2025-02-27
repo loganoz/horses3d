@@ -9,6 +9,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial compressibility factor"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                   = "les model"
 !
 !        *****************
 !        Mode with 1 fluid
@@ -257,6 +258,8 @@
          array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                              KEYWORD_LENGTH))
          dimensionless_ % gravity_dir = array(1:3) / norm2(array(1:3))
+      else
+         dimensionless_ % gravity_dir = (/0.0_RP,0.0_RP,0.0_RP/)
       end if
 
       refValues_ % g0 = controlVariables % DoublePrecisionValueForKey(GRAVITY_ACCELERATION_KEY)
@@ -452,19 +455,15 @@
 
             end if
 
-         else
-            if ( controlVariables % ContainsKey(GRAVITY_ACCELERATION_KEY) ) then
+         elseif ( controlVariables % ContainsKey(GRAVITY_ACCELERATION_KEY) ) then
                print*, "Gravity acceleration requires gravity direction."
                print*, "Specify gravity direction with:"
                print*, "     ", GRAVITY_DIRECTION_KEY, " = [x,y,z]"
                errorMessage(STD_OUT)
                error stop
 
-            else
+         else
                call controlVariables % AddValueForKey("0.0d0", GRAVITY_ACCELERATION_KEY)
-
-            end if
-
          end if
 
 

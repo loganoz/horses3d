@@ -18,6 +18,7 @@ LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
 		./build_ns/ResidualsMonitor.o \
 		./build_ns/SurfaceMonitor.o \
 		./build_ns/VolumeMonitor.o \
+		./build_ns/LoadBalancingMonitor.o \
 		./build_ns/Monitors.o \
 		./build_ns/FWHDefinitions.o \
 		./build_ns/FWHObseverClass.o \
@@ -31,6 +32,7 @@ LIBOBJS_NSSA = 	./build_nssa/MonitorDefinitions.o \
 		./build_nssa/ResidualsMonitor.o \
 		./build_nssa/SurfaceMonitor.o \
 		./build_nssa/VolumeMonitor.o \
+		./build_nssa/LoadBalancingMonitor.o \
 		./build_nssa/Monitors.o
 
 LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
@@ -41,6 +43,7 @@ LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
 		./build_ins/ResidualsMonitor.o \
 		./build_ins/SurfaceMonitor.o \
 		./build_ins/VolumeMonitor.o \
+		./build_ins/LoadBalancingMonitor.o \
 		./build_ins/Monitors.o
 
 LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
@@ -51,6 +54,7 @@ LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
 		./build_ch/ResidualsMonitor.o \
 		./build_ch/SurfaceMonitor.o \
 		./build_ch/VolumeMonitor.o \
+		./build_ch/LoadBalancingMonitor.o \
 		./build_ch/Monitors.o
 
 LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
@@ -61,7 +65,19 @@ LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
 		./build_mu/ResidualsMonitor.o \
 		./build_mu/SurfaceMonitor.o \
 		./build_mu/VolumeMonitor.o \
+		./build_mu/LoadBalancingMonitor.o \
 		./build_mu/Monitors.o
+
+LIBOBJS_CAA = 	./build_caa/MonitorDefinitions.o \
+		./build_caa/Probe.o\
+		./build_caa/StatisticsMonitor.o \
+		./build_caa/SurfaceIntegrals.o \
+		./build_caa/VolumeIntegrals.o \
+		./build_caa/ResidualsMonitor.o \
+		./build_caa/SurfaceMonitor.o \
+		./build_caa/VolumeMonitor.o \
+		./build_caa/LoadBalancingMonitor.o \
+		./build_caa/Monitors.o
 
 LIB = monitors
 
@@ -70,32 +86,37 @@ LIB = monitors
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a  lib$(LIB)_caa.a
 
 ./build_ns/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
 
 ./build_nssa/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS -I./include_nssa $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nssa -c $< -o $@ $(MOD_FLAG) ./include_nssa
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS -I./include_nssa $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_nssa -c $< -o $@ $(MOD_FLAG) ./include_nssa
 
 ./build_ins/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DINCNS -I./include_ins $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ins -c $< -o $@ $(MOD_FLAG) ./include_ins
+	$(FC) $(FFLAGS) -DINCNS -I./include_ins $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_ins -c $< -o $@ $(MOD_FLAG) ./include_ins
 
 ./build_ch/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
+	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
 
 ./build_mu/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DMULTIPHASE -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
+	$(FC) $(FFLAGS) -DMULTIPHASE -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
+
+./build_caa/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DACOUSTIC -I./include_caa $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDEO) $(INCLUDE)_caa -c $< -o $@ $(MOD_FLAG) ./include_caa
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) 
 	@echo
@@ -142,17 +163,28 @@ lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_MU) 
 	@$(RANLIB) $@
 
+lib$(LIB)_caa.a: header mkdirs $(LIBOBJS_CAA)
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_CAA) 
+	@$(RANLIB) $@
+
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_nssa.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_caa.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
 	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
+	cp -p ./include_caa/*.mod $(INSTALL_DIR)/include_caa/
 	@echo
 	@echo
 
@@ -174,6 +206,18 @@ install-nssa: lib$(LIB)_nssa.a
 	@echo
 	@echo
 
+install-caa: lib$(LIB)_caa.a
+	cp -p lib$(LIB)_caa.a $(INSTALL_DIR)/lib/
+	cp -p ./include_caa/*.mod $(INSTALL_DIR)/include_caa/
+	@echo
+	@echo
+
+install-ins: lib$(LIB)_ins.a
+	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
+	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
+	@echo
+	@echo
+
 header: FORCE
 	@echo
 	@echo "================================"
@@ -183,16 +227,17 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu
-	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu
+	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu ./include_caa
+	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu ./build_caa
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a lib$(LIB)_caa.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
 	$(RM) ./build_nssa/*.o ./include_nssa/*.mod
 	$(RM) ./build_ins/*.o ./include_ins/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
 	$(RM) ./build_mu/*.o ./include_mu/*.mod
+	$(RM) ./build_caa/*.o ./include_caa/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #

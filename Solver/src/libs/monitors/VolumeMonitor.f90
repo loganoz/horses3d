@@ -159,6 +159,7 @@ module VolumeMonitorClass
          case ("entropy")
          case ("kinetic energy rate")
          case ("entropy rate")
+         case ("source")            ; self % num_of_vars = NCONS
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -170,6 +171,7 @@ module VolumeMonitorClass
                print*, "   * Entropy"
                print*, "   * Kinetic energy rate"
                print*, "   * Entropy rate"
+               print*, "   * source"
                error stop "error stopped."
 
             end if
@@ -182,6 +184,7 @@ module VolumeMonitorClass
          case ("phase2-area")
          case ("phase2-xcog")
          case ("phase2-xvel")
+         case ("source")            ; self % num_of_vars = NCONS
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -194,6 +197,7 @@ module VolumeMonitorClass
                print*, "   * Phase2-Area"
                print*, "   * Phase2-xCoG"
                print*, "   * Phase2-xVel"
+               print*, "   * source"
                error stop "error stopped."
 
             end if
@@ -211,6 +215,23 @@ module VolumeMonitorClass
                print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
                print*, "Options available are:"
                print*, "   * Free energy"
+               error stop "error stopped."
+
+            end if
+         end select
+#elif defined(ACOUSTIC)
+         select case ( trim ( self % variable ) )
+         case ("acoustic energy")
+         case ("source")            ; self % num_of_vars = NCONS
+         case default
+
+            if ( len_trim (self % variable) .eq. 0 ) then
+               print*, "Variable was not specified for volume monitor " , self % ID , "."
+            else
+               print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
+               print*, "Options available are:"
+               print*, "   * acoustic energy"
+               print*, "   * source"
                error stop "error stopped."
 
             end if
@@ -336,6 +357,9 @@ module VolumeMonitorClass
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE)
 
+         case ("source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
 #elif defined(MULTIPHASE)
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE)
@@ -352,9 +376,19 @@ module VolumeMonitorClass
          case ("phase2-area")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, PHASE2_AREA)
 
+         case ("source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
 #elif defined(CAHNHILLIARD)
          case ("free energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, FREE_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
+
+#elif defined(ACOUSTIC)
+         case ("acoustic energy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ACOUSTIC_ENERGY)
+
+         case ("source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
 
 #endif
          end select

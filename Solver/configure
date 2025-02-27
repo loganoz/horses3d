@@ -39,6 +39,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/UniformFlow \
             ./Euler/JFNK \
             ./Euler/TaylorGreenKEPEC \
+            ./Euler/Cylinder_ErrorEstimation_pAdaptationRL \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
@@ -70,16 +71,29 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/BIRK5NumJac \
             ./NavierStokes/CylinderGMM \
             ./NavierStokes/Cylinder_pAdaptationRL \
+            ./NavierStokes/IBM_Cylinder_pAdaptationRL \
+            ./NavierStokes/Cylinder_Overenriching_pAdaptationRL \
+            ./NavierStokes/EulerRK3_pAdaptationRL \
+            ./NavierStokes/Cylinder_acoustics_pAdaptationRL \
+            ./NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL \
+            ./NavierStokes/ActuatorLineAverage \
+            ./NavierStokes/ActuatorLineProjection \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
+            ./IncompressibleNS/Cylinder \
+            ./IncompressibleNS/CylinderVreman \
+            ./IncompressibleNS/ActuatorLineAverage \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
+            ./Multiphase/RisingBubbleVreman\
             ./Multiphase/Pipe \
+            ./Multiphase/Monopole_pAdaptationRL \
+            ./Multiphase/ActuatorLineAverage \
             ./Particles/FreeFall \
             ./Particles/RadiationHeat \
             ./Particles/Pouransari \
@@ -88,7 +102,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
 ##################################################
 ## 	GENERATE TUTORIALS			##
 ##################################################
-TUTORIAL_CASES="./Cylinder "
+TUTORIAL_CASES="Cylinder \
+                Wind_Turbine"
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
@@ -109,9 +124,9 @@ sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
 rm -f ./test/Makefile.template-e
 
 # Tutorials
-cp -vf ../utils/ProblemFile/Makefile ./tutorials/Makefile.template
-sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./tutorials/Makefile.template
-rm -f ./tutorials/Makefile.template-e
+cp -vf ../utils/ProblemFile/Makefile ../tutorials/Makefile.template
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../tutorials/Makefile.template
+rm -f ../tutorials/Makefile.template-e
 
 cp -vf ./Makefile.in ./Makefile
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./Makefile
@@ -130,15 +145,15 @@ for subdir in $TEST_CASES; do
 done
 
 for subdir in $TUTORIAL_CASES; do
-	mkdir -p ./tutorials/$subdir/MESH
-	mkdir -p ./tutorials/$subdir/SETUP
-	mkdir -p ./tutorials/$subdir/RESULTS
-	cp -v ./tutorials/Makefile.template ./tutorials/$subdir/SETUP/Makefile
-	ln -fsv $PWD/bin/horses3d.ns ./tutorials/$subdir
-	ln -fsv $PWD/bin/horses3d.nssa ./tutorials/$subdir
-	ln -fsv $PWD/bin/horses3d.ch ./tutorials/$subdir
-	ln -fsv $PWD/bin/horses3d.ins ./tutorials/$subdir
-	ln -fsv $PWD/bin/horses3d.mu ./tutorials/$subdir
+	mkdir -p ../tutorials/$subdir/MESH
+	mkdir -p ../tutorials/$subdir/SETUP
+	mkdir -p ../tutorials/$subdir/RESULTS
+	cp -v ../tutorials/Makefile.template ../tutorials/$subdir/SETUP/Makefile
+	ln -fsv $PWD/bin/horses3d.ns ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.ch ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.ins ../tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ../tutorials/$subdir
 done
 
 

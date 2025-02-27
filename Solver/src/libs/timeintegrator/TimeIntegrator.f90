@@ -178,6 +178,12 @@
                self % RKStep => TakeSSPRK43Step
                self % RKStep_key = SSPRK43_KEY
 
+            case(EULER_RK3_NAME)
+               self % RKStep => TakeEulerRK3Step
+               self % RKStep_key = EULER_RK3_KEY
+               !Create the array of High-Order elements and faces for the Euler-RK3 method
+               call sem % mesh % UpdateHOArrays()
+
             case default
                print*, "Explicit time integration method not implemented"
                error stop
@@ -238,8 +244,8 @@
             case default
                error stop 'Adaptation type not recognized'
          end select
-         call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
-         call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
+         call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh)  ! If not requested, the constructor returns doing nothing
+         call surfacesMesh % autosaveConfig (controlVariables, initial_time)              ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)
 
@@ -270,6 +276,8 @@
                write(STD_OUT,'(A)') "SSPRK33"
             case (SSPRK43_KEY)
                write(STD_OUT,'(A)') "SSPRK43"
+            case (EULER_RK3_KEY)
+               write(STD_OUT,'(A)') "Euler-RK3"
             end select
 
             write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
@@ -311,10 +319,10 @@
 !     Arguments
 !     ---------
 !
-      CLASS(TimeIntegrator_t)              :: self
-      TYPE(DGSem)                          :: sem
-      TYPE(FTValueDictionary)              :: controlVariables
-      class(Monitor_t)                     :: monitors
+      CLASS(TimeIntegrator_t)                      :: self
+      TYPE(DGSem)                                  :: sem
+      TYPE(FTValueDictionary)                      :: controlVariables
+      class(Monitor_t)                             :: monitors
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
 
@@ -404,13 +412,18 @@
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
       use StopwatchClass
+      use FluidData
 #if defined(NAVIERSTOKES)
       use ShockCapturing
       use TripForceClass, only: randomTrip
-      use ActuatorLine, only: farm
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      use SpongeClass, only: sponge
+      use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
+#endif
+
       use IBMClass
 
       IMPLICIT NONE
@@ -446,7 +459,7 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 
       integer :: STLNum
@@ -458,6 +471,7 @@
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
       ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
+      saveOrders         = controlVariables % logicalValueForKey("save mesh order")
 
 !
 !     ---------------
@@ -475,10 +489,13 @@
 #if defined(NAVIERSTOKES)
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       if(ActuatorLineFlag) then
-          call farm % ConstructFarm(controlVariables, t)
-          call farm % UpdateFarm(t, sem % mesh)
+          call ConstructFarm(farm, controlVariables, t, sem % mesh)
+          call UpdateFarm(farm, t, sem % mesh)
       end if
+      call sponge % construct(sem % mesh,controlVariables)
 #endif
 !
 !     ----------------------------------
@@ -496,7 +513,7 @@
 !
 !           Correct time step
 !           -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(INCNS) || defined(MULTIPHASE)
             sem % mesh% IBM% eta = self% CorrectDt(t, dt)
             sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -607,10 +624,12 @@
 !
 !        User defined periodic operation
 !        -------------------------------
-         CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
+         CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors, FLUID_DATA_VARS)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
-         if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 !
 !        Perform time step
@@ -621,9 +640,13 @@
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
-            CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+#endif
+            CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -639,8 +662,9 @@
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
 
-#if defined(NAVIERSTOKES)
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k)
+         call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
 !
 !        Compute the new time
@@ -754,7 +778,10 @@
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
+         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if
 
@@ -785,8 +812,13 @@
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
-         if(ActuatorLineFlag) call farm % DestructFarm
 #endif
+
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         call sponge % destruct()
+         if(ActuatorLineFlag) call DestructFarm(farm)
+#endif
+      if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)
 
    end subroutine IntegrateInTime
 
@@ -838,6 +870,9 @@
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      use SpongeClass, only: sponge
+#endif
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -860,7 +895,9 @@
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
-
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      call sponge % writeBaseFlow(sem % mesh, k, t)
+#endif
    END SUBROUTINE SaveRestart
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////

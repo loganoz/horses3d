@@ -588,4 +588,78 @@ module FreeSlipWallBCClass
       end subroutine FreeSlipWallBC_ChemPotNeumann
 
 #endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for Acoustic APE equations
+!        ---------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+!        *************************************************************
+!           Compute the state variables for a general wall
+!
+!           · Density is computed from the interior state
+!           · Wall velocity is set to 2v_wall - v_interior
+!           · Pressure is computed from the interior state
+!        *************************************************************
+!
+      subroutine FreeSlipWallBC_FlowState(self, x, t, nHat, Q)
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)  :: self
+         real(kind=RP),       intent(in)       :: x(NDIM)
+         real(kind=RP),       intent(in)       :: t
+         real(kind=RP),       intent(in)       :: nHat(NDIM)
+         real(kind=RP),       intent(inout)    :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: vn
+!
+!        -----------------------------------------------
+!        Generate the external flow along the face, that
+!        represents a solid wall.
+!        -----------------------------------------------
+!
+         vn = sum(Q(ICAAU:ICAAW)*nHat)
+
+         Q(ICAARHO) = Q(ICAARHO)
+         Q(ICAAU:ICAAW) = Q(ICAAU:ICAAW) - 2.0_RP * vn * nHat
+         Q(ICAAP) = Q(ICAAP)
+
+      end subroutine FreeSlipWallBC_FlowState
+!
+!     not use for acoustic
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
+!
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)  :: self
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
+      end subroutine FreeSlipWallBC_FlowGradVars
+!
+      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),            intent(in)    :: x(NDIM)
+         real(kind=RP),            intent(in)    :: t
+         real(kind=RP),            intent(in)    :: nHat(NDIM)
+         real(kind=RP),            intent(in)    :: Q(NCONS)
+         real(kind=RP),            intent(in)    :: U_x(NCONS)
+         real(kind=RP),            intent(in)    :: U_y(NCONS)
+         real(kind=RP),            intent(in)    :: U_z(NCONS)
+         real(kind=RP),            intent(inout) :: flux(NCONS)
+
+         flux = 0.0_RP
+
+      end subroutine FreeSlipWallBC_FlowNeumann
+#endif
+!
 end module FreeSlipWallBCClass

@@ -17,10 +17,10 @@ MODULE ExplicitMethods
    IMPLICIT NONE
 
    private
-   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME
-   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY
+   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME, EULER_RK3_NAME
+   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY, EULER_RK3_KEY
    public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep
-   public   TakeSSPRK33Step, TakeSSPRK43Step
+   public   TakeSSPRK33Step, TakeSSPRK43Step, TakeEulerRK3Step
    public   Enable_CTD_AFTER_STEPS, Enable_limiter, CTD_AFTER_STEPS, LIMITED, LIMITER_MIN
 
    integer,  protected :: eBDF_order = 3
@@ -39,6 +39,7 @@ MODULE ExplicitMethods
    character(len=*), parameter :: OPTRK_NAME   = "optimal rk"
    character(len=*), parameter :: SSPRK33_NAME = "ssprk33"
    character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
+   character(len=*), parameter :: EULER_RK3_NAME = "euler rk3"
 
    integer, parameter :: EULER_KEY   = 1
    integer, parameter :: RK3_KEY     = 2
@@ -46,16 +47,16 @@ MODULE ExplicitMethods
    integer, parameter :: OPTRK_KEY   = 4
    integer, parameter :: SSPRK33_KEY = 5
    integer, parameter :: SSPRK43_KEY = 6
+   integer, parameter :: EULER_RK3_KEY = 7
 !========
  CONTAINS
-!========
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------
-!  Routine for taking a RK3 step.
+!  Routine for taking an explicit Euler - RK3 step depending on the polynomial order of each element.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+ SUBROUTINE TakeEulerRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -78,6 +79,152 @@ MODULE ExplicitMethods
       procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
+      REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
+      REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
+
+
+      INTEGER :: i, j, k, id, eID
+      integer :: interval
+
+      interval = 10 !Compute time derivative each interval for those elements whose pmax = 1
+
+      if (present(dt_vec)) then   
+         
+         do k = 1,3
+            tk = t + b(k)*deltaT
+            if ((k==1) .and. (mod(iter, interval) == 0)) then
+               call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            else
+               call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .true.)
+            endif
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+            if (k==1) then
+!$omp parallel do schedule(runtime) private(eID)
+               do id = 1, SIZE( mesh % LO_Elements )
+                  ! Explicit Euler
+                  eID = mesh % LO_Elements(id)
+#ifdef FLOW 
+                  mesh % elements(eID) % storage % Q = mesh % elements(eID) % storage % Q + dt_vec(eID)*mesh % elements(eID) % storage % QDot
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(eID) % storage % c = mesh % elements(eID) % storage % c + dt_vec(eID)*mesh % elements(eID) % storage % cDot
+#endif
+               end do ! id
+!$omp end parallel do
+            end if
+
+!$omp parallel do schedule(runtime) private(eID)
+            do id = 1, SIZE( mesh % HO_Elements )
+               ! Runge-Kutta 3
+               eID = mesh % HO_Elements(id)
+#ifdef FLOW
+               mesh % elements(eID) % storage % G_NS = a(k)* mesh % elements(eID) % storage % G_NS  +              mesh % elements(eID) % storage % QDot
+               mesh % elements(eID) % storage % Q =       mesh % elements(eID) % storage % Q  + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+               mesh % elements(eID) % storage % G_CH = a(k)*mesh % elements(eID) % storage % G_CH + mesh % elements(eID) % storage % cDot
+               mesh % elements(eID) % storage % c    = mesh % elements(eID) % storage % c         + c(k)*dt_vec(eID)* mesh % elements(eID) % storage % G_CH
+#endif
+            end do ! id
+!$omp end parallel do
+
+         end do ! k
+
+      else !not present dt_vec
+
+         do k = 1,3
+            tk = t + b(k)*deltaT
+            if ((k==1) .and. (mod(iter, interval) == 0)) then
+               call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            else
+               call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .true.)
+            endif
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+            if (k==1) then
+!$omp parallel do schedule(runtime) private(eID)
+               do id = 1, SIZE( mesh % LO_Elements )
+                  ! Explicit Euler
+                  eID = mesh % LO_Elements(id)
+#ifdef FLOW 
+                  mesh % elements(eID) % storage % Q = mesh % elements(eID) % storage % Q + deltaT*mesh % elements(eID) % storage % QDot
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(eID) % storage % c = mesh % elements(eID) % storage % c + deltaT*mesh % elements(eID) % storage % cDot
+#endif
+               end do ! id
+!$omp end parallel do
+            end if
+
+!$omp parallel do schedule(runtime) private(eID)
+            do id = 1, SIZE( mesh % HO_Elements )
+               ! Runge-Kutta 3
+               eID = mesh % HO_Elements(id)
+#ifdef FLOW
+               mesh % elements(eID) % storage % G_NS = a(k)* mesh % elements(eID) % storage % G_NS  +              mesh % elements(eID) % storage % QDot
+               mesh % elements(eID) % storage % Q =       mesh % elements(eID) % storage % Q  + c(k)*deltaT* mesh % elements(eID) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+               mesh % elements(eID) % storage % G_CH = a(k)*mesh % elements(eID) % storage % G_CH + mesh % elements(eID) % storage % cDot
+               mesh % elements(eID) % storage % c    = mesh % elements(eID) % storage % c         + c(k)*deltaT* mesh % elements(eID) % storage % G_CH
+#endif
+            end do ! id
+!$omp end parallel do
+
+         end do ! k
+
+      end if
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+      call checkForNan(mesh, t)
+
+   END SUBROUTINE TakeEulerRK3Step
+
+!  ------------------------------
+!  Routine for taking a RK3 step.
+!  ------------------------------
+   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+!
+!     ----------------------------------
+!     Williamson's 3rd order Runge-Kutta
+!     ----------------------------------
+!
+      IMPLICIT NONE
+!
+!     -----------------
+!     Input parameters:
+!     -----------------
+!
+      type(HexMesh)      :: mesh
+#ifdef FLOW
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)   :: t, deltaT, tk
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
+      logical, intent(in), optional :: dts
+      real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
 !
 !     ---------------
 !     Local variables
@@ -155,7 +302,7 @@ MODULE ExplicitMethods
 
    END SUBROUTINE TakeRK3Step
 
-   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
+   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
 !
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -174,6 +321,7 @@ MODULE ExplicitMethods
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
 !
 !     ---------------
 !     Local variables
@@ -252,7 +400,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a SSP-RK 3-stage 3rd-order step.
 !  ------------------------------
-   subroutine TakeSSPRK33Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+   subroutine TakeSSPRK33Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
       implicit none
 !
 !     ----------------
@@ -271,6 +419,7 @@ MODULE ExplicitMethods
       real(RP), allocatable, optional, intent(in) :: dt_vec(:)
       logical,               optional, intent(in) :: dts
       real(RP),              optional, intent(in) :: global_dt
+      integer,               optional, intent(in) :: iter
 !
 !     ---------------
 !     Local variables
@@ -376,7 +525,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a SSP-RK 4-stage 3rd-order step.
 !  ------------------------------
-   subroutine TakeSSPRK43Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+   subroutine TakeSSPRK43Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
       implicit none
 !
 !     ----------------
@@ -395,6 +544,8 @@ MODULE ExplicitMethods
       real(RP), allocatable, optional, intent(in) :: dt_vec(:)
       logical,               optional, intent(in) :: dts
       real(RP),              optional, intent(in) :: global_dt
+      integer,               optional, intent(in) :: iter
+      
 !
 !     ---------------
 !     Local variables
@@ -496,7 +647,7 @@ MODULE ExplicitMethods
 
    END SUBROUTINE TakeSSPRK43Step
 
-   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
+   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
 !
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -515,7 +666,8 @@ MODULE ExplicitMethods
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
-      !
+      integer, intent(in), optional :: iter
+!
 !     ---------------
 !     Local variables
 !     ---------------
@@ -701,7 +853,7 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec, dts, global_dt )
+   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec, dts, global_dt, iter)
 !
 !        *****************************************************************************************
 !       Optimal RK coefficients from Bassi2009
@@ -720,6 +872,7 @@ MODULE ExplicitMethods
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
 !
 !     ---------------
 !     Local variables

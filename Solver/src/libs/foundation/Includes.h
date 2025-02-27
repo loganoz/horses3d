@@ -9,7 +9,7 @@
 
 #define sign2(x) ((x) / ( abs((x)) + epsilon((x)) ) )
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
 #define FLOW
 #endif 
 

@@ -336,14 +336,14 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12499758737106952_RP
-            real(kind=RP), parameter           :: kinEnRate = -4.2807169311969659E-004_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37499411028501956_RP 
-            real(kind=RP), parameter           :: res(5) = [5.229366754747479E-005_RP, &
-                                                            0.12783424260634596_RP, &
-                                                            0.12783424273963268_RP, &
-                                                            0.24980299744783380_RP, &
-                                                            0.61006093083852786_RP ]
+            real(kind=RP), parameter           :: kinEn = 1.2499879367819486E-01_RP
+            real(kind=RP), parameter           :: kinEnRate = -4.2807806718622574E-04_RP
+            real(kind=RP), parameter           :: enstrophy = 3.7499683882517909E-01_RP 
+            real(kind=RP), parameter           :: res(5) = [1.6417830052388520E-05_RP, &
+                                                            1.2677577061211545E-01_RP, &
+                                                            1.2677577048633804E-01_RP, &
+                                                            2.4981129585617484E-01_RP, &
+                                                            6.2174425106488129E-01_RP ]
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
@@ -391,7 +391,7 @@
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 5 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."

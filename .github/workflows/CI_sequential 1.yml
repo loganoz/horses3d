@@ -37,6 +37,9 @@ jobs:
           mkl: 'YES'          
         - compiler: ifort
           mkl: 'NO'          
+    env:
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2023.2.0
+
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -73,8 +76,10 @@ jobs:
       - name: Install Intel oneAPI
       # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
-      # Runs a single command using the runners shell
+      #  run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+
+        # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
       ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
@@ -348,5 +353,23 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns BoxAroundCircle_pAdapted.control
+        if: '!cancelled()'
+
+#
+# 9) Cylinder with RL-based p-adaptation and error estimation
+# -----------------------------------------------------------
+
+      - name: Build Cylinder_ErrorEstimation_pAdaptationRL
+        working-directory: ./Solver/test/Euler/Cylinder_ErrorEstimation_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_ErrorEstimation_pAdaptationRL
+        working-directory: ./Solver/test/Euler/Cylinder_ErrorEstimation_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_ErrorEstimation_pAdaptationRL.control
         if: '!cancelled()'
 

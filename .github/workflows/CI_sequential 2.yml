@@ -42,6 +42,8 @@ jobs:
           mkl: 'NO'       
         - compiler: ifort
           hdf5: 'YES'              
+    env:
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2023.2.0
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -80,7 +82,8 @@ jobs:
       - name: Install Intel oneAPI
       # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+      #  run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -477,7 +480,7 @@ jobs:
 #
 # 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
-# This test case only runs with hdf5 as we do not support hdf5 with ifort in the github actions
+# This test case only runs with gfortran as we do not support hdf5 with ifort in the github actions
 
       - name: Build ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
@@ -672,5 +675,114 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Cylinder_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 27) IBM Cylinder with Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build IBM_Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run IBM_Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns IBM_Cylinder_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 28) Cylinder with Overenriching and Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build Cylinder_Overenriching_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_Overenriching_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_Overenriching_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 29) Cylinder with acoustics and Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build Cylinder_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_acoustics_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_acoustics_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_acoustics_pAdaptationRL.control
+        if: '!cancelled()'
+
+#
+# 30) Virtual surfaces with acoustics and Reinforcement Learning p-adaptation
+# --------------------------------------------
+# This test case only runs with gfortran as we do not support hdf5 with ifort in the github actions
+
+      - name: Build VirtualSurfaces_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+
+      - name: Run VirtualSurfaces_acoustics_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns virtualSurfaces_acoustics_pAdaptationRL.control
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+
+#
+# 31) Actuator Line (AL) average formulation
+# --------------------------------------------
+
+      - name: Build AL_average
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineAverage/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run AL_average
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineAverage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Actuator.control
+        if: '!cancelled()'
+
+#
+# 32) Actuator Line (AL) projection formulation
+# --------------------------------------------
+
+      - name: Build AL_projection
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineProjection/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run AL_projection
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineProjection
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Actuator.control
         if: '!cancelled()'
 

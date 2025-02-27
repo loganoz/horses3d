@@ -3,8 +3,7 @@
 !
 !      Class cotaining routines for adapting polynomial orders based on Reinforcement Learning.
 !        -> The adaptation procedure is performed with a RL agent trined with a Value Iteration algorithm.
-!        -> The current implementation is only valid for shared memory 
-!           parallelization (OpenMP). TODO: Update to MPI.
+!        -> The current implementation is compatible with OpenMP and MPI.
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -12,6 +11,9 @@ module pAdaptationClassRL
    use SMConstants
 #ifdef NAVIERSTOKES
    use PhysicsStorage                  , only: CTD_IGNORE_MODE, flowIsNavierStokes
+   use FluidData                       , only: thermodynamics
+#elif defined(MULTIPHASE)
+   use PhysicsStorage                  , only: CTD_IGNORE_MODE, IMP
 #else
    use PhysicsStorage                  , only: CTD_IGNORE_MODE
 #endif
@@ -19,6 +21,7 @@ module pAdaptationClassRL
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep, ComputeMaxResiduals
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
+   use MPI_Process_Info
    use FileReadingUtilities            , only: getFileName, getIntArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
    use ParamfileRegions                , only: readValueInRegion
    use Utilities                       , only: toLower
@@ -28,7 +31,11 @@ module pAdaptationClassRL
    use MultiTauEstimationClass         , only: MultiTauEstim_t
    use StopwatchClass                  , only: Stopwatch
    use pAdaptationClass      
-   use ReinforcementLearning           , only: pAdaptationAgent_t          
+   use ReinforcementLearning           , only: pAdaptationAgent_t   
+   
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    implicit none
    
 #include "Includes.h"
@@ -40,7 +47,16 @@ module pAdaptationClassRL
    !--------------------------------------------------
    type, extends(pAdaptation_t) :: pAdaptationRL_t
       type(pAdaptationAgent_t) :: agent
+      real(kind=RP)            :: threshold
       real(kind=RP)            :: tol = 1e-2_RP
+      logical                  :: error_estimation = .false.
+      logical                  :: avg_error_type = .true. !True for average error, false for max error
+      integer                  :: error_variable !1:u, 2:v, 3:w, 4:rho*u, 5:rho*v, 6:rho*w, 7:p (only for Navier-Stokes)
+      logical                  :: acoustics = .false.
+      real(kind=RP)            :: acoustic_tol = 1e-4_RP
+      real(kind=RP)            :: acoustic_distance = 1_RP
+      real(kind=RP)            :: observer(NDIM)
+      character(len=BC_STRING_LENGTH), allocatable :: acoustic_sources(:)
       
       contains
          ! Base class procedures
@@ -54,7 +70,6 @@ module pAdaptationClassRL
 !  ----------------
 !
    integer    :: NMIN(NDIM) = 1
-   integer    :: nelem           ! number of elements in mesh
 
 !========
  contains
@@ -65,21 +80,23 @@ module pAdaptationClassRL
 !  ----------------------------------------
 !  Routine for constructing the p-adaptator
 !  ----------------------------------------
-   subroutine pAdaptation_Construct(this,controlVariables,t0)
+   subroutine pAdaptation_Construct(this, controlVariables, t0, mesh)
+      use SurfaceMesh, only: surfacesMesh
       implicit none
       !--------------------------------------
       class(pAdaptationRL_t) , intent(inout) :: this             !>  P-Adaptator
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
+      class(HexMesh)         , intent(inout) :: mesh
       !--------------------------------------
       ! For block reading
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(LINE_LENGTH)         :: agentFile
-      character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd
-      logical      , allocatable     :: R_increasing, reorganize_z, R_restart
-      real(kind=RP), allocatable     :: R_tolerance
+      character(20*BC_STRING_LENGTH) :: confBoundaries, R_acoustic_sources
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd, R_ErrorType, R_ErrorVariable, R_observer
+      logical      , allocatable     :: R_increasing, reorganize_z, R_restart, R_ErrorEstimation, R_acoustics
+      real(kind=RP), allocatable     :: R_tolerance, R_threshold, R_acoustic_tol, R_acoustic_distance
       ! Extra vars
       integer                        :: i      ! Element counter
       integer                        :: no_of_overen_boxes
@@ -93,9 +110,7 @@ module pAdaptationClassRL
          this % Constructed = .FALSE.
          return
       end if
-
-      ! THIS DOES NOT WORK IN PARALLEL!!!
-      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )  
+ 
 !
 !     **************************************************
 !     * p-adaptation is defined - Proceed to construct *     
@@ -118,8 +133,17 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "agent file"             , agentFile          , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "threshold"              , R_threshold        , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "error estimation"       , R_ErrorEstimation  , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "error type"             , R_ErrorType        , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "error variable"         , R_ErrorVariable    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "acoustics"              , R_acoustics        , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "acoustic tolerance"     , R_acoustic_tol     , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "acoustic distance"      , R_acoustic_distance, in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "acoustic observer"      , R_observer         , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "acoustic sources"       , R_acoustic_sources , in_label , "# end" )
       
-!     Conforming boundaries?
+!     Conforming boundaries
 !     ----------------------
       if ( confBoundaries /= "" ) then
          call getCharArrayFromString (confBoundaries,BC_STRING_LENGTH,this % conformingBoundaries)
@@ -128,14 +152,22 @@ module pAdaptationClassRL
          end do
       end if
       
-!     Tolerance
+!     Truncation error tolerance
 !     --------------------------
       if ( allocated(R_tolerance) ) then
          this % reqTE = R_tolerance !Required for static adaptation mode
          this % tol = R_tolerance
       end if
+
+!     Adaptation threshold
+!     ---------------------
+      if ( allocated(R_threshold) ) then
+         this % threshold = R_threshold
+      else
+         this % threshold = 0.0_RP
+      end if
       
-!     Adjust Nz?
+!     Adjust Nz
 !     ----------
       if ( allocated(reorganize_z) ) then
          reorganize_Nz = reorganize_z
@@ -166,6 +198,57 @@ module pAdaptationClassRL
          end select
       else
          GetOrderAcrossFace => NumberN_1
+      end if
+
+!     Error estimator
+!     ---------------
+      if ( allocated(R_ErrorEstimation) ) then
+         this % error_estimation = R_ErrorEstimation
+      end if
+
+      if (this % error_estimation) then
+         if ( R_ErrorType /= "" ) then
+            select case ( trim (R_ErrorType) )
+            case ("avg")
+               this % avg_error_type = .true.
+            case ("max")
+               this % avg_error_type = .false.
+            case default
+               WRITE(STD_OUT,*) 'Not recognized adaptation mode. Options are:'
+               WRITE(STD_OUT,*) '   * avg'
+               WRITE(STD_OUT,*) '   * max'
+               error stop ' '
+            end select
+         end if
+
+         if ( R_ErrorVariable /= "" ) then
+            select case ( trim (R_ErrorVariable) )
+            case ("u")
+               this % error_variable = 1
+            case ("v")
+               this % error_variable = 2
+            case ("w")
+               this % error_variable = 3
+            case ("rhou")
+               this % error_variable = 4
+            case ("rhov")
+               this % error_variable = 5
+            case ("rhow")
+               this % error_variable = 6
+#ifdef NAVIERSTOKES
+            case ("p")
+               this % error_variable = 7
+#elif defined(MULTIPHASE)
+            case ("p")
+               this % error_variable = 7
+#endif
+            case default
+               WRITE(STD_OUT,*) 'Not recognized error variable. Using u velocity by default.'
+               this % error_variable = 1
+            end select
+         else
+            error stop 'Keyword error variable is mandatory for error estimation'
+         end if
       end if
       
 !     Adaptation mode: Steady(default) or unsteady
@@ -205,6 +288,37 @@ module pAdaptationClassRL
 !     -------------
       if ( allocated(R_restart) ) then
          this % restartFiles = R_restart
+      end if
+
+!     Acoustics
+!     ---------------
+      if ( allocated(R_acoustics) ) then
+         this % acoustics = R_acoustics
+      end if
+
+      if (this % acoustics) then
+         if ( allocated(R_acoustic_tol) ) then
+            this % acoustic_tol = R_acoustic_tol
+         end if
+         if ( allocated(R_acoustic_distance) ) then
+            this % acoustic_distance = R_acoustic_distance
+         end if
+         if ( R_observer /= "" ) then
+            this % observer = getRealArrayFromString(R_observer)
+         else
+            error stop 'Keyword observer is mandatory for p-adaptation with acoustics'
+         end if
+         if ( R_acoustic_sources /= "" ) then
+            call getCharArrayFromString (R_acoustic_sources,BC_STRING_LENGTH,this % acoustic_sources)
+            do i=1, size(this % acoustic_sources)
+               call toLower(this % acoustic_sources(i))
+            end do
+         else
+            error stop 'Keyword acoustic sources is mandatory for p-adaptation with acoustics'
+         end if
+
+         call mesh % DefineAcousticElements(this % observer, this % acoustic_sources, this % acoustic_distance, surfacesMesh % zones)
+
       end if
       
 !
@@ -269,6 +383,7 @@ module pAdaptationClassRL
       
       safedeallocate  (this % conformingBoundaries)
       safedeallocate  (this % overenriching)
+      safedeallocate  (this % acoustic_sources)
       
    end subroutine pAdaptation_Destruct
 !
@@ -276,10 +391,13 @@ module pAdaptationClassRL
 !
 !  ------------------------------------------------------------------------
 !  Main routine for adapting the polynomial order in all elements based on 
-!  the truncation error estimation
+!  the Value Iteration RL agent
 !  ------------------------------------------------------------------------
    subroutine pAdaptation_pAdapt(this, sem, itera, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      use SpongeClass, only: sponge
+#endif
       implicit none
       !-arguments----------------------------
       class(pAdaptationRL_t)     :: this              !<> Adaptation class
@@ -300,16 +418,115 @@ module pAdaptationClassRL
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
+      integer                    :: Ndir = 3, Ndir_acoustics = 4
+      integer                    :: pressure_var = 7
+      !-mpi-variables-------------------------
+      integer                    :: ierr
+      integer                    :: local_DOFs, global_DOFs
+      integer                    :: adaptedElements, allAdaptedElements
+      real(kind=RP)              :: adaptationPercentage
       !--------------------------------------
-#if defined(NAVIERSTOKES)
+#if (defined(NAVIERSTOKES) || defined(MULTIPHASE))
       
-      write(STD_OUT,*)
-      write(STD_OUT,*)
-      write(STD_OUT,'(A)') '****     Performing p-Adaptation with a VI Reinforcement Learning agent    ****'
-      write(STD_OUT,*)
+      Stage = Stage + 1    
+!
+!     -------------------------------------------------------------
+!     Find the polynomial order that fulfills the error requirement
+!     -------------------------------------------------------------
+!
+      ! if (this % error_estimation) then
+      !    Ndir = 4
+      ! end if
       
-      Stage = Stage + 1
+      call Stopwatch % Start("pAdapt: PolOrder selection")
+      adaptedElements = 0
+      if (this % acoustics) then
+!$omp parallel do schedule(runtime) private(eID)
+         do i = 1, size(sem % mesh % elements_acoustics)
+            eID = sem % mesh % elements_acoustics(i)
+            call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID) , NNew(:,eID), this % acoustic_tol, Ndir_acoustics, pressure_var) 
+            if ( .not. all( sem % mesh % elements(eID)  % Nxyz == NNew(:,eID)) ) then
+!$omp critical
+               adaptedElements = adaptedElements + 1
+!$omp end critical
+            end if
+         end do
+!$omp end parallel do
+
+!$omp parallel do schedule(runtime) private(eID)
+         do i = 1, size(sem % mesh % elements_aerodynamics)
+            eID = sem % mesh % elements_aerodynamics(i)
+            call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID) , NNew(:,eID), this % tol, Ndir)
+            if ( .not. all( sem % mesh % elements(eID)  % Nxyz == NNew(:,eID)) ) then
+!$omp critical
+               adaptedElements = adaptedElements + 1
+!$omp end critical
+            end if
+         end do
+!$omp end parallel do
+
+      else
+!$omp parallel do schedule(runtime)
+         do eID = 1, sem % mesh % no_of_elements
+            call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID) , NNew(:,eID), this % tol, Ndir)
+            if ( .not. all( sem % mesh % elements(eID)  % Nxyz == NNew(:,eID)) ) then
+!$omp critical
+               adaptedElements = adaptedElements + 1
+!$omp end critical
+            end if
+         end do
+!$omp end parallel do
+      end if
+      call Stopwatch % Pause("pAdapt: PolOrder selection")
+
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+         call mpi_allreduce ( adaptedElements, allAdaptedElements , 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr )
+         adaptationPercentage = 100.0_RP * allAdaptedElements / sem % mesh % no_of_allElements
+#endif
+      else
+         adaptationPercentage = 100.0_RP * adaptedElements / sem % mesh % no_of_elements
+      end if  
+
+      ! Only adapt once
+      this % Adapt = .FALSE.
       
+!
+!     -----------------------------------------------------------------------------
+!     Adapt only if the percentage of elements to be adapted is above the threshold
+!     -----------------------------------------------------------------------------
+!
+      if (adaptationPercentage > this % threshold) then
+
+         if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,*)
+               write(STD_OUT,*)
+               write(STD_OUT,'(A)') '****     Performing p-Adaptation with a VI Reinforcement Learning agent    ****'
+               write(STD_OUT,*)
+            end if
+#endif
+         else
+            write(STD_OUT,*)
+            write(STD_OUT,*)
+            write(STD_OUT,'(A)') '****     Performing p-Adaptation with a VI Reinforcement Learning agent    ****'
+            write(STD_OUT,*)
+         end if
+
+         if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,*) '****    Percentage of elements to be adapted: ', adaptationPercentage, '% ****'
+               write(STD_OUT,*)
+            end if
+#endif
+         else
+            write(STD_OUT,*) '****    Percentage of elements to be adapted: ', adaptationPercentage, '% ****'
+            write(STD_OUT,*)
+         end if  
+
+
 !
 !     --------------------------------------
 !     Write pre-adaptation mesh and solution
@@ -320,44 +537,23 @@ module pAdaptationClassRL
          call sem % mesh % Export(AdaptedMeshFile)         
          call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       end if
-      
-!
-!     -------------------------------------------------------------
-!     Find the polynomial order that fulfills the error requirement
-!     -------------------------------------------------------------
-!
-      
-      call Stopwatch % Start("pAdapt: PolOrder selection")
-      
-!$omp parallel do schedule(runtime)
-      do eID = 1, sem % mesh % no_of_elements
-      ! do eID = 1, nelem
-         call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID), NNew(:,eID))
-      end do
-!$omp end parallel do
-      
-      call Stopwatch % Pause("pAdapt: PolOrder selection")
-
-      ! Only adapt once
-      this % Adapt = .FALSE.
-      
 !
 !     ----------------------------
 !     Overenrich specified regions
 !     ----------------------------
 !
-      call OverEnrichRegions(this % overenriching, sem % mesh, NNew, this % NxyzMax)
+      call OverEnrichRegions(this % overenriching, sem % mesh, NNew, this % NxyzMax, NMIN)
 
 !
-!     ------------------------------
-!     Restrict polynomial order jump
-!     ------------------------------
+!     ---------------------------------------------------------------
+!     Restrict polynomial order jump and make boundaries p-conforming
+!     ---------------------------------------------------------------
 !
       last = .FALSE.
       do while (.not. last)
          last = .TRUE.
-         call this % makeBoundariesPConforming(sem % mesh,NNew,last)
-         call ReorganizePolOrders(sem % mesh % faces,NNew,last)
+         call this % makeBoundariesPConforming(sem % mesh, NNew, last)
+         ! call ReorganizePolOrders(sem % mesh % faces, NNew, last)  #Not implemented for MPI, but not required if pmax<=6 and pmin>=2
       end do
 
 !
@@ -365,10 +561,18 @@ module pAdaptationClassRL
 !     Adapt sem to new polynomial orders
 !     ----------------------------------
 !
-      
       call Stopwatch % Start("pAdapt: Adaptation")
-      call sem % mesh % pAdapt (NNew, controlVariables)
+      call sem % mesh % pAdapt_MPI (NNew, controlVariables)
       call Stopwatch % Pause("pAdapt: Adaptation")
+
+!
+!     ----------------------------------
+!     Reconstruct sponge
+!     ----------------------------------
+!
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      call sponge % creatRamp(sem % mesh)
+#endif
       
       ! Reconstruct probes
       do i=1, sem % monitors % no_of_probes
@@ -397,32 +601,68 @@ module pAdaptationClassRL
 !     ----------------
 !
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
-      
-      write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 
+!
+!     ---------------------
+!     Update HO arrays
+!     ---------------------
+!
+      call sem % mesh % UpdateHOArrays()
+
+!
+!     --------------------------------------------------------------------------
+!     Perform a reduction to know how many DOFs are in each process
+!     --------------------------------------------------------------------------
+      local_DOFs = SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1))
+
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+      call mpi_reduce ( local_DOFs, global_DOFs , 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+      if ( MPI_Process % isRoot ) then
+         write(STD_OUT,*) '****    p-Adaptation done, DOFs=', global_DOFs, '****'
+         write(STD_OUT,*)
+         write(STD_OUT,*)
+      end if
 #endif
+      else
+         write(STD_OUT,*) '****    p-Adaptation done, DOFs=', local_DOFs, '****'
+         write(STD_OUT,*)
+         write(STD_OUT,*)
+      end if
+
+   ! End of adapting
+   end if
+
+!End NAVIERSTOKES
+#endif 
    end subroutine pAdaptation_pAdapt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------
-!  pAdaptation_pAdaptTE_SelectElemPolorders:
+!  pAdaptation_pAdaptRL_SelectElemPolorders:
 !  Select the polynomial orders for one element based on the VI Reinforcement Learning agent
 !  -----------------------------------------------------------------------------------------
-   subroutine pAdaptation_pAdaptRL_SelectElemPolorders (this, e, NNew)
+   subroutine pAdaptation_pAdaptRL_SelectElemPolorders (this, e, NNew, tolerance, Ndir, adaptation_var)
       implicit none
       !-arguments----------------------------------
       class(pAdaptationRL_t), intent(in)    :: this        !<> Adaptation class
       type(Element)         , intent(in)    :: e
       integer               , intent(out)   :: NNew(NDIM)
+      real(kind=RP)         , intent(in)    :: tolerance
+      integer, optional     , intent(in)    :: adaptation_var
       !-local-variables----------------------------
-      integer                    :: Pxyz(NDIM)     ! Initial polynomial order
+      integer                    :: Pxyz(NDIM)  ! Initial polynomial order
       integer                    :: i, j, k     ! Coordinate counters
       integer                    :: dir         ! Coordinate direction
+      integer                    :: Ndir        ! Number of variables used to adapt
       integer(kind=1)            :: action      ! Action
       integer                    :: indices_dir1(e % Nxyz(1)+1), indices_dir2(e % Nxyz(2)+1), indices_dir3(e % Nxyz(3)+1)
-      real(kind=RP)              :: Q_dir1(NDIM, 0:e % Nxyz(1)), Q_dir2(NDIM, 0:e % Nxyz(2)), Q_dir3(NDIM, 0:e % Nxyz(3))
-      real(kind=RP)              :: minQ, maxQ
+      integer                    :: indices_error1(e % Nxyz(1)+1), indices_error2(e % Nxyz(2)+1), indices_error3(e % Nxyz(3)+1)
+      real(kind=RP)              :: Q_dir1(Ndir, 0:e % Nxyz(1)), Q_dir2(Ndir, 0:e % Nxyz(2)), Q_dir3(Ndir, 0:e % Nxyz(3))
+      real(kind=RP)              :: Q_error1(0:e % Nxyz(1)), Q_error2(0:e % Nxyz(2)), Q_error3(0:e % Nxyz(3))
+      real(kind=RP)              :: minQ, maxQ, min_errorQ, max_errorQ
+      real(kind=RP)              :: error_sensor
       !--------------------------------------------
       
 !     Initialization of P
@@ -437,95 +677,355 @@ module pAdaptationClassRL
 !     Select the polynomial order in Direction 1
 !     --------------------------------
       action = -1 ! Initialized to minimum value
+      error_sensor = 0.0_RP
+
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(2)
             !Compute the state variables for each Gauss-node in axis 1
             do k = 0, Pxyz(1)
-               do dir = 1, 3
-                  Q_dir1(dir, k) = e % storage % Q(dir+1, k, j, i) !RHOU, RHOV, RHOW
+               do dir = 1, Ndir
+                  Q_dir1(dir, k) = e % storage % Q(dir+1, k, j, i) !RHOU, RHOV, RHOW, RHOE (or error variable)
+                  if (this % error_estimation) then 
+                     if(mod(this % error_variable, 3) == mod(dir, 3) .and. dir <= 3) then
+                        if (this % error_variable <= 6) then
+                           Q_error1(k) = e % storage % Q(dir+1, k, j, i)
+                           if (this % error_variable <= 3) then
+                              Q_error1(k) = Q_error1(k) / e % storage % Q(1, k, j, i)
+                           end if
+                        else if (this % error_variable == 7) then
+#ifdef NAVIERSTOKES
+                           !Pressure
+                           Q_error1(k) = thermodynamics % gammaMinus1*(e % storage % Q(5,k,j,i) - 0.5_RP*(e % storage % Q(2,k,j,i)**2 + e % storage % Q(3,k,j,i)**2 + e % storage % Q(4,k,j,i)**2)/e % storage % Q(1,k,j,i))
+#elif defined(MULTIPHASE)
+                           !Pressure
+                           Q_error1(k) = e % storage % QNS(IMP,k,j,i)
+#endif
+                        end if
+                     end if
+                     if (dir == Ndir) then 
+                        Q_dir1(dir, k) = Q_error1(k) !RHOE is replaced by the error variable (if any)
+                     end if
+                  end if
+                  if (present(adaptation_var) .and. dir==Ndir) then
+                     if (adaptation_var == 7) then
+#ifdef NAVIERSTOKES
+                        !Pressure
+                        Q_dir1(dir, k) = thermodynamics % gammaMinus1*(e % storage % Q(5,k,j,i) - 0.5_RP*(e % storage % Q(2,k,j,i)**2 + e % storage % Q(3,k,j,i)**2 + e % storage % Q(4,k,j,i)**2)/e % storage % Q(1,k,j,i))
+#elif defined(MULTIPHASE)
+                        !Pressure
+                        Q_dir1(dir, k) = e % storage % QNS(IMP,k,j,i)
+#endif
+                     end if
+                  end if
+
                enddo
             enddo
-            !Select the most restrictive action among RHOU, RHOV, RHOW
-            do dir = 1, 3
+            !Select the most restrictive action among RHOU, RHOV, RHOW, RHOE (or error variable)
+            do dir = 1, Ndir
                ! Find minimum and maximum values in axis 1
                minQ = minval(Q_dir1(dir, :))
                maxQ = maxval(Q_dir1(dir, :))
-               if (maxQ - minQ < this % tol) then
+
+               !p-adaptation
+               if (maxQ - minQ < tolerance) then
                   indices_dir1(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(1) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  else if (Pxyz(1) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 1
                   indices_dir1(:) = nint(2 * this % agent % smax * (Q_dir1(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
-               end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(1) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  else if (Pxyz(1) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1), 0)
+                  else
+                     action = 1
+                  end if
+               end if           
             enddo
+
+            !Error estimator
+            if (this % error_estimation) then
+               min_errorQ = minval(Q_error1(:))
+               max_errorQ = maxval(Q_error1(:))
+
+               if (max_errorQ - min_errorQ < tolerance) then
+                  indices_error1(:) = this % agent % smax + 1
+                  ! Compute the error
+                  if (Pxyz(1) > 2) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  ! else if (Pxyz(1) > 1) then
+                  !    error_sensor = error_sensor + 0.0_RP
+                  ! else
+                  !    error_sensor = error_sensor + 0.0_RP
+                  end if
+               else
+                  !Compute non-dimensional state variables for each Gauss-node in axis 1
+                  indices_error1(:) = nint(2 * this % agent % smax * (Q_error1(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Compute the error
+                  if (Pxyz(1) > 2) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  else if (Pxyz(1) > 1) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  else
+                     error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  end if
+               end if
+            end if
+
          enddo
       enddo
       ! Update NNew and make sure it is within the boundaries
       NNew(1) = min(max(Pxyz(1) + action, NMIN(1)), this % NxyzMax(1))
+      if (this % error_estimation) then
+         e % storage % sensor = sqrt(error_sensor / ((Pxyz(2)+1) * (Pxyz(3)+1))) 
+      end if
 
 !     --------------------------------
 !     Select the polynomial order in Direction 2
 !     --------------------------------
       action = -1 ! Initialized to minimum value
+      error_sensor = 0.0_RP
+
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(1)
             !Compute the state variables for each Gauss-node in axis 2
             do k = 0, Pxyz(2)
-               do dir = 1, 3
-                  Q_dir2(dir, k) = e % storage % Q(dir+1, j, k, i) !RHOU, RHOV, RHOW
+               do dir = 1, Ndir
+                  Q_dir2(dir, k) = e % storage % Q(dir+1, j, k, i) !RHOU, RHOV, RHOW, RHOE (or error variable)
+                  if (this % error_estimation) then 
+                     if(mod(this % error_variable, 3) == mod(dir, 3) .and. dir <= 3) then
+                        if (this % error_variable <= 6) then
+                           Q_error2(k) = e % storage % Q(dir+1, j, k, i)
+                           if (this % error_variable <= 3) then
+                              Q_error2(k) = Q_error2(k) / e % storage % Q(1, j, k, i)
+                           end if
+                        else if (this % error_variable == 7) then
+#ifdef NAVIERSTOKES
+                           !Pressure
+                           Q_error2(k) = thermodynamics % gammaMinus1*(e % storage % Q(5,j,k,i) - 0.5_RP*(e % storage % Q(2,j,k,i)**2 + e % storage % Q(3,j,k,i)**2 + e % storage % Q(4,j,k,i)**2)/e % storage % Q(1,j,k,i))
+#elif defined(MULTIPHASE)
+                           !Pressure
+                           Q_error2(k) = e % storage % QNS(IMP,j,k,i)
+#endif
+                        end if
+                     end if
+                     if (dir == Ndir) then 
+                        Q_dir2(dir, k) = Q_error2(k) !RHOE is replaced by the error variable (if any)
+                     end if
+                  end if
+
+                  if (present(adaptation_var) .and. dir==Ndir) then
+                     if (adaptation_var == 7) then
+#ifdef NAVIERSTOKES
+                        !Pressure
+                        Q_dir2(dir, k) = thermodynamics % gammaMinus1*(e % storage % Q(5,j,k,i) - 0.5_RP*(e % storage % Q(2,j,k,i)**2 + e % storage % Q(3,j,k,i)**2 + e % storage % Q(4,j,k,i)**2)/e % storage % Q(1,j,k,i))
+#elif defined(MULTIPHASE)
+                        !Pressure
+                        Q_dir2(dir, k) = e % storage % QNS(IMP,j,k,i)
+#endif
+                     end if
+                  end if
                enddo
             enddo
-            !Select the most restrictive action among RHOU, RHOV, RHOW
-            do dir = 1, 3
+            !Select the most restrictive action among RHOU, RHOV, RHOW, RHOE (or error variable)
+            do dir = 1, Ndir
                ! Find minimum and maximum values in axis 2
                minQ = minval(Q_dir2(dir, :))
                maxQ = maxval(Q_dir2(dir, :))
-               if (maxQ - minQ < this % tol) then
+
+               !p-adaptation
+               if (maxQ - minQ < tolerance) then
                   indices_dir2(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(2) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                  else if (Pxyz(2) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 2
                   indices_dir2(:) = nint(2 * this % agent % smax * (Q_dir2(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(2) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                  else if (Pxyz(2) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
             enddo
+
+            !Error estimator
+            if (this % error_estimation) then
+               min_errorQ = minval(Q_error2(:))
+               max_errorQ = maxval(Q_error2(:))
+
+               if (max_errorQ - min_errorQ < tolerance) then
+                  indices_error2(:) = this % agent % smax + 1
+                  ! Compute the error
+                  if (Pxyz(2) > 2) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  ! else if (Pxyz(2) > 1) then
+                  !    error_sensor = error_sensor + 0.0_RP
+                  ! else
+                  !    error_sensor = error_sensor + 0.0_RP
+                  end if
+               else
+                  !Compute non-dimensional state variables for each Gauss-node in axis 2
+                  indices_error2(:) = nint(2 * this % agent % smax * (Q_error2(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Compute the error
+                  if (Pxyz(2) > 2) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  else if (Pxyz(2) > 1) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  else
+                     error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  end if
+               end if
+            end if
          enddo
       enddo
       ! Update NNew and make sure it is within the boundaries
       NNew(2) = min(max(Pxyz(2) + action, NMIN(2)), this % NxyzMax(2))
+      if (this % error_estimation) then
+         if (this % avg_error_type) then
+            e % storage % sensor = e % storage % sensor + sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(3)+1)))
+         else
+            e % storage % sensor = max(e % storage % sensor, sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(3)+1))))
+         end if
+      end if
 
 !     --------------------------------
 !     Select the polynomial order in Direction 3
 !     --------------------------------
       action = -1 ! Initialized to minimum value
+      error_sensor = 0.0_RP
+
       do i = 0, Pxyz(2)
          do j = 0, Pxyz(1)
             !Compute the state variables for each Gauss-node in axis 3
             do k = 0, Pxyz(3)
-               do dir = 1, 3
-                  Q_dir3(dir, k) = e % storage % Q(dir+1, j, i, k) !RHOU, RHOV, RHOW
+               do dir = 1, Ndir
+                  Q_dir3(dir, k) = e % storage % Q(dir+1, j, i, k) !RHOU, RHOV, RHOW, RHOE (or error variable)
+                  if (this % error_estimation) then 
+                     if(mod(this % error_variable, 3) == mod(dir, 3) .and. dir <= 3) then
+                        if (this % error_variable <= 6) then
+                           Q_error3(k) = e % storage % Q(dir+1, j, i, k)
+                           if (this % error_variable <= 3) then
+                              Q_error3(k) = Q_error3(k) / e % storage % Q(1, j, i, k)
+                           end if
+                        else if (this % error_variable == 7) then
+#ifdef NAVIERSTOKES
+                           !Pressure
+                           Q_error3(k) = thermodynamics % gammaMinus1*(e % storage % Q(5,j,i,k) - 0.5_RP*(e % storage % Q(2,j,i,k)**2 + e % storage % Q(3,j,i,k)**2 + e % storage % Q(4,j,i,k)**2)/e % storage % Q(1,j,i,k))
+#elif defined(MULTIPHASE)
+                           !Pressure
+                           Q_error3(k) = e % storage % QNS(IMP,j,i,k)
+#endif
+                        end if
+                     end if
+                     if (dir == Ndir) then 
+                        Q_dir3(dir, k) = Q_error3(k) !RHOE is replaced by the error variable (if any)
+                     end if
+                  end if
+
+                  if (present(adaptation_var) .and. dir==Ndir) then
+                     if (adaptation_var == 7) then
+#ifdef NAVIERSTOKES
+                        !Pressure
+                        Q_dir3(dir, k) = thermodynamics % gammaMinus1*(e % storage % Q(5,j,i,k) - 0.5_RP*(e % storage % Q(2,j,i,k)**2 + e % storage % Q(3,j,i,k)**2 + e % storage % Q(4,j,i,k)**2)/e % storage % Q(1,j,i,k))
+#elif defined(MULTIPHASE)
+                        !Pressure
+                        Q_dir3(dir, k) = e % storage % QNS(IMP,j,i,k)
+#endif
+                     end if
+                  end if
                enddo
             enddo
-            !Select the most restrictive action among RHOU, RHOV, RHOW
-            do dir = 1, 3
+            !Select the most restrictive action among RHOU, RHOV, RHOW, RHOE (or error variable)
+            do dir = 1, Ndir
                ! Find minimum and maximum values in axis 3
                minQ = minval(Q_dir3(dir, :))
                maxQ = maxval(Q_dir3(dir, :))
-               if (maxQ - minQ < this % tol) then
+
+               !p-adaptation
+               if (maxQ - minQ < tolerance) then
                   indices_dir3(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(3) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                  else if (Pxyz(3) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 3
                   indices_dir3(:) = nint(2 * this % agent % smax * (Q_dir3(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(3) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                  else if (Pxyz(3) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
             enddo
+
+            !Error estimator
+            if (this % error_estimation) then
+               min_errorQ = minval(Q_error3(:))
+               max_errorQ = maxval(Q_error3(:))
+
+               if (max_errorQ - min_errorQ < tolerance) then
+                  indices_error3(:) = this % agent % smax + 1
+                  ! Compute the error
+                  if (Pxyz(3) > 2) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  ! else if (Pxyz(3) > 1) then
+                  !    error_sensor = error_sensor + 0.0_RP
+                  ! else
+                  !    error_sensor = error_sensor + 0.0_RP
+                  end if
+               else
+                  !Compute non-dimensional state variables for each Gauss-node in axis 3
+                  indices_error3(:) = nint(2 * this % agent % smax * (Q_error3(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Compute the error
+                  if (Pxyz(3) > 2) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  else if (Pxyz(3) > 1) then
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  else
+                     error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                  end if
+               end if
+            end if
+
          enddo
       enddo
       ! Update NNew and make sure it is within the boundaries
-      NNew(3) = min(max(Pxyz(3) + action, NMIN(3)), this % NxyzMax(3))   
+      NNew(3) = min(max(Pxyz(3) + action, NMIN(3)), this % NxyzMax(3)) 
+      if (this % error_estimation) then
+         if (this % avg_error_type) then  
+            e % storage % sensor = e % storage % sensor + sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(2)+1)))
+            e % storage % sensor = e % storage % sensor / 3.0_RP
+         else
+            e % storage % sensor = max(e % storage % sensor, sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(2)+1))))
+         end if
+      end if
       
-   end subroutine pAdaptation_pAdaptRL_SelectElemPolorders  
+   end subroutine pAdaptation_pAdaptRL_SelectElemPolorders 
    
 end module pAdaptationClassRL

@@ -562,7 +562,7 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder with Ducros Skewsymmetric and BR2"
+            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder with Ducros Skewsymmetric and BR1"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID

@@ -63,10 +63,15 @@ module InflowBCClass
       real(kind=RP)              :: rho
 #endif
 #endif
+#if defined(ACOUSTIC)
+      real(kind=RP)              :: v
+      real(kind=RP)              :: rho
+      real(kind=RP)              :: p
+#endif
       contains
          procedure         :: Destruct          => InflowBC_Destruct
          procedure         :: Describe          => InflowBC_Describe
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(ACOUSTIC)
          procedure         :: FlowState         => InflowBC_FlowState
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
 #endif
@@ -269,6 +274,16 @@ module InflowBCClass
          end if
 #endif
 #endif
+#if defined(ACOUSTIC)
+         ! by default Acoustic perturbations are assumed to be 0, is a far field BC rather than a real inflow
+         call GetValueWithDefault(bcdict, "acoustic pressure", 0.0_RP, ConstructInflowBC % p   )
+         call GetValueWithDefault(bcdict, "acoustic density" , 0.0_RP, ConstructInflowBC % rho )
+         call GetValueWithDefault(bcdict, "acoustic velocity", 0.0_RP, ConstructInflowBC % v   )
+         ConstructInflowBC % p     = ConstructInflowBC % p / refValues % p
+         ConstructInflowBC % rho   = ConstructInflowBC % rho / refValues % rho
+         ConstructInflowBC % v     = ConstructInflowBC % v / refValues % v
+#endif
+
          call bcdict % Destruct
          close(fid)
    
@@ -316,6 +331,10 @@ module InflowBCClass
             write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Phase 2 velocity: ", self % phase2Vel * refValues % v
          end if
 #endif
+#elif defined(ACOUSTIC)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Pressure: ', self % p * refValues % p
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Density: ', self % rho * refValues % rho
 #endif
          
       end subroutine InflowBC_Describe
@@ -516,4 +535,57 @@ module InflowBCClass
 
       end subroutine InflowBC_ChemPotNeumann
 #endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for Acoustic APE equations
+!        ---------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(ACOUSTIC)
+      subroutine InflowBC_FlowState(self, x, t, nHat, Q)
+         implicit none
+         class(InflowBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: u, v, w
+
+         ! not use aoa here
+         u = self % v
+         v = self % v
+         w = self % v
+
+         Q(ICAARHO) = self % rho
+         Q(ICAAU) = u
+         Q(ICAAV) = v
+         Q(ICAAW) = w
+         Q(ICAAP) = self % p
+
+      end subroutine InflowBC_FlowState
+
+      subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(InflowBC_t),  intent(in)     :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NCONS)
+         real(kind=RP),       intent(in)    :: U_y(NCONS)
+         real(kind=RP),       intent(in)    :: U_z(NCONS)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
+
+         flux = 0.0_RP
+
+      end subroutine InflowBC_FlowNeumann
+#endif
+!
 end module InflowBCClass

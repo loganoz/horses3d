@@ -118,18 +118,55 @@ module ProbeClass
             end select
 #endif
 #ifdef INCNS
+            case ("pressure")
+            case ("velocity")
+            case ("u")
+            case ("v")
+            case ("w")
             case default
-               print*, "Probes are not implemented for the incompressible NSE"
+               print*, 'Probe variable "',trim(self % variable),'" not implemented.'
+               print*, "Options available are:"
+               print*, "   * pressure"
+               print*, "   * velocity"
+               print*, "   * u"
+               print*, "   * v"
+               print*, "   * w"
             end select
 #endif
 #ifdef MULTIPHASE
             case ("static-pressure")
-
+            case ("pressure")
+            case ("velocity")
+            case ("u")
+            case ("v")
+            case ("w")
+            case ("concentration")
             case default
                print*, 'Probe variable "',trim(self % variable),'" not implemented.'
                print*, "Options available are:"
                print*, "   * static-pressure"
-
+               print*, "   * pressure"
+               print*, "   * velocity"
+               print*, "   * u"
+               print*, "   * v"
+               print*, "   * w"
+               print*, "   * concentration"
+            end select
+#endif
+#ifdef ACOUSTIC
+            case ("pressure")
+            case ("density")
+            case ("u")
+            case ("v")
+            case ("w")
+            case default
+               print*, 'Probe variable "',trim(self % variable),'" not implemented.'
+               print*, "Options available are:"
+               print*, "   * pressure"
+               print*, "   * velocity"
+               print*, "   * u"
+               print*, "   * v"
+               print*, "   * w"
             end select
 #endif
          
@@ -224,7 +261,7 @@ module ProbeClass
 !        ---------------
 !
          integer        :: i, j, k, ierr
-         real(kind=RP)  :: value
+         real(kind=RP)  :: value, rho_multiphase
          real(kind=RP)  :: var(0:mesh % elements(self % eID) % Nxyz(1),&
                                0:mesh % elements(self % eID) % Nxyz(2),&
                                0:mesh % elements(self % eID) % Nxyz(3)  )
@@ -276,13 +313,99 @@ module ProbeClass
                   var(i,j,k) = 0.5_RP * (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
                end do         ; end do         ; end do
 #endif
+#ifdef INCNS
+            case("pressure")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(INSP,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("velocity")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  var(i,j,k) = sqrt(POW2(Q(INSRHOU,i,j,k)) + POW2(Q(INSRHOV,i,j,k)) + POW2(Q(INSRHOW,i,j,k)))/Q(INSRHO,i,j,k)
+               end do         ; end do         ; end do
+   
+            case("u")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(INSRHOU,i,j,k) / Q(INSRHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("v")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(INSRHOV,i,j,k) / Q(INSRHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("w")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(INSRHOW,i,j,k) / Q(INSRHO,i,j,k)
+               end do            ; end do             ; end do
+#endif
 #ifdef MULTIPHASE
             case("static-pressure")
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   var(i,j,k) = Q(IMP,i,j,k) + Q(IMC,i,j,k)*e % storage % mu(1,i,j,k) - 12.0_RP*multiphase%sigma*multiphase%invEps*(POW2(Q(IMC,i,j,k)*(1.0_RP-Q(IMC,i,j,k)))) &
                                - 0.25_RP*3.0_RP*multiphase % sigma * multiphase % eps * (POW2(e % storage % c_x(1,i,j,k))+POW2(e % storage % c_y(1,i,j,k))+POW2(e % storage % c_z(1,i,j,k)))
                end do         ; end do         ; end do
+
+            case("pressure")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(IMP,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("velocity")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  rho_multiphase = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+                  var(i,j,k) = sqrt(POW2(Q(IMSQRHOU,i,j,k)) + POW2(Q(IMSQRHOV,i,j,k)) + POW2(Q(IMSQRHOW,i,j,k)))/rho_multiphase
+               end do         ; end do         ; end do
+   
+            case("u")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  rho_multiphase = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+                  var(i,j,k) = Q(IMSQRHOU,i,j,k) / rho_multiphase
+               end do            ; end do             ; end do
+   
+            case("v")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  rho_multiphase = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+                  var(i,j,k) = Q(IMSQRHOV,i,j,k) / rho_multiphase
+               end do            ; end do             ; end do
+   
+            case("w")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  rho_multiphase = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+                  var(i,j,k) = Q(IMSQRHOW,i,j,k) / rho_multiphase
+               end do            ; end do             ; end do
+
+            case("concentration")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = e % storage % Q(IMC,i,j,k)
+               end do            ; end do             ; end do
 #endif 
+#ifdef ACOUSTIC
+            case("pressure")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAP,i,j,k)
+               end do            ; end do             ; end do
+
+            case("density")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAARHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("u")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAU,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("v")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAV,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("w")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(ICAAW,i,j,k)
+               end do            ; end do             ; end do
+#endif
             end select
    
             value = 0.0_RP

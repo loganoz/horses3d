@@ -58,6 +58,7 @@ module pAdaptationClass
       real(kind=RP)     :: x_span(2)
       real(kind=RP)     :: y_span(2)
       real(kind=RP)     :: z_span(2)
+      integer           :: mode
       
       contains
          procedure      :: initialize => OverEnriching_Initialize
@@ -99,16 +100,18 @@ module pAdaptationClass
 !  Interface for constructing the p-adaptator
 !  ------------------------------------------
    interface
-   subroutine constructInterface(this, controlVariables, t0)
+   subroutine constructInterface(this, controlVariables, t0, mesh)
       import pAdaptation_t
       import FTValueDictionary
       import RP
+      import HexMesh
       !-------------------------------------------------
       implicit none
       !-------------------------------------------------
       class(pAdaptation_t)   , intent(inout) :: this             !>  P-Adaptator
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
+      class(HexMesh)         , intent(inout) :: mesh
    end subroutine constructInterface
    end interface
 
@@ -281,6 +284,7 @@ module pAdaptationClass
          character(LINE_LENGTH) :: x_span
          character(LINE_LENGTH) :: y_span
          character(LINE_LENGTH) :: z_span
+         character(LINE_LENGTH) :: mode
          integer, allocatable   :: order
          !----------------------------------
          
@@ -299,11 +303,25 @@ module pAdaptationClass
          call readValueInRegion ( trim ( paramFile )  , "x span" , x_span      , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "y span" , y_span      , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "z span" , z_span      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "mode"   , mode        , in_label , "# end" )
          
          if (allocated(order)) then
             this % order = order
          else
             this % order = 1
+         end if
+
+         if ( mode /= "" ) then
+            select case ( trim (mode) )
+               case ("increase")
+                  this % mode = 1
+               case ("set")
+                  this % mode = 2
+               case default
+                  this % mode = 1
+            end select
+         else
+            this % mode = 1
          end if
          
          this % x_span = getRealArrayFromString(x_span)
@@ -383,13 +401,13 @@ readloop:do
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine OverEnrichRegions(overenriching,mesh,NNew,Nmax)
+   subroutine OverEnrichRegions(overenriching,mesh,NNew,Nmax,Nmin)
       implicit none
       !---------------------------------------
       type(overenriching_t), allocatable :: overenriching(:)
       type(HexMesh), intent(in)          :: mesh
       integer                            :: NNew(:,:)
-      integer      , intent(in)          :: Nmax(3)
+      integer      , intent(in)          :: Nmax(3), Nmin(3)
       !---------------------------------------
       integer :: oID       ! Overenriching region counter
       integer :: eID       ! Element counter
@@ -417,21 +435,15 @@ readloop:do
                if( (corners(1,cornerID) > region % x_span(1) .and. corners(1,cornerID) < region % x_span(2)) .and. &
                    (corners(2,cornerID) > region % y_span(1) .and. corners(2,cornerID) < region % y_span(2)) .and. &
                    (corners(3,cornerID) > region % z_span(1) .and. corners(3,cornerID) < region % z_span(2)) ) then
-                   
-                  if ( NNew(1,eID) + region % order >= Nmax(1) ) then
-                     NNew(1,eID) = Nmax(1)
-                  else
-                     NNew(1,eID) = NNew(1,eID) + region % order
-                  end if
-                  if ( NNew(2,eID) + region % order >= Nmax(2) ) then
-                     NNew(2,eID) = Nmax(2)
-                  else
-                     NNew(2,eID) = NNew(2,eID) + region % order
-                  end if
-                  if ( NNew(3,eID) + region % order >= Nmax(3) ) then
-                     NNew(3,eID) = Nmax(3)
-                  else
-                     NNew(3,eID) = NNew(3,eID) + region % order
+
+                  if (region % mode == 1) then !Increase mode
+                     NNew(1,eID) = max(min(NNew(1,eID) + region % order, Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(NNew(2,eID) + region % order, Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(NNew(3,eID) + region % order, Nmax(3)), Nmin(3))
+                  else if (region % mode == 2) then !Set mode
+                     NNew(1,eID) = max(min(region % order, Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(region % order, Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(region % order, Nmax(3)), Nmin(3))
                   end if
                   
                   enriched(eID) = .TRUE.
@@ -585,7 +597,7 @@ readloop:do
       
       if ( .not. allocated(this % conformingBoundaries) ) return
       
-      write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
+      ! write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
       
 !     ************************
 !     Loop over the boundaries
@@ -594,8 +606,8 @@ readloop:do
          
          if ( all ( this % conformingBoundaries /= trim(mesh % zones(zoneID) % Name) ) ) cycle
          
-         write(STD_OUT,*) '## Boundary:', mesh % zones(zoneID) % Name
-         write(STD_OUT,*) '   Sweep   |   Last'
+         ! write(STD_OUT,*) '## Boundary:', mesh % zones(zoneID) % Name
+         ! write(STD_OUT,*) '   Sweep   |   Last'
          sweep = 0
          
          ! Perform a number of sweeps until the representation is conforming
@@ -622,7 +634,7 @@ readloop:do
                
             end do
             
-            write(STD_OUT,'(I10,X,A,X,L)') sweep ,'|', finalsweep 
+            ! write(STD_OUT,'(I10,X,A,X,L)') sweep ,'|', finalsweep 
             
             if (finalsweep) then
                if (sweep > 1) last = .FALSE.
@@ -631,7 +643,7 @@ readloop:do
          end do
       end do
       
-      write(STD_OUT,*) '#####################################'
+      ! write(STD_OUT,*) '#####################################'
       
    end subroutine makeBoundariesPConforming
 !
@@ -799,7 +811,6 @@ readloop:do
          end select
       else
          adaptationType = 0
-         if( MPI_Process% isRoot ) write(STD_OUT,*) "Default type used for p-adaptation: Truncation Error"
       end if
 
    end function

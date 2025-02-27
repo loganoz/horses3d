@@ -60,10 +60,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Multiphase Inc. Navier-Stokes Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Multiphase Inc. Navier-Stokes Solver",__DATE__,__TIME__)
 
       end if
 
@@ -335,7 +335,7 @@
 
          call Subsection_Header("Preprocessing")
 
-         write(STD_OUT,'(30X,A,I0,A,F5.2,A,I0,A)')      "->   ", mesh % no_of_elements, &
+         write(STD_OUT,'(30X,A,I0,A,F5.2,A,I0,A)')      "->   ", mesh % no_of_allElements, &
                                                       " elements with polynomial order ",Naverage," (NDOF = ",NDOF,")."
          write(STD_OUT,'(30X,A,A30,ES10.3,A,ES10.3,A)') "->", "Preprocessing time: ",t_elaps," seconds (total CPU time: ",t_cpu,")."
 

@@ -1,0 +1,69 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/ActuatorBox.msh"
+Polynomial order      = 1
+Number of time steps  = 50
+Convergence tolerance = 1.0e-13
+Output Interval       = 10
+
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 0.02934
+Reynolds number       = 666666.67
+AOA theta             = 0.0
+AOA phi               = 0.0
+
+solution file name    = "RESULTS/actuator.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/actuator.hsol"
+
+autosave mode         = "time"
+autosave interval     = 2.0
+
+! ACTUATOR LINE
+use actuatorline = .true.
+actuator epsilon type = 2 ! calculate epsilon based on mesh cell size and p
+actuator calculate with projection = .true. ! gaussian weight average formulation
+actuator average subelement = .false. ! false for p1, better to use true for higher p
+actuator save average = .false.
+actuator save instant = .false.
+actuator tolerance = 0.7 ! high tolerance for finding elements near the rotor for coarse mesh
+
+riemann solver         = "lax-friedrichs"
+
+!-- TIME discret--
+simulation type       = time-accurate
+final time            = 5.d0
+
+!---TURB---
+LES model             = Vreman
+
+partitioning = SFC
+
+!------------
+! BC
+!------------
+
+#define boundary inlet
+      type = Inflow
+#end
+
+#define boundary sideA__sideB
+      type = FreeSlipWall
+#end
+
+#define boundary top__bottom
+      type = FreeSlipWall
+#end
+
+#define boundary outlet
+      type = Outflow
+#end
+
+!------------
+! monitors
+!------------
+#define volume monitor 1
+   Name = source
+   Variable = source
+#end

@@ -23,15 +23,19 @@ module VolumeIntegrals
 #endif
 
 #if defined(INCNS)
-   public MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
+   public MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE, SOURCE
 #endif
 
 #if defined(MULTIPHASE)
-   public ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL
+   public ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL, SOURCE
 #endif
 
 #if defined(CAHNHILLIARD)
    public FREE_ENERGY
+#endif
+
+#if defined(ACOUSTIC)
+   public ACOUSTIC_ENERGY, SOURCE
 #endif
 
    public   ScalarVolumeIntegral, VectorVolumeIntegral, GetSensorRange
@@ -46,13 +50,16 @@ module VolumeIntegrals
       enumerator :: ARTIFICIAL_DISSIPATION, ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 #if defined(INCNS)
-      enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
+      enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE, SOURCE
 #endif
 #if defined(MULTIPHASE)
-      enumerator :: ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL
+      enumerator :: ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL, SOURCE
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
+#endif
+#if defined(ACOUSTIC)
+      enumerator :: ACOUSTIC_ENERGY, SOURCE
 #endif
    end enum
 !
@@ -136,6 +143,7 @@ module VolumeIntegrals
          real(kind=RP)           :: grad_Mp(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: M_grad_p(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: correction_term(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: Ma2(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, ms
          real(kind=RP), pointer  :: Qb(:)
          real(kind=RP)           :: free_en, fchem, entr, area, rho , u , v, w, en, thetaeddy
@@ -450,7 +458,9 @@ module VolumeIntegrals
             KinEn = KinEn + e % storage % Q(IMSQRHOU,:,:,:)*e % storage % QDot(IMSQRHOU,:,:,:)
             KinEn = KinEn + e % storage % Q(IMSQRHOV,:,:,:)*e % storage % QDot(IMSQRHOV,:,:,:)
             KinEn = KinEn + e % storage % Q(IMSQRHOW,:,:,:)*e % storage % QDot(IMSQRHOW,:,:,:)
-            KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+            !KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+            Ma2 = dimensionless % Ma2(1) * e % storage % Q(IMC,:,:,:) + dimensionless % Ma2(2) * (1.0_RP - e % storage % Q(IMC,:,:,:))
+            KinEn = KinEn + Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
@@ -469,7 +479,9 @@ module VolumeIntegrals
             KinEn = KinEn + e % storage % Q(IMSQRHOU,:,:,:)*e % storage % QDot(IMSQRHOU,:,:,:)
             KinEn = KinEn + e % storage % Q(IMSQRHOV,:,:,:)*e % storage % QDot(IMSQRHOV,:,:,:)
             KinEn = KinEn + e % storage % Q(IMSQRHOW,:,:,:)*e % storage % QDot(IMSQRHOW,:,:,:)
-            KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+            !KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+            Ma2 = dimensionless % Ma2(1) * e % storage % Q(IMC,:,:,:) + dimensionless % Ma2(2) * (1.0_RP - e % storage % Q(IMC,:,:,:))
+            KinEn = KinEn + Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
 
@@ -527,6 +539,17 @@ module VolumeIntegrals
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * free_en
             end do            ; end do           ; end do
 
+#endif
+#if defined(ACOUSTIC)
+         case (ACOUSTIC_ENERGY)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)* ( &
+                      0.5_RP * e % storage % Qbase(ICAARHO,i,j,k) * ( POW2(e %storage % Q(ICAAU,i,j,k)) &
+                                                                    + POW2(e %storage % Q(ICAAV,i,j,k)) &
+                                                                    + POW2(e %storage % Q(ICAAW,i,j,k)) ) &
+                    + 0.5_RP / (thermodynamics % gamma * e % storage % Qbase(ICAAP,i,j,k)) * POW2(e %storage % Q(ICAAP,i,j,k)) )
+            end do            ; end do           ; end do
 #endif
          end select
 
@@ -666,6 +689,28 @@ module VolumeIntegrals
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
 #endif
+#if defined(INCNS)
+            case ( SOURCE )
+
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+#endif
+#if defined(MULTIPHASE)
+            case ( SOURCE )
+
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+#endif
+#if defined(ACOUSTIC)
+            case ( SOURCE )
+
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+#endif
+
             case default
 
                write(STD_OUT,'(A,A)') 'VectorVolumeIntegral :: ERROR: Not defined integral type'
@@ -735,12 +780,26 @@ module VolumeIntegrals
          minSensor =  huge(1.0_RP)/10.0_RP
          maxSensor = -huge(1.0_RP)/10.0_RP
 
-!$omp parallel do schedule(static) private(ielem)
-         do ielem = 1, mesh % no_of_elements
-            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+!! !$omp parallel do schedule(static) private(ielem)
+         ! do ielem = 1, mesh % no_of_elements
+         !    minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+         !    maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
+         ! end do
+!! !$omp end parallel do
+
+!$omp parallel shared(maxSensor, minSensor, mesh) default(private)
+!$omp do reduction(max:maxSensor) schedule(runtime)
+         DO ielem = 1, mesh % no_of_elements
             maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
-         end do
-!$omp end parallel do
+         END DO
+!$omp end do
+   
+!$omp do reduction(min:minSensor) schedule(runtime)
+         DO ielem = 1, mesh % no_of_elements
+            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+         END DO
+!$omp end do
+!$omp end parallel
 
 #ifdef _HAS_MPI_
          call MPI_MinMax(minSensor, maxSensor)

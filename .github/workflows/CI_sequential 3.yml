@@ -37,6 +37,8 @@ jobs:
           mkl: 'YES'          
         - compiler: ifort
           mkl: 'NO'          
+    env:
+      INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2023.2.0
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -73,7 +75,8 @@ jobs:
       - name: Install Intel oneAPI
       # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+      #  run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -245,6 +248,60 @@ jobs:
           ./horses3d.mu EntropyConservingTest.control
         if: '!cancelled()'
 
+#
+# 5) RisingBubbleVreman
+# ----------------------------
+# This test case is skipped with gfortran as the result is slightly different
+
+      - name: Build MultiphaseRisingBubbleVreman
+        working-directory: ./Solver/test/Multiphase/RisingBubbleVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: ('!cancelled()')
+
+      - name: Run MultiphaseRisingBubbleVreman
+        working-directory: ./Solver/test/Multiphase/RisingBubbleVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu RisingBubble.control
+        if: ('!cancelled()')
+
+#
+# 6) Mu AL
+# -------------------------------
+
+      - name: Build Mu-AL
+        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run Mu-AL
+        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu Actuator.control
+        if: '!cancelled()'
+
+#
+# 7) Multiphase monopole with acoustics, sponge and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Multiphase_Monopole_pAdaptationRL
+        working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run Multiphase_Monopole_pAdaptationRL
+        working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu monopole_pAdaptationRL.control
+        if: '!cancelled()'
+
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
 ########################################################################
@@ -338,5 +395,56 @@ jobs:
           ./horses3d.ins RTI.control
         if: '!cancelled()'
 
+#
+# 6) INS Cylinder
+# -------------------------------
 
-          
+      - name: Build iNS-Cylinder
+        working-directory: ./Solver/test/IncompressibleNS/Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run iNS-Cylinder
+        working-directory: ./Solver/test/IncompressibleNS/Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins CylinderRe40.control
+        if: '!cancelled()'
+
+#
+# 7) INS Cylinder Vreman
+# -------------------------------
+
+      - name: Build iNS-Cylinder-Vreman
+        working-directory: ./Solver/test/IncompressibleNS/CylinderVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run iNS-Cylinder-Vreman
+        working-directory: ./Solver/test/IncompressibleNS/CylinderVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins CylinderVremanRe3900.control
+        if: '!cancelled()'
+
+# 8) INS AL
+# -------------------------------
+
+      - name: Build iNS-AL
+        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineAverage/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run iNS-AL
+        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineAverage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins Actuator.control
+        if: '!cancelled()'
+

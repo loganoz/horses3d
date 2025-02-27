@@ -5,6 +5,7 @@ module SpatialDiscretization
       use EllipticDiscretizations
       use DGIntegrals
       use MeshTypes
+      use LESModels
       use HexMeshClass
       use ElementClass
       use PhysicsStorage
@@ -151,6 +152,9 @@ module SpatialDiscretization
 !           ----------------------
             call mesh % ComputeWallDistances
 
+!           Initialize models
+!           -----------------
+            call InitializeLESModel(LESModel, controlVariables)
 !
 !           Initialize Cahn--Hilliard discretization
 !           ----------------------------------------         
@@ -201,7 +205,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements)
          IMPLICIT NONE 
 !
 !        ---------
@@ -212,15 +216,16 @@ module SpatialDiscretization
          type(Particles_t)               :: particles
          REAL(KIND=RP)                   :: time
          integer, intent(in)             :: mode
+         logical, intent(in), optional   :: HO_Elements
+         real(kind=RP)  :: mu_smag, delta
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          INTEGER                 :: k, eID, fID, i, j
-         real(kind=RP)           :: sqrtRho
+         real(kind=RP)           :: sqrtRho, invMa2
          class(Element), pointer :: e
-
 
 !$omp parallel shared(mesh, time)
 !
@@ -346,6 +351,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution(NCOMP)
+         call mesh % GatherMPIFacesSolution(NCOMP)
 !$omp end single
 #endif
          end select
@@ -370,6 +376,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
             call mesh % UpdateMPIFacesGradients(NCOMP)
+            call mesh % GatherMPIFacesGradients(NCOMP)
 !$omp end single
 #endif
 !
@@ -415,6 +422,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution(NCONS)
+         call mesh % GatherMPIFacesSolution(NCONS)
 !$omp end single
 #endif
 !
@@ -460,11 +468,12 @@ module SpatialDiscretization
 !        Add the Non-Conservative term to QDot
 !        -------------------------------------
 !
-!$omp do schedule(runtime) private(i,j,k,e,sqrtRho)
+!$omp do schedule(runtime) private(i,j,k,e,sqrtRho,invMa2)
          do eID = 1, size(mesh % elements)
             associate(e => mesh % elements(eID))
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                sqrtRho = sqrt(e % storage % rho(i,j,k))
+               invMa2 = dimensionless % invMa2(1) * min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP)) 
                e % storage % QDot(IMC,i,j,k)      = 0.0_RP
                e % storage % QDot(IMSQRHOU,i,j,k) = -0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGU,i,j,k) & 
                                                                      + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGU,i,j,k) &   
@@ -481,9 +490,10 @@ module SpatialDiscretization
                                                                      + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGW,i,j,k) ) &
                                                     - e % storage % Q(IMC,i,j,k)*e % storage % U_z(IGMU,i,j,k)
    
-               e % storage % QDot(IMP,i,j,k) = -dimensionless % invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
-                                                                          + e % storage % U_z(IGW,i,j,k))  
-
+               ! e % storage % QDot(IMP,i,j,k) = -dimensionless % invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
+               !                                                            + e % storage % U_z(IGW,i,j,k))    
+                e % storage % QDot(IMP,i,j,k) = - invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
+                                                                           + e % storage % U_z(IGW,i,j,k))                                                                                                                
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do                ; end do                ; end do
             end associate
@@ -491,6 +501,14 @@ module SpatialDiscretization
 !$omp end do
 
          call ViscousDiscretization % LiftGradients( NCONS, NCONS, mesh , time , mGradientVariables)
+
+#ifdef _HAS_MPI_
+!$omp single
+         ! Not sure about the position of this w.r.t the MPI directly above
+         call mesh % UpdateMPIFacesGradients(NCONS)
+         call mesh % GatherMPIFacesGradients(NCONS)
+!$omp end single
+#endif   
 !
 !        -----------------------
 !        Compute time derivative
@@ -571,6 +589,7 @@ module SpatialDiscretization
 !$omp end do
          end select
 !$omp end parallel
+
 !
       END SUBROUTINE ComputeTimeDerivative
 !
@@ -582,6 +601,8 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , t )
+         use SpongeClass, only: sponge, addSourceSponge
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -593,6 +614,8 @@ module SpatialDiscretization
 !
          integer     :: eID , i, j, k, ierr, fID
          real(kind=RP) :: sqrtRho, invSqrtRho
+         real(kind=RP)  :: mu_smag, delta
+         real(kind=RP), dimension(NCONS)  :: Source
 !
 !        ****************
 !        Volume integrals
@@ -603,6 +626,37 @@ module SpatialDiscretization
             call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
          end do
 !$omp end do nowait
+
+
+         if ( LESModel % active) then
+            !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
+                        do eID = 1, size(mesh % elements)
+                            associate(e => mesh % elements(eID))
+                            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+                            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                               call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
+                                                                                               e % storage % U_x(:,i,j,k), &
+                                                                                               e % storage % U_y(:,i,j,k), &
+                                                                                               e % storage % U_z(:,i,j,k), &
+                                                                                               e % storage % mu_turb_NS(i,j,k) )
+                                                                                               ! mu_smag)
+                           !    ! e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
+                           !    ! e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+                               e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + e % storage % mu_turb_NS(i,j,k)
+                           !    e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + e % storage % mu_turb_NS(i,j,k) * dimensionless % mu_to_kappa
+                            end do                ; end do                ; end do
+                            end associate
+                        end do
+            !$omp end do
+                  end if
+
+!
+!        Compute viscosity at interior and boundary faces
+!        ------------------------------------------------
+         call compute_viscosity_at_faces(size(mesh % faces_interior), 2, mesh % faces_interior, mesh)
+         call compute_viscosity_at_faces(size(mesh % faces_boundary), 1, mesh % faces_boundary, mesh)
+
+
 !
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
@@ -625,7 +679,7 @@ module SpatialDiscretization
 !
 !        *************************************************************************************
 !        Element without shared faces: Surface integrals, scaling of elements with Jacobian, 
-!                                      sqrt(rho), and add source terms
+!                                      sqrt(rho)
 !        *************************************************************************************
 ! 
 !$omp do schedule(runtime) private(i,j,k,sqrtRho,invSqrtRho)
@@ -646,16 +700,12 @@ module SpatialDiscretization
                e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
                                                              + sqrtRho * dimensionless % invFr2 * dimensionless % gravity_dir
 
-!
-!            + Add user defined source terms
-               call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
-
             end do         ; end do          ; end do 
 
             end associate 
          end do
 !$omp end do
+
 !
 !        ******************************************
 !        Do the same for elements with shared faces
@@ -666,6 +716,11 @@ module SpatialDiscretization
 !$omp single
             call mesh % GatherMPIFacesGradients(NCONS)
 !$omp end single
+
+!
+!           Compute viscosity at MPI faces
+!           ------------------------------
+            call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
 !
 !           **************************************
 !           Compute Riemann solver of shared faces
@@ -686,7 +741,7 @@ module SpatialDiscretization
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
 ! 
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k, sqrtRho, invSqrtRho)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
@@ -704,17 +759,12 @@ module SpatialDiscretization
                   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
                                                                 + sqrtRho * dimensionless % invFr2 * dimensionless % gravity_dir
    
-!   
-!               + Add user defined source terms
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
-   
                end do         ; end do          ; end do 
 
 
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
-               end do         ; end do          ; end do
+               ! do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               !    e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               ! end do         ; end do          ; end do
                end associate
             end do
 !$omp end do
@@ -727,6 +777,62 @@ module SpatialDiscretization
          end if
 #endif
 
+!           ***************
+!           Add source term
+!           ***************
+!$omp do schedule(runtime) private(i,j,k, InvSqrtRho)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  InvSqrtRho = 1.0_RP / sqrt(e % storage % rho(i,j,k))
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
+                  ! scale UserDefinedSourceTerm momentum with sqrtRho
+                  e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) * [1.0_RP,InvSqrtRho,InvSqrtRho,InvSqrtRho,1.0_RP]
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
+!for the sponge, loops are in the internal subroutine as values are precalculated
+!The scale with sqrtRho is done in the subroutines, not done againg here
+         call addSourceSponge(sponge,mesh)
+         call ForcesFarm(farm, mesh, t)
+
+! Add all the source terms
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do  
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+! no wall function for MULTIPHASE
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source)
+                  do eID = 1, mesh % no_of_elements  
+                     associate ( e => mesh % elements(eID) ) 
+                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                        if( e% isInsideBody(i,j,k) ) then
+                           ! only without moving for now in MULTIPHASE
+                           if( .not. mesh% IBM% stl(e% STL(i,j,k))% move ) then 
+                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                           end if 
+                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
+                     end associate
+                  end do
+!$omp end do       
+            end if 
+         end if
 
       end subroutine ComputeNSTimeDerivative
 !
@@ -1152,7 +1258,7 @@ module SpatialDiscretization
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
             call Laplacian_FacesContribution(e, t, mesh) 
- 
+
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
             end do         ; end do          ; end do 
@@ -1189,11 +1295,11 @@ module SpatialDiscretization
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
 ! 
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime) private(i, j, k)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh)
+               call Laplacian_FacesContribution(e, t, mesh)
 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
@@ -1322,6 +1428,47 @@ module SpatialDiscretization
                       mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % fStar )
 
       end subroutine Laplacian_FacesContribution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)
+         implicit none
+         integer, intent(in)           :: no_of_faces
+         integer, intent(in)           :: no_of_sides
+         integer, intent(in)           :: face_ids(no_of_faces)
+         class(HexMesh), intent(inout) :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: iFace, i, j, side
+         real(kind=RP) :: delta, mu_smag
+
+
+         if ( LESModel % Active ) then
+!$omp do schedule(runtime) private(i,j,delta,mu_smag)
+            do iFace = 1, no_of_faces
+               associate(f => mesh % faces(face_ids(iFace)))
+
+               delta = sqrt(f % geom % surface / product(f % Nf + 1))
+               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                  do side = 1, no_of_sides
+                     call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
+                                                                                    f % storage(side) % U_x(:,i,j), &
+                                                                                    f % storage(side) % U_y(:,i,j), &
+                                                                                    f % storage(side) % U_z(:,i,j), &
+                                                                                    mu_smag)
+                     f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
+                     !f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
+                  end do
+               end do              ; end do
+               end associate
+            end do
+!$omp end do
+         end if
+
+      end subroutine compute_viscosity_at_faces
 !
 !///////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
@@ -1494,7 +1641,7 @@ module SpatialDiscretization
 
       end subroutine Laplacian_computeBoundaryFlux
 
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements)
          use EllipticDiscretizationClass
          IMPLICIT NONE 
 !
@@ -1502,10 +1649,11 @@ module SpatialDiscretization
 !        Arguments
 !        ---------
 !
-         TYPE(HexMesh), target      :: mesh
-         type(Particles_t)          :: particles
-         REAL(KIND=RP)              :: time
-         integer,             intent(in)  :: mode
+         TYPE(HexMesh), target           :: mesh
+         type(Particles_t)               :: particles
+         REAL(KIND=RP)                   :: time
+         integer,             intent(in) :: mode
+         logical, intent(in), optional   :: HO_Elements
 
       end subroutine ComputeTimeDerivativeIsolated
 

@@ -2,7 +2,7 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
 Polynomial order      = 3
-Number of time steps  = 5
+Number of time steps  = 3
 Output Interval       = 1
 Convergence tolerance = 1.d-10
 cfl                   = 0.3

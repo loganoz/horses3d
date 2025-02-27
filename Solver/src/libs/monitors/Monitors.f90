@@ -6,11 +6,12 @@ module MonitorsClass
    use MonitorDefinitions
    use ResidualsMonitorClass
    use VolumeMonitorClass
+   use LoadBalancingMonitorClass
    use FileReadingUtilities      , only: getFileName
 #ifdef FLOW
    use ProbeClass
 #endif
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
    use StatisticsMonitor
    use SurfaceMonitorClass
 #endif
@@ -25,25 +26,27 @@ module MonitorsClass
 !  *****************************
 !  
    type Monitor_t
-      character(len=LINE_LENGTH)           :: solution_file
-      integer                              :: no_of_probes
-      integer                              :: no_of_surfaceMonitors
-      integer                              :: no_of_volumeMonitors
-      integer                              :: bufferLine
-      integer                , allocatable :: iter(:)
-      integer                              :: dt_restriction
-      logical                              :: write_dt_restriction
-      real(kind=RP)          , allocatable :: t(:)
-      real(kind=RP)          , allocatable :: SolverSimuTime(:)
-      real(kind=RP)          , allocatable :: TotalSimuTime(:)
-      type(Residuals_t)                    :: residuals
-      class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
+      character(len=LINE_LENGTH)                 :: solution_file
+      integer                                    :: no_of_probes
+      integer                                    :: no_of_surfaceMonitors
+      integer                                    :: no_of_volumeMonitors
+      integer                                    :: no_of_loadBalancingMonitors
+      integer                                    :: bufferLine
+      integer                      , allocatable :: iter(:)
+      integer                                    :: dt_restriction
+      logical                                    :: write_dt_restriction
+      real(kind=RP)                , allocatable :: t(:)
+      real(kind=RP)                , allocatable :: SolverSimuTime(:)
+      real(kind=RP)                , allocatable :: TotalSimuTime(:)
+      type(Residuals_t)                          :: residuals
+      class(VolumeMonitor_t)       , allocatable :: volumeMonitors(:)
+      class(LoadBalancingMonitor_t), allocatable :: loadBalancingMonitors(:)
 #ifdef FLOW
-      class(Probe_t),          allocatable :: probes(:)
+      class(Probe_t)               , allocatable :: probes(:)
 #endif
-#if defined(NAVIERSTOKES)
-      class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
-      type(StatisticsMonitor_t)            :: stats
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      class(SurfaceMonitor_t)      , allocatable :: surfaceMonitors(:)
+      type(StatisticsMonitor_t)                  :: stats
 #endif
       contains
          procedure   :: Construct       => Monitors_Construct
@@ -109,8 +112,9 @@ module MonitorsClass
             Monitors % no_of_probes = 0
             Monitors % no_of_surfaceMonitors = 0
             Monitors % no_of_volumeMonitors = 0
+            Monitors % no_of_loadBalancingMonitors = 0
          else
-            call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
+            call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors, Monitors % no_of_loadBalancingMonitors )
          end if
 !
 !        Initialize
@@ -122,6 +126,11 @@ module MonitorsClass
             call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall  )
          end do
 
+         allocate ( Monitors % loadBalancingMonitors ( Monitors % no_of_loadBalancingMonitors )  )
+         do i = 1 , Monitors % no_of_loadBalancingMonitors
+            call Monitors % loadBalancingMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
+         end do
+
 #ifdef FLOW
          allocate ( Monitors % probes ( Monitors % no_of_probes )  )
          do i = 1 , Monitors % no_of_probes
@@ -129,7 +138,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          call Monitors % stats     % Construct(mesh, saveGradients)
 
@@ -175,6 +184,12 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % WriteLabel
          end do
+!
+!        Write load balancing monitor labels
+!        ------------------------------------
+         do i = 1 , self % no_of_loadBalancingMonitors
+            call self % loadBalancingMonitors(i) % WriteLabel
+         end do
 
 #ifdef FLOW
 !
@@ -185,7 +200,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Write surface monitors labels
 !        -----------------------------
@@ -241,6 +256,12 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors  ; do j=1, size ( self % volumeMonitors(i) % values, 1 )
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
          end do                                  ; end do
+!
+!        Print dashes for load balancing monitor
+!        --------------------------------------
+         do i = 1 , self % no_of_loadBalancingMonitors ; do j=1, size ( self % loadBalancingMonitors(i) % values, 1 )
+            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % loadBalancingMonitors(i) % monitorName ) + 2 ) )
+         end do                                  ; end do
 
 #ifdef FLOW
 !
@@ -253,7 +274,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Print dashes for surface monitors
 !        ---------------------------------
@@ -302,6 +323,12 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
          end do
+!
+!        Print load balancing monitors
+!        -----------------------------
+         do i = 1 , self % no_of_loadBalancingMonitors
+            call self % loadBalancingMonitors(i) % WriteValues ( self % bufferLine )
+         end do
 
 #ifdef FLOW
 !
@@ -312,7 +339,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Print surface monitors
 !        ----------------------
@@ -380,6 +407,12 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % Update( mesh , self % bufferLine )
          end do
+!
+!        Update load balancing monitors
+!        ------------------------------
+         do i = 1 , self % no_of_loadBalancingMonitors
+            call self % loadBalancingMonitors(i) % Update( mesh , self % bufferLine )
+         end do
 
 #ifdef FLOW
 !
@@ -390,7 +423,7 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Update surface monitors
 !        -----------------------
@@ -445,13 +478,17 @@ module MonitorsClass
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 
+            do i = 1 , self % no_of_loadBalancingMonitors
+               call self % loadBalancingMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
+
 #ifdef FLOW
             do i = 1 , self % no_of_probes
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 #endif
    
-#if defined(NAVIERSTOKES)   
+#if defined(NAVIERSTOKES) || defined(INCNS)  
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -482,13 +519,17 @@ module MonitorsClass
                   call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 
+               do i = 1 , self % no_of_loadBalancingMonitors
+                  call self % loadBalancingMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+
 #ifdef FLOW
                do i = 1 , self % no_of_probes
                   call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
                end do
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
                do i = 1 , self % no_of_surfaceMonitors
                   call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
@@ -516,13 +557,16 @@ module MonitorsClass
          
          call self % volumeMonitors % destruct
          safedeallocate(self % volumeMonitors)
+
+         call self % loadBalancingMonitors % destruct
+         safedeallocate(self % loadBalancingMonitors)
          
 #ifdef FLOW
          call self % probes % destruct
          safedeallocate (self % probes)
 #endif
          
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          call self % surfaceMonitors % destruct
          safedeallocate (self % surfaceMonitors)
          
@@ -538,11 +582,12 @@ module MonitorsClass
          !-local-variables--------------------------------
          !------------------------------------------------
          
-         to % solution_file         = from % solution_file
-         to % no_of_probes          = from % no_of_probes
-         to % no_of_surfaceMonitors = from % no_of_surfaceMonitors
-         to % no_of_volumeMonitors  = from % no_of_volumeMonitors
-         to % bufferLine            = from % bufferLine
+         to % solution_file               = from % solution_file
+         to % no_of_probes                = from % no_of_probes
+         to % no_of_surfaceMonitors       = from % no_of_surfaceMonitors
+         to % no_of_volumeMonitors        = from % no_of_volumeMonitors
+         to % no_of_loadBalancingMonitors = from % no_of_loadBalancingMonitors
+         to % bufferLine                  = from % bufferLine
          
          safedeallocate ( to % iter )
          allocate ( to % iter ( size(from % iter) ) )
@@ -568,6 +613,10 @@ module MonitorsClass
          safedeallocate ( to % volumeMonitors )
          allocate ( to % volumeMonitors ( size(from % volumeMonitors) ) )
          to % volumeMonitors = from % volumeMonitors
+
+         safedeallocate ( to % loadBalancingMonitors )
+         allocate ( to % loadBalancingMonitors ( size(from % loadBalancingMonitors) ) )
+         to % loadBalancingMonitors = from % loadBalancingMonitors
       
 #ifdef FLOW
          safedeallocate ( to % probes )
@@ -575,7 +624,7 @@ module MonitorsClass
          to % probes = from % probes
 #endif
          
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate ( to % surfaceMonitors )
          allocate ( to % surfaceMonitors ( size(from % surfaceMonitors) ) )
          to % surfaceMonitors = from % surfaceMonitors
@@ -592,12 +641,13 @@ module MonitorsClass
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-   subroutine getNoOfMonitors(no_of_probes, no_of_surfaceMonitors, no_of_volumeMonitors)
+   subroutine getNoOfMonitors(no_of_probes, no_of_surfaceMonitors, no_of_volumeMonitors, no_of_loadBalancingMonitors)
       use ParamfileRegions
       implicit none
       integer, intent(out)    :: no_of_probes
       integer, intent(out)    :: no_of_surfaceMonitors
       integer, intent(out)    :: no_of_volumeMonitors
+      integer, intent(out)    :: no_of_loadBalancingMonitors
 !
 !     ---------------
 !     Local variables
@@ -612,6 +662,7 @@ module MonitorsClass
       no_of_probes = 0
       no_of_surfaceMonitors = 0
       no_of_volumeMonitors = 0
+      no_of_loadBalancingMonitors = 0
 !
 !     Get case file name
 !     ------------------
@@ -656,6 +707,9 @@ readloop:do
 
             elseif ( index ( line , '#definevolumemonitor' ) .gt. 0 ) then
                no_of_volumeMonitors = no_of_volumeMonitors + 1 
+
+            elseif ( index ( line , '#defineloadbalancingmonitor' ) .gt. 0 ) then
+               no_of_loadBalancingMonitors = no_of_loadBalancingMonitors + 1
 
             end if
             

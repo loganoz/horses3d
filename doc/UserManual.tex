@@ -24,6 +24,7 @@
 \usepackage{epstopdf}
 \usepackage{tcolorbox}
 \usepackage{amssymb}
+\usepackage{pgfplots}
 \setmarginsrb{2cm}{2cm}{2cm}{2cm}{0cm}{0cm}{0cm}{0.5cm}%{left}{top}{right}{bottom}{headhgt}{}
 %\numberwithin{equation}{section}
 %Bibliography style:
@@ -350,7 +351,7 @@ averaging & \textit{CHARACTER}: Type of averaging function to use in numerical f
 
 viscous discretization & \textit{CHARACTER}: Method for viscous fluxes. Options are:
     \begin{itemize}
-    \item BR1
+    \item BR1 (required for EULER RK3 hybrid temporal scheme)
     \item BR2
     \item IP
     \end{itemize} 
@@ -1063,7 +1064,7 @@ The main keywords to use it are shown in Table \ref{tab:explicitKey}.
 
 \textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
 
-explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33' and 'SSPRK43'. & RK3 \\ \hline
+explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33',  'SSPRK43' and \, 'EULER RK3'. The option 'EULER RK3' is a hybrid temporal scheme thought to be used with RL p-Adaptation and BR1 as viscous discretization. & RK3 \\ \hline
 
 rk order & \textit{INTEGER}: Order of Runge-Kutta method optimized for steady-state solver ('RKOpt'). Possible orders are from 2 to 7. & 2 \\ \hline
 
@@ -1281,9 +1282,9 @@ This algorithm can perform a p-adaptation based on a trained RL agent.
    Nmin                  = [2, 2, 2]
    Conforming boundaries = [cylinder]
    restart files         = .FALSE.
-   order across faces    = N*2/3
    mode                  = iteration
-   interval              = 50
+   interval              = 10
+   threshold             = 2.0
 #end
 \end{lstlisting}
 
@@ -1302,6 +1303,8 @@ agent file & \textit{CHARACTER}: Relative path to the binary file that provide t
 
 tolerance & \textit{REAL}: Tolerance for the RL agent. The smaller the tolerance, the wider the adapted region. & 0.01 \\ \hline
 
+threshold & \textit{REAL}: The mesh will be adapted only if the percentage of the elements that require adaptation (in relation to the total number of elements) is above the threshold. & 0.0 \\ \hline
+
 
 \end{longtable}
 
@@ -1316,6 +1319,43 @@ When using Truncation Error based adaptation, a static p-adaptation procedure ca
    folder                = MultiTau
 #end
 \end{lstlisting}
+
+\section{Overenriching p-Adaptation}
+It is possible to define one or more boxes where the user can select the polynomial order and bypass the adaptation process. This functionality can be used only if a p-adaptation algorithm is being used at the same time.
+
+\begin{lstlisting}
+#define overenriching box 1
+   mode   = set
+   order  = 4
+   x span = [-1, 1]
+   y span = [-1, 1]
+   z span = [-1, 1]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the overenriching p-adaptation algorithm.} \label{tab:RLpAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the overenriching p-adaptation algorithm - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+mode & \textit{CHARACTER}: Overenriching mode. Can be \textit{set} or \textit{increase}. The \textit{set} mode will fix the polynomial specified by the \textit{order} keyword inside the box, but it is constrained by the bounds specified by the \textit{Nmax} and \textit{Nmin} keywords. The \textit{increase} mode will increase the polynomial order selected by the algorithm (each time a p-adaptation is performed) the amount specified by the \textit{order} keyword. In this second mode, \textit{order} may be a possitive or negative value. & \textit{increase} \\ \hline
+
+order & \textit{INTEGER}: Polynomial order to be used for the overenriching process. Its meaning depends on the selected \textit{mode}. & 1 \\ \hline
+
+x span & \textit{REAL(2)}: The boundaries of the box in the x direction. & \textbf{Mandatory keyword} \\ \hline
+
+y span & \textit{REAL(2)}: The boundaries of the box in the y direction. & \textbf{Mandatory keyword} \\ \hline
+
+z span & \textit{REAL(2)}: The boundaries of the box in the z direction. & \textbf{Mandatory keyword} \\ \hline
+
+
+\end{longtable}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1660,7 +1700,7 @@ Volume monitors compute the average of a quantity in the whole domain. They can 
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endfirsthead
 
-\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\caption{Keywords for volume monitors - continued.} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
@@ -1690,6 +1730,58 @@ variable 	&
 
 
 \end{longtable}
+
+\section{Load Balancing Monitors}
+Load balancing monitors compute the DOF in each partition of the mesh to check the unbalance. 
+
+\begin{lstlisting}
+#define load balancing monitor 1
+   name     = SomeName
+   variable = SomeVariable
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for load balancing monitors.} \label{tab:VolMonitorsKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for load balancing monitors - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	&
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item max dof per partition
+\item min dof per partition
+\item avg dof per partition
+\item absolute dof unbalancing
+\item relative dof unbalancing
+\end{itemize}
+\end{multicols}
+
+			 &
+							\textbf{Mandatory Keyword} \\ \hline
+
+
+\end{longtable}
+
+The variable \emph{absolute dof unbalancing} is computed as follows:
+\begin{equation}
+    absolute\, dof\, unbalancing = max\,dof\,per\,partition - min\,dof\,per\,partition
+\end{equation}
+The variable \emph{relative dof unbalancing} is computed as follows:
+\begin{equation}
+    relative\, dof\, unbalancing = 100 * absolute\, dof\, unbalancing / avg\,dof\,per\,partition
+\end{equation}
 
 \chapter{Advanced User Setup}
 
@@ -1978,6 +2070,50 @@ Reference pressure (Pa)         	& Reference Pressure   & 101325             \\ 
 Reference temperature (K)        & Reference Temperature   & 288.889             \\ \hline
 
 \end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Performance}
+\section{Hybrid MPI and OMP}
+Balancing the utilization of MPI and OMP in extensive simulations, particularly for large cases with a degree of freedom (NDOF) exceeding 5,000,000, alongside a substantial number of CPU cores, is advisable. Figure 15.1 illustrates the relative speed-up achieved with varying ratios of shared faces in partitioning and the total number of cores. The hybrid setup demonstrates peak performance at approximately $\left(\frac{nMPIFacesShared}{nMPIFaces}\right)_{max} \approx 0.4-0.6$, particularly when the total number of cores is high. Utilizing this value as a reference point is recommended. In smaller cases, maximizing the number of OMP is recommended. 
+\begin{figure}[h]
+\centering
+        \begin{tikzpicture}
+            \begin{axis}[
+                xlabel={$\left(\frac{nMPIFacesShared}{nMPIFaces}\right)_{max}$},
+                ylabel={Relative Speed-Up},
+                label style={font=\small},
+                xmin=0, xmax=1,
+                ymin=0.6, ymax=1.7,
+                axis lines=left,
+                axis line style={-stealth, line width=2pt}, % Adjust arrow size and line width
+                xtick={0, 0.2, 0.4, 0.6, 0.8, 1.0},
+                ytick={0.5,1.0,1.5},
+                ylabel style={at={(ticklabel cs:0.3)}, anchor=south west, inner sep=0pt, yshift=-10mm}, % Adjust the position of the y-axis label
+                grid=both,
+                ymajorgrids=true,
+                xmajorgrids=true, % Display only vertical grid lines
+                major grid style={line width=0.2pt, grey!50},
+                width=0.48\textwidth,
+                legend pos=south east
+            ]
+                % Plot the curve using the data points
+        		\addplot[blue, thick, mark=*] coordinates {(0.029829545,1.05811138) (0.111114264,1.179805616) (0.216105632,0.957074025) (0.390092879,0.947117469) (0.652849741,1)};
+        		\addlegendentry{nCores = 32}
+        		
+                \addplot[red, dashed, thick, mark=x] coordinates {(0.111114264,1.31696086) (0.216105632,1.462915601) (0.390092879,1.600746269) (0.652849741,1.383870968) (0.984375,1)};
+                \addlegendentry{nCores = 64}                
+                
+                \addplot[black, dashdotted, thick, mark=o] coordinates {(0.216105632,1.237316725) (0.390092879,1.37962963) (0.652849741,1.281892728) (0.984375,1)};
+                \addlegendentry{nCores = 128}  
+                
+                % Box Plot
+                \draw[line width=1pt] (current axis.south west) rectangle (current axis.north east); % Box around the axis
+            \end{axis}
+        \end{tikzpicture}
+        \label{fig: OMP_MPI_sharedfaces}
+\caption{Relative speed-up in Hybrid MPI-OMP based on maximum ratio of faces in partitions. NS solver with $64\times64\times32$ elements and polynomial N=3. }
+\end{figure}
 
 
 

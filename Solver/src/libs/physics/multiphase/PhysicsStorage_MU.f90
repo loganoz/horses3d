@@ -9,11 +9,14 @@
          character(len=KEYWORD_LENGTH), parameter :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
          character(len=KEYWORD_LENGTH), parameter :: GRAVITY_DIRECTION_KEY          = "gravity direction"
          character(len=KEYWORD_LENGTH), parameter :: VELOCITY_DIRECTION_KEY         = "velocity direction"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                   = "les model"
 
          character(len=KEYWORD_LENGTH), parameter :: FLUID1_DENSITY_KEY    =  "fluid 1 density (kg/m^3)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID2_DENSITY_KEY    =  "fluid 2 density (kg/m^3)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID1_VISCOSITY_KEY  =  "fluid 1 viscosity (pa.s)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID2_VISCOSITY_KEY  =  "fluid 2 viscosity (pa.s)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID1_COMPRESSIBILITY_KEY = "fluid 1 sound speed square (m/s)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID2_COMPRESSIBILITY_KEY = "fluid 2 sound speed square (m/s)"
 
          !PARTICLES 
          ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
@@ -169,11 +172,26 @@
          thermodynamics_ % mu(2) = 0.0_RP
       end if
 
+      if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) .AND.  controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY) .OR. & 
+           controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) .AND.  controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY)) then
+            error stop "Error: Either define a single artificial compressibility or the speed of sound in each fluids. Not both"
+      endif
+
+
       if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
          thermodynamics_ % c02 = controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
       else
 !      - Default to 1000.0
          thermodynamics_ % c02 = 1000.0_RP
+
+         if ( controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY) ) then
+            thermodynamics_ % c02(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_COMPRESSIBILITY_KEY)
+         end if
+
+         if ( controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY) ) then
+            thermodynamics_ % c02(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_COMPRESSIBILITY_KEY)
+         end if
+         
       end if
 !
 !     ********************
@@ -229,6 +247,8 @@
          else
             dimensionless_ % gravity_dir = 0.0_RP
          end if
+      else 
+         dimensionless_ % gravity_dir = 0.0_RP
       end if
 
       if ( almostEqual(abs(refValues_ % g0), 0.0_RP) ) then
@@ -261,9 +281,21 @@
 !     Artificial compressibility
 !     --------------------------
 !
-      dimensionless_ % Ma2 = POW2(refValues_ % V)/(maxval(dimensionless_ % rho) * thermodynamics_ % c02)
-      dimensionless_ % invMa2 = maxval(dimensionless_ % rho) * thermodynamics_ % c02 / POW2(refValues_ % V)
-!
+      if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
+         dimensionless_ % Ma2 = POW2(refValues_ % V)/(maxval(dimensionless_ % rho) * thermodynamics_ % c02)
+         dimensionless_ % invMa2 = maxval(dimensionless_ % rho) * thermodynamics_ % c02 / POW2(refValues_ % V)
+      endif
+      
+      if(controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)) then 
+         dimensionless_ % Ma2(1) = POW2(refValues_ % V)/(dimensionless_ % rho(1) * thermodynamics_ % c02(1))
+         dimensionless_ % invMa2(1) = dimensionless_ % rho(1) * thermodynamics_ % c02(1) / POW2(refValues_ % V)
+      endif
+
+      if(controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)) then 
+         dimensionless_ % Ma2(2) = POW2(refValues_ % V)/(dimensionless_ % rho(2) * thermodynamics_ % c02(2))
+         dimensionless_ % invMa2(2) = dimensionless_ % rho(2) * thermodynamics_ % c02(2) / POW2(refValues_ % V)
+      endif
+
 !     ----------------
 !     Density limiters
 !     ----------------
@@ -329,7 +361,9 @@
          write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 density: " , thermodynamics % rho(2), " kg/m^3"
          write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
          write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
-         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility c02: " , thermodynamics % c02, "(m/s)^2"
+         !write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility c02: " , thermodynamics % c02, "(m/s)^2"
+         write(STD_OUT,'(30X,A,A22,F15.3,A)') "->" , "Fluid 1 c02: " , thermodynamics % c02(1), "(m/s)^2"
+         write(STD_OUT,'(30X,A,A22,F15.3,A)') "->" , "Fluid 2 c02: " , thermodynamics % c02(2), "(m/s)^2"
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
@@ -352,8 +386,12 @@
                                                    dimensionless % gravity_dir(1), ", ", &
                                                    dimensionless % gravity_dir(2), ", ", &
                                                    dimensionless % gravity_dir(3), "]"
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "ACM Mach number: " , sqrt(dimensionless % Ma2)
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "ACM Factor: "      , dimensionless % invMa2
+         !write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "ACM Mach number: " , sqrt(dimensionless % Ma2)
+         !write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "ACM Factor: "      , dimensionless % invMa2
+         write(STD_OUT,'(30X,A,A20,F15.3)') "->" , "Fluid 1 ACM Mach number: " , sqrt(dimensionless % Ma2(1))
+         write(STD_OUT,'(30X,A,A20,F15.3)') "->" , "Fluid 2 ACM Mach number: " , sqrt(dimensionless % Ma2(2))
+         write(STD_OUT,'(30X,A,A20,F15.3)') "->" , "Fluid 1 ACM Factor: "      , dimensionless % invMa2(1)
+         write(STD_OUT,'(30X,A,A20,F15.3)') "->" , "Fluid 2 ACM Factor: "      , dimensionless % invMa2(2)
 
       END SUBROUTINE DescribePhysicsStorage_MU
 !
@@ -398,9 +436,19 @@
             call controlVariables % AddValueForKey("1.0", REFERENCE_VELOCITY_KEY)
          end if
 
-         if ( .not. controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
+         if ( .not. controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) .AND. &
+         .not. controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY) .AND. &
+         .not. controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY) ) then
             call controlVariables % AddValueForKey("1000.0", ARTIFICIAL_COMPRESSIBILITY_KEY)
          end if
+
+         ! if ( .not. controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY) ) then
+         !    call controlVariables % AddValueForKey("1000.0", FLUID1_COMPRESSIBILITY_KEY)
+         ! end if
+
+         ! if ( .not. controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY) ) then
+         !    call controlVariables % AddValueForKey("1000.0", FLUID2_COMPRESSIBILITY_KEY)
+         ! end if
 
          if ( .not. controlVariables % ContainsKey(FLUID1_DENSITY_KEY)) then
             print*, "Specify density for fluid #1 using:"

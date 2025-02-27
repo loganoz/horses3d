@@ -1,5 +1,5 @@
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || (defined(INCNS))
 module SurfaceIntegrals
    use SMConstants
    use PhysicsStorage
@@ -165,6 +165,7 @@ module SurfaceIntegrals
 !              I = \int rho \vec{v}·\vec{n}dS
 !           ***********************************
 !
+#if defined(NAVIERSTOKES)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
@@ -175,7 +176,19 @@ module SurfaceIntegrals
                        * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
             end do          ;    end do
+#endif
+#if defined(INCNS)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+!
+!              Compute the integral
+!              --------------------
+               val = val +  (Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
+                          + Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
+                          + Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                       * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
+            end do          ;    end do
+#endif
          case ( FLOW_RATE )
 !
 !           ***********************************
@@ -183,6 +196,7 @@ module SurfaceIntegrals
 !              val = \int \vec{v}·\vec{n}dS
 !           ***********************************
 !
+#if defined(NAVIERSTOKES)
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
@@ -192,7 +206,18 @@ module SurfaceIntegrals
                                              + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
                                           * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
             end do          ;    end do
-
+#endif
+#if defined(INCNS)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+!
+!              Compute the integral
+!              --------------------
+               val = val + (1.0_RP / Q(INSRHO,i,j))*(Q(INSRHOU,i,j) * f % geom % normal(1,i,j)  &
+                                             + Q(INSRHOV,i,j) * f % geom % normal(2,i,j)  &
+                                             + Q(INSRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+#endif
          case ( PRESSURE_FORCE )
 !
 !           ***********************************

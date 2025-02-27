@@ -8,6 +8,7 @@ tecplot.phy
 bin/HORSES3D
 make.inc
 *.hmesh
+*.bmesh
 *.hsol
 RESULTS
 
@@ -62,3 +63,6 @@ Solver/include/
 
 # AddOns
 horsesConverter
+
+#ford
+doc/doc_output
