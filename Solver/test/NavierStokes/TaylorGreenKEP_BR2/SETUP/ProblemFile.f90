@@ -271,9 +271,9 @@
             type(RefValues_t),       intent(in)    :: refValues_
             logical,                 intent(in)    :: GetVelocity, UpdatePosition
 
-            if( computeX ) then
+            if( UpdatePosition ) then
             end if 
-            if( computeV ) then 
+            if( GetVelocity ) then 
             end if 
 
          end subroutine UserDefinedIBMKinematicsNS
