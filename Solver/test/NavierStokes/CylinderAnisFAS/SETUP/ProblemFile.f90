@@ -251,7 +251,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#ifdef FLOW
+#if defined(NAVIERSTOKES)
       subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
          use SMConstants
          use FluidData

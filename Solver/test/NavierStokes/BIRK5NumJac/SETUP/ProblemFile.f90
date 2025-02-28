@@ -487,7 +487,6 @@ end module ProblemFileFunctions
    
          end subroutine UserDefinedSourceTermNS
 #endif
-#endif
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
