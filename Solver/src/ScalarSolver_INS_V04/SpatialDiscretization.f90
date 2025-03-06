@@ -876,9 +876,9 @@ module SpatialDiscretization
             do k = 0, e % Nxyz(3)
                do j = 0, e % Nxyz(2)
                   do i = 0, e % Nxyz(1) 
-                     call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k),        &
-                                                      t, e % storage % S_SLR(:,i,j,k), thermodynamics,    &
-                                                      dimensionless, refValues)
+                     ! call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k),        &
+                     !                                  t, e % storage % S_SLR(:,i,j,k), thermodynamics,    &
+                     !                                  dimensionless, refValues)
                      
                      ! e % storage % vel_source(1,i,j,k) =   1.0_RP * alpha0 /t *e % storage % Q(5,i,j,k) + 1.0_RP * alpha1 /t *e % storage % slr2(1,i,j,k) ! - 1.0_RP * e % storage % U_x(4,i,j,k) 
                      ! e % storage % vel_source(2,i,j,k) =   1.0_RP * alpha0 /t *e % storage % Q(6,i,j,k) + 1.0_RP * alpha1 /t *e % storage % slr2(2,i,j,k) ! - 1.0_RP * e % storage % U_y(4,i,j,k) 

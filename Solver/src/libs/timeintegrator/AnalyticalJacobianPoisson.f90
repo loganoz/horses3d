@@ -338,7 +338,7 @@ contains
 #elif defined(NAVIERSTOKES)
         
 #else
-        error stop ':: Analytical Jacobian only for NS'
+        error stop ':: Analytical Jacobian only for NS, SCALAR_INS_V04'
 #endif
 
         call Matrix%Visualize('Jacobian.txt')
