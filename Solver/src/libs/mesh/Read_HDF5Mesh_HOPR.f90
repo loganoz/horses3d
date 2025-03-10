@@ -164,6 +164,8 @@ contains
       real(kind=RP), allocatable :: o(:)
       real(kind=RP), allocatable :: s(:)
       real(kind=RP) :: center(2)
+      real(kind=RP):: th
+
       integer :: new_nFaces
       !---------------------------------------------------------------
       
@@ -173,7 +175,7 @@ contains
 !    ********************************
 !
       Sliding=.true.
-      Sliding=.false.
+      !Sliding=.false.
       if ( mpi_partition % Constructed ) then
          call ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, periodRelative, success ) 
          return
@@ -709,7 +711,7 @@ contains
          allocate(o(4))
          allocate(s(4))
          write(*,*)'nUniqueSides',nUniqueSides
-         call self % Modifymesh(nodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars)
+         call self % Modifymesh(nodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th )
          do l=1, size(arr2)
             do j=1,6
                if (self%elements(arr2(l))%MortarFaces(j)==1) then 
@@ -724,7 +726,9 @@ contains
                end if 
             end do 
          end do 
-
+         do i=1,size(self%faces)
+            call self%faces(i)%Destruct
+         end do 
          CALL ConstructFaces( self, success )
          if (allocated(self % zones) ) then 
             deallocate(self % zones)
@@ -835,8 +839,39 @@ contains
                 ! self % faces(l) % Mortar = 0
                    !end if 
         !end do 
-        call self % ConstructSlidingMortars(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars)
+        !call self % ConstructSlidingMortars(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars, th)
+        call self % ConstructSlidingMortarsConforming(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars)
+        !call self % ConstructMortars(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars, th)
+
         self%sliding=.true.
+        !write(*,*) 'line 840 of readhdf5'
+        !do i=1,size(self%mortar_faces)
+        ! write(*,*) 'mortar number',i, 'corresponding faces:'
+        ! write(*,*) 'face 1',self%mortar_faces(i)%Mortar(1)
+        ! write(*,*) 'face 2',self%mortar_faces(i)%Mortar(2)
+        ! write(*,*) 'and correspond to elements:'
+        ! write(*,*) 'element 1', self%faces(self%mortar_faces(i)%Mortar(1))%elementIDs(1)
+        ! write(*,*) 'element 2', self%faces(self%mortar_faces(i)%Mortar(2))%elementIDs(1)
+        ! write(*,*) 'face 1 is mortar', self%faces(self%mortar_faces(i)%Mortar(1))%IsMortar
+        ! write(*,*) 'face 2 is mortar', self%faces(self%mortar_faces(i)%Mortar(2))%IsMortar
+        ! write(*,*) 'now we check if the faces correspond to the mortar:'
+        ! write(*,*) 'Motars of 1st face',self%faces(self%mortar_faces(i)%Mortar(1))%Mortar(1), self%faces(self%mortar_faces(i)%Mortar(1))%Mortar(2)
+        ! write(*,*) 'Motars of 2nd face',self%faces(self%mortar_faces(i)%Mortar(2))%Mortar(1),self%faces(self%mortar_faces(i)%Mortar(2))%Mortar(2)
+        !end do 
+
+        !do i=1,size(self%mortar_faces)
+        !if ( self%faces(self%mortar_faces(i)%Mortar(1))%IsMortar .NE. 3) write(*,*) 'we have a problem... line 856'
+        !if ( self%faces(self%mortar_faces(i)%Mortar(2))%IsMortar .NE. 3) write(*,*) 'we have a problem... line 857'
+        !end do 
+        !do i=1, size(arr2)
+        ! if (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%IsMortar .NE. 3) write(*,*) 'we have a problem line 860'
+        ! if (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%IsMortar .NE. 3)write(*,*) 'we have a problem line 861'
+        ! if (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%IsMortar .NE. 3)write(*,*) 'we have a problem line 862'
+
+       !if ( (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(1) .NE. self%mortar_faces(self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(1))%ID ) .AND. &
+       !(self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(2) .NE. self%mortar_faces(self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(1))%ID )) write(*,*) 'problem mortar connectivity line 865'
+       ! end do
+  
        ! write(*,*) 'after rotation, facesgeometry'
        ! do i=1,size(arr2)
        !!    write(*,*) 'element', Mat(i,1)
@@ -871,6 +906,16 @@ contains
          !write(*,*)'self % elements(arr1(l))%faceSide ',self % elements(arr1(l))%faceSide 
          !write(*,*)'self % elements(arr2(l))%faceSide ',self % elements(arr2(l))%faceSide 
       !end do 
+      !  write(*,*) 'geometry of the sliding elements after rotation'
+   !do i=1,size(arr2)
+!write(*,*) 'element ', arr2(2)
+!write(*,*) 'x=', self%elements(arr2(i))%geom%x 
+!write(*,*) 'jGradXi=', self%elements(arr2(i))%geom%jGradXi 
+!write(*,*) 'jGradEta=', self%elements(arr2(i))%geom%jGradEta 
+!write(*,*) 'jGradZeta=', self%elements(arr2(i))%geom%jGradZeta
+
+
+ !  end do 
         deallocate(arr1)
         deallocate(arr2)
         deallocate(arr3)

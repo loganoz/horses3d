@@ -6913,7 +6913,7 @@ subroutine HexMesh_Modifymesh(self, nodes, arr1, arr2,arr3,Mat, center, o, s, fa
    theta=PI/48.0_RP   !1/2
    theta=PI/96.0_RP   !1/4
    !theta=PI/32.0_RP    !3/4
-   !theta=PI/24.0_RP   !1
+   theta=PI/24.0_RP   !1
    th=theta
    n=3
    m=1
