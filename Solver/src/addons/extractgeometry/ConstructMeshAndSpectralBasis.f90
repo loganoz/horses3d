@@ -34,6 +34,7 @@ module ConstructMeshAndSpectralBasis_MOD
          real(kind=RP)                                :: time
          integer                                      :: NDOF
          logical                                      :: useRelaxPeriodic
+         logical                                      :: has_sensor
          
          call AssignControlFileName(controlFile)
          
@@ -50,11 +51,31 @@ module ConstructMeshAndSpectralBasis_MOD
 !
 !        Set the file padding
 !        --------------------
-         if ( fileType .eq. SOLUTION_FILE ) then
-            padding = NCONS
-         else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
+         ! if ( fileType .eq. SOLUTION_FILE ) then
+         !    padding = NCONS
+         ! else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
+         !    padding = NCONS + 3 * NGRAD
+         ! end if
+         select case (fileType)
+         case(SOLUTION_FILE)
+            padding = 1*NCONS
+
+         case(SOLUTION_AND_SENSOR_FILE)
+            padding = 1*NCONS
+            has_sensor = .TRUE.
+
+         case(SOLUTION_AND_GRADIENTS_FILE)
             padding = NCONS + 3 * NGRAD
-         end if
+
+         case(SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
+            padding = NCONS + 3 * NGRAD
+            has_sensor = .TRUE.
+         case default
+            print*, "Unknown restart file format"
+            ! errorMessage(STD_OUT)
+            error stop
+         end select
+         print *, "has_sensor: ", has_sensor
             
          fid = putSolutionFileInReadDataMode(trim(solutionFile))
 !
@@ -64,6 +85,7 @@ module ConstructMeshAndSpectralBasis_MOD
 
          NDOF = 0
          do eID = 1, no_of_elements
+
             call getSolutionFileArrayDimensions(fid,dims,pos)         
             Nx(eID) = dims(2) - 1
             Ny(eID) = dims(3) - 1
@@ -73,6 +95,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !           -----------------------------
             pos = pos + 5*SIZEOF_INT + &
                         padding*(Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)*SIZEOF_RP 
+            if (has_sensor) pos = pos + SIZEOF_RP
 
             NDOF = NDOF + (Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)
          end do
