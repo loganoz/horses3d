@@ -840,12 +840,13 @@ Module MappedGeometryClass
          self % GradEta  = 0.0_RP
          self % GradZeta = 0.0_RP
          
-         if(mod(fID,2)==0) then !2
+         if(fID==0) then !2
            ! write(*,*) 'tseM mod=0',TsetM(Nelf(1), Nf(1), 3, 1) % T
          !do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
 
             do l = 0, Nelf(2)  ; do j = 0, Nf(2)   ; do i = 0, Nf(1)    !3;1
-               self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 4, 1) % T(j,l) * xrot(:,i,l)
+              ! self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 4, 1) % T(j,l) * xrot(:,i,l)
+               self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * xrot(:,i,l)
                self % normal(:,i,j) = self % normal(:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * dSRot(:,i,l)
                self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * GradXiRot  (:,i,l)
                self % GradEta (:,i,j) = self % GradEta (:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * GradEtaRot (:,i,l)
@@ -863,10 +864,11 @@ Module MappedGeometryClass
                self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * GradXiRot  (:,i,l)
                self % GradEta (:,i,j) = self % GradEta (:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * GradEtaRot (:,i,l)
                self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * GradZetaRot(:,i,l)
-               self % GradXi=self % GradXi*0.5_RP
-               self % GradEta=self % GradEta *0.5_RP
-               self % GradZeta=self % GradZeta*0.5_RP
+
             end do                  ; end do                   ; end do
+            self % GradXi=self % GradXi*0.5_RP
+            self % GradEta=self % GradEta *0.5_RP
+            self % GradZeta=self % GradZeta*0.5_RP
          end if 
          !write(*,*)'x adapted  1', self%x(1,:,:)
          !write(*,*)'x adapted  2', self%x(2,:,:)

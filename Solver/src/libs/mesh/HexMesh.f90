@@ -145,6 +145,9 @@ MODULE HexMeshClass
             procedure :: RotateNodes                   => HexMesh_RotateNodes
             procedure :: Modifymesh                    => HexMesh_Modifymesh
             procedure :: ConstructSlidingMortars       => HexMesh_ConstructSlidingMortars
+            procedure :: ConstructSlidingMortarsConforming =>  HexMesh_ConstructSlidingMortarsConforming
+            procedure :: ConstructMortars              =>HexMesh_ConstructMortars
+
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -743,12 +746,12 @@ MODULE HexMeshClass
    tol=0.00000001_RP
    DO j = 1, 4
       coord=0
-      write(*,*) ' in facerotationnodes j=', j
+     ! write(*,*) ' in facerotationnodes j=', j
       call CompareTwoNodesALL(masterNodeIDs(1,:), slaveNodeIDs(j,:), success, coord, tol)
-      write(*,*) 'success', success
-      write(*,*) 'coord', coord
+     ! write(*,*) 'success', success
+     ! write(*,*) 'coord', coord
       IF (success ) then 
-         write(*,*) 'its a success'
+        ! write(*,*) 'its a success'
          EXIT
       END IF  
      ! IF(masterNodeIDs(1) == slaveNodeIDs(j)) EXIT
@@ -757,10 +760,10 @@ MODULE HexMeshClass
 !        Check whether the orientation is same or opposite
 !        -------------------------------------------------
   ! write(*,*) 'coord', coord 
-   if (success) write(*,*) 'success'
+   !if (success) write(*,*) 'success'
    coord=0
    success=.FALSE.
-   write(*,*) 'line 752 j=',j
+  ! write(*,*) 'line 752 j=',j
    call CompareTwoNodesALL(masterNodeIDs(2,:), slaveNodeIDs(NEXTNODE(j),:), success, coord, tol)
    IF (success ) THEN 
     !if ( masterNodeIDS(2) == slaveNodeIDs(NEXTNODE(j)) ) then
@@ -768,7 +771,7 @@ MODULE HexMeshClass
    else
       faceRotationnodes = j + 3
    end if
- write(*,*) 'faceRotationNodes', faceRotationnodes
+! write(*,*) 'faceRotationNodes', faceRotationnodes
 END FUNCTION faceRotationnodes   
 !
 !////////////////////////////////////////////////////////////////////////
@@ -1097,7 +1100,7 @@ slavecoord:             DO l = 1, 4
          IF (coord == 0) THEN
    
             DO i = 1,3
-               write(*,*) 'comparing', x1(i), 'with', x2(i)
+               !write(*,*) 'comparing', x1(i), 'with', x2(i)
                IF ( AlmostEqual( x1(i), x2(i), tol ) ) THEN
                   counter = counter + 1
                ELSE
@@ -3508,6 +3511,13 @@ if (.not.self % nonconforming) then
             end if
 
             if (SurfInfo(eID) % IsHex8) then
+               if (eID==170 ) then 
+                  write(*,*)'SurfInfo(eID) % corners of', eID, SurfInfo(eID) % corners
+               end if 
+               if (eID==167) then
+                  write(*,*)'SurfInfo(eID) % corners of', eID, SurfInfo(eID) % corners
+               end if 
+
                !if (self%elements(eID)%sliding_newnodes) then
                   !write(*,*)'sliding newnodes'
                   !write(*,*)'SurfInfo(eID) % corners of', eID, SurfInfo(eID) % corners
@@ -4927,9 +4937,11 @@ if (.not.self % nonconforming) then
                      allocate(self%mortar_faces(fe%mortar(1))% geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
                      self%mortar_faces(fe%mortar(1))%geom%dwall=fe % geom % dWall
                   end if 
+                  if (size(fe%mortar)==2) then 
                   if(.not. allocated(self%mortar_faces(fe%mortar(2))%geom%dwall)) then 
                      allocate(self%mortar_faces(fe%mortar(2))% geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
                      self%mortar_faces(fe%mortar(2))%geom%dwall=fe % geom % dWall
+                  end if 
                   end if 
                end if 
             endif
@@ -4953,10 +4965,12 @@ if (.not.self % nonconforming) then
                      allocate(self%mortar_faces(fe%mortar(1))%geom%dWall(0:fe % Nf(1), 0:fe % Nf(2)))
                      self%mortar_faces(fe%mortar(1))%geom%dwall=fe % geom % dWall
                   end if 
+                  if (size(fe%mortar)==2) then 
                   if(.not. allocated(self%mortar_faces(fe%mortar(2))%geom%dwall)) then 
                      allocate(self%mortar_faces(fe%mortar(2))%geom%dWall(0:fe % Nf(1), 0:fe % Nf(2)))
                      self%mortar_faces(fe%mortar(2))%geom%dwall=fe % geom % dWall
                   end if 
+               end if 
                end if 
             end if
             
@@ -6069,7 +6083,7 @@ call elementMPIList % destruct
    integer, intent(inout) :: rotmortars(96)
 
    integer :: eID, eID2, eID3, e, m, fID2, faceNumber, faceNumber1, faceNumber2
-   integer ::  i,f, ff ,fff, z, j, jj, jjj, ll,l, lll, k, kk, no, v,zz, f1,f2
+   integer ::  i,f, ff ,fff, z, j, jj, jjj, ll,l, lll, k, kk, no, v,zz, f1,f2,ind1,ind2,ind3
    integer ::ar2(48)
    integer :: faceNodeIDs(4)
    integer :: faceNodeIDs1(4)
@@ -6342,7 +6356,16 @@ call elementMPIList % destruct
 
       end if 
    end do 
+write(*,*) 'geometry of the sliding elements before rotation'
+   do i=1,size(arr2)
+write(*,*) 'element ', arr2(2)
+write(*,*) 'x=', self%elements(arr2(i))%geom%x 
+write(*,*) 'jGradXi=', self%elements(arr2(i))%geom%jGradXi 
+write(*,*) 'jGradEta=', self%elements(arr2(i))%geom%jGradEta 
+write(*,*) 'jGradZeta=', self%elements(arr2(i))%geom%jGradZeta
 
+
+   end do 
 !write(*,*) 'we are at line 6194 of HexMesh'
 !   l=1
 !   do i=1, size(arr2)!!
@@ -6444,17 +6467,17 @@ call elementMPIList % destruct
                 faceNodeIDs2(j) = nodeIDs(localFaceNode(j,faceNumber2))
                 NODES(j,:)=self%nodes(faceNodeIDs2(j))%X
             END DO        
-!write(*,*) 'element 1:', mat(i,1)
-          !  write(*,*) 'element 3:', mat(i,3)
-!write(*,*) 'masterNodeIDs 1', NODES(1,:)
-          !  write(*,*) 'masterNodeIDs 2', NODES(2,:)
-!write(*,*) 'masterNodeIDs 3', NODES(3,:)
-          !  write(*,*) 'masterNodeIDs 4', NODES(4,:)
-          !  write(*,*) 'slaveNodeIDs 1',MNODES(i,1,:)
-!write(*,*) 'slaveNodeIDs 2',MNODES(i,2,:)
-!write(*,*) 'slaveNodeIDs 3',MNODES(i,3,:)
-!write(*,*) 'slaveNodeIDs 4',MNODES(i,4,:)
-!write(*,*) 'i=',i
+            write(*,*) 'element 1:', mat(i,1)
+            write(*,*) 'element 3:', mat(i,3)
+            write(*,*) 'masterNodeIDs 1', NODES(1,:)
+            write(*,*) 'masterNodeIDs 2', NODES(2,:)
+            write(*,*) 'masterNodeIDs 3', NODES(3,:)
+            write(*,*) 'masterNodeIDs 4', NODES(4,:)
+            write(*,*) 'slaveNodeIDs 1',MNODES(i,1,:)
+            write(*,*) 'slaveNodeIDs 2',MNODES(i,2,:)
+            write(*,*) 'slaveNodeIDs 3',MNODES(i,3,:)
+            write(*,*) 'slaveNodeIDs 4',MNODES(i,4,:)
+            write(*,*) 'i=',i
             !rotmortars(l)=faceRotationnodes(masterNodeIDs=NODES, slaveNodeIDs=MNODES(i,:,:))
             Matrot(i,7)=faceRotationnodes(masterNodeIDs=NODES, slaveNodeIDs=MNODES(i,:,:))
            ! Matrott(i,7)=faceRotationnodes(masterNodeIDs=MNODES(i,:,:), slaveNodeIDs=NODES)
@@ -6463,22 +6486,31 @@ call elementMPIList % destruct
      ! end do 
 
    end do 
-!do i=1,size(arr2)
-!write(*,*) 'element',Mat(i,1),'old rotation', Mat(i,7)
-   !   write(*,*) 'element',Matrot(i,1),'new rotation', Matrot(i,7)
-   !   write(*,*) '***********************************************'
-!!    write(*,*) 'Matrott i;',i, Matrott(i,:)
-!!    if (Matrott(i,7) .NE. Matrot(i,7)) write(*,*) 'it seems whos master and slave importe...'
-  ! end do
-  ! write(*,*) 'now we compare MAT(i,7) wwith MAT(i,8)'
-  ! do i=1,size(arr2)
-  !    write(*,*) 'element',Mat(i,1),'1st rotation(i,7)', Mat(i,7)
-  !    write(*,*) 'element',Mat(i,1),'2nd rotation(i,8)', Mat(i,8)
-  !    write(*,*) '***********************************************'
-  !!    write(*,*) 'Matrott i;',i, Matrott(i,:)
-  !!    if (Matrott(i,7) .NE. Matrot(i,7)) write(*,*) 'it seems whos master and slave importe...'
-  ! end do 
-  ! Mat=Matrot
+   do i=1,size(arr2)
+      write(*,*) 'element',Mat(i,1),'old rotation', Mat(i,7)
+      write(*,*) 'element',Matrot(i,1),'new rotation', Matrot(i,7)
+      write(*,*) '***********************************************'
+  !    write(*,*) 'Matrott i;',i, Matrott(i,:)
+  !    if (Matrott(i,7) .NE. Matrot(i,7)) write(*,*) 'it seems whos master and slave importe...'
+   end do
+   write(*,*) 'now we compare MAT(i,7) wwith MAT(i,8)'
+   do i=1,size(arr2)
+      write(*,*) 'element',Mat(i,1),'1st rotation(i,7)', Mat(i,7)
+      write(*,*) 'element',Mat(i,1),'2nd rotation(i,8)', Mat(i,8)
+      write(*,*) '***********************************************'
+  !    write(*,*) 'Matrott i;',i, Matrott(i,:)
+  !    if (Matrott(i,7) .NE. Matrot(i,7)) write(*,*) 'it seems whos master and slave importe...'
+   end do 
+   write(*,*) 'l6481'
+   do i=1, size(arr2)
+      if (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%rotation .NE. Mat(i,7)) write(*,*) 'problem with rotation of mat(i7)'
+      if ((self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1) .NE. Mat(i,1)) .AND. (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2) .NE. Mat(i,1))) write(*,*) 'problem with face i1'
+      if (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation .NE. Mat(i,8)) write(*,*) 'problem with rotation of mat(i8)'
+      if ((self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1) .NE. Mat(i,2)) .AND. (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2) .NE. Mat(i,2))) write(*,*) 'problem with face i2'
+      if (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%rotation .NE. Mat(i,9)) write(*,*) 'problem with rotation of mat(i9)'
+      if ((self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1) .NE. Mat(i,3)) .AND. (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2) .NE. Mat(i,3))) write(*,*) 'problem with face i3'
+   end do 
+   !Mat=Matrot
    do i=1, size(arr2)
       nodeIDs1=self%elements(Mat(i,3))% nodeIDs
       nodeIDs2=self%elements(Mat(i,2))% nodeIDs
@@ -6491,10 +6523,47 @@ call elementMPIList % destruct
       facer(i,1)=facerotation(masterNodeIDs=faceNodeIDs1, slaveNodeIDs=faceNodeIDs2)
       facer(i,2)=facerotation(masterNodeIDs=faceNodeIDs2, slaveNodeIDs=faceNodeIDs1)
    end do
-  ! write(*,*) 'facer'
-  ! do i=1, size(arr2)
-  !    write(*,*) facer (i,:)
-  ! end do 
+   write(*,*) 'facer'
+   do i=1, size(arr2)
+      write(*,*) facer (i,:)
+   end do 
+   ind1=0
+   ind2=0
+   ind3=0
+   do i=1,size(arr2)
+      ind1=0
+      ind2=0
+      ind3=0
+      do l=1,size(arr2)
+         if (Mat(i,1)==Mat(l,1)) then 
+            ind1=ind1+1
+         end if 
+         if (Mat(i,2)==Mat(l,2)) then 
+            ind2=ind2+1
+         end if 
+         if (Mat(i,3)==Mat(l,3)) then 
+            ind3=ind3+1
+         end if 
+      end do 
+      if (ind1 .NE. 1) write(*,*) 'ind1 .NE 1 problem', ind1
+      if (ind2 .NE. 1) write(*,*) 'ind2 .NE 1 problem' ,ind2
+      if (ind3 .NE. 1) write(*,*) 'ind3 .NE 1 problem' ,ind3
+   end do 
+
+   ind1=0
+   do i=1,size(arr2)
+      ind1=0
+      do l=1,size(arr2)
+         if (Mat(i,1)==Mat(l,2)) then 
+            ind1=ind1+1
+            write(*,*) 'Mat(i,1)=',Mat(i,1),'Mat(l,2)=',Mat(l,2)
+         end if 
+      end do 
+      write(*,*) 'line 6548, i=',i,'ind1=', ind1
+   end do 
+   do i=1,size(arr2)
+      Mat(i,8)=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation
+   end do 
   end subroutine HexMesh_MarkSlidingElementsRadius
 
   subroutine HexMesh_RotateNodes(self, theta,n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s , face_nodes,face_othernodes)
@@ -6546,7 +6615,7 @@ call elementMPIList % destruct
     !if (nm==0) !the mesh is conforming no need to do.....
     x=1.0_RP-nm*(2.0_RP/n)
     x=-1.0_RP/3.0_RP
-    x=(48.0_RP/(4.0_RP*DATAN(1.0_RP)))*theta - 1.0_RP
+    x=(-48.0_RP/(4.0_RP*DATAN(1.0_RP)))*theta + 1.0_RP
     write(*,*)'x=', x
     !x=0.0_rp
 write(*,*)'mine 6127 of hexmesh'
@@ -6810,7 +6879,7 @@ write(*,*)'mine 6127 of hexmesh'
 end subroutine HexMesh_RotateNodes
 
 
-subroutine HexMesh_Modifymesh(self, nodes, arr1, arr2,arr3,Mat, center, o, s, face_nodes, face_othernodes,rotmortars)
+subroutine HexMesh_Modifymesh(self, nodes, arr1, arr2,arr3,Mat, center, o, s, face_nodes, face_othernodes,rotmortars, th)
    IMPLICIT NONE 
    Class(HexMesh), intent(inout)    :: self 
    integer         , intent(in)    :: nodes
@@ -6824,7 +6893,7 @@ subroutine HexMesh_Modifymesh(self, nodes, arr1, arr2,arr3,Mat, center, o, s, fa
    integer, intent(inout) :: face_nodes(48,4)
    integer, intent(inout) :: face_othernodes(48,4)
    integer, intent(inout) :: rotmortars(96)
-
+   real(kind=RP), intent(inout)  :: th 
    type(Node)      :: new_nodes(1586)
    !type(Node), allocatable  :: tmpNodes(:)
    integer :: l , i, j , new_nNodes, new_nFaces, n, m
@@ -6841,8 +6910,11 @@ subroutine HexMesh_Modifymesh(self, nodes, arr1, arr2,arr3,Mat, center, o, s, fa
    new_nFaces=0
    PI=4.0_RP*DATAN(1.0_RP)
    theta=PI/3.0_RP
-   theta=PI/48.0_RP
-   !theta=PI/12.0_RP
+   theta=PI/48.0_RP   !1/2
+   theta=PI/96.0_RP   !1/4
+   !theta=PI/32.0_RP    !3/4
+   !theta=PI/24.0_RP   !1
+   th=theta
    n=3
    m=1
    sn=SIZE(self % nodes)
@@ -6886,7 +6958,7 @@ subroutine HexMesh_Modifymesh(self, nodes, arr1, arr2,arr3,Mat, center, o, s, fa
 
 end subroutine HexMesh_Modifymesh
 
-subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o, s, mortararr2,rotmortars)
+subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o, s, mortararr2,rotmortars, th)
    Class(HexMesh), intent(inout) :: self
     integer         , intent(in)    :: nodes
     integer,      intent(in)    :: n
@@ -6897,16 +6969,37 @@ subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o
     real(kind=RP), intent(in)               :: s(4)
     integer, intent(in)            :: mortararr2(48, 2)
     integer, intent(in)            :: rotmortars(2*n)
-   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2, faceNumber
+   real(kind=RP), intent(in)               :: th
+
+   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2, faceNumber, faceNumber1,faceNumber2
    integer :: faceNodeIDs(4)
    integer :: nodeIDs(8)
    integer  :: NelL(2), NelR(2)
+   real(kind=RP)              :: theta
+   real(kind=RP)              :: XR(4,3)
+   integer :: faceNodeIDs2(4)
+   integer :: faceNodeIDs1(4)
+   real(kind=RP) :: NODESS(4,3)
+   real(kind=RP) :: NODES2(4,3)
+   integer :: nodeIDs1(8)
+   integer :: nodeIDs2(8)
+   real(KIND=RP) :: ROT(3,3)
+   integer :: rota 
+
    do i=1,n 
       do l=1,n 
          if (array1(i)==array2(l)) write(*,*) 'tnaket array1(i)==array2(l)', i,l, array1(i),array2(l)
       end do 
    end do
 
+   theta=(4.0_RP*DATAN(1.0_RP))/24.0_RP -th 
+   ROT=0.0_RP
+   ROT(1,1)=COS(theta)
+   ROT(2,2)=COS(theta)
+   ROT(3,3)=1.0_RP 
+   ROT(1,2)=-SIN(theta)
+   ROT(2,1)=SIN(theta)
+   !do i=1, size(array2)
    ALLOCATE (self % mortar_faces(2*n))
    l=1
    i=1
@@ -6922,13 +7015,16 @@ subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o
       !self%faces(fID1)%rotation=Mat(i,7)
 
              allocate(self % faces(fID1) % Mortar(2)) 
-       write(*,*) 'computing the to mortars of element:', eID1
        do m=1, 2
+         write(*,*) 'computing the to mortars of element:', eID1
            CALL self % mortar_faces(l) % Construct(ID  = l, &
            nodeIDs = faceNodeIDs, &
            elementID = eID1,       &
            side = faceNumber)
-         write(*,*) 'ID of the mortar', m,'ID=', l
+           !self%mortar_faces(l)=self % faces(fID1)
+           !self%mortar_faces(l)%ID=l
+
+        ! write(*,*) 'ID of the mortar', m,'ID=', l
            self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
            !!!!!!!!!self % mortar_faces(l) % boundaryName = self % elements(eID1) % boundaryName(faceNumber)
            allocate(self % mortar_faces(l) % Mortar(2)) 
@@ -6939,7 +7035,7 @@ subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o
 
            if (m==1) eID2= Mat(i,2)   !2
            if (m==2) eID2= Mat(i,1)   !3
-         write(*,*) 'second element of the mortar',l,'eID', eID2
+         !write(*,*) 'second element of the mortar',l,'eID', eID2
            self % mortar_faces(l) % elementIDs(2)  = eID2
            if (m==1)self % mortar_faces(l) % elementSide(2) = Mat(i,5)
            if (m==2)self % mortar_faces(l) % elementSide(2) = Mat(i,4)
@@ -6952,15 +7048,69 @@ subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o
            if (m==2) fID2=self %elements(eID2) % faceIDs(Mat(i,4))
            !if (eID2==7) write(*,*)'line 6244 of hexmesh, element 7 is in arr2, the face:', fID2
            self % mortar_faces(l) % Mortar(2)=fID2
+           self%faces(fID2)%FaceType=HMESH_INTERIOR
            if (m==1) then 
-            self % mortar_faces(l) % rotation=Mat(i,8)
+            !theta=-th
+            !ROT=0.0_RP
+            !ROT(1,1)=COS(theta)
+            !ROT(2,2)=COS(theta)
+            !ROT(3,3)=1.0_RP 
+            !ROT(1,2)=-SIN(theta)
+            !ROT(2,1)=SIN(theta)
+            !nodeIDs1=self%elements(Mat(i,3))% nodeIDs    !3
+            !nodeIDs2=self%elements(Mat(i,2))% nodeIDs    !2
+            !faceNumber2=Mat(i,6)          !rot of 3
+            !faceNumber1=Mat(i,5)           !rot of 2
+            !DO j = 1, 4
+            !    faceNodeIDs2(j) = nodeIDs1(localFaceNode(j,faceNumber2))
+            !    NODESS(j,:)=self%nodes(faceNodeIDs2(j))%X
+            !    faceNodeIDs1(j) = nodeIDs2(localFaceNode(j,faceNumber1))
+            !    NODES2(j,:)=self%nodes(faceNodeIDs1(j))%X
+            !    XR(j,:)=NODES2 (j,:)
+            !    NODES2(j,:)= MATMUL(ROT, XR(j,:))
+            !END DO        
+            !rota=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
+            !  self % mortar_faces(l) % rotation=rota
+            !  write(*,*) 'i=,',i
+            !  write(*,*) 'l=',l
+            !  if (rota .NE. Mat(i,8)) write(*,*) 'problem rot .NE. MAT8:, rot=', rota, 'MAT8=', Mat(i,8)
+            !  if (rota .EQ. Mat(i,8)) write(*,*) 'no problem', rota, 'MAT8=', Mat(i,8)
+              self % mortar_faces(l) % rotation=Mat(i,8)
+              self%mortar_faces(l)%Mortarpos=1
            end if 
            if (m==2) then
-            self % mortar_faces(l) % rotation=Mat(i,7)
+            theta=(4.0_RP*DATAN(1.0_RP))/24.0_RP -th 
+            ROT=0.0_RP
+            ROT(1,1)=COS(theta)
+            ROT(2,2)=COS(theta)
+            ROT(3,3)=1.0_RP 
+            ROT(1,2)=-SIN(theta)
+            ROT(2,1)=SIN(theta)
+               nodeIDs1=self%elements(Mat(i,3))% nodeIDs    !3
+               nodeIDs2=self%elements(Mat(i,1))% nodeIDs    !1
+               faceNumber2=Mat(i,6)          !facenumber of 3
+               faceNumber1=Mat(i,4)           !facenumber of 1
+               DO j = 1, 4
+                   faceNodeIDs2(j) = nodeIDs1(localFaceNode(j,faceNumber2))
+                   NODESS(j,:)=self%nodes(faceNodeIDs2(j))%X
+                   faceNodeIDs1(j) = nodeIDs2(localFaceNode(j,faceNumber1))
+                   NODES2(j,:)=self%nodes(faceNodeIDs1(j))%X
+                   XR(j,:)=NODES2 (j,:)
+                   NODES2(j,:)= MATMUL(ROT, XR(j,:))
+               END DO        
+               rota=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
+               write(*,*) 'i=,',i
+               write(*,*) 'l=,',l
+               if (rota .NE. Mat(i,7)) write(*,*) 'problem rot .NE. MAT:, rot=', rota, 'MAT=', Mat(i,7)
+               if (rota .EQ. Mat(i,7)) write(*,*) 'no problem', rota, 'MAT=', Mat(i,7)
+                 self % mortar_faces(l) % rotation=rota
+                 self%mortar_faces(l)%Mortarpos=0
+           ! end do 
+            !self % mortar_faces(l) % rotation=Mat(i,7)
            end if 
-           self % mortar_faces(l) % rotation=7
+          ! self % mortar_faces(l) % rotation=0
            if (.not.allocated(self % faces(fID2) % Mortar)) allocate(self % faces(fID2) % Mortar(2)) 
-           write(*,*) 'rotation of motar',l,'rot=',self % mortar_faces(l) % rotation
+           !write(*,*) 'rotation of motar',l,'rot=',self % mortar_faces(l) % rotation
            if (m==1) then 
               ! self % mortar_faces(l)%offset(1)= o(2)!o(1)
                self % mortar_faces(l)%offset(1)= o(1)!o(1)
@@ -6996,6 +7146,54 @@ subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o
         i=i+1
    end do
 
+   do i=1, size(self%mortar_faces)
+     ! self%mortar_faces(i)%elementIDs(1)
+      do l=1, size(array2)
+         if (self%mortar_faces(i)%elementIDs(1)==Mat(l,3)) then 
+            if (self%mortar_faces(i)%elementIDs(2)==Mat(l,2)) then 
+               if (mod(i,2)==1) then 
+                  write(*,*) 'todo bien'
+                  !self%mortar_faces(i)%rotation=Mat(l,8)
+               else 
+                  write(*,*) 'todo jodido line 7152'
+               end if 
+            end if 
+            if (self%mortar_faces(i)%elementIDs(2)==Mat(l,1)) then 
+               if (mod(i,2)==0) then 
+                  write(*,*) 'todo bien'
+                !  theta=(4.0_RP*DATAN(1.0_RP))/24.0_RP -th 
+                !  ROT=0.0_RP
+                !  ROT(1,1)=COS(theta)
+                !  ROT(2,2)=COS(theta)
+                !  ROT(3,3)=1.0_RP 
+                !  ROT(1,2)=-SIN(theta)
+                !  ROT(2,1)=SIN(theta)
+                !     nodeIDs1=self%elements(Mat(l,3))% nodeIDs    !3
+                !!     nodeIDs2=self%elements(Mat(l,1))% nodeIDs    !1
+                !     faceNumber2=Mat(l,6)          !facenumber of 3
+                !     faceNumber1=Mat(l,4)           !facenumber of 1
+                !     DO j = 1, 4
+                !         faceNodeIDs2(j) = nodeIDs1(localFaceNode(j,faceNumber2))
+                        ! NODESS(j,:)=self%nodes(faceNodeIDs2(j))%X
+                        ! faceNodeIDs1(j) = nodeIDs2(localFaceNode(j,faceNumber1))
+                        ! NODES2(j,:)=self%nodes(faceNodeIDs1(j))%X
+                        ! XR(j,:)=NODES2 (j,:)
+                        ! NODES2(j,:)= MATMUL(ROT, XR(j,:))
+                     !END DO        
+                     !rota=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
+                     !write(*,*) 'i=,',i
+                     !write(*,*) 'l=,',l
+                     !if (rota .NE. Mat(i,7)) write(*,*) 'problem rot .NE. MAT:, rot=', rota, 'MAT=', Mat(i,7)
+                     !if (rota .EQ. Mat(i,7)) write(*,*) 'no problem', rota, 'MAT=', Mat(i,7)
+                      ! self % mortar_faces(i) % rotation=rota
+               else 
+                  write(*,*) 'todo jodido line 7159'
+               end if 
+            end if 
+         end if 
+      end do 
+     ! self % mortar_faces(i) % rotation=0
+   end do 
    do i=1, size(self%mortar_faces)
        associate(f => self % mortar_faces(i))
          associate(eL => self % elements(f % elementIDs(1)), &
@@ -7044,4 +7242,494 @@ subroutine HexMesh_ConstructSlidingMortars(self, nodes, n, array1, array2,Mat, o
 
   !end do 
 end subroutine HexMesh_ConstructSlidingMortars 
+
+!*********************************************************************************************************
+subroutine HexMesh_ConstructSlidingMortarsConforming(self, nodes, n, array1, array2,Mat, o, s, mortararr2,rotmortars)
+   Class(HexMesh), intent(inout) :: self
+    integer         , intent(in)    :: nodes
+    integer,      intent(in)    :: n
+    integer, intent(in)          :: array1(n)
+    integer, intent(in)          :: array2(n)
+    integer, intent(in)          :: Mat(48,9)
+    real(kind=RP), intent(in)              :: o(4)
+    real(kind=RP), intent(in)               :: s(4)
+    integer, intent(in)            :: mortararr2(48, 2)
+    integer, intent(in)            :: rotmortars(2*n)
+   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2, faceNumber, faceNumber2
+   integer :: faceNodeIDs(4)
+   integer :: faceNodeIDs2(4)
+   integer :: faceNodeIDs1(4)
+   integer :: nodeIDs(8)
+   integer  :: NelL(2), NelR(2)
+   real(kind=RP) :: NODESS(4,3)
+   real(kind=RP) :: NODES2(4,3)
+   integer :: nodeIDs1(8)
+   integer :: nodeIDs2(8)
+   integer :: rot 
+   do i=1,n 
+      do l=1,n 
+         if (array1(i)==array2(l)) write(*,*) 'tnaket array1(i)==array2(l)', i,l, array1(i),array2(l)
+      end do 
+   end do
+
+   ALLOCATE (self % mortar_faces(n))
+   l=1
+   i=1
+   do while (i .LE. n)
+       eID1=Mat(i,3)
+       nodeIDs = self % elements(eID1) % nodeIDs
+       faceNumber=Mat(i,6)
+       DO j = 1, 4
+           faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+       END DO
+
+      fID1=self %elements(eID1) % faceIDs(Mat(i,6))!!!!!!!!!!!
+
+             allocate(self % faces(fID1) % Mortar(1)) 
+      ! write(*,*) 'computing the to mortars of element:', eID1
+       !do m=1, 2
+           CALL self % mortar_faces(l) % Construct(ID  = l, &
+           nodeIDs = faceNodeIDs, &
+           elementID = eID1,       &
+           side = faceNumber)
+           self%mortar_faces(l)=self % faces(fID1)
+           !self%mortar_faces(l)=self % faces(self %elements(Mat(i,1) ) % faceIDs(Mat(i,4)))
+           self%mortar_faces(l)%Mortarpos=1
+           self%mortar_faces(l)%ID=l
+         !write(*,*) 'ID of the mortar', m,'ID=', l
+           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+           !!!!!!!!!self % mortar_faces(l) % boundaryName = self % elements(eID1) % boundaryName(faceNumber)
+           allocate(self % mortar_faces(l) % Mortar(2)) 
+           self % mortar_faces(l) % Mortar(1)=fID1
+           !self % faces(fID1) %IsMortar=3
+           self % faces(fID1) % Mortar(1)=l
+          ! if (m==2)  self % faces(fID1) % Mortar(2)=l
+
+           !if (m==1) eID2= Mat(i,2)   !2
+           eID2= Mat(i,1)   !3
+         write(*,*) 'second element of the mortar',l,'eID', eID2
+           self % mortar_faces(l) % elementIDs(2)  = eID2
+           !if (m==1)self % mortar_faces(l) % elementSide(2) = Mat(i,5)
+           self % mortar_faces(l) % elementSide(2) = Mat(i,4)
+           self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+           !!!!!!self % mortar_faces(l) % rotation       = faceRotation(masterNodeIDs = self % faces(fID1) % nodeIDs, &
+                                                                       !slaveNodeIDs  = faceNodeIDs) 
+           !if (m==1) self%elements(eID2)%faceSide( Mat(i,5))=2
+           self%elements(eID1)%faceSide(Mat(i,6))=1
+
+            self%elements(eID2)%faceSide(Mat(i,4))=2
+           !if (m==1) fID2=self %elements(eID2) % faceIDs(Mat(i,5))
+            fID2=self %elements(eID2) % faceIDs(Mat(i,4))
+           !if (eID2==7) write(*,*)'line 6244 of hexmesh, element 7 is in arr2, the face:', fID2
+           self % mortar_faces(l) % Mortar(2)=fID2
+           !if (m==1) then 
+            !self % mortar_faces(l) % rotation=Mat(i,8)
+           !end if 
+           !if (m==2) then
+            self % mortar_faces(l) % rotation=Mat(i,7)
+           !end if 
+           !self % mortar_faces(l) % rotation=0
+           if (.not.allocated(self % faces(fID2) % Mortar)) allocate(self % faces(fID2) % Mortar(1)) 
+          ! write(*,*) 'rotation of motar',l,'rot=',self % mortar_faces(l) % rotation
+           !if (m==1) then 
+              ! self % mortar_faces(l)%offset(1)= o(2)!o(1)
+            !   self % mortar_faces(l)%offset(1)= o(1)!o(1)
+              ! self % mortar_faces(l)%offset(1)= -0.5_RP
+              ! self % mortar_faces(l)%offset(2)= o(4) !o(3)
+             !  self % mortar_faces(l)%offset(2)= o(3) !o(3)
+               !self % mortar_faces(l)%offset(2)=0.5_RP
+              ! self % mortar_faces(l)%s(1)=s(2)!s(1)
+              ! self % mortar_faces(l)%s(1)=s(1)!s(1)
+              ! self % mortar_faces(l)%s(2)= s(4)!s(3)
+              ! self % mortar_faces(l)%s(2)= s(3)!s(3)
+              ! self % faces(fID2) % Mortar(2)=l
+    
+           !else if (m==2) then
+                !self % mortar_faces(l)%offset(1)=o(1)!o(2)
+                self % mortar_faces(l)%offset(1)=0.0_RP
+                !self % mortar_faces(l)%offset(1)=0.5_RP
+               ! self % mortar_faces(l)%offset(2)=o(3)!o(4)
+                self % mortar_faces(l)%offset(2)=0.0_RP
+               ! self % mortar_faces(l)%offset(2)=-0.5_RP
+             !  self % mortar_faces(l)%s(1)=s(1)!s(2)
+               self % mortar_faces(l)%s(1)=1.0_RP!s(2)1.0_RP
+               !self % mortar_faces(l)%s(2)= s(3)!s(4)
+               self % mortar_faces(l)%s(2)= 1.0_RP
+               self % faces(fID2) % Mortar(1)=l
+
+           !end if  
+           !self % faces(fID2) % Mortar(m)=l
+           l=l+1
+      !end do     
+       self % elements(array2(i))% MortarFaces(1)=3 
+       self % elements(array1(i))% MortarFaces(2)=3                                                        
+        i=i+1
+   end do
+
+   do i=1, size(self%mortar_faces)
+       associate(f => self % mortar_faces(i))
+         associate(eL => self % elements(f % elementIDs(1)), &
+            eR => self % elements(f % elementIDs(2))   )
+            NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+            NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+            call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%s)
+           end associate
+    end associate
+   end do
+   
+
+   do i=1, size(self%mortar_faces)
+      associate(f => self % mortar_faces(i))
+        associate(eL => self % elements(f % elementIDs(1)), &
+           eR => self % elements(f % elementIDs(2))   )
+           NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+           NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+           call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+                                   NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
+                                     eL % geom, eL % hexMap, f % elementSide(1), &
+                                     f % projectionType(1), 1, 0,.true.,i)
+
+
+          ! call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eR % Nxyz, &
+           !                        NodalStorage(f % Nf), NodalStorage(eR % Nxyz), &
+           !                        eR % geom, eR % hexMap, f % elementSide(1), &
+           !                          f % projectionType(1), 1, 7,.true.,i, eR%eID)
+          end associate
+          f % geom % h = minval(self % elements(f % elementIDs(2)) % geom % jacobian) &
+          / maxval(f % geom % jacobian)
+   end associate
+  end do 
+  do i=1, size(self%mortar_faces)
+   self%mortar_faces(i)%geom%x=self%faces(self%mortar_faces(i)%Mortar(1))%geom%x
+   self%mortar_faces(i)%geom%GradXi=self%faces(self%mortar_faces(i)%Mortar(1))%geom%GradXi
+   self%mortar_faces(i)%geom%GradEta=self%faces(self%mortar_faces(i)%Mortar(1))%geom%GradEta
+   self%mortar_faces(i)%geom%GradZeta=self%faces(self%mortar_faces(i)%Mortar(1))%geom%GradZeta
+   self%mortar_faces(i)%geom%normal=self%faces(self%mortar_faces(i)%Mortar(1))%geom%normal
+   self%mortar_faces(i)%geom%t1=self%faces(self%mortar_faces(i)%Mortar(1))%geom%t1 
+   self%mortar_faces(i)%geom%t2=self%faces(self%mortar_faces(i)%Mortar(1))%geom%t2
+   self%mortar_faces(i)%geom%surface=self%faces(self%mortar_faces(i)%Mortar(1))%geom%surface
+   self%mortar_faces(i)%geom%jacobian=self%faces(self%mortar_faces(i)%Mortar(1))%geom%jacobian
+   self%mortar_faces(i)%geom%h=self%faces(self%mortar_faces(i)%Mortar(1))%geom%h
+   self%faces(self%mortar_faces(i)%Mortar(2))%elementIDs(2)=   self%faces(self%mortar_faces(i)%Mortar(2))%elementIDs(1)
+   self%faces(self%mortar_faces(i)%Mortar(2))%elementIDs(1)=0
+   write(*,*) 'mortar number', i, 'elements:', self%mortar_faces(i)%elementIDs
+   write(*,*) 'mortar number', i, 'elemenfaces:', self%mortar_faces(i)%Mortar 
+   write(*,*) 'element of first face:', self%faces(self%mortar_faces(i)%Mortar(1))%elementIDs
+   write(*,*) 'element of second face:', self%faces(self%mortar_faces(i)%Mortar(2))%elementIDs
+
+   !self%mortar_faces(i)%geom%dWall=self%faces(self%mortar_faces(i)%Mortar(1))%geom%dWall
+  end do 
+ ! write(*,*) 'printing the mortars:'
+ ! do i=1, size(self%mortar_faces)
+ !  write(*,*) 'mortar', i 
+ !  write(*,*) 'first face of mortar', i, self%mortar_faces(i)%Mortar(1)
+ !  write(*,*) 'second face of mortar', i, self%mortar_faces(i)%Mortar(2)
+ !  write(*,*) 'rotation of mortar', self%mortar_faces(i)%rotation
+ !  write(*,*) 'rotation of first face', self%faces(self%mortar_faces(i)%Mortar(1))%rotation 
+ !  write(*,*) 'rotation of second face', self%faces(self%mortar_faces(i)%Mortar(2))%rotation 
+
+  ! write(*,*) ' elements 1 & 2 ', self%mortar_faces(i)%elementIDs
+  ! write(*,*) '********************************************************'
+
+  !end do 
+  do i=1, size(array2)
+   !fID1=   self%faces(self%mortar_faces(i)%Mortar(1))
+   !fID2=   self%faces(self%mortar_faces(i)%Mortar(2))
+   nodeIDs1=self%elements(Mat(i,3))% nodeIDs    !3
+   nodeIDs2=self%elements(Mat(i,1))% nodeIDs    !1
+   faceNumber2=Mat(i,6)          !rot of 3
+   faceNumber=Mat(i,4)           !rot of 1
+   DO j = 1, 4
+       faceNodeIDs2(j) = nodeIDs1(localFaceNode(j,faceNumber2))
+       NODESS(j,:)=self%nodes(faceNodeIDs2(j))%X
+       faceNodeIDs(j) = nodeIDs2(localFaceNode(j,faceNumber))
+       NODES2(j,:)=self%nodes(faceNodeIDs(j))%X
+   END DO        
+   rot=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
+   write(*,*) 'i=',i
+   if (rot .NE. Mat(i,7)) write(*,*) 'problem rot .NE. MAT:, rot=', rot, 'MAT=', Mat(i,7)
+   if (rot .EQ. Mat(i,7)) write(*,*) 'no problem', rot, 'MAT=', Mat(i,7)
+   self % mortar_faces(i) % rotation=rot
+
+  end do 
+end subroutine HexMesh_ConstructSlidingMortarsConforming
+
+ subroutine HexMesh_ConstructMortars(self, nodes, n, array1, array2,Mat, o, s, mortararr2,rotmortars, th)
+   Class(HexMesh), intent(inout) :: self
+    integer         , intent(in)    :: nodes
+    integer,      intent(in)    :: n
+    integer, intent(in)          :: array1(n)
+    integer, intent(in)          :: array2(n)
+    integer, intent(in)          :: Mat(48,9)
+    real(kind=RP), intent(in)              :: o(4)
+    real(kind=RP), intent(in)               :: s(4)
+    integer, intent(in)            :: mortararr2(48, 2)
+    integer, intent(in)            :: rotmortars(2*n)
+   real(kind=RP), intent(in)               :: th
+
+   integer :: i, j, k, l ,m , fID1, fID2, eID1, eID2, faceNumber, faceNumber1,faceNumber2
+   integer :: faceNodeIDs(4)
+   integer :: nodeIDs(8)
+   integer  :: NelL(2), NelR(2)
+   real(kind=RP)              :: theta
+   real(kind=RP)              :: XR(4,3)
+   integer :: faceNodeIDs2(4)
+   integer :: faceNodeIDs1(4)
+   real(kind=RP) :: NODESS(4,3)
+   real(kind=RP) :: NODES2(4,3)
+   integer :: nodeIDs1(8)
+   integer :: nodeIDs2(8)
+   real(KIND=RP) :: ROT(3,3)
+   integer :: rota 
+  do i=1,n 
+     do l=1,n 
+        if (array1(i)==array2(l)) write(*,*) 'tnaket array1(i)==array2(l)', i,l, array1(i),array2(l)
+     end do 
+  end do
+
+  ALLOCATE (self % mortar_faces(2*n))
+  l=1
+  i=1
+  do i=1,size(array2)
+      eID1=Mat(i,3)
+      nodeIDs = self % elements(eID1) % nodeIDs
+      faceNumber=Mat(i,6)
+      DO j = 1, 4
+          faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+      END DO
+
+     fID1=self %elements(eID1) % faceIDs(Mat(i,6))!!!!!!!!!!!
+
+            allocate(self % faces(fID1) % Mortar(2)) 
+
+          CALL self % mortar_faces(l) % Construct(ID  = l, &
+          nodeIDs = faceNodeIDs, &
+          elementID = eID1,       &
+          side = faceNumber)
+          !self%mortar_faces(l)=self % faces(fID1)
+
+         ! self%mortar_faces(l)%ID=l
+          self%mortar_faces(l)%Mortarpos=1
+          self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+          allocate(self % mortar_faces(l) % Mortar(2)) 
+          self % mortar_faces(l) % Mortar(1)=fID1
+          self % faces(fID1) % Mortar(1)=l
+
+          eID2= Mat(i,2)   
+
+          self % mortar_faces(l) % elementIDs(2)  = eID2
+   
+          self % mortar_faces(l) % elementSide(2) = Mat(i,5)
+          self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+
+          self%elements(eID1)%faceSide(Mat(i,6))=1
+
+           self%elements(eID2)%faceSide(Mat(i,5))=2
+
+           fID2=self %elements(eID2) % faceIDs(Mat(i,5))
+
+          self % mortar_faces(l) % Mortar(2)=fID2
+
+           self % mortar_faces(l) % rotation=Mat(i,8)
+
+          if (.not.allocated(self % faces(fID2) % Mortar)) allocate(self % faces(fID2) % Mortar(2)) 
+               self % mortar_faces(l)%offset(1)=o(1)
+               self % mortar_faces(l)%offset(2)=o(3)
+
+              self % mortar_faces(l)%s(1)=s(1)
+              self % mortar_faces(l)%s(2)= s(3)
+              self % faces(fID2) % Mortar(2)=l
+
+          l=l+1    
+      self % elements(array2(i))% MortarFaces(1)=3 
+      self % elements(array1(i))% MortarFaces(2)=3                                                        
+       !i=i+1
+  end do
+
+
+l=n+1
+i=1
+do i=1,size(array2)
+   eID1=Mat(i,3)
+   nodeIDs = self % elements(eID1) % nodeIDs
+   faceNumber=Mat(i,6)
+   DO j = 1, 4
+       faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+   END DO
+
+  fID1=self %elements(eID1) % faceIDs(Mat(i,6))!!!!!!!!!!!
+
+
+
+       CALL self % mortar_faces(l) % Construct(ID  = l, &
+       nodeIDs = faceNodeIDs, &
+       elementID = eID1,       &
+       side = faceNumber)
+      ! self%mortar_faces(l)=self % faces(fID1)
+
+      ! self%mortar_faces(l)%ID=l
+       self%mortar_faces(l)%Mortarpos=0
+       self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+       allocate(self % mortar_faces(l) % Mortar(2)) 
+       self % mortar_faces(l) % Mortar(1)=fID1
+       self % faces(fID1) % Mortar(2)=l
+
+       eID2= Mat(i,1)   !3
+
+       self % mortar_faces(l) % elementIDs(2)  = eID2
+
+       self % mortar_faces(l) % elementSide(2) = Mat(i,4)
+       self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+
+       self%elements(eID1)%faceSide(Mat(i,6))=1
+
+        self%elements(eID2)%faceSide(Mat(i,4))=2
+
+        fID2=self %elements(eID2) % faceIDs(Mat(i,4))
+
+       self % mortar_faces(l) % Mortar(2)=fID2
+
+       if (.not.allocated(self % faces(fID2) % Mortar)) then 
+         write(*,*) 'line 7622 not allocated'
+         allocate(self % faces(fID2) % Mortar(2)) 
+       end if 
+
+            self % mortar_faces(l)%offset(1)=o(2)
+            self % mortar_faces(l)%offset(2)=o(4)
+
+           self % mortar_faces(l)%s(1)=s(2)
+           self % mortar_faces(l)%s(2)= s(4)
+           self % faces(fID2) % Mortar(1)=l
+
+       l=l+1    
+   self % elements(array2(i))% MortarFaces(1)=3 
+   self % elements(array1(i))% MortarFaces(2)=3                                                        
+    !i=i+1
+end do
+
+do i=1, size(self%mortar_faces)
+   associate(f => self % mortar_faces(i))
+     associate(eL => self % elements(f % elementIDs(1)), &
+        eR => self % elements(f % elementIDs(2))   )
+        NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+        NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+        call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%s)
+       end associate
+end associate
+end do
+
+
+do i=1, size(self%mortar_faces)
+  associate(f => self % mortar_faces(i))
+    associate(eL => self % elements(f % elementIDs(1)), &
+       eR => self % elements(f % elementIDs(2))   )
+       NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+       NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+       call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+                               NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
+                                 eL % geom, eL % hexMap, f % elementSide(1), &
+                                 f % projectionType(1), 1, 0,.true.,f%Mortarpos)
+
+
+      end associate
+      f % geom % h = minval(self % elements(f % elementIDs(2)) % geom % jacobian) &
+      / maxval(f % geom % jacobian)
+end associate
+end do 
+l=n+1
+do i=1,size(array2)
+theta=(4.0_RP*DATAN(1.0_RP))/24.0_RP -th 
+ROT=0.0_RP
+ROT(1,1)=COS(theta)
+ROT(2,2)=COS(theta)
+ROT(3,3)=1.0_RP 
+ROT(1,2)=-SIN(theta)
+ROT(2,1)=SIN(theta)
+   nodeIDs1=self%elements(Mat(i,3))% nodeIDs    !3
+   nodeIDs2=self%elements(Mat(i,1))% nodeIDs    !1
+   faceNumber2=Mat(i,6)          !facenumber of 3
+   faceNumber1=Mat(i,4)           !facenumber of 1
+   DO j = 1, 4
+       faceNodeIDs2(j) = nodeIDs1(localFaceNode(j,faceNumber2))
+       NODESS(j,:)=self%nodes(faceNodeIDs2(j))%X
+       faceNodeIDs1(j) = nodeIDs2(localFaceNode(j,faceNumber1))
+       NODES2(j,:)=self%nodes(faceNodeIDs1(j))%X
+       XR(j,:)=NODES2 (j,:)
+       NODES2(j,:)= MATMUL(ROT, XR(j,:))
+   END DO        
+   rota=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
+   write(*,*) 'i=,',i
+   write(*,*) 'l=,',l
+   if (rota .NE. Mat(i,7)) write(*,*) 'problem rot .NE. MAT:, rot=', rota, 'MAT=', Mat(i,7)
+   if (rota .EQ. Mat(i,7)) write(*,*) 'no problem', rota, 'MAT=', Mat(i,7)
+     self % mortar_faces(l) % rotation=rota
+
+   l=l+1
+end do 
+
+do i=1,size(self%mortar_faces)
+   select case(self%mortar_faces(i)%elementIDs(2))
+      case(356)
+         write(*,*) 'elementIDs(2)=356'
+         write(*,*) 'mortarID', i 
+         write(*,*) 'motarposition',self%mortar_faces(i)%Mortarpos
+         write(*,*) 'elementIDs(1)=', self%mortar_faces(i)%elementIDs(1)
+         write(*,*) 'rotation of the mortar=',self%mortar_faces(i)%rotation 
+         write(*,*) 'offset of the mortar',self%mortar_faces(i)%offset 
+         write(*,*) 'scale of the mortar',self%mortar_faces(i)%s
+         self%mortar_faces(i)%rotation =0
+         write(*,*) '******************************************************'
+      case(167)
+         write(*,*) 'elementIDs(2)=167'
+         write(*,*) 'mortarID', i 
+         write(*,*) 'motarposition',self%mortar_faces(i)%Mortarpos
+         write(*,*) 'elementIDs(1)=', self%mortar_faces(i)%elementIDs(1)
+         write(*,*) 'rotation of the mortar=',self%mortar_faces(i)%rotation 
+         write(*,*) 'offset of the mortar',self%mortar_faces(i)%offset 
+         write(*,*) 'scale of the mortar',self%mortar_faces(i)%s
+         self%mortar_faces(i)%rotation =0
+         write(*,*) '******************************************************'
+      case(70)
+         write(*,*) 'elementIDs(2)=70'
+         write(*,*) 'mortarID', i 
+         write(*,*) 'motarposition',self%mortar_faces(i)%Mortarpos
+         write(*,*) 'elementIDs(1)=', self%mortar_faces(i)%elementIDs(1)
+         write(*,*) 'rotation of the mortar=',self%mortar_faces(i)%rotation 
+         write(*,*) 'offset of the mortar',self%mortar_faces(i)%offset 
+         write(*,*) 'scale of the mortar',self%mortar_faces(i)%s
+         self%mortar_faces(i)%rotation =0
+         write(*,*) '******************************************************'
+      case(621)
+         write(*,*) 'elementIDs(2)=621'
+         write(*,*) 'mortarID', i 
+         write(*,*) 'motarposition',self%mortar_faces(i)%Mortarpos
+         write(*,*) 'elementIDs(1)=', self%mortar_faces(i)%elementIDs(1)
+         write(*,*) 'rotation of the mortar=',self%mortar_faces(i)%rotation 
+         write(*,*) 'offset of the mortar',self%mortar_faces(i)%offset 
+         write(*,*) 'scale of the mortar',self%mortar_faces(i)%s
+         self%mortar_faces(i)%rotation =0
+         write(*,*) '******************************************************'
+      case(652)
+         write(*,*) 'elementIDs(2)=652'
+         write(*,*) 'mortarID', i 
+         write(*,*) 'motarposition',self%mortar_faces(i)%Mortarpos
+         write(*,*) 'elementIDs(1)=', self%mortar_faces(i)%elementIDs(1)
+         write(*,*) 'rotation of the mortar=',self%mortar_faces(i)%rotation 
+         write(*,*) 'offset of the mortar',self%mortar_faces(i)%offset 
+         write(*,*) 'scale of the mortar',self%mortar_faces(i)%s
+         self%mortar_faces(i)%rotation =0
+         write(*,*) '******************************************************'
+      case(467)
+         write(*,*) 'elementIDs(2)=467'
+         write(*,*) 'mortarID', i 
+         write(*,*) 'motarposition',self%mortar_faces(i)%Mortarpos
+         write(*,*) 'elementIDs(1)=', self%mortar_faces(i)%elementIDs(1)
+         write(*,*) 'rotation of the mortar=',self%mortar_faces(i)%rotation
+         write(*,*) 'offset of the mortar',self%mortar_faces(i)%offset 
+         write(*,*) 'scale of the mortar',self%mortar_faces(i) %s
+         self%mortar_faces(i)%rotation =0
+         write(*,*) '******************************************************'
+   end select 
+end do 
+end subroutine HexMesh_ConstructMortars
 END MODULE HexMeshClass

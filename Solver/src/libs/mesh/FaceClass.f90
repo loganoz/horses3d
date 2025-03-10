@@ -332,7 +332,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
          end if 
          if (present(offset) .and. present(s)) then !Sliding
             !write(*,*) 'sliding mortars projections'
-            if (MOD(self% ID, 2)==1) then 
+            if (self% Mortarpos==1) then 
                call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)!in    !o=-0.5
                call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)!out
               ! write(*,*)'tset 1, offset :', offset(1), 'scale:',s(1)
@@ -343,7 +343,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                !write(*,*) "TsetM 1 2 ", TsetM(self % Nf(1), self % NfLeft(1), 1, 2)%T
                !write(*,*) "TsetM 2 1 ", TsetM(self % NfLeft(1), self % Nf(1), 2, 1)%T
                !write(*,*) "TsetM 2 2 ", TsetM(self % Nf(1), self % NfLeft(1), 2, 2)%T
-            else if (MOD(self% ID, 2)==0)  then
+            else if (self%Mortarpos==0)  then
                call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)       !o=0.5
                call TsetM(self % Nf(1), self % NfLeft(1), 3, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)
              !  write(*,*)'tset 3, offset :', offset(1), 'scale:',s(1)
@@ -573,15 +573,18 @@ if (self % ID==288) write(*,*) 'linking face 288'
 !write(*,*)'fma%pos==4, corresponding element:', fma%elementIDs
             end select 
          else 
-            if (MOD(fma% ID, 2)==1) then 
+            if (fma%Mortarpos==1) then 
                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)   !1;1
                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)   !2;1
             end if 
-            if (MOD(fma% ID, 2)==0) then  
+            if (fma%Mortarpos==0) then  
                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)   !3;1
                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)   !4;1
             end if 
          end if 
+        ! write(*,*) 'mortar proj MInt(:,:,1)',MInt(:,:,1)
+        ! write(*,*) 'mortar proj MInt(:,:,2)',MInt(:,:,2)
+
         ! if (present(sliding)) then
            ! write(*,*) 'MOD(fma% ID, 2)',MOD(fma% ID, 2)
             !write(*,*)'side', side
@@ -825,10 +828,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
                  !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
               end select 
             else 
-               if (MOD(fma% ID, 2)==1) then 
+               if (fma%Mortarpos==1) then 
                   MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
                   MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               elseif (MOD(fma% ID, 2)==0) then  
+               elseif (fma%Mortarpos==0) then  
                   MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
                   MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
                end if 
@@ -1114,6 +1117,12 @@ if (self % ID==288) write(*,*) 'linking face 288'
                         end do                 ; end do
                      end do                  ; end do
                   end select
+                 ! if ((self%elementIDs(1)==170) .OR. self%elementIDs(2)==170) write(*,*) 'fstar of 170',fStar
+                 ! if ((self%elementIDs(1)==172)  .OR. self%elementIDs(2)==172) write(*,*) 'fstar of 172',fStar
+                 ! if ((self%elementIDs(1)==49)  .OR. self%elementIDs(2)==49) write(*,*) 'fstar of 49',fStar
+                 ! if ((self%elementIDs(1)==171) .OR. self%elementIDs(2)==171) write(*,*) 'fstar of 171 **',fStar
+                 ! if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
+                 ! if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
                   end associate
                end if
                
@@ -1167,7 +1176,12 @@ if (self % ID==288) write(*,*) 'linking face 288'
          !
                      
                      fStar = -fStar
-                     
+                    ! if ((self%elementIDs(1)==170) .OR. self%elementIDs(2)==170) write(*,*) 'fstar of 170',fStar
+                    ! if ((self%elementIDs(1)==172)  .OR. self%elementIDs(2)==172) write(*,*) 'fstar of 172',fStar
+                    ! if ((self%elementIDs(1)==49)  .OR. self%elementIDs(2)==49) write(*,*) 'fstar of 49',fStar
+                    !! if ((self%elementIDs(1)==171) .OR. self%elementIDs(2)==171) write(*,*) 'fstar of 171 **',fStar
+                    ! if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
+                    ! if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
                      end associate
                   end if 
    
@@ -1329,10 +1343,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
             !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
            end select 
          else 
-            if (MOD(fma% ID, 2)==1) then 
+            if (fma%Mortarpos==1) then 
                Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)    !1;2
                Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)   !2,2
-            elseif (MOD(fma% ID, 2)==0) then  
+            elseif (fma%Mortarpos==0) then  
                Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 3, 2) % T)    !3;2
                Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T)   !4,2
             end if 
@@ -1348,7 +1362,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                  end do                 ; end do
               end do                  ; end do
      
-              write(*,*) 'fstar'
+     
               associate(fStar => self % storage(1) % Fstar)
                  fStar=fStar + fStarAux
               end associate 
@@ -1368,6 +1382,12 @@ if (self % ID==288) write(*,*) 'linking face 288'
                   !fStar=fStar + (fStarAux)
                   fStar=fStar + fma%s(1) * fStarAux
                   !fStar=fStar + sqrt(2.0_RP)*fStarAux
+                  !if ((self%elementIDs(1)==170) .OR. self%elementIDs(2)==170) write(*,*) 'motar fstar of 170',fStar
+                  !if ((self%elementIDs(1)==172)  .OR. self%elementIDs(2)==172) write(*,*) 'fstar of 172',fStar
+                  !if ((self%elementIDs(1)==49)  .OR. self%elementIDs(2)==49) write(*,*) 'fstar of 49',fStar
+                  !if ((self%elementIDs(1)==171) .OR. self%elementIDs(2)==171) write(*,*) 'fstar of 171 **',fStar
+                  !if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
+                  !if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
                end associate 
                associate(fStar => self % storage(2) % Fstar)
                   !fStar=fStar +(-fStarAux)
@@ -1384,7 +1404,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                
                ; end do                   ; end do    
 
-               fStarAux2=0._RP
+               fStarAux2=0.0_RP
                  ! if (self % rotation .NE. 7) write(*,*) ' line 1430rotation nn equal 7...', self % rotation
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                fStarAux=fma%s(1) * (fStarAux)
@@ -1395,6 +1415,12 @@ if (self % ID==288) write(*,*) 'linking face 288'
                      fStarAux2(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
                   end do                        ; end do
                   fStar=fStar+(-fStarAux2)
+                  !if ((self%elementIDs(1)==170) .OR. self%elementIDs(2)==170) write(*,*) 'motar fstar of 170',fStar
+                  !if ((self%elementIDs(1)==172)  .OR. self%elementIDs(2)==172) write(*,*) 'fstar of 172',fStar
+                  !if ((self%elementIDs(1)==49)  .OR. self%elementIDs(2)==49) write(*,*) 'fstar of 49',fStar
+                  !if ((self%elementIDs(1)==171) .OR. self%elementIDs(2)==171) write(*,*) 'fstar of 171 **',fStar
+                  !if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
+                  !if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
                end associate
 
                associate(fStar => self % storage(1) % Fstar)
@@ -1844,10 +1870,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
          !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
         end select 
       else 
-         if (MOD(fma% ID, 2)==1) then 
+         if (fma%Mortarpos==1) then 
             Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
             Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
-         elseif (MOD(fma% ID, 2)==0) then  
+         elseif (fma%Mortarpos==0) then  
             Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 3, 2) % T)
             Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T)
          end if 
@@ -1885,7 +1911,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
          !      call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
          !      hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
          !   end do                        ; end do
-            unStar=unStar+(-hStarAux)
+            unStar=unStar+factor*(hStarAux)
          end associate
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                !associate(unStar => self % storage(whichElements(1)) % unStar)
@@ -1912,7 +1938,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                          call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
                          hStarAux2(:,:,ii,jj) = hStarAux(:,:,i,j) 
                       end do                        ; end do
-                      unStar=unStar+(-hStarAux2)
+                      unStar=unStar+factor*(hStarAux2)
                    end associate
                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
               ! associate(unStar => self % storage(1) % unStar)

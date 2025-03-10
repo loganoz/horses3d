@@ -305,7 +305,7 @@
                      end if 
                   end do 
                elseif (fL % IsMortar==3) then 
-                  do m=1,2
+                  do m=1,size(fL%Mortar)
                      call fL % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot,&
                         faces(fL % Mortar(m)), .true.)
                   end do 
@@ -323,7 +323,7 @@
                      end if 
                   end do 
                elseif (fR % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fR%Mortar)
                         call fR % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT  ), QdotR, computeQdot,&
                            faces(fR % Mortar(m)), .true.)
                      end do 
@@ -341,7 +341,7 @@
                      end if 
                   end do 
                   elseif (fFR % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fFR%Mortar)
                         call fFR % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QFR   , self % faceSide(EFRONT  ), QdotFR, computeQdot,&
                            faces(fFR % Mortar(m)), .true.)
                      end do 
@@ -359,7 +359,7 @@
                      end if
                   end do 
                   elseif (fBK % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fBK%Mortar)
                         call fBK % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QBK   , self % faceSide(EBACK  ), QdotBK, computeQdot,&
                            faces(fBK % Mortar(m)), .true.)
                      end do 
@@ -377,7 +377,7 @@
                      end if 
                   end do 
                   elseif (fBOT % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fBOT%Mortar)
                         call fBOT % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QBOT   , self % faceSide(EBOTTOM  ), QdotBOT, computeQdot,&
                            faces(fBOT % Mortar(m)), .true.)
                      end do 
@@ -395,7 +395,7 @@
                      end if 
                   end do 
                   elseif (fT % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fT%Mortar)
                         !write(*,*) 'fT % Mortar(m)',fT % Mortar(m),'m',m,'fID:',fT%ID
                         call fT % AdaptSolutionToMortarFace(nEqn, N(2), N(3), QT   , self % faceSide(ETOP  ), QdotT, computeQdot,&
                            faces(fT % Mortar(m)), .true.)
@@ -486,7 +486,7 @@
                      end if 
                   end do 
                elseif(fL % IsMortar==3) then 
-               do m=1,2
+               do m=1,size(fL%Mortar)
                   call fL % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT), faces(fL % Mortar(m)), .true.)
                end do 
                else 
@@ -503,7 +503,7 @@
                      end if 
                   end do 
                   elseif(fR % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fR%Mortar)
                         call fR % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ERIGHT), faces(fR % Mortar(m)), .true.)
                      end do 
                else 
@@ -520,7 +520,7 @@
                      end if 
                   end do 
                   elseif(fFR % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fFR%Mortar)
                         call fFR % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(EFRONT), faces(fFR % Mortar(m)), .true.)
                      end do 
                else 
@@ -537,7 +537,7 @@
                      end if 
                   end do 
                   elseif(fBK % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fBK%Mortar)
                         call fBK % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(EBACK), faces(fBK % Mortar(m)), .true.)
                      end do 
                else 
@@ -554,7 +554,7 @@
                      end if 
                   end do 
                   elseif(fBOT % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fBOT%Mortar)
                         call fBOT % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(EBOTTOM), faces(fBOT % Mortar(m)), .true.)
                      end do 
                else 
@@ -571,7 +571,7 @@
                      end if 
                   end do 
                   elseif(fT % IsMortar==3) then 
-                     do m=1,2
+                     do m=1,size(fT%Mortar)
                         call fT % AdaptGradientsToMortarFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ETOP), faces(fT % Mortar(m)), .true.)
                      end do 
                else 
