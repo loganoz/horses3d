@@ -866,12 +866,15 @@ module ZYDIYDirichletBCClass
          ! Q(2) = 1.0_RP * self % vWall(2) 
          ! Q(3) = 1.0_RP * self % vWall(3) 
 
-         Q( 1 ) = 2.0_RP * self % vWall( 1 ) - Q( 1 )
-         Q( 2 ) = 2.0_RP * self % vWall( 2 ) - Q( 2 )
-         Q( 3 ) = 2.0_RP * self % vWall( 3 ) - Q( 3 )
+         ! Q( 1 ) = 2.0_RP * self % vWall( 1 ) - Q( 1 )
+         ! Q( 2 ) = 2.0_RP * self % vWall( 2 ) - Q( 2 )
+         ! Q( 3 ) = 2.0_RP * self % vWall( 3 ) - Q( 3 )
+
+
+         Q(1:3) = self % vWall(1:3)
 
          Q(5:7) = self % vWall(5:7)
-         Q(1:3) = self % vWall(1:3)
+         ! write(*,*) "Q(1:7) ==ZYDIr========", Q
 
          ! Q( 5 ) = 2.0_RP * self % vWall( 5 ) - Q( 5 )
          ! Q( 6 ) = 2.0_RP * self % vWall( 6 ) - Q( 6 )

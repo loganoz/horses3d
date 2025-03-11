@@ -462,6 +462,7 @@ contains
                           gamma, alpha0, alpha1, beta0, beta1         &
                           , computeA_step2   &
                           )
+         call sem % mesh % storage % SolutionStorage_global2LocalPress
          ! =====================================================================================================================
          ! =====================================================================================================================
          ! write (*,*) "=========computeA 3==============", computeA
@@ -529,13 +530,33 @@ contains
 
      
       
-      call sem % mesh % storage % global2LocalQ
+      ! call sem % mesh % storage % global2LocalQ
 
-      call sem % mesh % storage % SolutionStorage_global2LocalPress
       call sem % mesh % storage % SolutionStorage_global2LocalVelINS
 
 
-      call sem % mesh % storage % global2LocalQdot
+      ! call sem % mesh % storage % global2LocalQdot
+
+
+      ! do eID = 1, mesh % no_of_elements
+      !    associate ( e => mesh % elements(eID) )
+      !       IF (ANY(ISNAN(e % storage % slr2))) STOP "Error: slr2 contains NaN"
+      !       IF (ANY(ISNAN(e % storage % Nterm2))) STOP "Error: Nterm2 contains NaN"
+      !       IF (ANY(ISNAN(e % storage % Q))) STOP "Error: Q contains NaN"
+      !       IF (ANY(ISNAN(e % storage % QDot))) STOP "Error: QDot contains NaN"
+      
+      
+      !    do k = 0, e % Nxyz(3)   ; 
+      !       do j = 0, e % Nxyz(2) ; 
+      !          do i = 0, e % Nxyz(1)
+
+
+      !             e % storage % Q   (1:1+N_INS-1,i,j,k) = e % storage % Q   (5:5+N_INS-1,i,j,k)
+      !          end do                  ; 
+      !       end do                ; 
+      !    end do
+      !    end associate
+      ! end do
       
    end subroutine TakeSplit_3_Steps
 
@@ -666,6 +687,8 @@ contains
 
 
          sem % mesh % storage % vel__INS = linsolver % GetX()
+
+
 
          norm = linsolver%Getxnorm('infinity')
          ! write (*,*) "norm ============== * Third * ==============",norm
@@ -819,7 +842,7 @@ contains
       
       RHS = SplitSteps_GetRHS_second(sem, linsolver, dt)
 
-      RHS(1) = 100000_RP
+      RHS(13) = 0.0_RP
       
       call linsolver % SetRHS(RHS)
       

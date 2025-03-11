@@ -159,7 +159,7 @@ contains
       type(Entry_t), pointer :: Entry
       !----------------------------------------------
       
-      if (abs(value) < JACEPS) return
+      ! if (abs(value) < JACEPS) return
       
       if (row<1) return
       if (col<1) return

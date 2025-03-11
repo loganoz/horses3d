@@ -447,11 +447,13 @@ MODULE CSRMatrixClass
          error stop
       end if
       
-      if (abs(value) < JACEPS) return
+      ! if (abs(value) < JACEPS) return
       
       if (this % usingListMat) then
+         ! write(*,*) "if (this % usingListMat) then"
          call this % ListMatrix % SetEntry(row,col,value)
       else
+         ! write(*,*) "this % Values(k) = value"
          k = CSR_Search(this,row,col)
          this % Values(k) = value
       end if

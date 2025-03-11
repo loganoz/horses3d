@@ -299,7 +299,7 @@ module SpatialDiscretization
    
             call TimeDerivative_FacesContribution(e, time, mesh)
 
-            write(*,*) "gamma, alpha0, alpha1, beta0, beta1 ComputeNonlinearStep1 = ", gamma, alpha0, alpha1, beta0, beta1
+            ! write(*,*) "gamma, alpha0, alpha1, beta0, beta1 ComputeNonlinearStep1 = ", gamma, alpha0, alpha1, beta0, beta1
 
             do k = 0, e % Nxyz(3)   ; 
                do j = 0, e % Nxyz(2) ; 
@@ -459,7 +459,7 @@ module SpatialDiscretization
          call Custom_var_ComputeGradient(1,1,4,mesh , time )
 
          ! write (*,*) Custom_var_ComputeGradient, 
-         write(*,*) "gamma, alpha0, alpha1, beta0, beta1 ComputeTimeDerivative_Third = ", gamma, alpha0, alpha1, beta0, beta1
+         ! write(*,*) "gamma, alpha0, alpha1, beta0, beta1 ComputeTimeDerivative_Third = ", gamma, alpha0, alpha1, beta0, beta1
 
 
          call TimeDerivative_ComputeQDot_Third(mesh = mesh , &
@@ -533,7 +533,7 @@ module SpatialDiscretization
          call Custom_var_ComputeGradient(N_INS,N_INS,1,mesh , time )
          call Custom_var_ComputeGradient(N_INS,N_INS,5,mesh , time )
 
-         write(*,*) "gamma, alpha0, alpha1, beta0, beta1 ComputeTimeDerivative_Second = ", gamma, alpha0, alpha1, beta0, beta1
+         ! write(*,*) "gamma, alpha0, alpha1, beta0, beta1 ComputeTimeDerivative_Second = ", gamma, alpha0, alpha1, beta0, beta1
 
          call TimeDerivative_ComputeQDot_second(mesh = mesh , &
                                        particles = particles, &
@@ -879,15 +879,26 @@ module SpatialDiscretization
                      ! call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k),        &
                      !                                  t, e % storage % S_SLR(:,i,j,k), thermodynamics,    &
                      !                                  dimensionless, refValues)
+                     ! write(*,*) "e % storage % U_x(4,i,j,k) TimeDerivative_ComputeQDot_Third = ", e % storage % U_x(4,i,j,k)
+                     ! write(*,*) "e % storage % U_y(4,i,j,k) TimeDerivative_ComputeQDot_Third = ", e % storage % U_y(4,i,j,k)
+                     ! write(*,*) "e % storage % U_z(4,i,j,k) TimeDerivative_ComputeQDot_Third = ", e % storage % U_z(4,i,j,k)
                      
                      ! e % storage % vel_source(1,i,j,k) =   1.0_RP * alpha0 /t *e % storage % Q(5,i,j,k) + 1.0_RP * alpha1 /t *e % storage % slr2(1,i,j,k) ! - 1.0_RP * e % storage % U_x(4,i,j,k) 
                      ! e % storage % vel_source(2,i,j,k) =   1.0_RP * alpha0 /t *e % storage % Q(6,i,j,k) + 1.0_RP * alpha1 /t *e % storage % slr2(2,i,j,k) ! - 1.0_RP * e % storage % U_y(4,i,j,k) 
                      ! e % storage % vel_source(3,i,j,k) =   1.0_RP * alpha0 /t *e % storage % Q(7,i,j,k) + 1.0_RP * alpha1 /t *e % storage % slr2(3,i,j,k) ! - 1.0_RP * e % storage % U_z(4,i,j,k) 
                      ! e % storage % vel_source(1,i,j,k) =  gamma*1.0_RP/t *e % storage % Q(5,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
-                     e % storage % vel_source(1,i,j,k) =   1.0_RP * gamma /t *e % storage % Q(1,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
-                     e % storage % vel_source(2,i,j,k) =   1.0_RP * gamma /t *e % storage % Q(2,i,j,k) - 1.0_RP * e % storage % U_y(4,i,j,k) 
-                     e % storage % vel_source(3,i,j,k) =   1.0_RP * gamma /t *e % storage % Q(3,i,j,k) - 1.0_RP * e % storage % U_z(4,i,j,k) 
-                     ! ! e % storage % vel_source(1,i,j,k) =  gamma*1.0_RP/t *e % storage % Q(5,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
+                     
+                     e % storage % vel_source(1,i,j,k) =  1.0_RP * gamma /t *e % storage % Q(1,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
+                     e % storage % vel_source(2,i,j,k) =  1.0_RP * gamma /t *e % storage % Q(2,i,j,k) - 1.0_RP * e % storage % U_y(4,i,j,k) 
+                     e % storage % vel_source(3,i,j,k) =  1.0_RP * gamma /t *e % storage % Q(3,i,j,k) - 1.0_RP * e % storage % U_z(4,i,j,k) 
+                   
+                   
+                     ! e % storage % vel_source(1,i,j,k) =   1.0_RP * gamma /t *e % storage % Q(1,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
+                     ! e % storage % vel_source(2,i,j,k) =   1.0_RP * gamma /t *e % storage % Q(2,i,j,k) - 1.0_RP * e % storage % U_y(4,i,j,k) 
+                     ! e % storage % vel_source(3,i,j,k) =   1.0_RP * gamma /t *e % storage % Q(3,i,j,k) - 1.0_RP * e % storage % U_z(4,i,j,k) 
+                   
+                     ! ! ! e % storage % vel_source(1,i,j,k) =  gamma*1.0_RP/t *e % storage % Q(5,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
+                   
                      ! e % storage % vel_source(2,i,j,k) =  gamma*1.0_RP/t *e % storage % Q(6,i,j,k) - 1.0_RP * e % storage % U_y(4,i,j,k) 
                      ! e % storage % vel_source(3,i,j,k) =  gamma*1.0_RP/t *e % storage % Q(7,i,j,k) - 1.0_RP * e % storage % U_z(4,i,j,k) 
                      ! e % storage % vel_source(1,i,j,k) =  1.0_RP/t *e % storage % Q(5,i,j,k) - 1.0_RP * e % storage % U_x(4,i,j,k) 
@@ -945,7 +956,7 @@ module SpatialDiscretization
 !        **************************************************************
 !        Surface integrals and scaling of elements without shared faces
 !        **************************************************************
-         write(*,*) "gamma, alpha0, alpha1, beta0, beta1 TimeDerivative_ComputeQDot_second = ", gamma, alpha0, alpha1, beta0, beta1
+         ! write(*,*) "gamma, alpha0, alpha1, beta0, beta1 TimeDerivative_ComputeQDot_second = ", gamma, alpha0, alpha1, beta0, beta1
 ! 
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, size(mesh % elements) 
@@ -959,9 +970,9 @@ module SpatialDiscretization
             do k = 0, e % Nxyz(3)
                do j = 0, e % Nxyz(2)
                   do i = 0, e % Nxyz(1) 
-                     call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k),        &
-                                                      t, e % storage % S_SLR(:,i,j,k), thermodynamics,    &
-                                                      dimensionless, refValues)
+                     ! call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k),        &
+                     !                                  t, e % storage % S_SLR(:,i,j,k), thermodynamics,    &
+                     !                                  dimensionless, refValues)
 
                      div_u0 = -1.0_RP * gamma / t *(                                         &
                                       e % storage % U_x(1,i,j,k)           &
@@ -977,7 +988,7 @@ module SpatialDiscretization
                                   )
                      
                      ! rTerm = e % storage % S_SLR(:,i,j,k)
-                     write (*,*) "t, div_u0, div_u1 ======= ", t, div_u0, div_ur
+                     ! write (*,*) "t, div_u0, div_u1 ======= ", t, div_u0, div_ur
                      ! write (*,*) "t, gamma, div_u0, div_u1 ======= ", t,gamma, div_u0, div_ur
 
                      e % storage % pre_source(1,i,j,k) = div_u0
@@ -1616,7 +1627,7 @@ module SpatialDiscretization
          end do
 !$omp end do nowait
       else
-         ! write (*,*) "no HOElements ********* in SpatialDiscretization"
+         write (*,*) "no HOElements ********* in SpatialDiscretization"
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             call mesh % elements(eID) % HexElement_ComputeLocalGradient_SLR(nEqn, nGradEqn, startVarNum, set_mu)

@@ -6,8 +6,7 @@
 !-------------------------- Configuration:-
      !                           Mesh file name = MESH/meshTest1128_0608__oneElement.msh
       !                         Mesh file name = MESH/meshTest1024_length1_4x4.msh
-      meshTestPeriodicbig
-                                 Mesh file name = MESH/meshTestPeriodicbig.msh
+                                  Mesh file name = MESH/meshTestPeriodicbig.msh
                                  Mesh file name = MESH/meshTestPeriodic.msh
                                  Mesh file name = MESH/meshTestEle01.msh
                                  Mesh file name = MESH/meshTest1207_UNSTR.msh
@@ -17,14 +16,14 @@
                       Solution file name = RESULTS/Convergence.hsol
               Save gradients to solution = .false.
                                  Restart = .false.
+       !                          Restart = .TRUE.
                    2D mesh offset direction = y
-                       Restart file name = RESTART_FILE_NAME.hsol
-
+                       Restart file name = ./RESULTS/Convergence_0000005000.hsol
 !-------------------- Physical parameters:-
                           Flow equations = "SCALAR_INS_V04"
                           
 !------------------------- Discretization:-
-                        Polynomial order = 3
+                        Polynomial order = 4
      Discretization nodes = Gauss-Lobatto
    Discretization nodes = Gauss  
                    Viscous discretization = BR1  !IP   ! IP/BR2   ! For abbas3d00
@@ -55,18 +54,18 @@ compute jacobian every = 1000
    newton max iter = 300
 #end
 !			Time integration = Explicit
-                                      dt = 0.0001
-                    Number of time steps = 500 !100
+                                      dt = 0.00003
+                    Number of time steps = 5000 !100
                          Output interval = 2
                    Convergence tolerance = 1.0e-5
                            Autosave mode = iteration
-                       Autosave interval = 100
+                       Autosave interval = 250
 
 
 
 
-!                                      dt = 0.0001
-!                    Number of time steps = 5000 !100
+!                                      dt = 0.00001
+!                    Number of time steps = 50000 !100
 !                         Output interval = 2
 !                   Convergence tolerance = 1.0e-5
 !                           Autosave mode = iteration
@@ -90,7 +89,7 @@ compute jacobian every = 1000
 #define boundary top
 !   type = user-defined
    type = zydiydirichletbc
-   wall values = [0,0,5,0,0,0,5]
+   wall values = [0,0,30,0,0,0,30]
 !   type = zydiyfreeslipwall
    type = periodic
    coupled boundary = bottom

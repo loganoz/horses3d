@@ -873,7 +873,7 @@ module StorageClass
          do eID=1, size(self % elements)
             associate ( N => self % elements(eID) % Nxyz )
             lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
-            self % elements(eID) % Q(4:4,0:N(1),0:N(2),0:N(3)) = reshape ( self % pressINS (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            self % elements(eID) % Q       (4:4,0:N(1),0:N(2),0:N(3)) = reshape ( self % pressINS (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
             self % elements(eID) % pressINS(1:1,0:N(1),0:N(2),0:N(3)) = reshape ( self % pressINS (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
             firstIdx = lastIdx
             end associate

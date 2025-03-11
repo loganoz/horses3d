@@ -415,6 +415,11 @@ end module ProblemFileFunctions
                         ! mesh % elements(eID) % storage % q(:,i,j,k) = -1_RP*gaussionWave+100_RP
                         mesh % elements(eID) % storage % q(1:7,i,j,k) = 0.0_RP
 
+                        if(abs(x(IX) - 2.0_RP) < 1e-6) then 
+                           mesh % elements(eID) % storage % q(3,i,j,k) = 0.0_RP
+                           mesh % elements(eID) % storage % q(7,i,j,k) = 0.0_RP
+                        endif
+
                         ! mesh % elements(eID) % storage % q(1,i,j,k) = 1.0_RP-x(IX)
 
                         ! res2 = 0.0_RP
