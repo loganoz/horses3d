@@ -9,6 +9,10 @@ module UserDefinedBCClass
    use GenericBoundaryConditionClass
    use FluidData
    use VariableConversion, only: GetGradientValues_f
+#if defined(NAVIERSTOKES)
+   use VariableConversion, only: pressure
+#endif
+   use PolynomialInterpAndDerivsModule 
    implicit none
 !
 !  *****************************
@@ -42,9 +46,15 @@ module UserDefinedBCClass
       contains
          procedure         :: Destruct          => UserDefinedBC_Destruct
 #ifdef FLOW
-         procedure         :: FlowState         => UserDefinedBC_FlowState
-         procedure         :: FlowGradVars      => UserDefinedBC_FlowGradVars
-         procedure         :: FlowNeumann       => UserDefinedBC_FlowNeumann
+         procedure         :: FlowState           => UserDefinedBC_FlowState
+         procedure         :: FlowGradVars        => UserDefinedBC_FlowGradVars
+         procedure         :: FlowNeumann         => UserDefinedBC_FlowNeumann
+         procedure         :: FlowState_HOIBM     => UserDefinedBC_FlowState_HOIBM
+         procedure         :: FlowStateWeak_HOIBM => UserDefinedBC_FlowStateWeak_HOIBM
+         procedure         :: FlowGradVars_HOIBM  => UserDefinedBC_FlowGradVars_HOIBM
+         procedure         :: FlowNeumann_HOIBM   => UserDefinedBC_FlowNeumann_HOIBM
+         procedure         :: FlowStateMoving_IBM => UserDefinedBC_FlowStateMoving_IBM
+         procedure         :: PositionMoving_IBM  => UserDefinedBC_PositionMoving_IBM
 #endif
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => UserDefinedBC_PhaseFieldState
@@ -80,7 +90,7 @@ module UserDefinedBCClass
 !
 !/////////////////////////////////////////////////////////
 !
-      function ConstructUserDefinedBC(bname)
+      function ConstructUserDefinedBC(bname,isIBM)
 !
 !        ********************************************************************
 !        · Definition of the user-defined boundary condition in the control file:
@@ -104,6 +114,7 @@ module UserDefinedBCClass
          implicit none
          type(UserDefinedBC_t)             :: ConstructUserDefinedBC
          character(len=*), intent(in) :: bname
+         logical, optional, intent(in) :: isIBM
 !
 !        ---------------
 !        Local variables
@@ -115,6 +126,8 @@ module UserDefinedBCClass
          character(len=LINE_LENGTH) :: keyword, keyval
          logical                    :: inside
          type(FTValueDIctionary)    :: bcdict
+
+         if( present(isIBM) ) return 
 
          open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
@@ -347,6 +360,160 @@ module UserDefinedBCClass
          end select
 
       end subroutine UserDefinedBC_FlowNeumann
+
+      subroutine UserDefinedBC_FlowStateMoving_IBM( self, Q, x, t, dt, cL, cD, Qsb )  
+         implicit none 
+         class(UserDefinedBC_t),   intent(in)    :: self
+         real(kind=RP),            intent(in)    :: Q(NCONS)
+         real(kind=RP),            intent(inout) :: x(NDIM)
+         real(kind=RP),            intent(in)    :: t, dt
+         real(kind=RP),            intent(in)    :: cL, cD 
+         real(kind=RP),            intent(inout) :: Qsb(NCONS)
+
+         logical       :: updatePosition, GetVelocity
+         real(kind=RP) :: V(NDIM), P 
+         interface
+            subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, updatePosition, GetVelocity )
+               use SMConstants
+               use FluidData
+               use PhysicsStorage
+               IMPLICIT NONE
+               real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+               real(kind=RP),           intent(in)    :: t, dt
+               real(kind=RP),           intent(in)    :: cL, cD 
+               type(RefValues_t),       intent(in)    :: refValues_
+               logical,                 intent(in)    :: GetVelocity, UpdatePosition
+            end subroutine UserDefinedIBMKinematicsNS
+         end interface
+#if defined(NAVIERSTOKES)
+         associate(gammaMinus1 => thermodynamics% gammaMinus1 )
+         
+         call UserDefinedIBMKinematicsNS( x=x, V=V, cL=cL, cD=cD, t=t, dt=dt, refValues_=refValues, updatePosition=.false., GetVelocity=.true. )
+
+         P                = pressure(Q)
+         Qsb(IRHO)        = Q(IRHO) 
+         Qsb(IRHOU:IRHOW) = Q(IRHO)*V
+         Qsb(IRHOE)       = P/gammaMinus1 + 0.5_RP * Q(IRHO) * sum(V*V)
+
+         end associate 
+#endif
+      end subroutine UserDefinedBC_FlowStateMoving_IBM
+
+      subroutine UserDefinedBC_PositionMoving_IBM( self, x, t, dt, cL, cD )  
+         implicit none 
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),           intent(inout) :: x(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+
+         logical       :: updatePosition, GetVelocity
+         real(kind=RP) :: V(NDIM)
+         interface
+            subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, updatePosition, GetVelocity )
+               use SMConstants
+               use FluidData
+               use PhysicsStorage
+               IMPLICIT NONE
+               real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+               real(kind=RP),           intent(in)    :: t, dt
+               real(kind=RP), optional, intent(in)    :: cL, cD 
+               type(RefValues_t),       intent(in)    :: refValues_
+               logical,                 intent(in)    :: GetVelocity, UpdatePosition
+            end subroutine UserDefinedIBMKinematicsNS
+         end interface
+         
+         call UserDefinedIBMKinematicsNS( x=x, V=V, cL=cL, cD=cD, t=t, dt=dt, refValues_=refValues, updatePosition=.true., GetVelocity=.false. )
+
+      end subroutine UserDefinedBC_PositionMoving_IBM
+
+      subroutine UserDefinedBC_FlowState_HOIBM( self, Q, xb, xsb, nodes, N, x, time, nHat, Qsb )   
+         implicit none
+         class(UserDefinedBC_t), intent(in)    :: self
+         real(kind=RP),          intent(inout) :: Q(NCONS,0:N)
+         real(kind=RP),          intent(in)    :: xb, xsb, nodes(0:N), x(NDIM), time, nHat(NDIM)
+         integer,                intent(in)    :: N
+         real(kind=RP),          intent(inout) :: Qsb(NCONS) 
+
+         real(kind=RP) :: Q_(NCONS), lj(0:N), w(0:N), den, dQ(NCONS)
+         integer       :: i     
+         interface
+            subroutine UserDefinedState1(x, time, nHat, Q_, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               use FluidData
+               implicit none
+               real(kind=RP)  :: x(NDIM)
+               real(kind=RP)  :: time
+               real(kind=RP)  :: nHat(NDIM)
+               real(kind=RP)  :: Q_(NCONS)
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            end subroutine UserDefinedState1
+         end interface
+
+         Qsb = 0.0_RP 
+
+         do i = 0, N 
+            lj(i) = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
+         end do 
+
+         call UserDefinedState1(x, time, nHat, Q(:,0), thermodynamics, dimensionless, refValues)
+
+         do i = 0, N 
+            Qsb = Qsb + lj(i) * Q(:,i)
+         end do 
+
+      end subroutine UserDefinedBC_FlowState_HOIBM
+
+      subroutine UserDefinedBC_FlowStateWeak_HOIBM( self, QIn, Qsb, nHat, Qsb_weak )    
+         implicit none
+         class(UserDefinedBC_t), intent(in)    :: self
+         real(kind=RP),          intent(in)    :: QIn(NCONS), Qsb(NCONS)  
+         real(kind=RP),          intent(in)    :: nHat(NDIM)  
+         real(kind=RP),          intent(inout) :: Qsb_weak(NCONS)  
+
+         real(kind=RP) :: rho, invRho, Vsb(NDIM), V(NDIM)
+
+         Qsb_weak = Qsb
+
+      end subroutine UserDefinedBC_FlowStateWeak_HOIBM
+
+      subroutine UserDefinedBC_FlowGradVars_HOIBM( self, QIn, Qsb, x, time, nHat, Usb, GetGradients )    
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),           intent(in)    :: QIn(NCONS), Qsb(NCONS), x(NDIM), time, nHat(NDIM)
+         real(kind=RP),           intent(inout) :: Usb(NGRAD)
+         procedure(GetGradientValues_f)         :: GetGradients 
+
+         interface
+            subroutine UserDefinedGradVars1(x, time, nHat, Q, Usb, GetGradients, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               use FluidData
+               use VariableConversion, only: GetGradientValues_f
+               implicit none
+               real(kind=RP), intent(in)          :: x(NDIM)
+               real(kind=RP), intent(in)          :: time
+               real(kind=RP), intent(in)          :: nHat(NDIM)
+               real(kind=RP), intent(in)          :: Q(NCONS)
+               real(kind=RP), intent(inout)       :: Usb(NGRAD)
+               procedure(GetGradientValues_f)     :: GetGradients
+               type(Thermodynamics_t), intent(in) :: thermodynamics_
+               type(Dimensionless_t),  intent(in) :: dimensionless_
+               type(RefValues_t),      intent(in) :: refValues_
+            end subroutine UserDefinedGradVars1
+         end interface
+      end subroutine UserDefinedBC_FlowGradVars_HOIBM
+
+      subroutine UserDefinedBC_FlowNeumann_HOIBM( self, QIn, UIn_x, UIn_y, UIn_z, Qsb, x, time, nHat, flux )    
+         implicit none
+         class(UserDefinedBC_t), intent(in)    :: self
+         real(kind=RP),         intent(in)    :: QIn(NCONS), Qsb(NCONS), x(NDIM), time, nHat(NDIM)
+         real(kind=RP),         intent(in)    :: UIn_x(NGRAD), UIn_y(NGRAD), UIn_z(NGRAD)
+         real(kind=RP),         intent(inout) :: flux(NCONS)
+
+      end subroutine UserDefinedBC_FlowNeumann_HOIBM
 #endif
 !
 !////////////////////////////////////////////////////////////////////////////

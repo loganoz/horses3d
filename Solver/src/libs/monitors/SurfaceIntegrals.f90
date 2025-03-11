@@ -16,7 +16,9 @@ module SurfaceIntegrals
 
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW_RATE, PRESSURE_DISTRIBUTION
-   public   ScalarSurfaceIntegral, VectorSurfaceIntegral, ScalarDataReconstruction, VectorDataReconstruction
+   public   ScalarSurfaceIntegral, VectorSurfaceIntegral
+   public   ScalarDataReconstruction, VectorDataReconstruction, IBMSurfaceIntegral, IBMVectorIntegral
+   public   VectorDataReconstructionHOIBM, ScalarDataReconstructionHOIBM
 
    integer, parameter   :: SURFACE = 1
    integer, parameter   :: TOTAL_FORCE = 2
@@ -452,7 +454,132 @@ module SurfaceIntegrals
 !                          SURFACE INTEGRALS
 !
 !////////////////////////////////////////////////////////////////////////////////////////
-   subroutine ScalarDataReconstruction( IBM, elements, STLNum, integralType, iter, autosave, dt ) 
+   function ScalarDataReconstructionHOIBM( mesh, STLNum, iter, integralType ) result(val)
+      use PolynomialInterpAndDerivsModule 
+#ifdef _HAS_MPI_
+      use mpi
+#endif
+      implicit none
+      class(HexMesh),      intent(inout), target  :: mesh 
+      integer,             intent(in)    :: STLnum
+      integer,             intent(in)    :: integralType, iter
+
+      real(kind=RP) :: val
+      real(kind=RP) :: localVal, lj, Surf, localValSurf
+      integer       :: eID, i, j, k, fID, fIDs(6), HOSIDE, ierr, Sidearray(2)
+
+      call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements, mesh % faces )
+
+      do eID = 1, size(mesh % elements)
+         associate(e => mesh % elements(eID))
+         if( e% HO_IBM .or. e% HOcorrection ) then 
+            fIDs = e % faceIDs
+            call e % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
+                                                   mesh % faces(fIDs(2)),&
+                                                   mesh % faces(fIDs(3)),&
+                                                   mesh % faces(fIDs(4)),&
+                                                   mesh % faces(fIDs(5)),&
+                                                   mesh % faces(fIDs(6)) )
+         end if 
+         end associate 
+      end do 
+   
+      val = 0.0_RP; Surf = 0.0_RP 
+      Sidearray = (/2,1/)
+      do fID = 1, size(mesh% faces)
+         associate(f => mesh% faces(fID))
+         if( f% HO_IBM .and. f% monitor ) then 
+            HOSIDE = Sidearray(f% HOSIDE)
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               f% stencil(i,j)% Q(:,0) = f% storage(HOSIDE)% Q(:,i,j)
+               f% stencil(i,j)% Qb     = 0.0_RP  
+               do k = 0, f% stencil(i,j)% N 
+                  lj = LagrangeInterpolatingPolynomial( k, f% stencil(i,j)% nodes(0), f% stencil(i,j)% N, f% stencil(i,j)% nodesB )
+                  f% stencil(i,j)% Qb = f% stencil(i,j)% Qb + lj * f% stencil(i,j)% Q(:,k)
+               end do 
+
+            end do; end do 
+
+            localVal = HOIBMScalarIntegral( f, STLNum, integralType)
+            val      = val + localVal
+   
+            localValSurf = GetSurface(f, STLNum)
+            Surf         = Surf + localValSurf
+         end if
+         end associate
+      end do
+#ifdef _HAS_MPI_
+      localVal = val
+      call mpi_allreduce(localVal, val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+      localValSurf = Surf
+      call mpi_allreduce(localValSurf, Surf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      val = val * mesh% IBM% stl(STLNum)% A/Surf  
+   
+   end function ScalarDataReconstructionHOIBM
+
+   function HOIBMScalarIntegral( f, STLNum, integralType ) result(val)
+      use IBMClass
+      use MPI_Process_Info
+      implicit none 
+
+      type(face),     intent(inout) :: f
+      integer,        intent(in)    :: STLNum, integralType
+      real(kind=RP)                 :: val
+
+      integer                       :: i, j      ! Face indices
+      real(kind=RP)                 :: p, tau(NDIM,NDIM)
+      type(NodalStorage_t), pointer :: spAxi, spAeta
+
+         val = 0.0_RP
+         spAxi  => NodalStorage(f % Nf(1))
+         spAeta => NodalStorage(f % Nf(2))
+
+         select case ( integralType )
+         case ( SURFACE )
+
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+               val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+
+         case ( MASS_FLOW )
+#if defined(NAVIERSTOKES)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+               val = val -  (f% stencil(i,j)% Qb(IRHOU) * f% stencil(i,j) % normal(1)  &
+                           + f% stencil(i,j)% Qb(IRHOV) * f% stencil(i,j) % normal(2)  &
+                           + f% stencil(i,j)% Qb(IRHOW) * f% stencil(i,j) % normal(3) ) &
+                     * spAxi % w(i) * spAeta % w(j) * f% geom % jacobian(i,j)
+
+            end do          ;    end do
+#endif
+         case ( FLOW_RATE )
+#if defined(NAVIERSTOKES)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+               val = val - (1.0_RP / f% stencil(i,j)% Qb(IRHO))*(f% stencil(i,j)% Qb(IRHOU) * f% stencil(i,j) % normal(1)  &
+                                             + f% stencil(i,j)% Qb(IRHOV) * f% stencil(i,j) % normal(2)  &
+                                             + f% stencil(i,j)% Qb(IRHOW) * f% stencil(i,j) % normal(3) ) &
+                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+#endif
+         case ( PRESSURE_FORCE )
+
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+               p = Pressure(f% stencil(i,j)% Qb)
+               val = val + p * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+            end do          ;    end do
+
+
+         case ( USER_DEFINED )   ! TODO
+         end select
+
+         nullify (spAxi, spAeta)
+
+   end function HOIBMScalarIntegral
+
+   subroutine ScalarDataReconstruction( IBM, elements, STLNum, integralType, iter, autosave ) 
       use TessellationTypes
       use MappedGeometryClass
       use IBMClass
@@ -476,63 +603,242 @@ module SurfaceIntegrals
       type(IBM_type), intent(inout) :: IBM
       type(element),  intent(inout) :: elements(:)
       integer,        intent(in)    :: integralType, STLNum, iter
-      real(kind=RP),  intent(in)    :: dt
       !-local-variables-------------------------------------------------
-      real(kind=rp), allocatable  :: Qsurf(:,:), U_xsurf(:,:), U_ysurf(:,:), U_zsurf(:,:)
-      integer                     :: i, j
-      logical                     :: found, autosave
+      real(kind=rp) :: Qsurf(NCONS,IBM% NumOfInterPoints)
+      real(kind=RP) :: Q(NCONS)
+      integer       :: i, j, k, n
+      logical       :: autosave
        
       if( .not. IBM% Integral(STLNum)% compute ) return
-      
-      allocate( Qsurf(NCONS,IBM% NumOfInterPoints) )
-      call IBM% BandPoint_state( elements, STLNum, .true. )
- 
-      if( IBM% stlSurfaceIntegrals(STLNum)% move ) then
-         if( IBM% stlSurfaceIntegrals(STLNum)% motionType .eq. ROTATION ) then
-            call IBM% stlSurfaceIntegrals(STLNum)% getRotationaMatrix( dt )
-            call OBB(STLNum)% STL_rotate( IBM% stlSurfaceIntegrals(STLNum), .true. )
-         elseif( IBM% stlSurfaceIntegrals(STLNum)% motionType .eq. LINEAR ) then
-            call IBM% stlSurfaceIntegrals(STLNum)% getDisplacement( dt )
-            call OBB(STLNum)% STL_translate( IBM% stlSurfaceIntegrals(STLNum), .true. )
-         end if
-      end if
 
-      if( .not. MPI_Process% isRoot ) return 
-!$omp parallel
-!$omp do schedule(runtime) private(j,found)
-      do i = 1, IBM% stlSurfaceIntegrals(STLNum)% NumOfObjs
+      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% stl(STLNum) )
 
-         do j = 1, NumOfVertices + 4 
-            call GetSurfaceState( IBM, IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i), IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j), STLNum ) 
-            Qsurf = IBM% BandRegion(STLNum)% Q(:,IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints)   
+      if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
+
+      do i = 1, IBM% stl(STLNum)% NumOfObjs
+         associate(obj => IBM% stl(STLNum)% ObjectsList(i))
+         do j = 1, NumOfIntegrationVertices
+            if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
+               
+            call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
+
+            obj% IntegrationVertices(j)% ScalarValue = IntegratedScalarValue( Q, obj% normal, integralType )   
+
          end do
-
-         do j = 1, NumOfVertices + 4
-            IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% ScalarValue = IntegratedScalarValue( Q                 = Qsurf,                                                         &
-                                                                                                                vertex            = IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j), &
-                                                                                                                normal            = IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% normal,      &
-                                                                                                                integralType      = integralType,                                                  &
-                                                                                                                InterpolationType = IBM% InterpolationType                                         )   
-         end do
+         end associate
       end do
-!$omp end do
-!$omp end parallel
-      if( IBM% stl(STLNum)% move ) then
-         IBM% Integral(STLNum)% ListComputed = .false.
-      else 
-         IBM% Integral(STLNum)% ListComputed = .true.
-      end if 
+
+      IBM% Integral(STLNum)% ListComputed = .true.
       
       if( autosave ) call GenerateScalarmonitorTECfile( IBM, STLNum, integralType, iter )
 
    end subroutine ScalarDataReconstruction
+
+   function IBMSurfaceIntegral( IBM, STLNum )
+      use IBMClass 
+      use MPI_Process_Info
+      implicit none 
+
+      type(IBM_type), intent(inout) :: IBM
+      integer,        intent(in)    :: STLNum
+      real(kind=RP)                 :: IBMSurfaceIntegral
+
+      real(kind=RP) :: s 
+#ifdef _HAS_MPI_
+      real(kind=RP) :: localval
+      integer       :: ierr 
+#endif 
+      s = IBM% stl(STLNum)% ComputeScalarIntegral()
+#ifdef _HAS_MPI_
+      localval = s
+      call mpi_allreduce(localval, s, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      IBMSurfaceIntegral = s
+
+   end function IBMSurfaceIntegral
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
 !                          VECTOR INTEGRALS
 !
 !////////////////////////////////////////////////////////////////////////////////////////
-   subroutine VectorDataReconstruction( IBM, elements, STLNum, integralType, iter, autosave, dt )
+   function VectorDataReconstructionHOIBM( mesh, STLNum, iter, integralType ) result(val)
+      use PolynomialInterpAndDerivsModule 
+#ifdef _HAS_MPI_
+      use mpi
+#endif
+      implicit none
+      class(HexMesh),      intent(inout), target  :: mesh 
+      integer,             intent(in)    :: STLnum
+      integer,             intent(in)    :: integralType, iter
+
+      real(kind=RP) :: val(NDIM)
+      real(kind=RP) :: localVal(NDIM), lj, Surf, localValSurf
+      integer       :: eID, i, j, k, fID, fIDs(6), HOSIDE, ierr, Sidearray(2)
+
+      call mesh% IBM% HO_IBMstencilState( NCONS, mesh % elements, mesh % faces )
+      call mesh% IBM% HO_IBMstencilGradient( NGRAD, mesh % elements, mesh % faces )
+
+      do eID = 1, size(mesh % elements)
+         associate(e => mesh % elements(eID))
+         if( e% HO_IBM .or. e% HOcorrection ) then 
+            fIDs = e % faceIDs
+            call e % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
+                                                   mesh % faces(fIDs(2)),&
+                                                   mesh % faces(fIDs(3)),&
+                                                   mesh % faces(fIDs(4)),&
+                                                   mesh % faces(fIDs(5)),&
+                                                   mesh % faces(fIDs(6)) )
+            if ( computeGradients ) then
+               call e % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
+                                                       mesh % faces(fIDs(2)),&
+                                                       mesh % faces(fIDs(3)),&
+                                                       mesh % faces(fIDs(4)),&
+                                                       mesh % faces(fIDs(5)),&
+                                                       mesh % faces(fIDs(6)) )
+            end if
+         end if 
+         end associate 
+      end do 
+ 
+      val = 0.0_RP; Surf = 0.0_RP 
+      Sidearray = (/2,1/)
+      do fID = 1, size(mesh% faces)
+         associate(f => mesh% faces(fID))
+         if( f% HO_IBM .and. f% monitor ) then 
+            HOSIDE = Sidearray(f% HOSIDE)
+            do i = 0, f% Nf(1); do j = 0, f% Nf(2)
+               f% stencil(i,j)% Q(:,0) = f% storage(HOSIDE)% Q(:,i,j)
+               if ( computeGradients ) then
+                  f% stencil(i,j)% U_x(:,0) = f% storage(HOSIDE)% U_x(:,i,j)
+                  f% stencil(i,j)% U_y(:,0) = f% storage(HOSIDE)% U_y(:,i,j)
+                  f% stencil(i,j)% U_z(:,0) = f% storage(HOSIDE)% U_z(:,i,j)
+               end if
+               f% stencil(i,j)% Qb   = 0.0_RP  
+               f% stencil(i,j)% Ub_x = 0.0_RP  
+               f% stencil(i,j)% Ub_y = 0.0_RP  
+               f% stencil(i,j)% Ub_z = 0.0_RP  
+               do k = 0, f% stencil(i,j)% N 
+                  lj = LagrangeInterpolatingPolynomial( k, f% stencil(i,j)% nodes(0), f% stencil(i,j)% N, f% stencil(i,j)% nodesB )
+                  f% stencil(i,j)% Qb = f% stencil(i,j)% Qb + lj * f% stencil(i,j)% Q(:,k)
+                  if ( computeGradients ) then
+                     f% stencil(i,j)% Ub_x = f% stencil(i,j)% Ub_x + lj * f% stencil(i,j)% U_x(:,k) 
+                     f% stencil(i,j)% Ub_y = f% stencil(i,j)% Ub_y + lj * f% stencil(i,j)% U_y(:,k) 
+                     f% stencil(i,j)% Ub_z = f% stencil(i,j)% Ub_z + lj * f% stencil(i,j)% U_z(:,k) 
+                  end if
+               end do 
+
+            end do; end do 
+
+            localVal = HOIBMVectorIntegral(f, STLNum, integralType)
+            val      = val + localVal
+ 
+            localValSurf = GetSurface(f, STLNum)
+            Surf         = Surf + localValSurf
+         end if
+         end associate
+      end do
+#ifdef _HAS_MPI_
+      localVal = val
+      call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+      localValSurf = Surf
+      call mpi_allreduce(localValSurf, Surf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      val = val * mesh% IBM% stl(STLNum)% A/Surf  
+
+   end function VectorDataReconstructionHOIBM
+
+   real(kind=RP) function GetSurface( f, STLNum )
+
+      implicit none 
+
+      type(face),     intent(inout) :: f
+      integer,        intent(in)    :: STLNum
+
+      integer                       :: i, j      
+      real(kind=RP)                 :: val
+      type(NodalStorage_t), pointer :: spAxi, spAeta
+  
+      val = 0.0_RP
+      spAxi  => NodalStorage(f % Nf(1))
+      spAeta => NodalStorage(f % Nf(2)) 
+
+      do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+         val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) 
+      end do          ;    end do
+
+      GetSurface = val 
+
+   end function GetSurface
+
+   function HOIBMVectorIntegral( f, STLNum, integralType ) result(val)
+      use IBMClass
+      use MPI_Process_Info
+      implicit none 
+
+      type(face),     intent(inout) :: f
+      integer,        intent(in)    :: STLNum, integralType
+      real(kind=RP)                 :: val(NDIM)
+
+      integer                       :: i, j      ! Face indices
+      real(kind=RP)                 :: p, tau(NDIM,NDIM)
+      type(NodalStorage_t), pointer :: spAxi, spAeta
+
+      val = 0.0_RP
+      spAxi  => NodalStorage(f % Nf(1))
+      spAeta => NodalStorage(f % Nf(2))
+
+      select case ( integralType )
+      case ( SURFACE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+            val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) &
+                      * f % geom % normal(:,i,j)
+         end do          ;    end do
+
+      case ( TOTAL_FORCE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+            p = Pressure(f% stencil(i,j)% Qb)
+
+            call getStressTensor(f% stencil(i,j)% Qb, f% stencil(i,j)% Ub_x, f% stencil(i,j)% Ub_y ,f% stencil(i,j)% Ub_z, tau)
+            
+            val = val + ( -p * f % stencil(i,j) % normal + matmul(tau,f % stencil(i,j) % normal) ) &
+                        * f % geom % jacobian(i,j) * spAxi % w(i) * spAeta % w(j)
+         
+         end do          ;    end do
+
+      case ( PRESSURE_FORCE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+            p = Pressure(f% stencil(i,j)% Qb)
+
+            val = val - ( p * f % stencil(i,j) % normal ) * f % geom % jacobian(i,j) &
+                      * spAxi % w(i) * spAeta % w(j)
+
+         end do          ;    end do
+
+      case ( VISCOUS_FORCE )
+
+         do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+
+            call getStressTensor(f% stencil(i,j)% Qb, f% stencil(i,j)% Ub_x, f% stencil(i,j)% Ub_y ,f% stencil(i,j)% Ub_z, tau)
+            val = val + matmul(tau,f % stencil(i,j) % normal) * f % geom % jacobian(i,j) &
+                        * spAxi % w(i) * spAeta % w(j)
+
+         end do          ;    end do
+
+      case ( USER_DEFINED )   ! TODO
+
+      end select
+
+      nullify (spAxi, spAeta)
+
+   end function HOIBMVectorIntegral 
+
+   subroutine VectorDataReconstruction( IBM, elements, STLNum, integralType, iter, autosave )
       use TessellationTypes
       use MappedGeometryClass
       use IBMClass
@@ -557,182 +863,63 @@ module SurfaceIntegrals
       type(IBM_type), intent(inout) :: IBM
       type(element),  intent(inout) :: elements(:)
       integer,        intent(in)    :: integralType, STLNum, iter
-      real(kind=RP),  intent(in)    :: dt
       !-local-variables---------------------------------------------------------------------------
-      real(kind=rp), allocatable  :: Qsurf(:,:,:), U_xsurf(:,:,:), U_ysurf(:,:,:), U_zsurf(:,:,:)
-      integer                     :: i, j
-      logical                     :: found, autosave
-
+      real(kind=rp) :: Qsurf(NCONS,IBM% NumOfInterPoints),   &
+                       U_xsurf(NCONS,IBM% NumOfInterPoints), &
+                       U_ysurf(NCONS,IBM% NumOfInterPoints), &
+                       U_zsurf(NCONS,IBM% NumOfInterPoints)
+      real(kind=RP) :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS), sum_
+      integer       :: i, j, k, n
+      logical       :: found, autosave
+      
       if( .not. IBM% Integral(STLNum)% compute ) return 
-
-      allocate( Qsurf(NCONS,IBM% NumOfInterPoints,NumOfVertices + 4),   &
-                U_xsurf(NCONS,IBM% NumOfInterPoints,NumOfVertices + 4), &
-                U_ysurf(NCONS,IBM% NumOfInterPoints,NumOfVertices + 4), &
-                U_zsurf(NCONS,IBM% NumOfInterPoints,NumOfVertices + 4)  )
-      call IBM% BandPoint_state( elements, STLNum, .true. )
  
-      if( .not. MPI_Process% isRoot ) return 
+      call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% STL(STLNum) ) 
 
-      if( IBM% stlSurfaceIntegrals(STLNum)% move ) then
-         if( IBM% stlSurfaceIntegrals(STLNum)% motionType .eq. ROTATION ) then
-            call IBM% stlSurfaceIntegrals(STLNum)% getRotationaMatrix( dt )
-            call OBB(STLNum)% STL_rotate( IBM% stlSurfaceIntegrals(STLNum), .true. )
-         elseif( IBM% stlSurfaceIntegrals(STLNum)% motionType .eq. LINEAR ) then
-            call IBM% stlSurfaceIntegrals(STLNum)% getDisplacement( dt )
-            call OBB(STLNum)% STL_translate( IBM% stlSurfaceIntegrals(STLNum), .true. )
-         end if
-      end if
-!$omp parallel
-!$omp do schedule(runtime) private(j,found,Qsurf,U_xsurf,U_ysurf,U_zsurf)
-      do i = 1, IBM% stlSurfaceIntegrals(STLNum)% NumOfObjs
+      if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
 
-         do j = 1, NumOfVertices + 4 
-            call GetSurfaceState( IBM, IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i), IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j), STLNum ) 
+      do i = 1, IBM% stl(STLNum)% NumOfObjs
+         associate( obj =>  IBM% stl(STLNum)% ObjectsList(i) )
+         do j = 1, NumOfIntegrationVertices
+            if( .not. IBM% Integral(STLNum)% ListComputed ) call IBM% GetPointInterpolation( obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask ) 
+               
+            call GetPointState( NCONS, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, Q )
+            call GetPointGrads( NGRAD, obj% IntegrationVertices(j), IBM% BandRegion(STLnum)% IBMmask, IBM% NumOfInterPoints, IBM% InterpolationType, U_x, U_y, U_z )
+            
+            obj% IntegrationVertices(j)% VectorValue = IntegratedVectorValue( Q, U_x, U_y, U_z, obj% normal, IBM% IP_dWall, IBM% Wallfunction, integralType )
 
-            Qsurf(:,:,j)   = IBM% BandRegion(STLNum)% Q  (:,IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints)   
-            U_xsurf(:,:,j) = IBM% BandRegion(STLNum)% U_x(:,IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints) 
-            U_ysurf(:,:,j) = IBM% BandRegion(STLNum)% U_y(:,IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints) 
-            U_zsurf(:,:,j) = IBM% BandRegion(STLNum)% U_z(:,IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints) 
-         end do
-         
-         do j = 1, NumOfVertices + 4
-            IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j)% VectorValue = IntegratedVectorValue( Q                 = Qsurf(:,:,j),                                                  &
-                                                                                                                U_x               = U_xsurf(:,:,j),                                                &  
-                                                                                                                U_y               = U_ysurf(:,:,j),                                                &
-                                                                                                                U_z               = U_zsurf(:,:,j),                                                &
-                                                                                                                vertex            = IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% vertices(j), &
-                                                                                                                normal            = IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i)% normal,      &
-                                                                                                                y                 = IBM% IP_Distance,                                              &
-                                                                                                                Wallfunction      = IBM% Wallfunction,                                             &
-                                                                                                                integralType      = integralType,                                                  &
-                                                                                                                InterpolationType = IBM% InterpolationType                                         )   
-         end do
-      end do 
-!$omp end do
-!$omp end parallel
-      deallocate( Qsurf, U_xsurf, U_ysurf, U_zsurf )
-
-      if( IBM% stl(STLNum)% move ) then
-         IBM% Integral(STLNum)% ListComputed = .false.
-      else
-         IBM% Integral(STLNum)% ListComputed = .true.
-      end if
+         end do 
+         end associate
+      end do
+      
+      IBM% Integral(STLNum)% ListComputed = .true.
 
       if( autosave ) call GenerateVectormonitorTECfile( IBM, STLNum, integralType, iter )
 
    end subroutine VectorDataReconstruction
 
-   subroutine GetSurfaceState( IBM, obj, vertex, STLNum )
-      use TessellationTypes
+   function IBMVectorIntegral( IBM, STLNum ) 
       use IBMClass
       use MPI_Process_Info
-      use omp_lib
+      implicit none 
+
+      type(IBM_type), intent(inout) :: IBM
+      integer,        intent(in)    :: STLNum
+      real(kind=RP)                 :: IBMVectorIntegral(NDIM)
+
+      real(kind=RP) :: F(NDIM)
 #ifdef _HAS_MPI_
-      use mpi
-#endif
-      implicit none
-
-      class(IBM_type),   intent(inout) :: IBM 
-      type(object_type), intent(inout) :: obj
-      type(point_type),  intent(inout) :: vertex
-      integer,           intent(in)    :: STLNum
-
-      real(kind=RP) :: Dist
-      integer       :: i, j, k 
-
-      if( IBM% Integral(STLNum)% ListComputed ) return 
-
-      vertex% nearestPoints = 0
-      do k = 1, IBM% NumOfInterPoints
-         if( IBM% Wallfunction ) then 
-            call MinimumDistancePoints( vertex% coords + IBM% IP_Distance * obj% Normal,  &
-                                        IBM% rootPoints(STLNum), IBM% BandRegion(STLNum), &
-                                        Dist, k, vertex% nearestPoints                    )
-         else           
-            call MinimumDistancePoints( vertex% coords, IBM% rootPoints(STLNum), &
-                                        IBM% BandRegion(STLNum), Dist, k,        &
-                                        vertex% nearestPoints                    )   
-         end if 
-      end do
-      call GetMatrixInterpolationSystem( vertex% coords,                                    &
-                                         IBM% BandRegion(STLNum)% x(vertex% nearestPoints), &
-                                         vertex% invPhi,                                    &
-                                         vertex% b, IBM% InterpolationType                  )
-
-   end subroutine GetSurfaceState 
-
-   subroutine GetSurfaceState_HO( IBM, obj, vertex, STLNum, elements, Qs, U_xs, U_ys, U_zs, gradients, found )
-      use TessellationTypes
-      use IBMClass
-      use MPI_Process_Info
-      use omp_lib
+      real(kind=RP) :: localval(NDIM)
+      integer       :: ierr 
+#endif 
+      F = IBM% stl(STLNum)% ComputeVectorIntegral()
 #ifdef _HAS_MPI_
-      use mpi
+      localval = F
+      call mpi_allreduce(localval, F, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
-      implicit none
+      IBMVectorIntegral = F 
 
-      class(IBM_type),             intent(in)    :: IBM 
-      type(object_type),           intent(inout) :: obj
-      type(point_type),            intent(inout) :: vertex
-      integer,                     intent(in)    :: STLNum
-      type(element),               intent(inout) :: elements(:)
-      real(kind=RP),               intent(inout) :: Qs(NCONS,1)
-      real(kind=RP),      intent(inout) :: U_xs(NCONS,1), U_ys(NCONS,1), U_zs(NCONS,1)
-      logical,                     intent(in)    :: gradients
-      logical,                     intent(out)   :: found
-
-      real(kind=RP)                 :: xi(NDIM)
-      integer                       :: eID, i, j, k 
-
-      Qs = 0.0_RP
-      if( gradients ) then 
-         U_xs = 0.0_RP; U_ys = 0.0_RP; U_zs = 0.0_RP
-      end if 
-
-      if( IBM% Integral(STLNum)% ListComputed ) then 
-         if( vertex% partition .eq. MPI_Process% rank ) then 
-            eID = vertex% element_index
-            xi  = vertex% xi
-
-            associate( e => elements(eID) )
-   
-            Qs(:,1) = elements(eID)% EvaluateSolutionAtPoint(NCONS, xi) 
-         
-            if( gradients ) then 
-               U_xs(:,1) = elements(eID)% EvaluateGradientAtPoint(NCONS, xi, IX)
-               U_ys(:,1) = elements(eID)% EvaluateGradientAtPoint(NCONS, xi, IY)
-               U_zs(:,1) = elements(eID)% EvaluateGradientAtPoint(NCONS, xi, IZ)
-            end if
-
-            end associate 
-            found = .true.
-         else 
-            found = .false. 
-         end if
-         return 
-      end if 
-
-      do eID = 1, size(elements)  
-         associate(e => elements(eID) )
-         found = e% FindPointWithCoords( vertex% coords, 0, xi )
-         if( found ) then 
-            vertex% element_index = eID
-            vertex% partition     = MPI_Process% rank 
-            vertex% xi            = xi
-
-            Qs(:,1) = elements(eID)% EvaluateSolutionAtPoint(NCONS, xi) 
-         
-            if( gradients ) then 
-               U_xs(:,1) = elements(eID)% EvaluateGradientAtPoint(NCONS, xi, IX)
-               U_ys(:,1) = elements(eID)% EvaluateGradientAtPoint(NCONS, xi, IY)
-               U_zs(:,1) = elements(eID)% EvaluateGradientAtPoint(NCONS, xi, IZ)
-            end if
-            exit
-         end if 
-         end associate
-      end do
-
-   end subroutine GetSurfaceState_HO
+   end function IBMVectorIntegral 
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -741,7 +928,7 @@ module SurfaceIntegrals
 !                                   SCALAR INTERPOLATION
 !
 !//////////////////////////////////////////////////////////////////////////////////////// 
-   function IntegratedScalarValue( Q, vertex, normal, integralType, InterpolationType ) result( outvalue )
+   function IntegratedScalarValue( Q, normal, integralType ) result( outvalue )
       use IBMClass
       implicit none
 !
@@ -754,49 +941,26 @@ module SurfaceIntegrals
 !           Pressure
 !        -----------------------------------------------------------
       !-arguments--------------------------------------------------------------
-      real(kind=rp),           intent(in)    :: Q(:,:), normal(:)
-      type(point_type),        intent(inout) :: vertex
-      integer,                 intent(in)    :: integralType, InterpolationType
+      real(kind=rp),           intent(in)    :: Q(:), normal(:)
+      integer,                 intent(in)    :: integralType
       real(kind=rp)                          :: outvalue
-      !-local-variables--------------------------------------------------------
-      real(kind=rp) :: Qi(NCONS), P
-      integer       :: i
 
       outvalue = 0.0_RP
       
       select case( integralType )
 
          case( MASS_FLOW )
-               
-            do i = 1, NCONS 
-               Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
-            end do 
-
-#if defined(NAVIERSTOKES)
-            outvalue = - (1.0_RP / Qi(IRHO))*(Qi(IRHOU)*normal(1) + Qi(IRHOV)*normal(2) + Qi(IRHOW)*normal(3))       
+#if defined(NAVIERSTOKES)               
+            outvalue = (1.0_RP / Q(IRHO))*(Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ))       
 #endif
-#if defined(INCNS)
-            outvalue = - (1.0_RP / Qi(INSRHO))*(Qi(INSRHOU)*normal(1) + Qi(INSRHOV)*normal(2) + Qi(INSRHOW)*normal(3))       
-#endif    
          case ( FLOW_RATE )
-
-            do i = 1, NCONS 
-               Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
-            end do 
-
 #if defined(NAVIERSTOKES)
-            outvalue = - (Qi(IRHOU)*normal(1) + Qi(IRHOV)*normal(2) + Qi(IRHOW)*normal(3)) 
-#endif
-#if defined(INCNS)
-            outvalue = - (Qi(INSRHOU)*normal(1) + Qi(INSRHOV)*normal(2) + Qi(INSRHOW)*normal(3)) 
-#endif
+            outvalue = (Q(IRHOU)*normal(IX) + Q(IRHOV)*normal(IY) + Q(IRHOW)*normal(IZ)) 
+#endif           
          case( PRESSURE_DISTRIBUTION )
 
-            do i = 1, NCONS 
-               Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
-            end do  
+            outvalue = pressure( Q )
 
-            outvalue = pressure(Qi)
          case ( USER_DEFINED )   ! TODO  
 
       end select 
@@ -808,9 +972,7 @@ module SurfaceIntegrals
 !                          VECTOR INTERPOLATION
 !
 !////////////////////////////////////////////////////////////////////////////////////////         
-   function IntegratedVectorValue( Q, U_x, U_y, U_z, vertex, normal,  &
-                                   y, Wallfunction, integralType,     &
-                                   InterpolationType                  ) result( outvalue )
+   function IntegratedVectorValue( Q, U_x, U_y, U_z, normal, y, Wallfunction, integralType ) result( outvalue )
       use IBMClass
       use VariableConversion
       use FluidData
@@ -828,13 +990,12 @@ module SurfaceIntegrals
 !           Viscous force
 !        -----------------------------------------------------------
       !-arguments-----------------------------------------------------------------
-      real(kind=rp),           intent(in)    :: Q(:,:), U_x(:,:), U_y(:,:),       &
-                                                U_z(:,:), normal(NDIM)
-      type(point_type),        intent(inout) :: vertex
-      real(kind=rp),           intent(in)    :: y
-      logical,                 intent(in)    :: Wallfunction
-      integer,                 intent(in)    :: integralType, InterpolationType
-      real(kind=rp)                          :: outvalue(NDIM)
+      real(kind=rp), intent(in) :: Q(NCONS), U_x(NCONS), U_y(NCONS), &
+                                   U_z(NCONS), normal(NDIM)
+      real(kind=rp), intent(in) :: y
+      logical,       intent(in) :: Wallfunction
+      integer,       intent(in) :: integralType
+      real(kind=rp)             :: outvalue(NDIM)
       !-local-variables-----------------------------------------------------------
       integer       :: i
       real(kind=rp) :: viscStress(NDIM), U(NDIM), U_t(NDIM), tangent(NDIM),   &
@@ -848,19 +1009,17 @@ module SurfaceIntegrals
 
          case ( TOTAL_FORCE )
 
-            do i = 1, NCONS 
-               Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
-            end do
-
-            P = pressure(Qi)
+            P = pressure(Q)
 
             if( Wallfunction ) then
 #if defined(NAVIERSTOKES) 
-               T  = Temperature(Qi)
-               call get_laminar_mu_kappa(Qi,mu,kappa_) 
-               nu = mu/Qi(IRHO)
+               T  = Temperature(Q)
+
+               call get_laminar_mu_kappa(Q,mu,kappa_) 
+
+               nu = mu/Q(IRHO)
                 
-               U   = Qi(IRHOU:IRHOW)/Qi(IRHO)
+               U   = Q(IRHOU:IRHOW)/Q(IRHO)
                U_t = U - ( dot_product(U,normal) * normal )
  
                tangent = U_t/norm2(U_t)
@@ -869,8 +1028,8 @@ module SurfaceIntegrals
                
                u_tau = u_tau_f( u_II, y, nu, u_tau0=0.1_RP )
             
-               T_w = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
-               T_w = T_w * refvalues% T
+               T_w   = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
+               T_w   = T_w * refvalues% T
                rho_w = P*refvalues% p/(thermodynamics% R * T_w)
                rho_w = rho_w/refvalues% rho
 #endif
@@ -879,13 +1038,7 @@ module SurfaceIntegrals
                viscStress = tau_w*tangent
             else
 
-               do i = 1, NCONS 
-                  U_xi(i) = GetInterpolatedValue( U_x(i,:), vertex% invPhi, vertex% b, InterpolationType )
-                  U_yi(i) = GetInterpolatedValue( U_y(i,:), vertex% invPhi, vertex% b, InterpolationType )
-                  U_zi(i) = GetInterpolatedValue( U_z(i,:), vertex% invPhi, vertex% b, InterpolationType )
-               end do 
-
-               call getStressTensor(Qi, U_xi, U_yi, U_zi, tau)
+               call getStressTensor(Q, U_x, U_y, U_z, tau)
                
                viscStress = matmul(tau,normal)
             end if
@@ -894,11 +1047,7 @@ module SurfaceIntegrals
                   
          case( PRESSURE_FORCE )
 
-            do i = 1, NCONS 
-               Qi(i) = GetInterpolatedValue( Q(i,:), vertex% invPhi, vertex% b, InterpolationType )
-            end do
-
-            P = pressure(Qi)
+            P = pressure(Q)
             
             outvalue = -P * normal
             
@@ -906,11 +1055,11 @@ module SurfaceIntegrals
 
             if( Wallfunction ) then
 #if defined(NAVIERSTOKES) 
-               T  = Temperature(Qi)
-               call get_laminar_mu_kappa(Qi,mu,kappa_) 
-               nu = mu/Qi(IRHO)
+               T  = Temperature(Q)
+               call get_laminar_mu_kappa(Q,mu,kappa_) 
+               nu = mu/Q(IRHO)
                 
-               U   = Qi(IRHOU:IRHOW)/Qi(IRHO)
+               U   = Q(IRHOU:IRHOW)/Q(IRHO)
                U_t = U - ( dot_product(U,normal) * normal )
  
                tangent = U_t/norm2(U_t)
@@ -919,8 +1068,8 @@ module SurfaceIntegrals
                
                u_tau = u_tau_f( u_II, y, nu, u_tau0=0.1_RP )
             
-               T_w = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
-               T_w = T_w * refvalues% T
+               T_w   = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
+               T_w   = T_w * refvalues% T
                rho_w = P*refvalues% p/(thermodynamics% R * T_w)
                rho_w = rho_w/refvalues% rho
 #endif
@@ -928,14 +1077,8 @@ module SurfaceIntegrals
                
                viscStress = tau_w*tangent
             else
-
-               do i = 1, NCONS 
-                  U_xi(i) = GetInterpolatedValue( U_x(i,:), vertex% invPhi, vertex% b, InterpolationType )
-                  U_yi(i) = GetInterpolatedValue( U_y(i,:), vertex% invPhi, vertex% b, InterpolationType )
-                  U_zi(i) = GetInterpolatedValue( U_z(i,:), vertex% invPhi, vertex% b, InterpolationType )
-               end do 
                
-               call getStressTensor(Qi, U_xi, U_yi, U_zi, tau)
+               call getStressTensor(Q, U_x, U_y, U_z, tau)
                
                viscStress = matmul(tau,normal)
             end if 
@@ -965,58 +1108,28 @@ module SurfaceIntegrals
 #ifdef _HAS_MPI_
       integer :: ierr 
 #endif     
-      NumOfObjs = NumOfVertices * IBM% stlSurfaceIntegrals(STLNum)% NumOfObjs
+      if( MPI_Process% doMPIAction ) then 
+         call sendScalarPlotRoot( IBM% stl(STLNum), STLNum )
+      end if 
 
-      allocate( x(NumOfObjs),     &
-                y(NumOfObjs),     &
-                z(NumOfObjs),     &
-                scalar(NumOfObjs) )
-
-      index = 0
-
-      do i = 1, IBM% stlSurfaceIntegrals(STLNum)% NumOfObjs
-         associate( obj => IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i) )
-         do j = 1, NumOfVertices
-            index = index + 1
-            x(index)      = obj% vertices(j)% coords(IX)
-            y(index)      = obj% vertices(j)% coords(IY)
-            z(index)      = obj% vertices(j)% coords(IZ)
-            scalar(index) = obj% vertices(j)% ScalarValue
-         end do
-         end associate
-      end do
-#ifdef _HAS_MPI_
-      if( MPI_Process% doMPIAction ) then     
-         allocate(local_sum(NumOfObjs),global_sum(NumOfObjs))
-         local_sum = scalar
-         call mpi_allreduce(local_sum, global_sum, NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr) 
-         scalar = global_sum  
-         deallocate(local_sum,global_sum)
-      end if
-#endif
-      if( .not. MPI_Process% isRoot ) then 
+      if( MPI_Process% isRoot ) then 
+         call recvScalarPlotRoot( IBM% stl(STLNum), STLNum, x, y, z, scalar )
+         select case(integralType)
+            case( MASS_FLOW )
+               FileName = 'MASS_FLOW_'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
+               call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'MASS FLOW', '"x","y","z","MassFlow"' )
+            case( FLOW_RATE )
+               FileName = 'FLOW_RATE_FORCE_'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
+               call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'FLOW RATE', '"x","y","z","FlowRate"' )
+            case( PRESSURE_DISTRIBUTION )
+               FileName = 'PRESSURE_'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
+               call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'PRESSURE DISTRIBUTION', '"x","y","z","Pressure"' )
+         end select
          deallocate(x, y, z, scalar)
-         return 
-      end if      
-      
-      if( .not. MPI_Process% isRoot ) return
-
-      select case(integralType)
-         case( MASS_FLOW )
-            FileName = 'MASS_FLOW_'
-            write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
-            call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'MASS FLOW', '"x","y","z","MassFlow"' )
-         case( FLOW_RATE )
-            FileName = 'FLOW_RATE_FORCE_'
-            write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
-            call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'FLOW RATE', '"x","y","z","FlowRate"' )
-         case( PRESSURE_DISTRIBUTION )
-            FileName = 'PRESSURE_'
-            write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
-            call STLScalarTEC( x, y, z, scalar, STLNum, FinalName, 'PRESSURE DISTRIBUTION', '"x","y","z","Pressure"' )
-      end select
-
-      deallocate(x, y, z, scalar)
+      end if 
 
   end subroutine GenerateScalarmonitorTECfile
   
@@ -1031,73 +1144,32 @@ module SurfaceIntegrals
       integer,        intent(in) :: STLNum, integralType, iter 
       !-local-variables---------------------------------------------------
       real(kind=RP), allocatable :: x(:), y(:), z(:), vector_x(:),   &
-                                    vector_y(:), vector_z(:),        &
-                                    local_sum(:), global_sum(:)
+                                    vector_y(:), vector_z(:)
       character(len=LINE_LENGTH) :: FileName, FinalName
-      integer                    :: index, NumOfObjs, i, j
 #ifdef _HAS_MPI_
       integer :: ierr 
 #endif
-      NumOfObjs = NumOfVertices * IBM% stlSurfaceIntegrals(STLNum)% NumOfObjs
-
-      allocate( x(NumOfObjs),        &
-                y(NumOfObjs),        &
-                z(NumOfObjs),        &
-                vector_x(NumOfObjs), &
-                vector_y(NumOfObjs), &
-                vector_z(NumOfObjs)  )
-
-      index = 0
-
-      do i = 1, IBM% stlSurfaceIntegrals(STLNum)% NumOfObjs
-         associate( obj => IBM% stlSurfaceIntegrals(STLNum)% ObjectsList(i) )
-         do j = 1, NumOfVertices
-            index = index + 1
-            x(index)        = obj% vertices(j)% coords(IX)
-            y(index)        = obj% vertices(j)% coords(IY)
-            z(index)        = obj% vertices(j)% coords(IZ)
-            vector_x(index) = obj% vertices(j)% VectorValue(IX)
-            vector_y(index) = obj% vertices(j)% VectorValue(IY)
-            vector_z(index) = obj% vertices(j)% VectorValue(IZ)
-         end do
-         end associate
-      end do
-#ifdef _HAS_MPI_
-      if( MPI_Process% doMPIAction ) then     
-         allocate(local_sum(NumOfObjs),global_sum(NumOfObjs))
-         local_sum = vector_x
-         call mpi_allreduce(local_sum, global_sum, NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr) 
-         vector_x = global_sum  
-         local_sum = vector_y
-         call mpi_allreduce(local_sum, global_sum, NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr) 
-         vector_y = global_sum
-         local_sum = vector_z
-         call mpi_allreduce(local_sum, global_sum, NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr) 
-         vector_z = global_sum
-         deallocate(local_sum,global_sum)
-      end if
-#endif
-      if( .not. MPI_Process% isRoot ) then 
+      if( MPI_Process% doMPIAction ) then 
+         call sendVectorPlotRoot( IBM% stl(STLNum), STLNum )
+      end if 
+      if( MPI_Process% isRoot ) then 
+         call recvVectorPlotRoot(  IBM% stl(STLNum), STLNum, x, y, z, vector_x, vector_y, vector_z )
+         select case(integralType)
+            case( TOTAL_FORCE )
+               FileName = 'TOTAL_FORCE_'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'            
+               call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'TOTAL FORCE', '"x","y","z","Ftot_x","Ftot_y","Ftot_z"' )
+            case( PRESSURE_FORCE )
+               FileName = 'PRESSURE_FORCE_'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
+               call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'PRESSURE FORCE', '"x","y","z","Fpres_x","Fpres_y","Fpres_z"' )
+            case( VISCOUS_FORCE )
+               FileName = 'VISCOUS_FORCE_'
+               write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(IBM% stl(STLNum)% NoExtfilename)//'_',iter,'.tec'
+               call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'VISCOUS FORCE', '"x","y","z","Fvisc_x","Fvisc_y","Fvisc_z"' )
+         end select
          deallocate(x, y, z, vector_x, vector_y, vector_z)
-         return 
       end if
-
-      select case(integralType)
-         case( TOTAL_FORCE )
-            FileName = 'TOTAL_FORCE_'
-            write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'            
-            call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'TOTAL FORCE', '"x","y","z","Ftot_x","Ftot_y","Ftot_z"' )
-         case( PRESSURE_FORCE )
-            FileName = 'PRESSURE_FORCE_'
-            write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
-            call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'PRESSURE FORCE', '"x","y","z","Fpres_x","Fpres_y","Fpres_z"' )
-         case( VISCOUS_FORCE )
-            FileName = 'VISCOUS_FORCE_'
-            write(FinalName,'(A,A,I10.10,A)')  trim(FileName),trim(OBB(STLNum)% FileName)//'_',iter,'.tec'
-            call STLvectorTEC( x, y, z, vector_x, vector_y, vector_z, STLNum, FinalName, 'VISCOUS FORCE', '"x","y","z","Fvisc_x","Fvisc_y","Fvisc_z"' )
-      end select
-   
-      deallocate(x, y, z, vector_x, vector_y, vector_z)
 
    end subroutine GenerateVectormonitorTECfile
 

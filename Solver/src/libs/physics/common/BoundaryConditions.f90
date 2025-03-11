@@ -15,8 +15,9 @@ module BoundaryConditions
    implicit none
 
    private
-   public   BCs, ConstructBoundaryConditions, DestructBoundaryConditions, SetBoundaryConditionsEqn
+   public   BCs, ConstructBoundaryConditions, DestructBoundaryConditions, SetBoundaryConditionsEqn, BCsIBM
    public   NS_BC, C_BC, MU_BC
+   public   implementedBCNames, ConstructIBMBoundaryConditions
 
    enum, bind(C)
       enumerator :: INFLOW_BC = 1 , OUTFLOW_BC
@@ -38,7 +39,7 @@ module BoundaryConditions
       class(GenericBC_t), allocatable :: bc
    end type BCSet_t
 
-   type(BCSet_t), allocatable    :: BCs(:)
+   type(BCSet_t), allocatable    :: BCs(:), BCsIBM(:)
    integer                       :: no_of_BCs
    integer, protected            :: no_of_constructions = 0
 
@@ -117,6 +118,50 @@ module BoundaryConditions
          end do
 
       end subroutine ConstructBoundaryConditions
+
+      subroutine ConstructIBMBoundaryConditions(NumOfSTL, bcType, STLfilename)
+         implicit none
+         integer,          intent(in)  :: NumOfSTL, bcType(NumOfSTL)
+         character(len=*), intent(in)  :: STLfilename(NumOfSTL)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: STLNum
+         logical :: isIBM = .true. 
+
+         if ( allocated(BCsIBM) ) then
+            print*, "*** WARNING!: IBM Boundary conditions were previously allocated"
+            return
+         end if
+
+         allocate(BCsIBM(NumOfSTL))
+!
+!           Allocate the boundary condition and construct
+!           ---------------------------------------------
+         do STLNum = 1, NumOfSTL
+            select case(bcType(STLNum) )
+            case(NOSLIPWALL_BC)
+               allocate(NoSlipWallBC_t   :: BCsIBM(STLNum) % bc)
+               select type(bc => BCsIBM(STLNum) % bc)
+               type is (NoSlipWallBC_t)
+                  bc = NoSlipWallBC_t(trim(STLfilename(STLNum)),isIBM)
+               end select
+            case(USERDEFINED_BC)
+               allocate(UserDefinedBC_t  :: BCsIBM(STLNum) % bc)
+               select type(bc => BCsIBM(STLNum) % bc)
+               type is (UserDefinedBC_t)
+                  bc = UserDefinedBC_t(trim(STLfilename(STLNum)),isIBM)
+               end select
+            case default
+               print*, "Unrecognized BC option for IBM"
+               errorMessage(STD_OUT)
+               error stop 99
+            end select
+         end do 
+
+      end subroutine ConstructIBMBoundaryConditions
 !
 !////////////////////////////////////////////////////////////////////////////
 !

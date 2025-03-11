@@ -461,6 +461,8 @@
 
       logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
+
+      integer :: STLNum
 !
 !     ----------------------
 !     Read Control variables
@@ -600,7 +602,6 @@
 !     ----------------
 !
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
-
 !
 !        CFL-bounded time step
 !        ---------------------      
@@ -617,19 +618,9 @@
 !        -----------------------------
          if( sem % mesh% IBM% active ) then
             if( sem% mesh% IBM% TimePenal ) sem % mesh% IBM% penalization = dt
+            sem % mesh% IBM% autosave = self % autosave % Autosave(k+1)
+            sem % mesh% IBM% iter     = k+1
          end if
-
-!
-!        Moving Body IMMERSED BOUNDARY
-!        -----------------------------
-         if( sem% mesh% IBM% active ) then
-            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                  &
-                                           sem% mesh% no_of_elements,            &
-                                           sem% mesh% NDOF, sem% mesh% child, t, &
-                                           k+1,                                  &
-                                           self % autosave % Autosave(k+1)       )
-         end if
- 
 !
 !        User defined periodic operation
 !        -------------------------------
@@ -796,6 +787,8 @@
 
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
+! plot final result
+      call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
 
 !
 !     ---------
