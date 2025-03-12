@@ -3529,7 +3529,8 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          INTEGER                        :: fID, eID, fileType, no_of_elements, flag, nodetype
-         integer                        :: padding, pos
+         integer                        :: padding
+         integer(kind=AddrInt)          :: pos
          integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank, expectedNoEqs
          real(kind=RP), allocatable     :: Q(:,:,:,:)
          character(len=SOLFILE_STR_LEN) :: rstName
