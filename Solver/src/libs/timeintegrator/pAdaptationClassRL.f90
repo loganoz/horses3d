@@ -323,11 +323,11 @@ module pAdaptationClassRL
          if ( R_acoustic_variable /= "" ) then
             select case ( trim (R_acoustic_variable) )
             case ("p")
-   #ifdef NAVIERSTOKES
+#ifdef NAVIERSTOKES
                this % acoustic_variable = 7
-   #elif defined(MULTIPHASE)
+#elif defined(MULTIPHASE)
                this % acoustic_variable = 7
-   #endif
+#endif
             case ("rho")
                this % acoustic_variable = 8
             case default
