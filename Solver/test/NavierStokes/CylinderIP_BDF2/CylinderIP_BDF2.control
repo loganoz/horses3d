@@ -1,0 +1,88 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
+Polynomial order      = 3
+Number of time steps  = 2
+Output Interval       = 1
+
+Convergence tolerance = 1.d-10
+dt                    = 0.2d0
+mach number           = 0.3d0
+Reynolds number       = 48.0d0
+AOA theta             = 0.0d0
+AOA phi               = 90.0d0
+
+solution file name    = "RESULTS/Cylinder.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/Cylinder.hsol"
+riemann solver         = "lax-friedrichs"
+viscous discretization = "IP"
+
+simulation type       = time-accurate
+final time            = 0.4d0
+
+!-----GMRES implicit---------------
+monitors flush interval = 2
+bdf order               = 2
+time integration        = implicit
+linear solver           = "matrix-free gmres"
+preconditioner          = "Block-Jacobi"
+jacobian by convergence = .TRUE.
+compute jacobian every  = 10
+gmres inner iterations  = 120
+print newton info       = .TRUE.
+newton tolerance        = 1.d-14
+!-------------------------------------------------------------
+#define jacobian
+   type = 2 !analytical
+   print info = .TRUE.
+   preallocate = .TRUE.
+#end
+
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary back__left__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
+
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,0.5,4.0]
+   Variable = u
+#end
+
+!#define statistics
+!   Sampling interval = 10
+!   Starting iteration = 15
+!   Starting time = 0.0
+!   @start*
+!   @stop
+!#end

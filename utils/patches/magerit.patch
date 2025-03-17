@@ -1,0 +1,20 @@
+diff --git a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90 b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
+index a26ea4e..54c8162 100644
+--- a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
++++ b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
+@@ -77,7 +77,7 @@
+          LOGICAL                                       :: passed
+          CHARACTER(LEN=128)                            :: testName
+          TYPE(FTAssertionsManager)   , POINTER         :: assertionsManager
+-         PROCEDURE(testSuiteFunction), POINTER, NOPASS :: TestSubroutine
++         PROCEDURE(), POINTER, NOPASS :: TestSubroutine
+          TYPE(TestCaseRecord), POINTER                 :: next
+       END TYPE TestCaseRecord
+       
+@@ -269,4 +269,4 @@
+           
+       END SUBROUTINE performTests    
+       
+-      END Module TestSuiteManagerClass    
+\ No newline at end of file
++      END Module TestSuiteManagerClass    

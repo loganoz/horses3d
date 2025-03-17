@@ -1,0 +1,24 @@
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/DiffuserMesh.mesh"
+restart file name     = "RESULTS/diffuser.rst"
+solution file name    = "RESULTS/diffuser_saved.rst"
+restart               = .false.
+Polynomial order      = 5
+Number of time steps  = 10000
+Output Interval       = 100
+Number of plot points = 6
+Convergence tolerance = 1.d-10
+cfl                   = 0.5
+mach number           = 0.7
+AOA theta             = 0.0
+AOA phi               = 0.0
+Reynolds number       = 0.0
+riemann solver        = rusanov
+
+#define boundary wall1__wall2__wall5__wall3
+   type = freeslipwall
+#end
+
+#define boundary outflow4__inflow6
+   type = user-defined
+#end

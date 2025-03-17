@@ -1,0 +1,79 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = MESH/Cube4.mesh
+                      Solution file name = RESULTS/Convergence.hsol
+              Save gradients to solution = .false.
+!                2D mesh offset direction = 3D
+                                 Restart = .false.
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                        Density (kg/m^3) = 1.0
+                       Viscosity (Pa.s)  = 0.001
+                          Flow equations = NS  ! Euler
+                           Froude number = 1.0d+300
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                    !   Gravity direction = [x,y,z]
+                       Compute gradients = .true.
+
+
+!------------------------- Discretization:-
+                        Polynomial order = 5
+                    Discretization nodes = Gauss  ! Gauss-Lobatto
+                          Riemann solver = Exact  ! Standard Roe/Low dissipation Roe
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Split-form  ! Split-form
+                               Averaging = Skew-Symmetric 1  ! Pirozzoli/Morinishi/Kennedy-Gruber/Entropy conserving/Entropy and energy conserving
+                  Viscous discretization = BR1   ! IP/BR2
+                       Penalty parameter = 1.0
+                Interior penalty variant = SIPG   ! IIPG/NIPG
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+                                     CFL = 0.5
+                                    dCFL = 100.0
+                    Number of time steps = 10000000
+                         Output interval = 10
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                              Final time = 0.1   ! PAPER: 10.0
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 100   ! 1.0
+
+!-------------------- Boundary conditions:-
+#define boundary Front
+   type = periodic
+   coupled boundary = Back
+#end
+ 
+#define boundary bottom
+    type = periodic
+    coupled boundary = top
+#end
+ 
+#define boundary top
+    type = periodic
+    coupled boundary = bottom
+#end
+ 
+#define boundary Back
+    type = periodic
+    coupled boundary = Front
+#end
+ 
+#define boundary Left
+    type = periodic
+    coupled boundary = Right
+#end
+ 
+#define boundary Right
+    type = periodic
+    coupled boundary = Left
+#end

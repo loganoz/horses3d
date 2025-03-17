@@ -1,0 +1,12 @@
+#PETSc options:
+#  If you are installing with petsc, make WITH_PETSC=YES and set PETSC_LIB and PETSC_INC
+WITH_PETSC =NO
+PETSC_LIB := -L/home/andresrueda/Programs/petsc/linux-gnu-mpich/lib/ -lpetsc #libpetsc.so
+PETSC_INC := -I/home/andresrueda/Programs/petsc/include -I/home/andresrueda/Programs/petsc/linux-gnu-mpich/include
+
+#MKL options:
+#  If you are installing with MKL, make WITH_MKL=YES... and, if using gortran, set LIB_BLAS and LIB_LAPACK 
+WITH_MKL =NO
+LIB_LAPACK = /opt/intel/mkl/lib/intel64/libmkl_lapack95_lp64.a
+LIB_BLAS = /opt/intel/mkl/lib/intel64/libmkl_blas95_lp64.a  -L/opt/intel/mkl/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_intel_thread -lmkl_core  -lpthread -lm -ldl -L/opt/intel/lib/intel64_lin/ -liomp5
+

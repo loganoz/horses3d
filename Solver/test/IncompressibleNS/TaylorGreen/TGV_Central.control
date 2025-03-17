@@ -1,0 +1,80 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ./MESH/Cube8.mesh
+                      Solution file name = ./RESULTS/TGV_Central.hsol
+              Save gradients to solution = .false.
+                                 Restart = .false.
+                       Restart file name = ./RESULTS/TGV_Central.hsol
+
+!-------------------- Physical parameters:-
+                        Viscosity (Pa.s) = 0.0
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 4
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Central
+                 Inviscid discretization = Split-form
+                               Averaging = skew-symmetric 2
+       Artificial compressibility factor = 1000.0
+                  Viscous discretization = BR1   ! IP/BR2
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+  Compute time derivative after timestep = .true.
+                                     CFL = 0.5
+                                    dCFL = 1000.0
+                    Number of time steps = 100
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                              Final time = 20.0
+                           Autosave mode = Time
+                       Autosave interval = 2.0
+
+!-------------------- Boundary conditions:-
+#define boundary front 
+   type = periodic
+   coupled boundary = back
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary left 
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right 
+   type = periodic
+   coupled boundary = left
+#end
+
+#define volume monitor 1
+   name = KinEnRat
+   variable = kinetic energy rate
+#end
+
+#define volume monitor 2
+   name = entr-rate
+   variable = entropy rate
+#end

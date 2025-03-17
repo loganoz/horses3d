@@ -1,0 +1,136 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI ADDONS
+
+########################################################################
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+#env:
+#  HDF5_ROOT : /usr/lib/x86_64-linux-gnu/hdf5/serial/
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Define strategy matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: ['gfortran','ifort']
+        mode: ['RELEASE', 'DEBUG']
+        comm: ['SEQUENTIAL']
+        enable_threads: ['YES']
+        mkl: ['YES','NO']
+        exclude:
+        - compiler: gfortran
+          mkl: 'YES'          
+        - compiler: ifort
+          mkl: 'NO'          
+    # Steps represent a sequence of tasks that will be executed as part of the job
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      # sudo apt-get install -qq pkg-config libhdf5-serial-dev
+#      - name: Install Linux packages
+#        run: |
+#          sudo apt-get update
+#          sudo apt install libhdf5-dev
+#          dpkg -L libhdf5-dev
+
+      # IF COMPILER = IFORT -> INSTALL IFORT #
+      # UNCOMMENT TO USE CACHED IFORT 
+      #- name: cache-intel-compilers
+      #  if: (matrix.compiler == 'ifort')
+      #  id: cache-intel-compilers
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: /opt/intel
+      #    key: intel-${{ runner.os }}-compilers-b
+
+
+      - name: Intel Apt repository
+      # UNCOMMENT TO USE CACHED IFORT 
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
+          sudo apt-get update
+
+      - name: Install Intel oneAPI
+      # UNCOMMENT TO USE CACHED IFORT
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+      # Runs a single command using the runners shell
+      ##- name: Install gfortran
+      ##  run: |
+      ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      ##   sudo apt update
+      ##   sudo apt-get install gfortran-9
+
+      ##- name: Show gfortran version
+      ##  run: gfortran-9 --version
+
+      - name: Show ${{matrix.compiler}} version
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          printenv >> $GITHUB_ENV
+          ${{matrix.compiler}} --version
+
+      - name: Configure
+        working-directory: ./Solver
+        run: ./configure
+
+      - name: Compile horses3d
+        working-directory: ./Solver
+        run: |
+         source /opt/intel/oneapi/setvars.sh || true
+         make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+         make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+          
+########################################################################
+#######                        ADDONS                           ########
+########################################################################
+#
+# 1) Mapping Result - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_MappingResult
+        working-directory: ./Solver/test/AddOns/horsesConverter/MappingResult
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horsesConverter
+        if: '!cancelled()'
+
+#
+# 2) Horses Mesh to OpenFOAM - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_HorsesMesh2OF
+        working-directory: ./Solver/test/AddOns/horsesConverter/HorsesMesh2OF
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horsesConverter
+        if: '!cancelled()'
+
+#
+# 3) OpenFOAM to Horses - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_OF2Horses
+        working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          OMP_NUM_THREADS=4 ./horsesConverter
+        if: '!cancelled()'

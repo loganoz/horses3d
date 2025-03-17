@@ -1,0 +1,22 @@
+###################################################
+#		Dependencies 			  #		
+###################################################
+# Module dependencies
+./build/FTDataClass.o: ./build/FTObjectClass.o
+./build/FTObjectArrayClass.o: ./build/FTObjectClass.o
+./build/FTLinkedListClass.o: ./build/FTObjectClass.o ./build/FTObjectArrayClass.o
+./build/FTMultiIndexTable.o: ./build/FTObjectClass.o ./build/FTLinkedListClass.o
+./build/FTDictionaryClass.o: ./build/FTObjectClass.o ./build/FTObjectArrayClass.o \
+			     ./build/FTLinkedListClass.o
+./build/FTValueClass.o: ./build/FTObjectClass.o ./build/FTOLConstants.o
+./build/FTValueDictionaryClass.o: ./build/FTValueClass.o ./build/FTDictionaryClass.o
+./build/FTStackClass.o: ./build/FTLinkedListClass.o
+./build/Assert.o: ./build/Comparisons.o ./build/FTOLConstants.o
+./build/Comparisons.o: ./build/FTOLConstants.o
+./build/TestSuiteManagerClass.o: ./build/Assert.o
+./build/FTObjectLibrary.o:  ./build/FTOLConstants.o ./build/FTObjectClass.o ./build/FTDataClass.o \
+			    ./build/FTObjectArrayClass.o ./build/FTLinkedListClass.o\
+		            ./build/FTMultiIndexTable.o ./build/FTDictionaryClass.o \
+			    ./build/FTValueClass.o ./build/FTValueDictionaryClass.o\
+	                    ./build/FTStackClass.o ./build/Hash.o ./build/FTSparseMatrixClass.o\
+	                    ./build/Assert.o ./build/Comparisons.o ./build/TestSuiteManagerClass.o

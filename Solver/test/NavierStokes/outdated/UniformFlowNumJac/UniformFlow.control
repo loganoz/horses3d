@@ -1,0 +1,40 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/Box27.mesh"
+!../../TestMeshes/CylinderNSpol3.mesh
+!../../TestMeshes/CylinderNSpol3_1elem_y.mesh
+plot file name        = "PlotFiles/Cylinder.tec"
+restart file name     = "RESULTS/Cylinder.rst"
+solution file name        = "RESULTS/Cylinder_saved.rst"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 100
+Output Interval       = 10
+Number of plot points = 5
+Convergence tolerance = 1.d-10
+cfl                   = 0.3
+dcfl                  = 0.3
+mach number           = 0.3
+Reynolds number       = 45.0
+AOA theta             = 0.0
+AOA phi               = 90.0
+riemann solver        = roe
+
+#define boundary Front__back__left
+   type = Inflow
+#end
+
+#define boundary right
+   type = Outflow
+#end
+
+#define boundary top__bottom
+   typ = FreeSlipWall
+#end
+!-------------------------------------------------------------
+!-----Information about time integration solver---------------
+simulation type         = steady-state
+time integration        = implicit
+jacobian flag           = 2
+linear solver           = smooth
+jacobian by convergence = .true. 
+!-------------------------------------------------------------

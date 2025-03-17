@@ -1,0 +1,95 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/naca0012_p3.msh"
+Polynomial order    = 3 ! T
+Number of time steps  = 1
+Output Interval       = 1 ! for explicit
+autosave mode         = "iteration"
+autosave interval     = 1
+
+Convergence tolerance = 1.d-10
+cfl                   = 0.001d0
+dcfl                   = 0.001d0
+mach number           = 0.1d0
+Reynolds number       = 100.0d0
+
+discretization nodes  = Gauss-Lobatto
+
+solution file name    = "RESULTS/naca.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/restart.hsol"
+riemann solver         = "lax-friedrichs"
+viscous discretization = "IP"
+
+!simulation type       = time-accurate
+!final time            = 40.d0
+simulation type       = steady-state
+time integration        = explicit
+partitioning = SFC
+!-------------------------------------------------------------
+! Inflow
+!-------------------------------------------------------------
+#define boundary BACK
+  type = FreeSlipWall
+  ! type = Outflow
+#end
+
+#define boundary FRONT
+  type = FreeSlipWall
+  ! type = Outflow
+#end
+
+#define boundary AIRFOILT
+  type = NoSlipWall
+  ! type = FreeSlipWall
+#end
+
+#define boundary AIRFOILB
+  type = NoSlipWall
+  ! type = FreeSlipWall
+#end
+
+#define boundary INFLOW
+  type = Inflow
+#end
+
+#define boundary OUTFLOW
+  type = Outflow
+#end
+!-------------------------------------------------------------
+#define surface monitor 1
+  Name = drag-b
+  Marker = AIRFOILB
+  Variable = drag
+  Direction = [1.d0, 0.d0, 0.d0]
+  Reference surface = 1.d0 
+#end
+
+#define surface monitor 2
+  Name = drag-t
+  Marker = AIRFOILT
+  Variable = drag
+  Direction = [1.d0, 0.d0, 0.d0]
+  Reference surface = 1.d0 
+#end
+
+#define surface monitor 3
+  Name = lift-t
+  Marker = AIRFOILT
+  Variable = lift
+  Direction = [0.d0, 1.d0, 0.d0]
+  Reference surface = 1.d0 
+#end
+
+#define surface monitor 4
+  Name = lift-b
+  Marker = AIRFOILB
+  Variable = lift
+  Direction = [0.d0, 1.d0, 0.d0]
+  Reference surface = 1.d0 
+#end
+-----------------------------------
+surface save utau = .true.
+surface save timestep  =  1.D-10
+boundaries to save = [AIRFOILT]

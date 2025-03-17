@@ -1,0 +1,85 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/DoubleMach.msh
+                      Solution file name = RESULTS/DoubleMach.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = z
+                                 Restart = .false.
+                       Restart file name = ../DoubleMach.rst
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS
+                             Mach number = 10.0
+                         Reynolds number = 0.0
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 9
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Matrix dissipation
+                 Inviscid discretization = Split-form
+                               Averaging = Chandrasekar
+                      Gradient variables = Entropy
+                  Viscous discretization = BR1
+
+!----------------------- Shock-capturing:-
+                 Enable shock-capturing = .true.
+                           Shock sensor = grad rho
+                     Shock first method = SVV
+                    Shock second method = SSFV
+                   Shock viscous flux 1 = Guermond-Popov
+!                  Shock viscous flux 2 = Guermond-Popov
+!                       SSFV blending 1 = 1d-0
+                        SSFV blending 2 = 1d-2
+                     Sensor lower limit = -1.0
+                    Sensor higher limit = 3.0
+                             Shock mu 1 = 1.0d-3
+                          Shock alpha 1 = 0.1d-3
+!                            Shock mu 2 = 1.0d-3
+!                         Shock alpha 2 = 1.0d-3
+                        SVV filter type = low-pass
+                       SVV filter shape = power
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                                      dt = 0.00002
+                    Number of time steps = 10000 !25000 ! 50
+                         Output interval = 100 ! 10
+                   Convergence tolerance = 1.0e-10
+      Compute derivative after time step = .true.
+                           Autosave mode = Iteration
+                       Autosave interval = 500 !2500
+
+!-------------------- Boundary conditions:-
+#define boundary in_left
+   type = User-defined
+#end
+
+#define boundary in_top
+   type = User-defined
+#end
+
+#define boundary out_right
+   type = User-defined
+#end
+
+#define boundary out_bottom
+   type = User-defined
+#end
+
+#define boundary wedge__back__front
+   type = FreeSlipWall
+#end
+
+!#define volume monitor 1
+!   name = sensor
+!   variable = sensor range
+!#end

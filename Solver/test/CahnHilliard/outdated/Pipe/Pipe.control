@@ -1,0 +1,40 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/test_pipe_100el.mesh"
+Polynomial order      = 5
+Number of time steps  = 10000
+Output Interval       = 10
+Convergence tolerance = 1.d-10
+riemann solver        = standard roe
+discretization nodes = Gauss-Lobatto
+time integration      = imex
+
+#define Jacobian
+   type = 1
+#end
+
+dt = 5.0e-4
+mach number           = 0.1
+viscous discretization = ip
+cahn-hilliard discretization = ip
+inviscid discretization = split-form
+averaging = Pirozzoli
+density ratio (rho2/rho1) = 0.3d0
+viscosity ratio (mu2/mu1) = 1.0d0
+interior penalty variant = sipg
+Reynolds number       = 10000.0
+interface width (dimensionless) = 0.2d0
+peclet number = 1.0d0  ! 5.0d0
+wall contact angle = 0.0d0 !-0.11d0
+capilar number = 10.0d300
+AOA theta             = 0.0
+AOA phi               = 90.0
+autosave mode = iteration
+autosave interval = 50
+solution file name    = "RESULTS/test_pipe.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/test_pipe_0000000005.hsol"
+Number of boundaries  = 3
+pipe 0.0 NoSlipAdiabaticWall
+inlet 0.0 periodic+
+outlet 1.0 periodic-

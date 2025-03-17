@@ -1,0 +1,49 @@
+diff --git a/Solver/Makefile.in b/Solver/Makefile.in
+index d963b28d..dade8e21 100644
+--- a/Solver/Makefile.in
++++ b/Solver/Makefile.in
+@@ -126,7 +126,7 @@ ifeq ($(COMM),PARALLEL)
+         FC=mpif90
+ 	MACROS+= -D_HAS_MPI_
+     else ifeq ($(FC),ifort)
+-        FC=mpiifort
++        FC=mpifort
+ 	MACROS+= -D_HAS_MPI_
+     endif
+ endif
+diff --git a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90 b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
+index a26ea4e5..e5bbfd49 100644
+--- a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
++++ b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
+@@ -135,7 +135,7 @@
+          
+          ALLOCATE(newTestCase)
+          newTestCase % testName     = TRIM(ADJUSTL(testName))
+-         newTestCase % TestSubroutine => testSubroutine
++         ! newTestCase % TestSubroutine => testSubroutine
+          newTestCase % next         => NULL()
+          newTestCase % passed       = .TRUE.
+          self % numberOfTests       = self % numberOfTests + 1
+@@ -269,4 +269,4 @@
+           
+       END SUBROUTINE performTests    
+       
+-      END Module TestSuiteManagerClass    
+\ No newline at end of file
++      END Module TestSuiteManagerClass
+diff --git a/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90 b/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
+index fee33e5e..98bb607f 100644
+--- a/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
++++ b/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
+@@ -71,7 +71,7 @@ module GenericLinSolverClass
+       end function MatrixShift_FCN
+    end interface
+    
+-   procedure(MatrixShift_FCN), pointer :: MatrixShift =>  Default_MatrixShift  ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
++   procedure(MatrixShift_FCN), pointer :: MatrixShift
+ 
+ contains
+ !
+-- 
+2.27.0
+

@@ -1,0 +1,104 @@
+/* Control file for the uniform flow test case */
+Flow equations        = "NS"
+discretization nodes  = Gauss
+mesh file name        = "../../TestMeshes/naca0012_p3.msh"
+restart file name     = "RESULTS/Restart.hsol"
+solution file name    = "RESULTS/NACA_saved.rst"
+restart               = .true.
+Polynomial order      = 3
+Number of time steps  = 1
+Output Interval       = 1
+Number of plot points = 6
+mach number           = 0.3d0
+Reynolds number       = 200.0d0
+AOA theta             = 5.0
+AOA phi               = 0.0
+Riemann solver        = Roe
+Viscous discretization = BR1
+autosave mode         = "iteration"
+autosave interval     = 100
+partitioning          = SFC
+
+!-------------------------------------------------------------
+! DTS Flags
+!-------------------------------------------------------------
+time integration        = fas ! we integrate using FAS
+simulation type         = time-accurate ! FAS is primarily for steady-state. for time-accurate simulations it automatically switches to DTS
+Convergence tolerance   = 500.0d0 ! convergence tolerance for each pseudo-time
+bdf order               = 2 ! order of implicit integration, Other options: 1,2,3,4,5
+
+! We can define the physical time step either with dt or CFL like for other solvers
+dt                      = 0.01d0
+! cfl = 50.0
+! dcfl = 50.0
+
+! Parameters for FAS. Check User Manual for more options.
+multigrid levels        = 3
+mg smoother             = RK5
+mg preconditioner       = LTS
+mg sweeps exact         = [1,1,1]
+
+! CFL for pseudo-steps (pseudo dt not supported). Pseudo CFL have to smaller than CFL/dt for physical step, otherwise stability issues may occur.
+pseudo cfl              = 0.1d0
+pseudo dcfl             = 0.1d0
+
+pseudo convergence monitor = .true. ! Set .false. or just delete if the convergence details are not of interest.
+!-------------------------------------------------------------
+! BC
+!-------------------------------------------------------------
+#define boundary BACK
+  type = FreeSlipWall
+#end
+
+#define boundary FRONT
+  type = FreeSlipWall
+#end
+
+#define boundary AIRFOILT
+  type = NoSlipWall
+#end
+
+#define boundary AIRFOILB
+  type = NoSlipWall
+#end
+
+#define boundary INFLOW
+  type = Inflow
+#end
+
+#define boundary OUTFLOW
+  type = Outflow
+#end
+!-------------------------------------------------------------
+#define surface monitor 1
+  Name = drag-b
+  Marker = AIRFOILB
+  Variable = drag
+  Direction = [0.9962d0, 0.0872d0, 0.d0]
+  Reference surface = 0.1d0 
+#end
+
+#define surface monitor 2
+  Name = drag-t
+  Marker = AIRFOILT
+  Variable = drag
+  Direction = [0.9962d0, 0.0872d0, 0.d0]
+  Reference surface = 0.1d0 
+#end
+
+#define surface monitor 3
+  Name = lift-t
+  Marker = AIRFOILT
+  Variable = lift
+  Direction = [-0.0872d0, 0.9962d0, 0.d0]
+  Reference surface = 0.1d0 
+#end
+
+#define surface monitor 4
+  Name = lift-b
+  Marker = AIRFOILB
+  Variable = lift
+  Direction = [-0.0872d0, 0.9962d0, 0.d0]
+  Reference surface = 0.1d0 
+#end
+-----------------------------------

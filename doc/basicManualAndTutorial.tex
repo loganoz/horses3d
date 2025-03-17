@@ -1,0 +1,766 @@
+\documentclass[a4paper,10pt]{report}
+%\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float} 
+\usepackage{multirow}
+\usepackage{vmargin}
+\usepackage{longtable}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subfigure}
+\usepackage{afterpage}
+\usepackage[calcwidth]{titlesec}
+\usepackage{verbatim}
+\usepackage[hidelinks]{hyperref}
+\usepackage{multicol}
+\usepackage{pfnote}
+\usepackage{fnpos}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{algorithm,algpseudocode}
+\usepackage{epstopdf}
+\usepackage{tcolorbox}
+\usepackage{amssymb}
+\usepackage{dirtree}
+\setmarginsrb{2cm}{2cm}{2cm}{2cm}{0cm}{0cm}{0cm}{0.5cm}%{left}{top}{right}{bottom}{headhgt}{}
+%\numberwithin{equation}{section}
+%Bibliography style:
+\bibliographystyle{elsarticle-num}
+%\biboptions{sort&compress}
+%opening
+
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilas}{RGB}{170,55,241}
+\definecolor{mygray}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{mygray},
+	showstringspaces=false,
+    showtabs=false,
+	breakatwhitespace=false,         
+	% basicstyle=\ttfamily\footnotesize,
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true, 
+	showspaces=false
+}
+
+\lstset{style=mystyle}
+
+%% Some math definitions:
+\newcommand\norm[1]{\left\lVert#1\right\rVert}
+\def\Res{\pmb{\mathfrak{R}}}
+
+
+\title{\textbf{HORSES3D} \\ A \textbf{H}igh-\textbf{Or}der (DG) \textbf{S}pectral \textbf{E}lement \textbf{S}olver \\ \textbf{Basic User Manual}}
+\author{Numath group}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+
+\chapter{Input and Output Files}\label{chap.IO}
+
+This section lists the files that are read by HORSES3D and the files that are created after the simulation has run successfully.
+
+\section{Input Files}
+
+\begin{itemize}
+\item Control file (*.control) \\
+This file controls the parameters of the simulation, is explained in grater detail in Section~\ref{sect.control}.
+\item Mesh file (*.mesh / *.h5) \\
+This file has the information about the computational mesh use in the simulation, which at the includes by definition the physical domain and geometry parameters (including the name of the boundaries).
+\item Polynomial order file (*.omesh) \emph{Optional} \\
+This file is used when more control of the polynomial use of the DG method, should not be used in simple cases and will not be covered in this manual.
+\item Problem File (ProblemFile.f90) \emph{Optional} \\
+Advanced users can have additional control over a simulation without having to modify the source code and recompile the code. To do that, the user can provide a set of routines that are called in different stages of the simulation via this file. It includes routines for user defined initial conditions and boundary conditions.
+\end{itemize}
+
+\section{Output Files}
+\begin{itemize}
+\item Solution file (*.hsol) \\
+	It contains the information about the solution of the simulation in a specific HORSES3D format. It can be converted to other formats for visualization (See Section~\ref{sect.convertTec}.)
+\item Horses mesh file (*.hmesh) \\
+This file contains information of the mesh converted by HORSES3D.
+\item Boundary information (*.bmesh) \\
+This file contains information of the mesh converted by HORSES3D.
+\item Partition file (*.pmesh) \emph{Optional} \\
+\item Polynomial order file (*.omesh) \emph{Optional} \\
+This file is used when more control of the polynomial use of the DG method, should not be used in simple cases and will not be covered in this manual.
+\item Monitor files (*.volume / *.surface / *.residuals) \\
+	This files contain information for default (i.e. residuals) or user defined monitors of variables in specific points (i.e. probes) or averaged by some spec (i.e. surface monitor). The user defined monitors are specified in the control file and are explained in Chapter~\ref{chap.monitors}.
+\end{itemize}
+
+\section{Control File (*.control) - Overview}\label{sect.control}
+
+The control file is the main file for running a simulation. It is a plane text file which uses a simple key and value format (using the equal `=’ sign); blocks (using the hash `\#’ sign); and comments (using Fortran style, admiration `!’ sign).
+
+The definition section of a simple control file is shown along with the explanation of the principal parameters:
+
+\vspace{0.2 in}
+\colorbox{mygray}{
+\begin{minipage}{\textwidth}
+Flow equations = ``NS''
+\textcolor{blue}{$\longrightarrow$ The equation(s) to be solved, NS is short for Navier–Stokes.}\\
+mesh file name = ``MESH/myMesh.mesh''
+\textcolor{blue}{$\longrightarrow$ The mesh file to be used.}\\
+solution file name = "RESULTS/mySol.hsol"
+\textcolor{blue}{$\longrightarrow$ The solution file to be created.}\\
+simulation type = time-accurate
+\textcolor{blue}{$\longrightarrow$ Specifies if there must be performed a `steady-state’ or a `time-accurate’ simulation.}\\
+time integration = explicit
+\textcolor{blue}{$\longrightarrow$ Specifies the type of the numerical scheme for the time integration, could be either `explicit' or `implicit'.}\\
+Polynomial order = 2
+\textcolor{blue}{$\longrightarrow$ Polynomial order to be assigned uniformly to all the elements of the mesh.}\\
+restart               = .false.
+\textcolor{blue}{$\longrightarrow$ Logical value. If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword restart file name..}\\
+cfl = 0.3
+\textcolor{blue}{$\longrightarrow$ A constant related with the convective Courant- Friedrichs-Lewy (CFL) condition that the program will use to compute the time step size.}\\
+dcfl = 0.3
+\textcolor{blue}{$\longrightarrow$ A constant related with the diffusive Courant-Friedrichs- Lewy (DCFL) condition that the program will use to compute the
+time step size.}\\
+final time            = 5.0
+\textcolor{blue}{$\longrightarrow$ Specifies the final time of the simulation. This keyword is mandatory for time-accurate solvers.}\\
+Number of time steps  = 10000
+\textcolor{blue}{$\longrightarrow$ Maximum number of time steps that the program will compute.}\\
+Output Interval = 50
+\textcolor{blue}{$\longrightarrow$ In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.}\\ 
+Convergence tolerance = 1.d-10
+\textcolor{blue}{$\longrightarrow$ Residual convergence tolerance for steady-state cases.}\\
+mach number = 0.3
+\textcolor{blue}{$\longrightarrow$ Physical variable that control the simulation.}\\
+Reynolds number = 200.0
+\textcolor{blue}{$\longrightarrow$ Physical variable that control the simulation.}\\
+Prandtl number = 0.72
+\textcolor{blue}{$\longrightarrow$ Physical variable that control the simulation.}\\
+AOA theta = 0.0
+\textcolor{blue}{$\longrightarrow$ Physical variable that control the simulation.}\\
+AOA phi = 90.0
+\textcolor{blue}{$\longrightarrow$ Physical variable that control the simulation.}\\
+LES model 				 = Smagorinsky
+\textcolor{blue}{$\longrightarrow$ Specifies the LES model to be used.}\\
+save gradients with solution = .true.
+\textcolor{blue}{$\longrightarrow$ Logical values that specifies some output variables to be saved.}\\
+riemann solver = roe
+\textcolor{blue}{$\longrightarrow$ Specifies the riemann solver to be used.}\\
+% \textcolor{blue}{$\longrightarrow$ }\\
+\end{minipage}
+}
+
+\subsection{Blocks}\label{sect.blocks}
+
+The other kind of specification for the problem file consists of blocks of definitions, which have a name placed on the opening header. The general form is shown below.
+
+\lstset{style=mystyle}
+\vspace{0.2 in}
+\begin{lstlisting}
+#define myBlock
+	keyword 1 = value 1
+	keyword 2 = value 2
+	.
+	.
+	keyword N = value N
+# end
+\end{lstlisting}
+
+\subsection{Boundary Conditions}
+
+The boundary conditions are specified as blocks in the control file. Each boundary condition can be individually defined or if multiple boundaries are set with the same definition, it could be done on the same block (with the name separated by a double under score `$\_$' sign). The name of each boundary must match with the one specified at the mesh file.
+
+The block in general can be seen below. Table~\ref{tab:BC} show the values for the type keyword, and the possible value for the parameters depends on the boundary condition.
+
+% \vspace{0.2 in}
+\begin{lstlisting}
+#define boundary myBoundary1__myBoundary2__myBoundary3
+	type        = typeValue
+	parameter 1 = value 1
+	parameter 2 = value 2
+# end
+\end{lstlisting}
+
+
+\begin{table}[h]
+\caption{Keywords for Boundary Conditions.}\label{tab:BC} 
+
+\begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+
+type 	& 
+		\textit{CHARACTER}: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. & 
+							N/A \\ \hline
+
+\end{tabular}
+\end{table}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Monitors}\label{chap.monitors}
+
+The monitors are specified individually as blocks in the control file.
+The only general keyword that can be specified is explained in Table \ref{tab:monitorsKey}.
+
+\begin{table}[h]
+\caption{Keywords for monitors.} \label{tab:monitorsKey} 
+
+\begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+
+monitors flush interval 	& 
+			\textit{INTEGER}: Iteration interval to flush the monitor information to the monitor files. & 
+							100 \\ \hline
+
+\end{tabular}
+\end{table}
+
+\section{Residual Monitors}
+For default, the residuals monitors are created without any specification on the control file.
+
+\section{Statistics Monitor}
+\begin{lstlisting}
+#define statistics
+   initial time      = 1.d0
+   initial iteration = 10
+   sampling interval = 10
+   dump interval     = 20
+   @start
+#end
+\end{lstlisting}
+
+Only constant time-stepping is supported (set time step with keyword dt = X instead of cfl).
+By default, the statistic monitor will average following variables:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item u
+\item v
+\item w
+\item uu 
+\item vv 
+\item ww 
+\item uv 
+\item uw 
+\item vw 
+\end{itemize}
+\end{multicols}
+
+A keyword preceded by @ is used in real-time to signalize the solver what it must do with the statistics computation:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item @start
+\item @pause
+\item @stop
+\item @reset
+\item @dump
+\end{itemize}
+\end{multicols}
+
+After reading the keyword, the solver performs the desired action and marks it with a star, e.g. @start*.
+
+\textbf{ATTENTION:} Real-time keywords may not work in parallel MPI computations. I depends on how the system is configured.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Probes}
+
+\begin{lstlisting}
+#define probe 1
+   name     = SomeName
+   variable = SomeVariable
+   position = [0.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for probes.} \label{tab:ProbesKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	& 
+			\textit{CHARACTER}: Name of the monitor. & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	& 
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{3}
+\begin{itemize}
+\item pressure
+\item velocity
+\item u
+\item v
+\item w
+\item mach
+\item k
+\end{itemize}			
+\end{multicols}	
+			 & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+position 	& 
+			\textit{REAL(3)}: Coordinates of the point to be monitored. & 
+							\textbf{Mandatory Keyword} \\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Surface Monitors}
+
+
+\begin{lstlisting}
+#define surface monitor 1
+   name              = SomeName
+   marker            = NameOfBoundary
+   variable          = SomeVariable
+   reference surface = 1.d0
+   direction         = [1.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for probes.} \label{tab:SurfaceMonitorKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	& 
+			\textit{CHARACTER}: Name of the monitor. & 
+							\textbf{Mandatory Keyword} \\ \hline
+							
+marker & 
+			\textit{CHARACTER}: Name of the boundary where a variable will be monitored. & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	& 
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item mass-flow
+\item flow
+\item pressure-force
+\item viscous-force
+\item force
+\item lift
+\item drag
+\item pressure-average
+\end{itemize}			
+\end{multicols}	
+			 & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+reference surface 	& 
+			\textit{REAL}: Reference surface [area] for the monitor. Needed for "lift" and "drag" computations. & 
+							-- \\ \hline
+
+direction 	& 
+			\textit{REAL(3)}: Direction in which the force is going to be measured. Needed for "pressure-force", "viscous-force" and "force". Can be specified for "lift" (default [0.d0,1.d0,0.d0]) and "drag" (default [1.d0,0.d0,0.d0])   & 
+							-- \\ \hline
+\end{longtable}
+
+
+\section{Volume Monitors}
+Volume monitors compute the average of a quantity in the whole domain. They can be scalars(s) or vectors(v). 
+
+\begin{lstlisting}
+#define volume monitor 1
+   name     = SomeName
+   variable = SomeVariable
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for volume monitors.} \label{tab:VolMonitorsKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	& 
+			\textit{CHARACTER}: Name of the monitor. & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	& 
+			\textit{CHARACTER}: Variable to be monitored. The variable can be scalar (s) or vectorial (v). Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item[\textbf{(s)}] kinetic energy
+\item[\textbf{(s)}] kinetic energy rate
+\item[\textbf{(s)}] enstrophy
+\item[\textbf{(s)}] entropy
+\item[\textbf{(s)}] entropy rate
+\item[\textbf{(s)}] mean velocity
+\item[\textbf{(v)}] velocity
+\item[\textbf{(v)}] momentum
+\item[\textbf{(v)}] source
+\end{itemize}		
+\end{multicols}	
+			
+			 & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Running the Simulation}
+
+\section{General configuration}
+The files described in Chapter~\ref{chap.IO} must be placed in specific directories in order to be read (or written). The recommended basic configuration is shown below, but a different one can be used as long as the paths in the control file are properly changed.
+
+\vspace{0.2 in}
+\dirtree{%
+.1 myDirectory.
+.2 RESULTS.
+.2 SETUP.
+.3 ProblemFile.f90.
+.3 **libProblemFile \emph{(The files that result as the compilation of the problem file)}.
+.2 MESH.
+.3 myMesh.mesh.
+.2 myControlFile.control.
+}
+
+\vspace{0.2 in}
+The directory RESULTS must be created (even if is empty) before running HORSES3D. The solution files and monitors will be written in it. In the SETUP directory, the binary files that result as the compilation of the problem file should be placed before running HORSES3D (the use of the problem file is optional, but it is recommended). In the MESH directory, the input mesh files must be placed and the resulted mesh files will be written.
+
+After the main directory structure is in placed, the simulation can be run with the following command (assuming that the bin directory of HORSES3D is on the PATH).
+
+\begin{lstlisting}[language=bash]
+	$ horses3d.ns myControlFile.control
+\end{lstlisting}
+
+In case of running in a cluster with a queue system, this command can be used in the running script.
+
+% \section{Simple Example}
+
+% Along with this document, a folder with the general structure of the previous section can be found (shown below). The mesh file, the control file and the SETUP precompile files are the only files needed to start the simulation.
+
+% \vspace{0.2 in}
+% \dirtree{%
+% .1 StraightChannel.
+% .2 RESULTS.
+% .2 SETUP.
+% .3 ProblemFile.f90.
+% .3 *.o.
+% .3 *.so.
+% .3 *.mod.
+% .2 MESH.
+% .3 StraightPlate.mesh.
+% .2 ChannelFlow_Straight.control.
+% }
+% The control file has the following setup.
+
+% \lstinputlisting{StraightChannel/ChannelFlow_Straight.control}
+
+% To start the simulation, the following command is executed.
+
+% \begin{lstlisting}[language=bash]
+% 	$ horses3d.ns ChannelFlow_Straight.control
+% \end{lstlisting}
+
+% Figure~\ref{fig:outputHorses} shows the output created by HORSES3D.
+
+% \begin{figure*}
+%     \centering
+% 	\includegraphics[width=0.7\linewidth]{}
+% 	\caption{Firtst output after running HORSES3D.}
+%     \label{fig:outputHorses}
+% \end{figure*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Postprocessing}
+
+For postprocessing the Simulation Results
+
+\section{Visualization with Tecplot Format: \textit{horses2plt}}\label{sect.convertTec}
+
+HORSES3D provides a script for converting the native binary solution files (*.hsol) into tecplot ASCII format (*.tec), which can be visualized in Pareview or Tecplot. Usage:
+
+\begin{lstlisting}[language=bash]
+	$ horses2plt SolutionFile.hsol MeshFile.hmesh <<Options>>
+\end{lstlisting}
+
+The options comprise following flags:
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Flags for \textit{horses2plt}.} \label{tab:Postprocessing} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Additional flags for postprocessing with \textit{horses2plt}} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+-{}-output-order= 	& 
+			\textit{INTEGER}: Output order nodes. The solution is interpolated into the desired number of points. & 
+							Not Present \\ \hline
+							
+-{}-output-basis= 	& 
+			\textit{CHARACTER}: Either \textit{Homogeneous} (for equispaced nodes, or \textit{Gauss}.  & 
+							\textit{Gauss}* \\ \hline
+							
+-{}-output-mode= 	& 
+			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-file} is defined).
+			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  & 
+							\textit{multizone} \\ \hline
+							
+-{}-output-variables= 	& 
+			\textit{CHARACTER}: Output variables separated by commas.A complete description can be found in Section \ref{PostProc:hsol}. & 
+							Q \\ \hline
+
+-{}-dimensionless 	& 
+			Specifies that the output quantities must be dimensionless & 
+							Not Present  \\ \hline
+							
+-{}-partition-file= 	& 
+			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. & 
+							Not Present  \\ \hline
+							
+-{}-boundary-file= 	& 
+			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. & 
+							Not Present  \\ \hline
+\multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
+
+\end{longtable}
+
+Additionally, depending on the type of solution file, the user can specify additional options.
+
+\subsection{Solution Files (*.hsol)} \label{PostProc:hsol}
+
+For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag \textit{-{}-output-variables=}. 
+The options are:
+
+\begin{multicols}{5}
+\begin{itemize}
+\item $Q$ (default)
+\item $rho$
+\item $u$
+\item $v$
+\item $w$
+\item $p$
+\item $T$
+\item $Mach$
+\item $s$
+\item $Vabs$
+\item $V$
+\item $Ht$
+\item $rhou$
+\item $rhov$
+\item $rhow$
+\item $rhoe$
+\item $c$
+\item $Nxi$
+\item $Neta$
+\item $Nzeta$
+\item $Nav$
+\item $N$
+\item $Ax\_Xi$
+\item $Ax\_Eta$
+\item $Ax\_Zeta$
+\item $ThreeAxes$
+\item $Axes$
+\item $mpi\_rank$
+\item $eID$
+\item $gradV$
+\item $u\_x$
+\item $v\_x$
+\item $w\_x$
+\item $u\_y$
+\item $v\_y$
+\item $w\_y$
+\item $u\_z$
+\item $v\_z$
+\item $w\_z$
+\item $c\_x$
+\item $c\_y$
+\item $c\_z$
+\item $omega$
+\item $omega\_x$
+\item $omega\_y$
+\item $omega\_z$
+\item $omega\_abs$
+\item $Qcrit$
+\end{itemize}
+\end{multicols}
+
+\subsection{Statistics Files (*.stats.hsol)}
+Statistics files generate following variables by default (being Sij the components of the Reynolds Stress tensor):
+
+\begin{multicols}{3}
+\begin{itemize}
+\item Umean
+\item Vmean
+\item Wmean
+\item Sxx
+\item Syy
+\item Szz
+\item Sxy
+\item Sxz
+\item Syz
+\end{itemize}
+\end{multicols}
+
+\section{Merge statistics tool}
+
+Tool to merge several statistics files. The usage is the following:
+
+\begin{lstlisting}[language=bash]
+	$ horses.mergeStats *.hsol --initial-iteration=INTEGER --file-name=CHARACTER
+\end{lstlisting}
+
+Some remarks:
+\begin{itemize}
+\item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations. 
+\item Only constant time-stepping is supported (set time step with keyword dt = X instead of cfl).
+\item Dynamic p-adaptation is currently not supported.
+\end{itemize}
+
+\section{Mapping result to different mesh} \label{tab:meshInterpolation}
+HORSES3D addons, \textit{horsesConverter}, has a capability to map result into different mesh file, with both have a consistent geometry.  A control input file is required and must has name \textit{horsesConverter.convert}. The template of control input file will be generated by default when executing \textit{./horsesConverter} in a directory without the control file. Error message is given when at least one node point of the new mesh is not within any element of the old mesh. After completion, a new result file is generated and named \textit{Result\_interpolation.hsol}. The required keywords in the control file are described in table \ref{tab:mappingresult}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for \textit{meshInterpolation}.} \label{tab:mappingresult} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+Task 	        		& \textit{meshInterpolation} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Result 1 			& Location of the solution file with origin mesh (*.hsol) 	&  \\ \hline
+Mesh Filename 2 		& Location of the target mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 2 	& Location of the target boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Polynomial order of the target mesh 	& (1, 1, 1) \\ \hline
+\end{longtable}
+
+\section{Generate OpenFOAM mesh} \label{tab:horsesMesh2OF}
+Another functionality of \textit{horsesConverter} addons is to convert the mesh files, (*.hmesh) and (*.bmesh), into OpenFOAM format, the \textit{polyMesh} folder. After completion, a folder named \emph{foamFiles} is generated. OpenFOAM mesh files, i.e. \textit{points}, \textit{faces}, \textit{owner}, \textit{neighbour}, and \textit{boundary}, are located within \emph{foamFiles/constant/polyMesh}. The required keywords in the control file are described in table \ref{tab:horsesMesh2of}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for \textit{horsesMesh2OF}.} \label{tab:horsesMesh2of} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+Task 	        		& \textit{horsesMesh2OF} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Number of division of each element ($n_x$, $n_y$, and $n_z$) 	& (1, 1, 1) \\ \hline
+\end{longtable}
+
+NOTE: Before running the mesh in the OpenFOAM environment, the type of boundaries inside the boundary file needs to be adjusted according to the actual type (\textit{patch}, \textit{wall}, and \textit{symmetry}).
+
+\section{Generate HORSES3D solution file from OpenFOAM result}
+HORSES3D provides a capability to convert OpenFOAM result into HORSES3D solution file (*.hsol). The mesh of the OpenFOAM result must be generated by converting HORSES3D mesh files, see section \ref{tab:horsesMesh2OF}. Beforehand, the OpenFOAM result must be converted into VTK format(*.vtk). This not only  allows the result to be in the single file but also converts cell data into point data. In the OpenFOAM environment, the command for this conversion:  
+\begin{lstlisting}[language=c++]
+	$ foamToVTK -fields "(U p T rho)" -ascii -latestTime
+\end{lstlisting}
+The necessary file (.vtk) required for the control file input is inside VTK folder, see section \ref{tab:meshInterpolation} for the control file template. The HORSES3D solution file is named \emph{Result\_OF.hsol}. The required keywords in the control file are described in table \ref{tab:OF2Horses}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+
+\begin{longtable}{|p{5cm}|p{9cm}|p{2.2cm}|}
+\caption{Keywords for \textit{OF2Horses}.} \label{tab:OF2Horses} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for \textit{OF2Horses} - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+Task 	        		& \textit{OF2Horses} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Polynomial order of the solution file (.hsol)  & (1, 1, 1) \\ \hline
+VTK file         	& Location of VTK file (.vtk)   &             \\ \hline
+Reynolds Number    	& Reynolds Number/m of the solution -- $L_{ref}$=1.0m   &             \\ \hline
+Mach Number         	& Mach Number of the solution      &             \\ \hline
+Reference pressure (Pa)         	& Reference Pressure   & 101325             \\ \hline
+Reference temperature (K)        & Reference Temperature   & 288.889             \\ \hline
+
+\end{longtable}
+
+
+\chapter{Compiling the code}
+
+\begin{itemize}
+\item Clone the git repository or copy the source code into a desired folder.
+
+\item Go to the folder Solver.
+
+\item Run configure script.
+\begin{lstlisting}[language=bash]
+	$ ./configure
+\end{lstlisting}
+\item Install using the Makefile:
+\begin{lstlisting}[language=bash]
+	$ make all <<Options>>
+\end{lstlisting}
+with the desired options (bold are default):
+
+\begin{itemize}
+\item MODE=DEBUG/\textbf{RELEASE}
+\item COMPILER=ifort/\textbf{gfortran}
+\item COMM=PARALLEL/\textbf{SEQUENTIAL}
+\item ENABLE\_THREADS=NO/\textbf{YES}
+\item WITH\_MKL=YES/\textbf{NO}
+\end{itemize}
+
+For example:
+\begin{lstlisting}[language=bash]
+	$ make all COMPILER=ifort WITH_MKL=YES
+\end{lstlisting}
+
+The HORSES3D tools are created in the Solver/bin directory.
+
+\item If you use \textit{environment modules}, it is advised to use the HORSES3D module file:\\
+\begin{lstlisting}[language=bash]
+	$ export MODULEPATH=$HORSES_DIR/utils/modulefile:$MODULEPATH
+\end{lstlisting}
+where \$HORSES\_DIR is the installation directory.
+
+\item It is advised to run the \emph{make clean} command if some options of the compilation rutine needs to be changed and it has been compiled before.
+
+\item The compilation of the ProblemFile presented at Chapter~\ref{chap.IO} must be done with the same options as the HORSES3D code.
+\end{itemize}
+
+
+\end{document}

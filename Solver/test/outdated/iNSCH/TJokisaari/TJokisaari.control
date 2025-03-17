@@ -1,0 +1,53 @@
+mesh file name        = "./MESH/t-jokisaari.mesh"
+discretization nodes  = Gauss
+restart file name     = "./RESULTS/TJokisaari.hsol"
+solution file name    = "./RESULTS/TJokisaari.hsol"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 1000
+Output Interval       = 100
+convergence tolerance = 1.0d-10
+viscous discretization = IP
+cahn-hilliard discretization = IP
+penalty parameter = 1.0
+2D mesh offset direction = z
+interior penalty variant = SIPG
+riemann solver = Exact
+time integration = imex
+#define Jacobian
+   type = 1
+#end
+
+interface width (dimensionless)  = 3.1623d0
+reference velocity = 1.0d0
+viscosity ratio (mu2/mu1) = 1.0d0
+density ratio (rho2/rho1) = 0.3d0
+peclet number = 0.1d0
+interface tension = 0.0000001d0
+number of fluids (1/2) = 2
+fluid 1 density (kg/m^3) = 1.0
+fluid 2 density (kg/m^3) = 0.3
+fluid 1 viscosity (Pa.s) = 1.0e-4
+fluid 2 viscosity (Pa.s) = 1.0e-4
+gravity direction = [0.0,-1.0,0.0]
+gravity acceleration (m/s^2) = 3.0
+dt                    = 2.5d-3
+simulation type       = time-accurate
+final time            = 20.0d3
+autosave mode         = iteration
+autosave interval     = 250
+
+#define boundary periodic-
+   type = periodic
+   coupled boundary = periodic+
+#end
+
+#define boundary periodic+
+   type = periodic
+   coupled boundary = periodic-
+#end
+
+#define boundary boundary
+   type = NoSlipWall
+#end
+

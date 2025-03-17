@@ -1,0 +1,92 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/PeriodicBoxUnity.mesh"
+restart file name     = ""
+solution file name    = "RESULTS/RadiationHeat.hsol"
+restart               = .false.
+Polynomial order      = 2
+!polynomial order file = "MeshFiles/PolOrder.csv"
+Number of time steps  = 40000
+Autosave mode         = iteration
+Autosave interval     = 1000
+Simulation type = time-accurate
+final time            = 1.d-1
+!dt                    = 2.0d-4
+Output Interval       = 100
+Number of plot points = 5
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 0.002941176471
+Reynolds number       = 66973.8
+prandtl number        = 0.72
+AOA theta             = 0.0
+AOA phi               = 0.0
+Gravity direction     = [0,0,0]
+! If not specified, it is calculated with g=9.81
+Froude number         = 0.319275 
+!
+#################
+#   PARTICLES   #
+#################
+lagrangian particles  = .true.
+injection             = .false.
+high order particles source term = .false.
+particles file        = "RandomParticles.txt"
+vel and temp from file= .false.
+minimum box           = [0,0,0]
+maximum box           = [1,1,1]
+bc box                = [2,2,2] ! [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic 
+number of particles   = 1000
+particles per parcel  = 1
+stokes number         = 0.0468652
+Gamma                 = 5.83008
+phi_m                 = 8.18442d-7
+Radiation source      = 8.43234
+#################
+# END PARTICLES	#
+#################
+
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary back
+  type = periodic
+  coupled boundary = front
+#end
+
+#define boundary top
+  type = periodic
+  coupled boundary = bottom
+#end
+
+#define boundary bottom
+  type = periodic
+  coupled boundary = top
+#end
+
+#define boundary left
+  type = periodic
+  coupled boundary = right
+#end
+
+#define boundary right
+  type = periodic
+  coupled boundary = left
+#end
+
+#define volume monitor 1 
+  name = internalEnergy
+  variable = internal energy  
+#end
+
+#define volume monitor 2
+  name = source
+  variable = particles source 
+#end
+
+#define volume monitor 3
+  name = momentum
+  variable = momentum
+#end

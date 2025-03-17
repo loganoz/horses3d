@@ -1,0 +1,67 @@
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/BoxAroundCircle3D_extended_pol3.mesh"
+restart file name     = "RESULTS/BoxAroundCircle.rst"
+solution file name    = "RESULTS/BoxAroundCircle_saved.rst"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 1000
+Output Interval       = 10
+Number of plot points = 3
+Convergence tolerance = 1.d-10
+cfl                   = 0.7
+mach number           = 0.3
+Riemann solver        = Standard Roe
+inviscid discretization = Split-form
+averaging             = Pirozzoli
+Reynolds number       = 0.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+
+#define boundary InnerCylinder
+  type = FreeSlipWall
+#end
+
+#define boundary front
+  type = Inflow
+#end
+
+#define boundary bottom
+  type = FreeSlipWall
+#end
+
+#define boundary top
+  type = FreeSlipWall
+#end
+
+#define boundary back
+  type = Inflow
+#end
+
+#define boundary left
+  type = Inflow
+#end
+
+#define boundary right
+  type = Inflow
+#end
+
+
+
+#define probe 1
+   Name = wake_w
+   Position = [0.0,2.0,4.0]
+   Variable = w
+#end 
+
+#define surface monitor 1
+   Name = drag
+   Marker = innercylinder
+   Variable = pressure-force
+   Direction = [1.0, 0.0, 0.0]
+#end
+
+#define surface monitor 2
+   Name = p_average
+   Marker = innercylinder
+   Variable = pressure-average
+#end

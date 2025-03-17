@@ -1,0 +1,26 @@
+Flow equations = "NS"
+discretization nodes = "Gauss"
+inviscid discretization = Standard
+mesh file name = "./GradientsMeshFileNames.txt"
+save gradients with solution = .false.
+plot file name = "none"
+restart file name = "none"
+restart               = .false.
+Polynomial order      = 9
+Number of time steps  = 1
+Output Interval       = 1000
+Number of plot points = 6
+Convergence tolerance = 1.d-10
+cfl                   = 0.9
+mach number           = 0.5
+Reynolds number       = 0.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+Number of boundaries  = 6
+front 0.0 Inflow
+back 0.0 Inflow
+bottom 0.0 Inflow
+top 0.0 Inflow
+left 0.0 Outflow
+right 0.0 Outflow
+//

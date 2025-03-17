@@ -1,0 +1,75 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = MESH/Square8x8.mesh
+                      Solution file name = RESULTS/Kovasznay.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = y
+                                 Restart = .false.
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                        Density (kg/m^3) = 1.0
+                       Viscosity (Pa.s)  = 0.025
+                          Flow equations = NS  ! Euler
+                           Froude number = 1.0d+300
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+       Artificial compressibility factor = 1000.0
+                    !   Gravity direction = [x,y,z]
+                       Compute gradients = .true.
+
+
+!------------------------- Discretization:-
+                        Polynomial order = 3
+                    Discretization nodes = Gauss  ! Gauss-Lobatto
+                          Riemann solver = Exact  ! Standard Roe/Low dissipation Roe
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Split-form
+                               Averaging = Skew-Symmetric 2  ! Pirozzoli/Morinishi/Kennedy-Gruber/Entropy conserving/Entropy and energy conserving
+                  Viscous discretization = BR1   ! IP/BR2
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+                         Explicit method = RK3
+                                     CFL = 0.75
+                                    dCFL = 100.0
+                    Number of time steps = 1000000
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-4
+                         Simulation type = steady-state
+                              Final time = 10.0
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 500   ! 1.0
+
+!-------------------- Boundary conditions:-
+#define boundary Front
+   type = user-defined
+#end
+ 
+#define boundary bottom
+    type = periodic
+    coupled boundary = top
+#end
+ 
+#define boundary top
+    type = periodic
+    coupled boundary = bottom
+#end
+ 
+#define boundary Back
+   type = user-defined
+#end
+ 
+#define boundary Left
+    type = user-defined
+#end
+ 
+#define boundary Right
+    type = user-defined
+#end

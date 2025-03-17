@@ -1,0 +1,89 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/ForwardFacingStep.mesh
+                      Solution file name = RESULTS/FFS.hsol
+               Save sensor with solution = .true.
+                2D mesh offset direction = z
+                                 Restart = .false.
+                       Restart file name = RESULTS/FFS.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS
+                             Mach number = 3.0
+                         Reynolds number = 0.0
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 7
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Matrix dissipation
+                 Inviscid discretization = Split-form
+                               Averaging = Chandrasekar
+                      Gradient variables = Entropy
+                  Viscous discretization = BR1
+
+!----------------------- Shock-capturing:-
+                 Enable shock-capturing = .true.
+                           Shock sensor = integral with sqrt
+                        Sensor variable = grad rho
+                     Sensor lower limit = 0.0
+                    Sensor higher limit = 1.0
+                     Shock first method = SVV
+                    Shock second method = non-filtered
+                   Shock viscous flux 1 = Physical
+                   Shock viscous flux 2 = Guermond-Popov
+                 Shock update viscosity = constant
+                             Shock mu 1 = 20.0e-3
+                          Shock alpha 1 = 0.0
+                             Shock mu 2 = 20.0e-3
+                          Shock alpha 2 = 20.0e-3
+                      SVV filter cutoff = 4.0
+                       SVV filter shape = power
+                        SVV filter type = low-pass
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                                      dt = 0.00002
+                    Number of time steps = 10
+                         Output interval = 50
+                   Convergence tolerance = 1.0e-10
+
+!-------------------- Boundary conditions:-
+#define boundary inlet
+   type = Inflow
+#end
+
+#define boundary step
+   type = FreeSlipWall
+#end
+
+#define boundary periodic+
+   type = periodic
+   coupled boundary = periodic-
+#end
+
+#define boundary periodic-
+   type = periodic
+   coupled boundary = periodic+
+#end
+
+#define boundary outlet
+   type = Outflow
+#end
+
+#define boundary top
+   type = FreeSlipWall
+#end
+
+#define volume monitor 1
+   name = SVV
+   variable = Artificial dissipation
+#end

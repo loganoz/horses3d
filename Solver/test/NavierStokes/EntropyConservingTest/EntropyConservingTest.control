@@ -1,0 +1,87 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
+Polynomial order      = 5
+Number of time steps  = 100
+Output Interval       = 10
+Convergence tolerance = 1.d-10
+cfl                   = 0.3
+dcfl                  = 0.3
+mach number           = 0.3
+Reynolds number       = 200.0
+AOA theta             = 0.0
+AOA phi               = 90.0
+solution file name    = "RESULTS/Cylinder.hsol"
+restart               = .false.
+restart file name     = "RESULTS/Cylinder.hsol"
+
+!---------------------:
+Riemann Solver                         = Central
+Gradient Variables                     = Entropy
+Inviscid Discretization                = Split-form
+Averaging                              = Chandrasekar
+Viscous Discretization                 = BR1
+compute time derivative after timestep = .true.
+
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom
+  type = periodic
+  coupled boundary = top
+#end
+
+#define boundary top
+  type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+  type = periodic
+   coupled boundary = front
+#end
+
+#define boundary front
+  type = periodic
+ coupled boundary = back
+#end
+
+#define boundary left
+  type = NoSlipWall
+#end
+
+#define boundary right
+  type = NoSlipWall
+#end
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define volume monitor 1
+   Name = En-balance
+   Variable = Entropy balance
+#end
+
+#define volume monitor 2
+   Name = En-rate
+   Variable = Entropy rate
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,2.0,4.0]
+   Variable = u
+#end

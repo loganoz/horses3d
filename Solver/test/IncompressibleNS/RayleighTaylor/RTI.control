@@ -1,0 +1,79 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ./MESH/RTI_128x16.mesh
+                      Solution file name = ./RESULTS/Skew2-Re1000.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = y
+                                 Restart = .false.
+                       Restart file name = ./RESULTS/Skew2-Re1000/RTI_128x16_0000008000.hsol
+
+!-------------------- Physical parameters:-
+                 Minimum density (kg/m^3) = 0.9
+                 Maximum density (kg/m^3) = 3.1
+                           viscosity (Pa.s) = 0.001
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Gravity direction = [-1,0,0]
+                     Gravity acceleration (m/s^2) = 1.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 6
+                    Discretization nodes = Gauss  ! Gauss-Lobatto
+                          Riemann solver = Exact
+                      !beta0 coefficient = 0.0025
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Split-form
+                               Averaging = skew-symmetric 1
+       Artificial compressibility factor = 5000.0
+                  Viscous discretization = BR1   ! IP/BR2
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+                                      dt = 1.5E-05
+                    Number of time steps = 100
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                              Final time = 3.535533905932738
+                           Autosave mode = Time
+                       Autosave interval = 0.353553390593274
+
+!-------------------- Boundary conditions:-
+#define boundary front 
+   type = NoSlipWall
+#end
+
+#define boundary back
+   type = NoSlipWall
+#end
+
+#define boundary top
+   type = FreeSlipWall
+#end
+
+#define boundary bottom
+   type = FreeSlipWall
+#end
+
+#define boundary left 
+   type = FreeSlipWall
+#end
+
+#define boundary right 
+   type = FreeSlipWall
+#end
+
+#define volume monitor 1
+   name = mass
+   variable = mass
+#end
+
+#define volume monitor 2
+   name = entropy
+   variable = entropy
+#end

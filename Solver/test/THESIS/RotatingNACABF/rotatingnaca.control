@@ -1,0 +1,79 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "MESH/rotnaca.msh"
+
+Polynomial order      = 3
+Number of time steps  = 10000000
+Output Interval       = 5000
+autosave mode         = "iteration"
+autosave interval     = 50000
+
+mach number           = 0.3d0
+Reynolds number       = 1000.0d0
+reference temperature (k) = 293.0d0
+
+solution file name    = "RESULTS/rotnaca.hsol"
+save gradients with soluton = .false.
+restart               = .false.
+restart file name     = "RESULTS/IBMCylinder_VP_P3_0005479538.hsol"
+riemann solver         = "lax-friedrichs"
+
+viscous discretization = "BR1"
+
+autosave mode      = "iteration"
+autosave interval  = 10000
+
+!explicit method = euler
+convergence tolerance = 1.0d-8
+cfl                   = 0.1d0
+dcfl                  = 0.1d0
+
+periodic relative tolerance = .true.
+
+partitioning = SFC
+
+#define boundary rotnaca
+    type = NoSlipWall
+#end 
+
+#define boundary inlet
+   type = InFlow
+#end 
+
+#define boundary outlet
+   type = OutFlow
+#end
+
+#define boundary up
+   type = FreeSlipWall
+#end
+
+#define boundary down
+   type = FreeSlipWall
+#end
+
+#define boundary wall1
+   type = periodic
+   coupled boundary = wall2
+#end
+
+#define boundary wall2
+   type = periodic
+   coupled boundary = wall1
+#end
+
+#define surface monitor 1
+  Name = drag
+  Marker = rotnaca
+  Variable = drag
+  reference surface = 1.0d0
+  direction = [ 1.0d0, 0.0d0, 0.0d0 ]
+#end
+
+#define surface monitor 2
+  Name = lift
+  Marker = rotnaca
+  Variable = lift
+  reference surface = 1.0d0
+  direction = [ 0.0d0, 1.0d0, 0.0d0 ]
+#end

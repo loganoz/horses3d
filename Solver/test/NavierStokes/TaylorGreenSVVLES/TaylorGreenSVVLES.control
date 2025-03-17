@@ -1,0 +1,96 @@
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/TaylorGreen8.mesh
+                      Solution file name = RESULTS/TGV.hsol
+                       Restart file name = RESULTS/TGV.hsol
+              Save gradients to solution = .false.
+                                 Restart = .false.
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS
+                             Mach number = 0.1
+                         Reynolds number = 0.0
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 8
+                    Discretization nodes = Gauss-Lobatto
+                 Inviscid discretization = Split-form
+                               Averaging = Pirozzoli
+                          Riemann solver = Low dissipation Roe
+                      Gradient variables = Energy
+                  Viscous discretization = BR1
+
+!----------------------- Shock-capturing:-
+                 Enable shock-capturing = .true.
+                           Shock sensor = ones
+                     Shock first method = SVV
+                    Shock second method = none
+                   Shock viscous flux 1 = Physical
+                  Shock update strategy = Smagorinsky
+                             Shock mu 1 = 0.2
+                         Shock alpha/mu = 0.0
+                     Sensor lower limit = 0.0
+                    Sensor higher limit = 2.0  ! Make sure the sensor falls in the range
+                      SVV filter cutoff = 0.1
+                       SVV filter shape = power
+                        SVV filter type = high-pass
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                                     CFL = 0.4
+                                    dCFL = 0.4
+                    Number of time steps = 10
+                         Output interval = 1
+                   Convergence tolerance = 1.0e-10
+  Compute time derivative after timestep = .true.
+
+!------------------------------------ BCs:-
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
+
+!------------------------------- Monitors:-
+#define volume monitor 1
+   Name = KinEn
+   Variable = Kinetic energy
+#end
+
+#define volume monitor 2
+   Name = KinEnRate
+   Variable = Kinetic energy rate
+#end
+
+#define volume monitor 3
+   name = SVV
+   variable = Artificial dissipation
+#end

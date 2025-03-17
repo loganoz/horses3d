@@ -1,0 +1,81 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI ifort release
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  ## Deactivated on push until fixed ##
+  ##push:
+  ##  branches: [ master ]
+  ##pull_request:
+  ##  branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest #16.04
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # Runs a single command using the runners shell
+      - name: cache-intel-compilers
+        id: cache-intel-compilers
+        uses: actions/cache@v2
+        with:
+          path: /opt/intel
+          key: intel-${{ runner.os }}-compilers-b
+      
+      - name: Install Intel compilers and libraries
+        if: steps.cache-intel-compilers.outputs.cache-hit != 'true'
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
+          sudo apt-get update
+          sudo apt-get install intel-hpckit-getting-started intel-oneapi-clck intel-oneapi-common-licensing intel-oneapi-common-vars
+          sudo apt-get install intel-oneapi-dev-utilities  intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-compiler-fortran intel-oneapi-itac
+          sudo apt-get install intel-oneapi-mkl intel-oneapi-mpi intel-oneapi-mpi-devel
+          # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
+          # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
+
+      - name: Configure
+        working-directory: ./Solver
+        run: ./configure
+      
+      ##- name: Environment for ifort compiler
+      ##  if: contains(matrix.fortran-compiler, 'ifort')
+      ##  run: |
+      ##    echo "CC=icx" > $GITHUB_ENV
+      ##    echo "FC=ifort" > $GITHUB_ENV
+      ##    echo "F90FLAGS=-O3 -heap-arrays" > $GITHUB_ENV
+      
+      - name: Compile horses3d ifort release
+        working-directory: ./Solver  
+        run: |
+         source /opt/intel/oneapi/setvars.sh || true 
+         ifort --version
+         make allclean MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
+         make MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
+        
+      - name: Build FacePatches ifort release
+        working-directory: ./Solver/test/Components/FacePatches
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true  
+          make MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
+    
+      - name: Run FacePatches ifort release
+        working-directory: ./Solver/test/Components/FacePatches
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true 
+          ./bin/FacePatches
+            
+

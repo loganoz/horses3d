@@ -1,0 +1,64 @@
+# object, module, and library files
+*.o
+*.a
+*.so
+*.mod
+*.dylib
+tecplot.phy
+bin/HORSES3D
+make.inc
+*.hmesh
+*.hsol
+RESULTS
+
+# osx noise
+.DS_Store
+profile
+
+# xcode noise
+build/*
+*.mode1
+*.mode1v3
+*.mode2v3
+*.perspective
+*.perspectivev3
+*.pbxuser
+*.xcworkspace
+xcuserdata
+
+# svn & cvs
+.svn
+CVS
+
+#Tests noise
+Tests/*/*/Build/*
+Tests/*/*/Build_Debug/*
+Tests/*/*/Build_Release/*
+Tests/*/*/RestartFiles/*
+Tests/*/*/PlotFiles/*
+nslite3d
+Tests/*/*/nslite3d
+Tests/*/*/*.fide
+Tests/Euler/BoxAroundCircle/nslite3BoxAroundCircle
+Tests/Euler/UniformFlow/nslite3DUF
+Tests/TestMeshes/CylinderNSpol3_v2.mesh
+
+# Andres
+*.mu
+*.ch
+*.ns
+*.nssa
+*.ins
+bin/
+Makefile
+Makefile.template
+!Solver/src/**/Makefile
+!utils/ProblemFile/Makefile
+utils/modulefile/horses/dev
+Solver/include/
+.local.vimrc
+.vscode/
+.fortls
+
+# AddOns
+horsesConverter

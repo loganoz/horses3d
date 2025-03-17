@@ -1,0 +1,161 @@
+#!/bin/bash
+#######################################################################
+###	This script configures the test cases and tutorials:
+###		-> Copies Makefiles with the solver absolute path
+###		-> Generates the required folders.
+###		-> Generates links to the solver.
+#######################################################################
+
+##################################################
+## 	APPLY A PATCH IF REQUESTED 		##
+##################################################
+for i in "$@"
+do
+case $i in
+    -p=*|--patch=*)
+    MACHINE="${i#*=}"
+    if [ "$MACHINE" = "bender" ]; then
+        echo "Applying patch for bender... ATTENTION: If you want MPI, do 'module load intel/OpenMPI_3.10'"
+    fi
+    git apply ../utils/patches/$MACHINE.patch
+    shift
+    ;;
+    --remove-patch=*)
+    MACHINE="${i#*=}"
+    git apply -R ../utils/patches/$MACHINE.patch
+    shift
+    ;;
+    *)
+    ;;
+esac
+done
+##################################################
+## 	GENERATE TEST CASES			##
+##################################################
+TEST_CASES="./Euler/BoxAroundCircle \
+            ./Euler/BoxAroundCircle_pAdapted \
+            ./Euler/BoxAroundCirclePirozzoli \
+            ./Euler/Diffuser \
+            ./Euler/UniformFlow \
+            ./Euler/JFNK \
+            ./Euler/TaylorGreenKEPEC \
+            ./NavierStokes/Convergence \
+            ./NavierStokes/Convergence_energy \
+            ./NavierStokes/Convergence_entropy \
+            ./NavierStokes/Cylinder \
+            ./NavierStokes/CylinderFAS \
+            ./NavierStokes/CylinderAnisFAS \
+            ./NavierStokes/CylinderBR2 \
+            ./NavierStokes/CylinderIP \
+            ./NavierStokes/CylinderIP_BDF2 \
+            ./NavierStokes/CylinderDucros \
+            ./NavierStokes/CylinderDifferentOrders \
+            ./NavierStokes/CylinderSmagorinsky \
+            ./NavierStokes/CylinderWALE \
+            ./NavierStokes/CylinderVreman \
+            ./NavierStokes/IBM_Cylinder \
+            ./NavierStokes/DualTimeStepping \
+            ./NavierStokes/EntropyConservingTest \
+            ./NavierStokes/EnergyConservingTest \
+            ./NavierStokes/TaylorGreen \
+            ./NavierStokes/TaylorGreenKEPEC_IP \
+            ./NavierStokes/TaylorGreenKEP_BR2 \
+            ./NavierStokes/NACA0012 \
+            ./NavierStokes/ForwardFacingStepSVV \
+            ./NavierStokes/ForwardFacingStep_SSPRK33 \
+            ./NavierStokes/ForwardFacingStep_SSPRK43 \
+            ./NavierStokes/TaylorGreenSVVLES \
+            ./NavierStokes/ManufacturedSolutionsSA \
+            ./NavierStokes/FlatPlateSA \
+            ./NavierStokes/BIRK5NumJac \
+            ./NavierStokes/CylinderGMM \
+            ./NavierStokes/Cylinder_pAdaptationRL \
+            ./IncompressibleNS/Convergence \
+            ./IncompressibleNS/Kovasznay \
+            ./IncompressibleNS/TaylorGreen \
+            ./IncompressibleNS/LidDrivenCavity \
+            ./IncompressibleNS/RayleighTaylor \
+            ./CahnHilliard/TJokisaari \
+            ./Multiphase/Convergence \
+            ./Multiphase/EntropyConservingTest \
+            ./Multiphase/RisingBubble \
+            ./Multiphase/Pipe \
+            ./Particles/FreeFall \
+            ./Particles/RadiationHeat \
+            ./Particles/Pouransari \
+            ./Particles/ParticleBoundaryCond "
+
+##################################################
+## 	GENERATE TUTORIALS			##
+##################################################
+TUTORIAL_CASES="./Cylinder "
+
+COMPONENTS_TEST_CASES="FacePatches \
+ 		       HexMesh \
+		       HexMappings \
+ 		       MeshConsistency \
+		       NodalStorage"
+			   
+ADDONS="./AddOns/horsesConverter/MappingResult \
+        ./AddOns/horsesConverter/HorsesMesh2OF \
+        ./AddOns/horsesConverter/OF2Horses"
+
+cp -vf ../utils/modulefile/horses/dev-default ../utils/modulefile/horses/dev
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
+
+# Tests
+cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
+rm -f ./test/Makefile.template-e
+
+# Tutorials
+cp -vf ../utils/ProblemFile/Makefile ./tutorials/Makefile.template
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./tutorials/Makefile.template
+rm -f ./tutorials/Makefile.template-e
+
+cp -vf ./Makefile.in ./Makefile
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./Makefile
+rm -f ./Makefile-e
+
+for subdir in $TEST_CASES; do
+	mkdir -p ./test/$subdir/MESH
+	mkdir -p ./test/$subdir/SETUP
+	mkdir -p ./test/$subdir/RESULTS
+	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
+	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
+done
+
+for subdir in $TUTORIAL_CASES; do
+	mkdir -p ./tutorials/$subdir/MESH
+	mkdir -p ./tutorials/$subdir/SETUP
+	mkdir -p ./tutorials/$subdir/RESULTS
+	cp -v ./tutorials/Makefile.template ./tutorials/$subdir/SETUP/Makefile
+	ln -fsv $PWD/bin/horses3d.ns ./tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ./tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.ch ./tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.ins ./tutorials/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ./tutorials/$subdir
+done
+
+
+for subdir in $COMPONENTS_TEST_CASES; do
+	cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
+	mkdir -p ./test/Components/$subdir/MESH
+	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
+	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
+	rm -f ./test/Components/$subdir/Makefile-e
+done
+
+for subdir in $ADDONS; do
+	ln -fsv $PWD/bin/horsesConverter ./test/$subdir
+done
+
+# Comment gradients as it is outdated
+#cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
+#mkdir -p ./test/Components/Gradients/MESH
+#sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
+#rm -f ./test/Components/Gradients/Makefile-e

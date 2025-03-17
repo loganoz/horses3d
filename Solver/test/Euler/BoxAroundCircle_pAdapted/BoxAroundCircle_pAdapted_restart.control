@@ -1,0 +1,78 @@
+/* Test case of p-Adaptation for the Euler equations */
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/BoxAroundCircle3D_extended_pol3.mesh"
+solution file name    = "RESULTS/BoxAroundCircle_pAdapted_res.hsol"
+restart file name     = "RESULTS/BoxAroundCircle_pAdapted_pre-Adapt_Stage_01.hsol"
+restart               = .TRUE.
+Polynomial order      = 4
+Number of time steps  = 4
+Output Interval       = 1
+Convergence tolerance = 1.d-5
+cfl                   = 0.4
+mach number           = 0.3
+Riemann solver        = Standard Roe
+Reynolds number       = 0.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+write dt restriction  = .TRUE.
+
+#define boundary InnerCylinder__bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary front
+  type = Inflow
+#end
+
+#define boundary back__left__right
+  type = Outflow
+#end
+
+!-Adaptation-----------------------------------
+#define p-adaptation
+   Truncation error type = isolated
+   truncation error      = 1.d-2
+   Nmax                  = [10,10,10]
+   Nmin                  = [2 ,2 ,2 ]
+   Conforming boundaries = [InnerCylinder]
+   increasing            = .FALSE.
+   regression files      = .FALSE.
+   adjust nz             = .FALSE.
+   order across faces    = N*2/3   
+   padapted mg sweeps pre      = 10
+   padapted mg sweeps post     = 12
+   padapted mg sweeps coarsest = 20
+#end
+!---------------------------------------------
+
+!-Multigrid------------------------------------
+time integration     = FAS
+mg smoother          = RK3
+multigrid levels     = 15
+delta n              = 1
+mg sweeps            = 20
+mg sweeps coarsest   = 40
+max mg sweeps        = 500
+postsmooth option    = "smooth"
+smooth fine          = 1.2
+multigrid output     = .TRUE.
+!---------------------------------------------
+
+#define probe 1
+   Name = wake_w
+   Position = [0.0,2.0,4.0]
+   Variable = w
+#end 
+
+#define surface monitor 1
+   Name = drag
+   Marker = innercylinder
+   Variable = pressure-force
+   Direction = [1.0, 0.0, 0.0]
+#end
+
+#define surface monitor 2
+   Name = p_average
+   Marker = innercylinder
+   Variable = pressure-average
+#end

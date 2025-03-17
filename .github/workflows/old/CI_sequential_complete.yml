@@ -1,0 +1,953 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI SEQUENTIAL COMPLETE
+
+########################################################################
+# Controls when the action will run.
+on:
+  # Triggers the workflow monthly
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 0 1 * *'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Define strategy matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: ['gfortran', 'ifort']
+        mode: ['RELEASE', 'DEBUG']
+        comm: ['SEQUENTIAL']
+        enable_threads: ['YES']
+    # Steps represent a sequence of tasks that will be executed as part of the job
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      # IF COMPILER = IFORT -> INSTALL IFORT #
+      - name: cache-intel-compilers
+        # if: (matrix.compiler == 'ifort')
+        id: cache-intel-compilers
+        uses: actions/cache@v2
+        with:
+          path: /opt/intel
+          key: intel-${{ runner.os }}-compilers-b
+
+      - name: Install Intel compilers and libraries
+        # if: (matrix.compiler == 'ifort' && steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
+          sudo apt-get update
+          sudo apt-get install intel-hpckit-getting-started intel-oneapi-clck intel-oneapi-common-licensing intel-oneapi-common-vars
+          sudo apt-get install intel-oneapi-dev-utilities  intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-compiler-fortran intel-oneapi-itac
+          sudo apt-get install intel-oneapi-mkl intel-oneapi-mpi intel-oneapi-mpi-devel
+          # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
+          # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
+
+
+      # Runs a single command using the runners shell
+      ##- name: Install gfortran
+      ##  run: |
+      ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      ##   sudo apt update
+      ##   sudo apt-get install gfortran-9
+
+      ##- name: Show gfortran version
+      ##  run: gfortran-9 --version
+      - name: Show ${{matrix.compiler}} version
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ${{matrix.compiler}} --version
+
+      - name: Configure
+        working-directory: ./Solver
+        run: ./configure
+
+      - name: Compile horses3d
+        working-directory: ./Solver
+        run: |
+         source /opt/intel/oneapi/setvars.sh || true
+         make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+         make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+########################################################################
+#######                         COMPONENTS                      ########
+########################################################################
+#
+# 1) FACE PATCHES TEST
+# --------------------
+
+      - name: Build FacePatches
+        working-directory: ./Solver/test/Components/FacePatches
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run FacePatches
+        working-directory: ./Solver/test/Components/FacePatches
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/FacePatches
+
+#
+# 2) GRADIENTS TEST
+# -----------------
+    # This test has been inactive in Alderaan for quite a long time
+#
+# 3) HEXMAPPINGS TEST
+# -------------------
+
+      - name: Build HexMappings
+        working-directory: ./Solver/test/Components/HexMappings
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run HexMappings
+        working-directory: ./Solver/test/Components/HexMappings
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/HexMappings
+
+#
+# 4) HEXMESH TEST
+# ---------------
+
+      - name: Build HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/HexMesh
+
+#
+# 5) MESHCONSISTENCY TEST
+# -----------------------
+
+      - name: Build MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/MeshConsistency
+
+#
+# 6) NODALSTORAGE TEST
+# --------------------
+
+      - name: Build NodalStorage
+        working-directory: ./Solver/test/Components/NodalStorage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NodalStorage
+        working-directory: ./Solver/test/Components/NodalStorage
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/NodalStorage
+
+########################################################################
+#######                         EULER                           ########
+########################################################################
+#
+# 1) DIFFUSER
+# -----------
+
+      - name: Build Diffuser
+        working-directory: ./Solver/test/Euler/Diffuser/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run Diffuser
+        working-directory: ./Solver/test/Euler/Diffuser
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns DiffuserFlow.control
+
+#
+# 2) UNIFORM FLOW
+# ---------------
+
+      - name: Build UniformFlow
+        working-directory: ./Solver/test/Euler/UniformFlow/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run UniformFlow
+        working-directory: ./Solver/test/Euler/UniformFlow
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns UniformFlow.control
+
+#
+# 3) BOX AROUND CIRCLE
+# --------------------
+
+      - name: Build BoxAroundCircle
+        working-directory: ./Solver/test/Euler/BoxAroundCircle/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run BoxAroundCircle
+        working-directory: ./Solver/test/Euler/BoxAroundCircle
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns BoxAroundCircle.control
+
+#
+# 4) BOX AROUND CIRCLE PIROZZOLI
+# ------------------------------
+
+      - name: Build BoxAroundCirclePirozzoli
+        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run BoxAroundCirclePirozzoli
+        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns BoxAroundCirclePirozzoli.control
+
+#
+# 5) Inviscid TGV with KEPEC
+# --------------------------
+
+      - name: Build TaylorGreenKEPEC
+        working-directory: ./Solver/test/Euler/TaylorGreenKEPEC/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run TaylorGreenKEPEC
+        working-directory: ./Solver/test/Euler/TaylorGreenKEPEC
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenKEPEC.control
+
+#
+# 6) Vortex transport 2D with KEPEC
+# ---------------------------------
+
+      - name: Build VortexTransport2DKEPEC
+        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run VortexTransport2DKEPEC
+        working-directory: ./Solver/test/Euler/VortexTransport2D
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns VortexTransport2D.control
+
+#
+# 7) Jacobian-Free Newton-Krylov
+# ------------------------------
+
+      # Deactivated because a mismatch in the accuracy.
+      # Double Precision equality failed:
+      #  Final maximum residual
+      #  Expected [1.6257217794191102E-011], Got [3.4106051316484809E-013]
+
+      # - name: Build JFNK Uniform Flow
+      #   working-directory: ./Solver/test/Euler/JFNK/SETUP
+      #   run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      # - name: Run JFNK Uniform Flow
+      #   working-directory: ./Solver/test/Euler/JFNK
+      #   run: ./horses3d.ns UniformFlowJFNK.control
+
+#
+# 8) BOX AROUND CIRCLE WITH ADAPTATION
+# ------------------------------------
+
+      - name: Build BoxAroundCircle_pAdapted
+        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run BoxAroundCircle_pAdapted
+        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns BoxAroundCircle_pAdapted.control
+
+########################################################################
+#######                         NAVIER-STOKES                   ########
+########################################################################
+
+#
+# 0) Convergence
+# ------------------------------
+
+      - name: Build Convergence
+        working-directory: ./Solver/test/NavierStokes/Convergence/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run Convergence
+        working-directory: ./Solver/test/NavierStokes/Convergence
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Convergence.control
+
+#
+# 0) Convergence energy
+# --------------------------
+
+      - name: Build Convergence_energy
+        working-directory: ./Solver/test/NavierStokes/Convergence_energy/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run Convergence_energy
+        working-directory: ./Solver/test/NavierStokes/Convergence_energy
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Convergence.control
+
+#
+# 0) Convergence entropy
+# ---------------------------------
+
+      - name: Build Convergence_entropy
+        working-directory: ./Solver/test/NavierStokes/Convergence_entropy/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run Convergence_entropy
+        working-directory: ./Solver/test/NavierStokes/Convergence_entropy
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Convergence.control
+
+#
+# 1) CYLINDER
+# -----------
+
+      - name: Build NSCylinder
+        working-directory: ./Solver/test/NavierStokes/Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinder
+        working-directory: ./Solver/test/NavierStokes/Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder.control
+
+#
+# 2) CYLINDER IP
+# --------------
+
+      - name: Build NSCylinderIP
+        working-directory: ./Solver/test/NavierStokes/CylinderIP/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderIP
+        working-directory: ./Solver/test/NavierStokes/CylinderIP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderIP.control
+
+#
+# 3) CYLINDER BR2
+# ---------------
+
+      - name: Build NSCylinderBR2
+        working-directory: ./Solver/test/NavierStokes/CylinderBR2/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderBR2
+        working-directory: ./Solver/test/NavierStokes/CylinderBR2
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderBR2.control
+
+#
+# 4) CYLINDER DUCROS
+# ------------------
+
+      - name: Build NSCylinderDucros
+        working-directory: ./Solver/test/NavierStokes/CylinderDucros/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderDucros
+        working-directory: ./Solver/test/NavierStokes/CylinderDucros
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderDucros.control
+
+#
+# 5) CYLINDER LES
+# ------------------
+
+      - name: Build NSCylinderLES
+        working-directory: ./Solver/test/NavierStokes/CylinderLES/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderLES
+        working-directory: ./Solver/test/NavierStokes/CylinderLES
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderLES.control
+
+#
+# 6) TAYLOR GREEN VORTEX
+# ----------------------
+
+      - name: Build TaylorGreen
+        working-directory: ./Solver/test/NavierStokes/TaylorGreen/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run TaylorGreen
+        working-directory: ./Solver/test/NavierStokes/TaylorGreen
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreen.control
+
+#
+# 7) TAYLOR GREEN VORTEX KEP BR2
+# -----------------------------
+
+      - name: Build TaylorGreenKEP_BR2
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run TaylorGreenKEP_BR2
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenKEP_BR2.control
+
+#
+# 8) TAYLOR GREEN VORTEX KEPEC IP
+# -------------------------------
+
+      - name: Build TaylorGreenKEPEC_IP
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run TaylorGreenKEPEC_IP
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenKEPEC_IP.control
+
+#
+# 9) CYLINDER FAS
+# ---------------
+
+      - name: Build NSCylinderFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderFAS
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderFAS.control
+
+#
+# 10) CYLINDER IP+BDF2
+# -------------------
+
+      #Deactivated because a mismatch in the accuracy
+      #- name: Build NSCylinderIP_BDF2
+      #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+      #  run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      #
+      #- name: Run NSCylinderIP_BDF2
+      #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
+      #  run: ./horses3d.ns CylinderIP_BDF2.control
+
+#
+# 11) CYLINDER DIFFERENT ORDERS
+# ----------------------------
+
+      - name: Build NSCylinderDifferentOrders
+        working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderDifferentOrders
+        working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderDifferentOrders.control
+
+#
+# 12) ENTROPY CONSERVING TEST
+# ----------------------------
+
+      - name: Build EntropyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EntropyConservingTest/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run EntropyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EntropyConservingTest
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns EntropyConservingTest.control
+
+#
+# 13) ENERGY CONSERVING TEST
+# ----------------------------
+
+      - name: Build EnergyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EnergyConservingTest/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run EnergyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EnergyConservingTest
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns EnergyConservingTest.control
+
+#
+# 14) NACA0012 Steady
+# ----------------------------
+
+      - name: Build NACA0012
+        working-directory: ./Solver/test/NavierStokes/NACA0012/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NACA0012
+        working-directory: ./Solver/test/NavierStokes/NACA0012
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns NACA0012.control
+
+#
+# 15) NACA0012 Unsteady Dual Time Stepping
+# ----------------------------
+
+      - name: Build DualTimeStepping
+        working-directory: ./Solver/test/NavierStokes/DualTimeStepping/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run DualTimeStepping
+        working-directory: ./Solver/test/NavierStokes/DualTimeStepping
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns DualTimeStepping.control
+
+#
+# 16) Manufactured Solution for Spalart-Almaras
+# ----------------------------
+
+      - name: Build ManufacturedSolutionsSA
+        working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ManufacturedSolutionsSA
+        working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.nssa MSSA.control
+
+#
+# 17) Flat-Plate test case for Spalart-Almaras
+# ----------------------------
+
+      - name: Build FlatPlateSA
+        working-directory: ./Solver/test/NavierStokes/FlatPlateSA/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run FlatPlateSA
+        working-directory: ./Solver/test/NavierStokes/FlatPlateSA
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.nssa FlatPlate.control
+#
+# 18) Numerical Jacobian for BIRK5
+# --------------------------------
+
+      - name: Build BIRK5NumJac
+        working-directory: ./Solver/test/NavierStokes/BIRK5NumJac/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run BIRK5NumJac
+        working-directory: ./Solver/test/NavierStokes/BIRK5NumJac
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder.control
+#
+# 19) Forward facing step with SVV
+# --------------------------------
+
+      - name: Build ForwardFacingStepSVV
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStepSVV
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SVV.control
+#
+# 20) Forward facing step with SSPRK33 and limiter
+# ------------------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK33.control
+#
+# 21) Forward facing step with SSPRK43
+# ------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK43.control
+#
+# 22) Taylor-Green vortex with SVV-LES
+# ------------------------------------
+
+      - name: Build TaylorGreenSVVLES
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run TaylorGreenSVVLES
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenSVVLES.control
+
+#
+# 23) Mach 2 cylinder with GMM shock capturing
+# --------------------------------------------
+
+      - name: Build CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderGMM.control
+
+########################################################################
+#######                       PARTICLES                         ########
+########################################################################
+
+#
+# 1) FreeFall
+# ----------------------------
+      - name: Build ParticlesFreeFall
+        working-directory: ./Solver/test/Particles/FreeFall/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ParticlesFreeFall
+        working-directory: ./Solver/test/Particles/FreeFall
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FreeFall.control
+#
+# 2) RadiationHeat
+# ----------------------------
+      - name: Build RadiationHeat
+        working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run RadiationHeat
+        working-directory: ./Solver/test/Particles/RadiationHeat
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns RadiationHeat.control
+#
+# 3) ParticleBoundaryCond
+# ----------------------------
+      # This case uses a random initialization that affects the solution.
+      # it only works in Alderaan
+      # - name: Build ParticleBoundaryCond
+      #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond/SETUP
+      #   run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      # - name: Run ParticleBoundaryCond
+      #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond
+      #   run: ./horses3d.ns BoundaryCondition.control
+#
+# 4) Pouransari
+# ----------------------------
+      # This case uses a random initialization that affects the solution.
+      # it only works in Alderaan
+      # - name: Build Pouransari
+      #   working-directory: ./Solver/test/Particles/Pouransari/SETUP
+      #   run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      # - name: Run Pouransari
+      #   working-directory: ./Solver/test/Particles/Pouransari
+      #   run: ./horses3d.ns Pouransari_St0041.control
+
+########################################################################
+#######                       MULTIPHASE                        ########
+########################################################################
+#
+# 1) Convergence
+# ----------------------------
+
+      - name: Build MultiphaseConvergence
+        working-directory: ./Solver/test/Multiphase/Convergence/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run MultiphaseConvergence
+        working-directory: ./Solver/test/Multiphase/Convergence
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu Convergence.control
+
+#
+# 2) RisingBubble
+# ----------------------------
+
+      - name: Build MultiphaseRisingBubble
+        working-directory: ./Solver/test/Multiphase/RisingBubble/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run MultiphaseRisingBubble
+        working-directory: ./Solver/test/Multiphase/RisingBubble
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu RisingBubble.control
+
+#
+# 3) Pipe
+# ----------------------------
+
+      - name: Build MultiphasePipe
+        working-directory: ./Solver/test/Multiphase/Pipe/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run MultiphasePipe
+        working-directory: ./Solver/test/Multiphase/Pipe
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu AnnularFlow.control
+
+#
+# 4) Entropy conserving test
+# ----------------------------
+
+      - name: Build MultiphaseEntropyConservingTest
+        working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run MultiphaseEntropyConservingTest
+        working-directory: ./Solver/test/Multiphase/EntropyConservingTest
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu EntropyConservingTest.control
+
+########################################################################
+#######                      INCOMPRESSIBLE                     ########
+########################################################################
+#
+# 1) Convergence
+# ----------------------------
+
+      - name: Build iNS-Convergence
+        working-directory: ./Solver/test/IncompressibleNS/Convergence/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run iNS-Convergence
+        working-directory: ./Solver/test/IncompressibleNS/Convergence
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins Convergence4P5.control
+
+#
+# 2) Kovasznay
+# ----------------------------
+
+      - name: Build iNS-Kovasznay
+        working-directory: ./Solver/test/IncompressibleNS/Kovasznay/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run iNS-Kovasznay
+        working-directory: ./Solver/test/IncompressibleNS/Kovasznay
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins Kovasznay.control
+
+#
+# 3) Lid driven cavity
+# ----------------------------
+
+      - name: Build iNS-LidDrivenCavity
+        working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run iNS-LidDrivenCavity
+        working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins LidDrivenCavity.control
+
+#
+# 4) Taylor Green Vortex
+# ----------------------------
+
+      - name: Build iNS-TaylorGreenVortex
+        working-directory: ./Solver/test/IncompressibleNS/TaylorGreen/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run iNS-TaylorGreenVortex
+        working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins TaylorGreen.control
+
+#
+# 5) Rayleigh-Taylor instability
+# -------------------------------
+
+      - name: Build iNS-RayleighTaylor
+        working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run iNS-RayleighTaylor
+        working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins RayleighTaylor.control
+
+          
+########################################################################
+#######                        ADDONS                           ########
+########################################################################
+#
+# 1) Mapping Result - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_MappingResult
+        working-directory: ./Solver/test/AddOns/horsesConverter/MappingResult
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horsesConverter
+
+#
+# 2) Horses Mesh to OpenFOAM - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_HorsesMesh2OF
+        working-directory: ./Solver/test/AddOns/horsesConverter/HorsesMesh2OF
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horsesConverter
+
+#
+# 3) OpenFOAM to Horses - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_OF2Horses
+        working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          OMP_NUM_THREADS=4 ./horsesConverter

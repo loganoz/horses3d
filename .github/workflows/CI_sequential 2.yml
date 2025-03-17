@@ -1,0 +1,676 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI SEQ NAVIERSTOKES
+
+########################################################################
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+#env:
+#  HDF5_ROOT : /usr/lib/x86_64-linux-gnu/hdf5/serial/
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Define strategy matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: ['gfortran','ifort']
+        mode: ['RELEASE', 'DEBUG']
+        comm: ['SEQUENTIAL']
+        enable_threads: ['YES']
+        mkl: ['YES','NO']
+        hdf5: ['YES','NO']
+        exclude:
+        - compiler: gfortran
+          mkl: 'YES'          
+        - compiler: gfortran
+          hdf5: 'NO'          
+        - compiler: ifort
+          mkl: 'NO'       
+        - compiler: ifort
+          hdf5: 'YES'              
+    # Steps represent a sequence of tasks that will be executed as part of the job
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      # sudo apt-get install -qq pkg-config libhdf5-serial-dev
+      - name: Install hdf5 (only gfortran)
+        if: (matrix.compiler == 'gfortran')
+        run: |
+          sudo apt-get update
+          sudo apt install libhdf5-dev
+          dpkg -L libhdf5-dev 
+          echo "HDF5_ROOT="/usr/lib/x86_64-linux-gnu/hdf5/serial/"" >> $GITHUB_ENV  
+
+       # IF COMPILER = IFORT -> INSTALL IFORT #
+      # UNCOMMENT TO USE CACHED IFORT 
+      #- name: cache-intel-compilers
+      #  if: (matrix.compiler == 'ifort')
+      #  id: cache-intel-compilers
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: /opt/intel
+      #    key: intel-${{ runner.os }}-compilers-b
+
+
+      - name: Intel Apt repository
+      # UNCOMMENT TO USE CACHED IFORT 
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
+          sudo apt-get update
+
+      - name: Install Intel oneAPI
+      # UNCOMMENT TO USE CACHED IFORT
+      #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+      # Runs a single command using the runners shell
+      ##- name: Install gfortran
+      ##  run: |
+      ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      ##   sudo apt update
+      ##   sudo apt-get install gfortran-9
+
+      ##- name: Show gfortran version
+      ##  run: gfortran-9 --version
+
+      - name: Show ${{matrix.compiler}} version
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          printenv >> $GITHUB_ENV
+          ${{matrix.compiler}} --version
+
+      - name: Configure
+        working-directory: ./Solver
+        run: ./configure
+
+      - name: Compile horses3d
+        working-directory: ./Solver
+        run: |
+         source /opt/intel/oneapi/setvars.sh || true
+         make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+         make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+
+
+########################################################################
+#######                         NAVIER-STOKES                   ########
+########################################################################
+
+#
+# 0) Convergence
+# ------------------------------
+
+      - name: Build Convergence
+        working-directory: ./Solver/test/NavierStokes/Convergence/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Convergence
+        working-directory: ./Solver/test/NavierStokes/Convergence
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Convergence.control
+        if: '!cancelled()'
+
+#
+# 0) Convergence energy
+# --------------------------
+
+      - name: Build Convergence_energy
+        working-directory: ./Solver/test/NavierStokes/Convergence_energy/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Convergence_energy
+        working-directory: ./Solver/test/NavierStokes/Convergence_energy
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Convergence.control
+        if: '!cancelled()'
+
+#
+# 0) Convergence entropy
+# ---------------------------------
+
+      - name: Build Convergence_entropy
+        working-directory: ./Solver/test/NavierStokes/Convergence_entropy/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Convergence_entropy
+        working-directory: ./Solver/test/NavierStokes/Convergence_entropy
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Convergence.control
+        if: '!cancelled()'
+
+#
+# 1) CYLINDER
+# -----------
+
+      - name: Build NSCylinder
+        working-directory: ./Solver/test/NavierStokes/Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinder
+        working-directory: ./Solver/test/NavierStokes/Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder.control
+        if: '!cancelled()'
+
+#
+# 2) CYLINDER IP
+# --------------
+
+      - name: Build NSCylinderIP
+        working-directory: ./Solver/test/NavierStokes/CylinderIP/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderIP
+        working-directory: ./Solver/test/NavierStokes/CylinderIP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderIP.control
+        if: '!cancelled()'
+
+#
+# 3) CYLINDER BR2
+# ---------------
+
+      - name: Build NSCylinderBR2
+        working-directory: ./Solver/test/NavierStokes/CylinderBR2/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderBR2
+        working-directory: ./Solver/test/NavierStokes/CylinderBR2
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderBR2.control
+        if: '!cancelled()'
+
+#
+# 4) CYLINDER DUCROS
+# ------------------
+
+      - name: Build NSCylinderDucros
+        working-directory: ./Solver/test/NavierStokes/CylinderDucros/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderDucros
+        working-directory: ./Solver/test/NavierStokes/CylinderDucros
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderDucros.control
+        if: '!cancelled()'
+
+#
+# 5) CYLINDER Smagorinsky
+# ------------------
+
+      - name: Build NSCylinderSmagorinsky
+        working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderSmagorinsky
+        working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderSmagorinsky.control
+        if: '!cancelled()'
+
+#
+# 6) CYLINDER WALE
+# ------------------
+
+      - name: Build NSCylinderWALE
+        working-directory: ./Solver/test/NavierStokes/CylinderWALE/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderWALE
+        working-directory: ./Solver/test/NavierStokes/CylinderWALE
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderWALE.control
+        if: '!cancelled()'
+
+#
+# 7) CYLINDER Vreman
+# ------------------
+
+      - name: Build NSCylinderVreman
+        working-directory: ./Solver/test/NavierStokes/CylinderVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderVreman
+        working-directory: ./Solver/test/NavierStokes/CylinderVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderVreman.control
+        if: '!cancelled()'
+
+#
+# 8) TAYLOR GREEN VORTEX
+# ----------------------
+
+      - name: Build TaylorGreen
+        working-directory: ./Solver/test/NavierStokes/TaylorGreen/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run TaylorGreen
+        working-directory: ./Solver/test/NavierStokes/TaylorGreen
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreen.control
+        if: '!cancelled()'
+
+#
+# 9) TAYLOR GREEN VORTEX KEP BR2
+# -----------------------------
+
+      - name: Build TaylorGreenKEP_BR2
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run TaylorGreenKEP_BR2
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenKEP_BR2.control
+        if: '!cancelled()'
+
+#
+# 10) TAYLOR GREEN VORTEX KEPEC IP
+# -------------------------------
+
+      - name: Build TaylorGreenKEPEC_IP
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run TaylorGreenKEPEC_IP
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenKEPEC_IP.control
+        if: '!cancelled()'
+
+#
+# 11) CYLINDER FAS
+# ---------------
+
+      - name: Build NSCylinderFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderFAS
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderFAS.control
+        if: '!cancelled()'
+
+#
+# 12) CYLINDER IP+BDF2
+# -------------------
+
+      #Deactivated because a mismatch in the accuracy
+      - name: Build NSCylinderIP_BDF2
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+    
+      - name: Run NSCylinderIP_BDF2
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderIP_BDF2.control
+        if: '!cancelled()'
+
+#
+# 13) CYLINDER DIFFERENT ORDERS
+# ----------------------------
+
+      - name: Build NSCylinderDifferentOrders
+        working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderDifferentOrders
+        working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderDifferentOrders.control
+        if: '!cancelled()'
+
+#
+# 14) ENTROPY CONSERVING TEST
+# ----------------------------
+
+      - name: Build EntropyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EntropyConservingTest/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run EntropyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EntropyConservingTest
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns EntropyConservingTest.control
+        if: '!cancelled()'
+
+#
+# 15) ENERGY CONSERVING TEST
+# ----------------------------
+
+      - name: Build EnergyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EnergyConservingTest/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run EnergyConservingTest
+        working-directory: ./Solver/test/NavierStokes/EnergyConservingTest
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns EnergyConservingTest.control
+        if: '!cancelled()'
+
+#
+# 16) NACA0012 Steady
+# ----------------------------
+
+      - name: Build NACA0012
+        working-directory: ./Solver/test/NavierStokes/NACA0012/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NACA0012
+        working-directory: ./Solver/test/NavierStokes/NACA0012
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns NACA0012.control
+        if: '!cancelled()'
+
+#
+# 17) NACA0012 Unsteady Dual Time Stepping
+# ----------------------------
+
+      - name: Build DualTimeStepping
+        working-directory: ./Solver/test/NavierStokes/DualTimeStepping/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run DualTimeStepping
+        working-directory: ./Solver/test/NavierStokes/DualTimeStepping
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns DualTimeStepping.control
+        if: '!cancelled()'
+
+#
+# 18) Manufactured Solution for Spalart-Almaras
+# ----------------------------
+# This test case only runs with hdf5 as we do not support hdf5 with ifort in the github actions
+
+      - name: Build ManufacturedSolutionsSA
+        working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+
+      - name: Run ManufacturedSolutionsSA
+        working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.nssa MSSA.control
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
+
+#
+# 19) Flat-Plate test case for Spalart-Almaras
+# ----------------------------
+
+      - name: Build FlatPlateSA
+        working-directory: ./Solver/test/NavierStokes/FlatPlateSA/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run FlatPlateSA
+        working-directory: ./Solver/test/NavierStokes/FlatPlateSA
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.nssa FlatPlate.control
+        if: '!cancelled()'
+
+#
+# 20) Numerical Jacobian for BIRK5
+# --------------------------------
+
+      - name: Build BIRK5NumJac
+        working-directory: ./Solver/test/NavierStokes/BIRK5NumJac/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run BIRK5NumJac
+        working-directory: ./Solver/test/NavierStokes/BIRK5NumJac
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder.control
+        if: '!cancelled()'
+
+#
+# 21) Forward facing step with SVV
+# --------------------------------
+
+      - name: Build ForwardFacingStepSVV
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+
+      - name: Run ForwardFacingStepSVV
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SVV.control
+        if: '!cancelled()'
+  
+#
+# 20) Forward facing step with SSPRK33 and limiter
+# ------------------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK33.control
+        if: '!cancelled()'
+
+#
+# 21) Forward facing step with SSPRK43
+# ------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK43.control
+        if: '!cancelled()'
+
+#
+# 22) Taylor-Green vortex with SVV-LES
+# ------------------------------------
+
+      - name: Build TaylorGreenSVVLES
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run TaylorGreenSVVLES
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenSVVLES.control
+        if: '!cancelled()'
+
+#
+# 23) CYLINDER ANIS FAS
+# -------------------
+
+      - name: Build CylinderAnisFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+     
+      - name: Run CylinderAnisFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderAnisFAS.control
+        if: '!cancelled()'
+
+#
+# 24) IBM CYLINDER 
+# -------------------
+
+      - name: Build IBM_Cylinder
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run IBM_Cylinder
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns IBMCylinder.control
+        if: '!cancelled()'
+
+#
+# 25) Mach 2 cylinder with GMM shock capturing
+# --------------------------------------------
+
+      - name: Build CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderGMM.control
+        if: '!cancelled()'
+
+#
+# 26) Cylinder with Reinforcement Learning p-adaptation
+# --------------------------------------------
+
+      - name: Build Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_pAdaptationRL.control
+        if: '!cancelled()'
+

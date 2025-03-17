@@ -1,0 +1,69 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
+Polynomial order      = 3
+Number of time steps  = 100
+Output Interval       = 10
+Number of plot points = 5
+Convergence tolerance = 1.d-10
+cfl                   = 0.3
+dcfl                  = 0.3
+mach number           = 0.3
+Reynolds number       = 200.0
+AOA theta             = 0.0
+AOA phi               = 90.0
+inviscid discretization = split-form
+averaging = Ducros
+riemann solver = Standard Roe
+lambda stabilization = 0.9
+viscous discretization = BR1
+solution file name    = "RESULTS/Cylinder.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/Cylinder.hsol"
+
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary back__left__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
+
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,2.0,4.0]
+   Variable = u
+#end
+
+!#define statistics
+!   Sampling interval = 10
+!   Starting iteration = 15
+!   Starting time = 0.0
+!   @start*
+!   @stop
+!#end

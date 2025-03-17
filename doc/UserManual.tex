@@ -1,0 +1,2043 @@
+\documentclass[a4paper,10pt]{report}
+%\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[section]{placeins}
+\usepackage{multirow}
+\usepackage{vmargin}
+\usepackage{longtable}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subfigure}
+\usepackage{afterpage}
+\usepackage[calcwidth]{titlesec}
+\usepackage{verbatim}
+\usepackage[hidelinks]{hyperref}
+\usepackage{multicol}
+\usepackage{pfnote}
+\usepackage{fnpos}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{algorithm,algpseudocode}
+\usepackage{epstopdf}
+\usepackage{tcolorbox}
+\usepackage{amssymb}
+\setmarginsrb{2cm}{2cm}{2cm}{2cm}{0cm}{0cm}{0cm}{0.5cm}%{left}{top}{right}{bottom}{headhgt}{}
+%\numberwithin{equation}{section}
+%Bibliography style:
+\bibliographystyle{elsarticle-num}
+%\biboptions{sort&compress}
+%opening
+
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilas}{RGB}{170,55,241}
+
+%% Some math definitions:
+\newcommand\norm[1]{\left\lVert#1\right\rVert}
+\def\Res{\pmb{\mathfrak{R}}}
+
+
+\title{\textbf{HORSES3D} \\ A \textbf{H}igh-\textbf{Or}der (DG) \textbf{S}pectral \textbf{E}lement \textbf{S}olver \\ \textbf{User Manual}}
+\author{Numath group}
+
+\begin{document}
+
+\lstset{language=C++}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Compiling the code} \label{sect:compiling}
+
+\begin{itemize}
+\item Clone the git repository or copy the source code into a desired folder.
+
+\item Go to the folder Solver.
+
+\item Run configure script.
+\begin{lstlisting}[language=bash]
+	$ ./configure
+\end{lstlisting}
+\item Install using the Makefile:
+\begin{lstlisting}[language=bash]
+	$ make all <<Options>>
+\end{lstlisting}
+with the desired options (bold are default):
+
+\begin{itemize}
+\item MODE=DEBUG/HPC/\textbf{RELEASE}
+\item COMPILER=ifort/\textbf{gfortran}
+\item COMM=PARALLEL/\textbf{SEQUENTIAL}
+\item ENABLE\_THREADS=NO/\textbf{YES}
+\item WITH\_PETSC=YES/\textbf{NO}
+\item WITH\_METIS=YES/\textbf{NO}
+\item WITH\_HDF5=YES/\textbf{NO}
+\item WITH\_MKL=YES/\textbf{NO}
+\end{itemize}
+
+For example:
+\begin{lstlisting}[language=bash]
+	$ make all COMPILER=ifort COMM=PARALLEL
+\end{lstlisting}
+
+\item MODE=DEBUG/HPC/\textbf{RELEASE} flag enables various compiler flags for different levels of code optimization. Furthermore, MODE=HPC disables residual file writing to improve performance. 
+
+\item The ENABLE\_THREADS=YES flag enables shared memory simulations using OpenMP.
+
+\item The COM=PARALLEL flag enables distributed memory simulations using MPI.
+
+\item The WITH\_METIS=YES flag activates METIS linking. To compile the code linking it with METIS (that is an option for creating the mesh partitions of MPI runs), it is needed that before compilation and running, an environment variable called METIS\_DIR is found. This variable must contain the path to the METIS installation folder (it must have been compiled with the same compiler as HORSES3D).
+
+\item The WITH\_HDF5=YES flag activates HDF5 linking. To compile the code linking it with HDF5 (necessary for reading HOPR meshes), it is needed that before compilation and running, an environment variable called HDF5\_DIR is found. This variable must contain the path to the HDF5 installation folder (it must have been compiled with the same compiler as HORSES3D). In addition, the lib folder must be added to the environment variable LD\_LIBRARY\_PATH.
+
+\item The WITH\_PETSC=YES flag activates PETSC linking. To compile the code linking it with PETSC, it is needed that before compilation and running, an environment variable called PETSC\_DIR is found. This variable must contain the path to the PETSC installation folder.
+
+\item If you use \textit{environment modules}, it is advised to use the HORSES3D module file:\\
+\begin{lstlisting}[language=bash]
+	$ export MODULEPATH=$HORSES_DIR/utils/modulefile:$MODULEPATH
+\end{lstlisting}
+where \$HORSES\_DIR is the installation directory.
+
+\item It is advised to run the \emph{make clean} or \emph{make allclean} command if some options of the compilation rutine needs to be changed and it has been compiled before.
+
+\end{itemize}
+
+\chapter{Input and Output Files}
+
+DONT USE TABS!
+
+\section{Input Files}
+\begin{itemize}
+\item Control file (*.control)
+\item Mesh file (*.mesh / *.h5 / *.msh)
+\item Polynomial order file (*.omesh)
+\item Problem File (ProblemFile.f90)
+\end{itemize}
+
+{ \small
+Notes on the GMSH format (*.msh) and general workflow using GMSH.
+\begin{itemize}
+\item Curved geometry supported up to polynomial order 5.
+\item Curved geometry should be generated using following options: tools -> options -> mesh -> general -> element order.
+\item HORSES3D can read mesh format 4.1 and 2.2 (legacy format).
+\item The solution to most of the problems mesh reading is to load it in GMSH and export to format 2.2 to have a clean ASCII file.
+\end{itemize}
+}
+
+\section{Output Files}
+\begin{itemize}
+\item Solution file (*.hsol)
+\item Horses mesh file (*.hmesh)
+\item Boundary information (*.bmesh)
+\item Partition file (*.pmesh)
+\item Polynomial order file (*.omesh)
+\item Monitor files (*.volume / *.surface / *.residuals)
+\end{itemize}
+
+\chapter{Running a Simulation}
+
+\section{Control File (*.control) - Overview}
+The control file is the main file for running a simulation. A list of all the mandatory keywords for running a simulation and some basic optional keywords is presented in Table \ref{tab:runningkey}. The specific keywords are listed in the other chapters.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{General keywords for running a case.} \label{tab:runningkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{General keywords for running a case - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+solution file name   & \textit{CHARACTER}: Path and name of the output file. The name of this file is used for naming other output files. & \textbf{Mandatory\ keyword} \\ \hline
+
+simulation type        & \textit{CHARACTER}: Specifies if HORSES3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
+
+time integration & \textit{CHARACTER}: Can be 'implicit', 'explicit', or 'FAS'. The latter uses the Full Algebraic Storage (FAS) multigrid scheme, which can have implicit or explicit smoothers. & 'explicit' \\ \hline
+
+polynomial order   & \textit{INTEGER}: Polynomial order to be assigned uniformly to all the elements of the mesh. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
+
+polynomial order i \
+
+polynomial order j \
+
+polynomial order k & \textit{INTEGER}: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
+
+polynomial order file  & \textit{CHARACTER}: Path to a file containing the polynomial order of each element in the domain. & --* \\ \hline
+
+restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. & \textbf{Mandatory keyword} \\ \hline
+
+cfl & \textit{REAL}: A constant related with the \textbf{convective} Courant-Friedrichs-Lewy (CFL) condition that the program will use to compute the time step size. & --** \\ \hline
+
+dcfl & \textit{REAL}: A constant related with the \textbf{diffusive} Courant-Friedrichs-Lewy (DCFL) condition that the program will use to compute the time step size. & --** \\ \hline
+
+dt  & \textit{REAL}: Constant time step size.  & --** \\ \hline
+
+final time  & \textit{REAL}: This keyword is mandatory for time-accurate solvers & -- \\ \hline
+
+mesh file name & \textit{CHARACTER}: Name of the mesh file. The currently supported formats are \textit{.mesh} (SpecMesh file format) and \textit{.h5} (HOPR hdf5 file format). & \textbf{Mandatory\ keyword} \\ \hline
+
+mesh inner curves & \textit{LOGICAL}: Specifies if the mesh reader must suppose that the inner surfaces (faces connecting the elements of the mesh) are curved. This input variable only affects the hdf5 mesh reader. & .TRUE. \\ \hline
+
+number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps that the program will compute.  & \textbf{Mandatory\ keyword} \\ \hline
+
+output interval   & \textit{INTEGER}: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.  & \textbf{Mandatory\ keyword} \\ \hline
+
+convergence tolerance & \textit{REAL}: Residual convergence tolerance for steady-state cases & \textbf{Mandatory\ keyword} \\ \hline
+
+partitioning  & \textit{CHARACTER}: Specifies the method for partitioning the mesh in MPI simulations. Options are: 'metis' (the code must have been linked to METIS at compilation time, see Chapter~\ref{sect:compiling}), or 'SFC' (to use a space-filling curve method, no special compilation is needed for this option). & 'metis' \\ \hline
+
+partitioning with weights & \textit{LOGICAL}: Specifies if the method for partitioning the mesh in MPI simulations takes the local polynomial order as weights. Necessary for local polynomial refinement & .TRUE. \\ \hline
+
+manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
+
+$j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \sin(\pi j_C(7) z) $\
+
+Where $j_C(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
+  & -- \\ \hline
+
+\multicolumn{3}{p{16.4cm}}{*  One of these keywords must be specified} \\
+
+\multicolumn{3}{p{16.4cm}}{** For Euler simulations, the user must specify either the CFL number or the time-step size. For Navier-Stokes simulations, the user must specify the CFL and DCFL numbers \textbf{or} the time-step size.}
+
+\end{longtable}
+
+\section{Boundary conditions}
+
+The boundary conditions are specified as blocks in the control file. The block start with a the keywords `\#define' and ends with `\#end'. Inside the block the options are specified as a pair of keywords and values, just as the normal body of the rest of the file.
+
+Each boundary condition can be individually defined or if multiple boundaries are set with the same definition, it could be done on the same block (with the name separated by a double under score `$\_$' sign). The name of each boundary must match with the one specified at the mesh file.
+
+The block in general can be seen below. Table~\ref{tab:BC} show the values for the type keyword, and the possible value for the parameters depends on the boundary condition.
+
+\begin{lstlisting}
+#define boundary myBoundary1__myBoundary2__myBoundary3
+	type        = typeValue
+	parameter 1 = value_1
+	parameter 2 = value_2
+# end
+\end{lstlisting}
+
+
+\begin{table}[h]
+\caption{Keywords for Boundary Conditions.}\label{tab:BC}
+
+\begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+
+type 	&
+		\textit{CHARACTER}: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. &
+							N/A \\ \hline
+
+\end{tabular}
+\end{table}
+
+By default, NoSlipWall is adiabatic. Isothermal wall can be activated with the following block:
+
+\begin{lstlisting}
+#define boundary myBoundary1__myBoundary2__myBoundary3
+	type = NoSlipWall
+	wall type (adiabatic/isothermal) = isothermal
+	wall temperature = 2000.0d0  !Wall temperature in K
+# end
+\end{lstlisting}
+
+It is also possible to set a moving wall with the keyword wall velocity = \emph{value}. 
+
+For periodic boundary conditions, the second boundary that must be used as a complement must be specified by the keyword `coupled boundary'. These two boundaries must have the same node position in all directions but one. For mesh files generated by commercial software where this strict rule is not imposed a comparison based on the minimum edge size of the face element can be used by a boolean parameter in the normal body of the control file (\emph{not in the block body}), with the keyword `periodic relative tolerance'.
+
+\vspace{0.5 in}
+
+%\emph{Juan's email (to be translated and adapted to the manual format as a complement):}
+%
+%Hola Gente,
+%
+%He tenido que hacer unas modificaciones bastante importantes en las BCs. Era la única parte del código que estaba “a la antigua” y no programada a objetos. Esto hacía que no fueran muy customizables, y por ejemplo las controlábamos con el número ese que siempre vale 0.0 jajaja. Ahora cada condición de contorno tiene los parámetros que necesitas y se pueden customizar. Lo malo es que ningún control file de los que tenéis van a seguir funcionando, pero os escribo los cambios para que sepáis adaptarlos, en cualquier caso, podéis pedirme ayuda y os cuento.
+%
+%Los cambios del código son:
+%
+%\begin{itemize}
+%
+%\item Las condiciones de contorno se definen igual que los monitores, con los $\#$define en la parte final del control file. Para definir una condicion de contorno se hace:
+%\begin{lstlisting}
+%        #define boundary name
+%             type = Inflow/Outflow/NoSlipWall/FreeSlipWall/Periodic/User-defined
+%             parametro1 = #valor
+%             parametro2 = #valor
+%        #end
+%\end{lstlisting}
+%\item Los parámetros1, … dependen de la condición de contorno que toque. Si no se especifica nada, pues está como estaba antes. Dos cambios importantes:
+%
+%          · He unificado las NoSlipWall (adiabatica e isoterma) en una sola. Por defecto es adiabática.
+%          · En las periódicas es obligatorio ahora indicar a qué boundary se acopla (lo cual supone poco esfuerzo y reduce el tiempo de búsqueda al código)
+%\begin{lstlisting}
+%                 #define boundary name
+%                       type = Periodic
+%                      coupled boundary = nombredelboundaryalqueseacopla
+%                 #end
+%\end{lstlisting}
+%\item Se pueden definir más de una condición de contorno del tirón, por ejemplo si boundary1, boundary2 y boundary3 son inflows se puede hacer:
+%\begin{lstlisting}
+%                 #define boundary boundary1__boundary2__boundary3
+%                         type = Inflow
+%                 #end
+%\end{lstlisting}
+%     es decir, separado con dos guiones bajos.
+%
+%\item Por pantalla, donde aparecía la info de las zones y tal, también aparece qué BC tiene y cuáles son los parámetros.
+%
+%\item La BC outflowspecifyP la llamo simplemente Outflow. Más que nada por que antes había algunos ficheros de control con la BC Outflow y no existía, pero por defecto se mandaba a Inflow. Para evitar problemas, pues Outflow.
+%
+%\item Los archivos de condición de contorno están en /physics/common en lugar de cada uno su archivo. Esto es por que al final son todas iguales y si se añade una nueva es más facil agregar un nuevo archivo que hacerlo individualmente en cada ecuación.
+%
+%\item Los bcTypeDictionary bcValueDictionary desaparecen. Las BC están en el module physics/common/BoundaryConditions.f90 como variable global, se llama BCs y dentro aloja todas las condiciones de contorno (una por zona, y en el mismo orden de las zonas).
+%
+%\end{itemize}
+%
+%Creo que eso es todo, lamento si os supone mucho cambio en vuestros ficheros de control que estéis corriendo a día de hoy, y si rompo algo que no reflejen los test. Pero estos cambios eran necesarios para darle más versatilidad (por ejemplo en multifase el inflow necesita bastante customización, para definir caudales de cada fase y cosas así). Además, creo que el enfoque OOP va en la dirección del resto del código.
+%
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Spatial Discretization}
+
+HORSES3D uses a high-order discontinuous Galerkin Spectral Element (DGSEM) method. As part of the numerical method, several options of volume and surface discretization options can be selected. Some options are only available in certain solvers.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for spatial discretization.} \label{tab:spatialDisc} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for spatial discretization - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+Discretization nodes  	    & \textit{CHARACTER}: Node type to use in the solution. Options are:  
+    \begin{itemize}
+    \item Gauss
+    \item Gauss-Lobatto
+\end{itemize} 
+                    & 'Gauss' \\ \hline
+
+inviscid discretization	    & \textit{CHARACTER}: DG discretization of inviscid fluxes. Options are:
+    \begin{itemize}
+    \item Standard
+    \item Split-Form
+    \end{itemize} 
+                    & 'Standard' \\ \hline
+
+averaging & \textit{CHARACTER}: Type of averaging function to use in numerical fluxes and split-forms (if in use). Options are:
+    \begin{itemize}
+    \item Standard
+    \item Morinishi
+    \item Ducros
+    \item Kennedy-Gruber
+    \item Pirozzoli
+    \item Entropy conserving
+    \item Chandrasekar
+    \item Skew-symmetric 1 (only for Incompressible Navier–Stokes)
+    \item Skew-symmetric 2 (only for Incompressible Navier–Stokes)
+    \end{itemize} 
+                    & -- \\ \hline
+
+viscous discretization & \textit{CHARACTER}: Method for viscous fluxes. Options are:
+    \begin{itemize}
+    \item BR1
+    \item BR2
+    \item IP
+    \end{itemize} 
+                    & 'BR2' \\ \hline
+
+riemann solver      & \textit{CHARACTER}: Riemann solver for inviscid fluxes. Options are:
+    \begin{itemize}
+    \item Central
+    \item Roe (Only for compressible Navier–Stokes)
+    \item Standard Roe (Only for compressible Navier–Stokes)
+    \item Roe-Pike (Only for compressible Navier–Stokes)
+    \item Low dissipation Roe (Only for compressible Navier–Stokes)
+    \item Lax-Friedrichs (Only for compressible and Incompressible Navier–Stokes)
+    \item ES Lax-Friedrichs (Only for compressible Navier–Stokes, not including RANS)
+    \item u-diss (Only for compressible Navier–Stokes, not including RANS)
+    \item Rusanov (Only for compressible Navier–Stokes)
+    \item Matrix dissipation (Only for compressible Navier–Stokes)
+    \item Viscous NS (Only for compressible Navier–Stokes, not including RANS)
+    \item Exact (Only for Incompressible Navier-Stokes, and Multiphase)
+    \end{itemize} 
+                    & \textbf{Mandatory keyword} \\ \hline
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Restarting a Case}
+
+\begin{table}[htbp]
+\caption{Keywords for restarting a case.}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. & \textbf{Mandatory keyword} \\ \hline
+
+restart file name   & \textit{CHARACTER}: Name of the restart file to be written and, if keyword \textit{restart} = .TRUE., also name of the restart file to be read for starting the simulation. & \textbf{Mandatory\ keyword} \\ \hline
+
+restart polorder & \textit{INTEGER}: Uniform polynomial order of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case. & same as case's \\ \hline
+
+restart nodetype & \textit{CHARACTER}: node type of the solution to restart from (\emph{Gauss} or \emph{Gauss-Lobatto}). This keyword is only needed when the restart node type is different than the current case. & same as case's \\ \hline
+
+restart polorder file &
+			\textit{CHARACTER}: File containing the polynomial orders of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case.  &  same as case's\\ \hline
+
+get discretization error of & \textit{CHARACTER}: Path to solution file. This can be used to estimate the discretization error of a solution when restarting from a higher-order solution. & -- \\ \hline
+
+NS load from NSSA &
+            \textit{LOGICAL}: Used only for NS simulations that are restarted from RANS SA. & .FALSE. \\ \hline
+
+\end{tabular}
+\label{tab:restartkey}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Physics related keyword}
+
+\section{Compressible flow}
+
+\begin{table}[htbp]
+\caption{Keywords for compressible flow (Euler / Navier-Stokes).}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+Mach number					& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
+
+Reynolds number				& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
+
+Prandtl number				& \textit{REAL}:  & 0.72 \\ \hline
+
+Turbulent Prandtl number	& \textit{REAL}:  & Equal to Prandtl \\ \hline
+
+    AOA theta             & \textit{REAL}: Angle of attack (degrees), based on the spherical coordinates polar angle ($\theta$) definition  & 0.0 \\ \hline
+
+    AOA phi               & \textit{REAL}: Angle of attack (degrees), based on the spherical coordinates azimuthal angle ($\varphi$) definition  & 0.0 \\ \hline
+
+LES model					& \textit{CHARACTER(*)}: Options are:
+\begin{itemize}
+\item Vreman
+\item Wale    
+\item Smagorinsky
+\item None
+\end{itemize}
+ & None \\ \hline
+
+Wall model					& \textit{CHARACTER}:  & linear \\ \hline
+
+\end{tabular}
+\label{tab:compressibleFlowkey}
+\end{table}
+
+\subsection{Shock-capturing}
+
+The shock-capturing module helps stabilize cases with discontinuous solutions, and may also improve the results of under-resolved turbulent cases. It is built on top of a \textit{Sensors} module that detects problematic flow regions, classifying them according to the value of the sensor,~$s$, mapped into the interval $a \in [0,1]$,
+%
+\begin{equation*}
+    a = \left\{\begin{array}{ll}
+        0, & \text{if } s \leq s_0 - \Delta s / 2, \\
+        \frac{1}{2}\left[1+\sin\left(\frac{s-s_0}{\Delta s}\right)\right], & \text{if } s_0 - \Delta s / 2 < s < s_0 + \Delta s / 2,  \\
+        1, & \text{elsewhere}.
+    \end{array}\right.
+\end{equation*}
+%
+The values of $s_0 = (s_1 + s_2)/2$ and~$\Delta s = s_2 - s_1$ depend on the sensor thresholds~$s_1$ and~$s_2$.
+
+At the moment, flow regions where $a \leq 0$ are considered smooth and no stabilization algorithm can be imposed there. In the central region of the sensor, with $0 < a < 1$, the methods shown in the next table can be used and even scaled with the sensor value, so that their intensity increases in elements with more instabilities. Finally, the higher part of the sensor range can implement a different method from the table; however, the intensity is set to the maximum this time.
+
+All the methods implemented introduce artificial dissipation into the equations, which can be filtered with an SVV kernel to reduce the negative impact on the accuracy of the solution. Its intensity is controlled with the parameters~$\mu$ (similar to the viscosity of the Navier-Stokes equations) and~$\alpha$ (scaling of the density-regularization term of the Guermond-Popov flux), which can be set as constants or coupled to the value of the sensor or to a Smagorinsky formulation.
+
+\begin{longtable}{|l|p{10cm}|p{2.2cm}|}
+
+\caption{Keywords for shock-capturing algorithms in the Navier-Stokes equations.} \label{tab:shockcapturingkey} \\
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\endfirsthead
+
+\caption{Keywords for shock-capturing algorithms in the Navier-Stokes equations -- continuation.} \\
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\endhead
+
+Enable shock-capturing &  \textit{LOGICAL}: Switch on/off the shock-capturing stabilization & .FALSE. \\ \hline
+Shock sensor & \textit{CHARACTER}: Type of sensor to be used to detect discontinuous regions Options are:
+    \begin{itemize}
+        \item Zeros: always return 0
+        \item Ones: always return 1
+        \item Integral: integral of the sensor variable inside each element
+        \item Integral with sqrt: square root of the Integral sensor
+        \item Modal: based on the relative weight of the higher order modes
+        \item Truncation error: estimate the truncation error of the approximation
+        \item Aliasing error: estimate the aliasing error of the approximation
+        \item GMM: clustering sensor based on the divergence of the velocity and the gradient of the pressure
+    \end{itemize} & Integral \\ \hline
+Shock first method & \textit{CHARACTER}: Method to be used in the middle region of the sensor ($a\in[0,1]$). Options are:
+    \begin{itemize}
+        \item None: Do not apply any smoothing
+        \item Non-filtered: Apply the selected viscous flux without SVV filtering
+        \item SVV: Apply an entropy-stable, SVV-filtered viscous flux
+    \end{itemize} & None \\ \hline
+Shock second method &\textit{CHARACTER}: Method to be used in the top-most region of the sensor ($a=1$). Options are:
+    \begin{itemize}
+        \item None: Do not apply any smoothing
+        \item Non-filtered: Apply the selected viscous flux without SVV filtering
+        \item SVV: Apply an entropy-stable, SVV-filtered viscous flux
+    \end{itemize} & None \\ \hline
+Shock viscous flux 1 & \textit{CHARACTER}: Viscous flux to be applied in the elements where~$a\in[0,1]$. Options are:
+    \begin{itemize}
+        \item Physical
+        \item Guermond-Popov (only with entropy variables gradients)
+    \end{itemize} & -- \\ \hline
+Shock viscous flux 2 & \textit{CHARACTER}: Viscous flux to be applied in the elements where~$a=1$. Options are:
+    \begin{itemize}
+        \item Physical
+        \item Guermond-Popov (only with entropy variables gradients)
+    \end{itemize} & -- \\ \hline
+Shock update strategy & \textit{CHARACTER}: Method to compute the variable parameter of the specified shock-captruing approach in the middle region of the sensor. Options are:
+    \begin{itemize}
+        \item Constant
+        \item Sensor
+        \item Smagorinsky: only for \textit{non-filtered} and \textit{SVV}
+    \end{itemize} & Constant \\ \hline
+Shock mu 1 & \textit{REAL/CHARACTER(*)}: Viscosity parameter~$\mu_1$, or~$C_s$ in the case of LES coupling & 0.0 \\ \hline
+Shock alpha 1 & \textit{REAL}: Viscosity parameter~$\alpha_1$ & 0.0 \\ \hline
+Shock mu 2 & \textit{REAL}: Viscosity parameter~$\mu_2$ & $\mu_1$ \\ \hline
+Shock alpha 2 & \textit{REAL}: Viscosity parameter~$\alpha_2$ & $\alpha_1$ \\ \hline
+Shock alpha/mu & \textit{REAL}: Ratio between~$\alpha$ and~$\mu$. It can be specified instead of~$\alpha$ itself to make it dependent on the corresponding values of~$\mu$, and it is compulsory when using LES coupling & -- \\ \hline
+SVV filter cutoff & \textit{REAL/CHARACTER(*)}: Cutoff of the filter kernel,~$P$. If "automatic", its value is adjusted automatically & "automatic" \\ \hline
+SVV filter shape & \textit{CHARACTER(*)}: Options are:
+    \begin{itemize}
+        \item Power
+        \item Sharp
+        \item Exponential
+    \end{itemize} & Power \\ \hline
+SVV filter type & \textit{CHARACTER(*)}: Options are:
+    \begin{itemize}
+        \item Low-pass
+        \item High-pass
+    \end{itemize} & High-pass \\ \hline
+Sensor variable & \textit{CHARACTER(*)}: Variable used by the sensor to detect shocks. Options are:
+    \begin{itemize}
+        \item rho
+        \item rhou
+        \item rhov
+        \item rhow
+        \item u
+        \item v
+        \item w
+        \item p
+        \item rhop
+        \item grad rho
+        \item div v
+    \end{itemize} & rhop \\ \hline
+Sensor lower limit & \textit{REAL}: Lower threshold of the central sensor region,~$s_1$  & \textbf{Mandatory keyword} (except GMM) \\ \hline
+Sensor higher limit & \textit{REAL}: Upper threshold of the central sensor region,~$s_2$ & \textbf{Mandatory keyword} (except GMM) \\ \hline
+Sensor TE min N & \textit{INTEGER}: Minimum polynomial order of the coarse mesh used for the truncation error estimation & 1 \\ \hline
+Sensor TE delta N & Polynomial order difference between the solution mesh and its coarser representation & 1 \\ \hline
+Sensor TE derivative & \textit{CHARACTER*}: Whether the face terms must be considered in the estimation of the truncation error or not. Options are:
+    \begin{itemize}
+        \item Non-isolated
+        \item Isolated
+    \end{itemize} & Isolated \\ \hline
+Sensor number of clusters & \textit{INTEGER}: Maximum number of clusters to use with the GMM sensor & 2 \\ \hline
+Sensor min. steps & \textit{INTEGER}: Minimum number of time steps that an element will remain detected. The last positive value will be used if the sensor ``undetects'' an element too early & 1 \\ \hline
+\end{longtable}
+
+\subsubsection{Spectral Vanishing Viscosity}
+
+The introduction of an SVV-filtered artificial flux helps dissipate high-frequency oscillations. The baseline viscous flux can be chosen as the Navier-Stokes viscous flux or the flux developed by Guermond and Popov. In any case, this flux is expressed in a modal base where it is filtered by any of the following three filter kernels:
+%
+\begin{itemize}
+    \item power:~$\hat{F}^{\text{1D}}_i = (i/N)^P$,
+    \item sharp:~$\hat{F}^{\text{1D}}_i = 0$ if~$i<P$,~$\hat{F}^{\text{1D}}_i = 1$ elsewhere,
+    \item exponential:~$\hat{F}^{\text{1D}}_i = 0$ if~$i \leq P$, ~$\hat{F}^{\text{1D}}_i=\exp\left(-\frac{(i-N)^2}{(i-P)^2}\right)$ elsewhere.
+\end{itemize}
+%
+The extension to three dimensions allows the introduction of two types of kernels based on the one-dimensional ones:
+%
+\begin{itemize}
+    \item high-pass:~$\hat{F}^{\text{H}}_{ijk} = \hat{F}^{\text{1D}}_i \hat{F}^{\text{1D}}_j \hat{F}^{\text{1D}}_k$,
+    \item low-pass:~$\hat{F}^{\text{L}}_{ijk} = 1 - \left(1-\hat{F}^{\text{1D}}_i\right)\left(1-\hat{F}^{\text{1D}}_j\right)\left(1-\hat{F}^{\text{1D}}_k\right)$,
+\end{itemize}
+%
+being the low-pass one more dissipative and, thus, more suited to supersonic cases. The high-pass filter, on the other hand, works better as part of the SVV-LES framework for turbulent cases.
+
+The cutoff parameter~$P$ can be set as "automatic", which uses a sensor to differentiate troubled elements from smooth regions. The stabilisation strategy then depends on the region:
+%
+\begin{itemize}
+    \item smooth regions:~$P=4$,~$\mu=\mu_2$,~$\alpha=\alpha_2$,
+    \item shocks:~$P=4$,~$\mu=\mu_1$,~$\alpha=\alpha_1$.
+\end{itemize}
+
+In addition to this, the viscosity~$\mu_1$ can be set to "Smagorinsky" to use the implemented SVV-LES approach. In this case, the~$\mu=\mu_{\text{LES}}$ viscosity is computed following a Smagorinsky formulation with~$C_s=\mu_2$ and the viscosity parameters do not depend on the region anymore,
+%
+\begin{equation*}
+    \mu = C_s^2 \Delta^2|S|^2, \quad \alpha = \alpha_1.
+\end{equation*}
+
+\subsection{Acoustic}
+The Ffowcs Williams and Hawkings (FWH) acoustic analogy is implemented as a complement to the compressible NS solver. It can run both during the execution of the NS (in-time) or as at a post-process step. The version implemented includes both the solid and permeable surface variations, but both of them for a static body subjected to a constant external flow, i.e. a wind tunnel case scenario. The specifications for the FWH are divided in two parts: the general definitions (including the surfaces) and the observers definitions. The former is detailed in Table~\ref{tab:FWHKey}, while the latter are defined in a block section, similar to the monitors (see Chapter~\ref{sect:monitors}):
+
+\begin{lstlisting}
+#define acoustic observer 1
+   name     = SomeName
+   position = [0.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+To run the in-time computation, the observers must be defined in the control file. Beware that adding an additional observer will require to run the simulation again. To use the post-process computation, the solution on the surface must be saved at a regular time. Beware that it will need more storage. To run the post-process calculation the horses.tools binary is used, with a control file similar to the one use for the NS simulation (without monitors), and adding the keywords ''tool type'' and ''acoustic files pattern'', as explained in Table~\ref{tab:FWHKey}.
+
+\begin{table}[htbp]
+\caption{Keywords for acoustic analogy}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+acoustic analogy                & \textit{CHARACTER(*)}: This is the main keyword for activating the acoustic analogy. The only options is: ''FWH''. & -- \\ \hline
+acoustic analogy permeable      & \textit{LOGICAL}: Defines if uses a permeable or solid approach.  & .FALSE. \\ \hline
+acoustic solid surface          & \textit{CHARACTER(*)}: Array containing the name of each boundary to be used as a surface for integration. In the form: '[bc1,bc2,bc3]'. Mandatory for using the solid surface variant. & -- \\ \hline
+acoustic surface file           & \textit{CHARACTER(*)}: Path to a fictitious surface that will be used for integration. It must be tailor-made for the mesh. Mandatory for using the permeable surface variant. & -- \\ \hline
+observers flush interval        & \textit{INTEGER}: Iteration interval to flush the observers information to the files. & 100 \\ \hline
+acoustic solution save          & \textit{LOGICAL}: Defines whether it saves the NS solution on the surface. Mandatory for post-process computation. & .FALSE. \\ \hline
+acoustic save timestep 	        & \textit{REAL}: Controls the time or iteration at which the FWH will be calculated (and saved if specified). If the key is missing it will be done at each timestep.  & -- \\ \hline
+acoustic files pattern          & \textit{CHARACTER(*)}: Pattern to the path of all the saved solutions on the surface (To be used in horses.tools for the post-process calculation). & -- \\ \hline
+tool type                       & \textit{CHARACTER(*)}: Necessary for post-process calculation. Defines the type of post-process of horses.tools. For the FWH analogy the value must be ''fwh post'' & -- \\ \hline
+\end{tabular}
+\label{tab:FWHKey}
+\end{table}
+
+
+\section{Incompressible Navier-Stokes}
+
+Among the various incompressible Navier-Stokes models, {\fontfamily{qcr}\selectfont  HORSES3D} uses an artificial compressibility 
+formulation, which converts the elliptic problem into a hyperbolic system of equations, at the expense of a non divergence–free 
+velocity field. However, it allows one to avoid constructing an approximation that satisfies the inf–sup condition. 
+This methodology is well suited for use as a fluid flow engine for interface–tracking multiphase flow models, as it allows the 
+density to vary spatially. 
+
+The artificial compressibility system of equations is
+%
+\begin{equation}
+  \rho_{t} + \vec{\nabla}\cdot\left(\rho\vec{u}\right)=0 ,
+  \label{eq:incomressible:continuity}
+\end{equation}
+%
+\begin{equation}
+\left(\rho\vec{u}\right)_t+\vec{\nabla}\cdot\left(\rho \vec{u}\vec{u}\right) = -\vec{\nabla}p + \vec{\nabla}\cdot\left(\frac{1}{\mathrm{Re}}\left(\vec{\nabla}\vec{u} + 
+\vec{\nabla}\vec{u}^{T}\right)\right)+\frac{1}{\mathrm{Fr^{2}}}\rho\vec{e}_{g},
+\label{eq:incomressible:momentum}
+\end{equation}
+%
+\begin{equation}
+  p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
+  \label{eq:incomressible:ACM}
+\end{equation}
+
+The factor $\rho_0$ is computed as $max(\rho_1/\rho_1,\rho_2/\rho_1)$.
+
+This solver is run with the binary horses3d.ins. 
+
+\begin{table}[htbp]
+    \caption{Keywords for incompressible Navier-Stokes solver}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+    reference velocity (m/s)            & \textit{REAL}: Reference value for velocity                                                                                              & -- \\ \hline
+    number of fluids (1/2)              & \textit{INTEGER}: Number of fluids present in the simulation                                                                             &  1 \\ \hline
+    maximum density (kg/m\^{}3)            & \textit{REAL}: Maximum value used in the limiter of the density                                                                       &  Huge(1.0) \\ \hline
+    minimum density (kg/m\^{}3)            & \textit{REAL}: Minimum value used in the limiter of the density                                                                       & -Huge(1.0) \\ \hline
+    artificial compressibility factor   & \textit{REAL}: Artificial compressibility factor ${c_0}^2$.                                                                              & -- \\ \hline
+    gravity acceleration (m/s\^{}2)        & \textit{REAL}: Value of gravity acceleration                                                                                          & -- \\ \hline
+    gravity direction                   & \textit{REAL}: Array containing direction of gravity. Eg. $[0.0,-1.0,0.0]$.                                                              & -- \\ \hline
+    \end{tabular}
+    \label{tab:INSKey}
+    \end{table}
+
+The incompressible Navier Stokes solver has two modes: with 1 fluid and with 2 fluids. The required keywords are listed below.
+
+    \begin{table}[htbp]
+        \caption{Keywords for incompressible Navier-Stokes solver. Mode with 1 fluid}
+        \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+        \hline
+        \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+        density (kg/m\^{}3)            & \textit{REAL}: Density of the fluid   & -- \\ \hline
+        viscosity (pa.s)            & \textit{REAL}: Viscosity of the fluid & -- \\ \hline                                                                        
+    \end{tabular}
+    \label{tab:INSKey_1fluid}
+    \end{table}
+    
+    \begin{table}[htbp]
+        \caption{Keywords for incompressible Navier-Stokes solver. Mode with 2 fluids}
+        \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+        \hline
+        \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+        fluid 1 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 1 & -- \\ \hline
+        fluid 1 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 1 & -- \\ \hline     
+        fluid 2 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 2 & -- \\ \hline
+        fluid 2 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 2  & -- \\ \hline                                                                          
+    \end{tabular}
+    \label{tab:INSKey_2fluid}
+    \end{table}    
+
+
+\section{Multiphase}
+
+The multiphase flow solver implemented in {\fontfamily{qcr}\selectfont  HORSES3D} is constructed by a combination of the diffuse interface model of Cahn–Hilliard
+with the incompressible Navier–Stokes equations with variable density and artificial compressibility. 
+This model is entropy stable and guarantees phase conservation with an accurate representation of surface tension effects. 
+The modified entropy-stable version approximates:
+
+\begin{equation}
+c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
+\label{eq:governing:cahn--hilliard}
+\end{equation}
+%
+\begin{equation}
+\sqrt{\rho}\left(\sqrt{\rho}\vec{u}\right)_t+\vec{\nabla}\cdot\left(\frac{1}{2}\rho \vec{u}\vec{u}\right) 
++\frac{1}{2}\rho\vec{u}\cdot\vec{\nabla}\vec{u}+c\vec{\nabla}\mu
+= -\vec{\nabla}p + \vec{\nabla}\cdot\left(\eta\left(\vec{\nabla}\vec{u} + 
+\vec{\nabla}\vec{u}^{T}\right)\right)+\rho\vec{g},
+\label{eq:governing:momentum-skewsymmetric-sqrtRho}
+\end{equation}
+%
+\begin{equation}
+  p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
+  \label{eq:governing:ACM}
+\end{equation}
+%
+where $c$ is the phase field parameter, $M_0$ is the mobility, $\mu$ is the chemical potential, 
+$\eta$ is the viscosity and $c_0$ is the artificial speed of sound. The factor $\rho_0$ is computed as $max(\rho_1/\rho_1,\rho_2/\rho_1)$.
+Mobility $M_0$ is computed from the control file parameters chemical characteristic time $t_{CH}$, interface width $\epsilon$ and interface tension $\sigma$ with the formula 
+$M_0 = L_{ref}^2 \epsilon /(t_{CH} \sigma)$. 
+
+The term $M_0 \vec{\nabla}^2 \mu$ can be implicity integrated to reduce the stiffnes of the problem with the keyword time integration = IMEX. This is only recomended if the value of $M_0$ is very high so that the time step of the explicit scheme is very small. 
+
+This solver is run with the binary horses3d.mu. 
+
+\begin{table}[htbp]
+    \caption{Keywords for multiphase Navier-Stokes solver}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+    fluid 1 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 1 & -- \\ \hline
+    fluid 1 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 1 & -- \\ \hline     
+    fluid 2 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 2 & -- \\ \hline
+    fluid 2 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 2  & -- \\ \hline         
+    reference velocity (m/s)            & \textit{REAL}: Reference value for velocity                                                                                              & -- \\ \hline                                           
+    maximum density (kg/m\^{}3)            & \textit{REAL}: Maximum value used in the limiter of the density                                                                       &  Huge(1.0) \\ \hline
+    minimum density (kg/m\^{}3)            & \textit{REAL}: Minimum value used in the limiter of the density                                                                       & -Huge(1.0) \\ \hline
+    artificial compressibility factor   & \textit{REAL}: Artificial compressibility factor ${c_0}^2$.                                                                              & -- \\ \hline
+    gravity acceleration (m/s\^{}2)        & \textit{REAL}: Value of gravity acceleration                                                                                          & -- \\ \hline
+    gravity direction                   & \textit{REAL}: Array containing direction of gravity. Eg. $[0.0,-1.0,0.0]$.                                                              & -- \\ \hline
+    velocity direction                   & \textit{REAL}: Array containing direction of velocity used for the outflow BC. Eg. $[1.0,0.0,0.0]$.                                                              & -- \\ \hline
+    chemical characteristic time (s)    & \textit{REAL}: $t_{CH}$ controls the speed of the phase separation    & -- \\ \hline
+    interface width (m)                 & \textit{REAL}: $\epsilon$ controls the interface width between the phases   & -- \\ \hline
+    interface tension (N/m)             & \textit{REAL}: $\sigma$ controls the interface tension between the phases    & -- \\ \hline
+    \end{tabular}
+    \label{tab:MUKey}
+    \end{table}
+
+\section{Particles}
+
+\boxed{\centering \textit{WARNING: Lagrangian particles are only implemented for the compressible Navier Stokes (horses.ns binary)}}\vspace{1ex}
+\boxed{\centering \textit{WARNING: Lagrangian particles do not support MPI.}}\vspace{1ex}
+
+{\fontfamily{qcr}\selectfont  HORSES3D} includes a two-way coupled Lagrangian solver.
+Particles are tracked along their trajectories, according to the simplified particle equation of motion, where only contributions from Stokes drag and gravity are retained,
+\begin{equation}
+\label{eq:part_motion}
+\frac{d y_i}{dt} = u_i, \quad \frac{d u_i}{dt} = \frac{v_i - u_i}{\tau_p} + g_i,
+\end{equation}
+where $u_i$ and $y_i$ are the \emph{ith} components of velocity and position of the particle, respectively. Furthermore, $v_i$ accounts for the continuous velocity of the fluid at the position of the particle.  We consider spherical Stokesian particles, so their mass and aerodynamic response time are $m_p = \rho_p \pi D_p^3/6$ and $\tau_p = \rho_p D_p^2 / 18\mu $, respectively, $\rho_p$ being the particle density and $D_p$ the particle diameter. 
+
+Each particle is considered to be subject to a radiative heat flux $I_o$. The carrier phase is transparent to radiation, whereas the incident radiative flux on each particle is completely absorbed. Because we focus on relatively small volume fractions, the fluid-particle medium is considered to be optically thin. Under these hypotheses, the direction of the radiation is inconsequential, and each particle receives the same radiative heat flux, and its temperature $T_p$ is governed by
+\begin{equation}
+\label{eq:part_energy}
+\frac{d}{dt} (m_p c_{V,p} T_p) = \frac{\pi D_p^2}{4} I_o - \pi D_p^2 h (T_p-T),
+\end{equation}
+where $c_{V,p}$ is the specific heat of the particle, which is assumed to be constant with respect to temperature. $T_p$ is the particle temperature and $h$ is the convective heat transfer coefficient, which for a Stokesian particle can be calculated from the Nusselt number $Nu = hD_p/k = 2$.
+
+In practical simulations, integrating the trajectory of every particle is too expensive. Therefore, particles are agglomerated into parcels, each of them accounting for many particles with the same physical properties, position, velocity, and temperature. The evolution of the parcels is tracked with the same set of equations presented for the particles.
+
+The two-way coupling means that fluid flow is modified because of the presence of particles. Therefore, the Navier-Stokes equations are enriched with the following source terms:
+%
+\begin{equation}
+\boldsymbol{S} = \beta\left[\begin{array}{c} 0 \\
+                                                                       \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{1,n}-v_1)\delta(\mathbf{x} - \mathbf{y}_n)  \\
+                                                                       \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{2,n}-v_2)\delta(\mathbf{x} - \mathbf{y}_n) \\
+                                                                      \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{3,n}-v_3)\delta(\mathbf{x} - \mathbf{y}_n) \\
+                                                                      \sum_{n=1}^{N_p} \pi D_p^2 h (T_{p,n} - T) \delta(\mathbf{x} - \mathbf{y}_n )
+\end{array}\right],
+\label{eq:particlessource}
+\end{equation}
+%
+where $\delta$ is the Dirac delta function, $N_p$ is the number of parcels, $\beta$ is the number of particles per parcel and $u_{i,n}$, $\mathbf{y}_{i,n}$, $T_{p,n}$ are the velocity, spatial coordinates, and temperature of the parcel \emph{nth}.
+The dimensionless form of the Navier Stokes equations can be seen in the appendix at the end of this document. 
+
+Particles are solved in a box domain inside the flow domain. The box is defined with the keywords ``minimum box'' and ``maximum box''. The boundary conditions for the particles are defined with the keyword ``bc box''. Possible options are inflow/outflow, periodic and wall (with perfect rebound). 
+
+\begin{table}[htbp]
+    \caption{Keywords for particles Navier-Stokes solver}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+    lagrangian particles                & \textit{LOGICAL}: If .true. activates particles & .false. \\ \hline
+    stokes number                       & \textit{REAL}: Stokes number which for Stokesian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$  & -- \\ \hline
+    Gamma                               & \textit{REAL}: Ratio between specific heat of particles and fluid $\Gamma=c_{v,p}/c_{v}$ & -- \\ \hline
+    phi\_m                               & \textit{REAL}: Ratio between total mass of particles and fluid $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$  & -- \\ \hline
+    Radiation source                    & \textit{REAL}: Non dimensional radiation source intensity $I_o^*=\frac{I_o D_p}{4k_oT_o}$   & -- \\ \hline
+    Froude number                       & \textit{REAL}: Froude number $Fr=\frac{u_o}{\sqrt{g_o L_o}}$  & -- \\ \hline
+    high order particles source term    & \textit{LOGICAL}: source term with high order dirac delta or averaged in the whole element  & .false. \\ \hline
+    number of particles                 & \textit{INTEGER}: Total number of parcels in the simulation & -- \\ \hline
+    particles per parcel                & \textit{REAL}: $\beta$ particles per parcel & -- \\ \hline
+
+    \end{tabular}
+    \label{tab:PartKey1}
+    \end{table}
+
+    \begin{table}[htbp]
+    \caption{Keywords for particles Navier-Stokes solver - continued}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+    Gravity direction                   & \textit{INTEGER}: Array with direction of gravity. Only required if Fr number is specified.[0,0,-1] & -- \\ \hline
+    particles file                      & \textit{CHARACTER(*)}: Path to file with initial position of the particles. If not provided, initialization without particles inside the domain. Not compatible with injecting particles in the domain (see keyword below). & -- \\ \hline
+    vel and temp from file              & \textit{LOGICAL}: If .true. Initial velocity and temperature of particles read from file. If .false., initial velocity and temperature of particles are the same as flow at the position of the particle. & -- \\ \hline
+    injection                           & \textit{LOGICAL}: If .true. injection of particles through a face of the box. & -- \\ \hline
+    particles injection                 & \textit{INTEGER}: Array with a vector indicating the direction of the injection. Eg., [0,1,0]      & -- \\ \hline
+    particles per step                  & \textit{INTEGER}: Number of particles injected per time step. & -- \\ \hline
+    particles iter period               & \textit{INTEGER}: Iteration period for particles injection. Set to 1 to inject particles every time step.   & -- \\ \hline
+    particles injection velocity        & \textit{REAL}:   Array with particles injection non dimensional velocity. Eg., [0.d0,1.d0,0.d0] & -- \\ \hline
+    particles injection temperature     & \textit{REAL}:  Particles injection non-dimensional temperature & -- \\ \hline
+    minimum box                         & \textit{REAL}: Array with minimum x,y,z coordinates of box with particles. Eg., [0.d0,0.d0,0.d0]  & -- \\ \hline
+    maximum box                         & \textit{REAL}: Array with maximum x,y,z coordinates of box with particles. Eg., [4.d-2,1.6d-1,4.d-2]  & -- \\ \hline
+    bc box                              & \textit{INTEGER}: Array with boundary conditions for particles box in the form [yz,xz,xy]. 
+    0 is inflow/outflow, 1 is wall, 2 is periodic. Eg.,   [2,0,2]. In this example planes yz and xy are periodic, while plane xz is inflow/outflow for particles. & -- \\ \hline
+
+    \end{tabular}
+    \label{tab:PartKey2}
+    \end{table}
+
+
+\section{Complementary Modes}
+
+\subsection{Wall Function}
+
+The wall function overwrites the viscous flux on the specified boundaries based on an specific law using a Newman condition. It must be used as a complement of no slip boundary condition. Table~\ref{tab:wallFunckey} shows the parameters that can be set in the control file. The frictional velocity is calculated using the instantaneous values of the first node (either Gauss or Gauss-Lobatto) of the element neighbour of the face element (at the opposite side of the boundary face). Currently is only supported for the compressible Navier-Stokes solver.
+
+The standard wall function uses the Reichardt law, solving the algebraic non-linear equation using the newton method to obtain the frictional velocity. The ABL function uses the logarithmic atmospheric boundary layer law, using the aerodynamic roughness; the frictional velocity is without using any numerical method.
+
+\begin{table}[htbp]
+\caption{Keywords for Wall Function}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+Wall Function					& \textit{CHARACTER(*)}: This is the main keyword for activating the wall function. Identifies the wall law to be used. Options are:
+    \begin{itemize}
+    \item Standard: uses the Reichardt law.
+    \item ABL: uses the atmospheric boundary layer law.
+    \end{itemize}
+& -- \\ \hline
+
+Wall Function Boundaries 	    & \textit{CHARACTER(*)}: Array containing the name of each boundary to be used. In the form: '[bc1,bc2,bc3]'. Mandatory for using the wall function. & -- \\ \hline
+
+Wall Function kappa		    	& \textit{REAL}: von Karman constant  & 0.38 \\ \hline
+Wall Function C     			& \textit{REAL}: Log law 'C' constant  & 4.1 \\ \hline
+Wall Function Seed		    	& \textit{REAL}: Initial value for the newton method  & 1.0 \\ \hline
+Wall Function Damp		    	& \textit{REAL}: Initial value damp for the newton method & 1.0 \\ \hline
+Wall Function Tolerance			& \textit{REAL}: Tolerance for the newton method  & $10^{-10}$ \\ \hline
+Wall Function max iter			& \textit{INTEGER}: Maximum number of iterations for the newton method  & 100 \\ \hline
+Wall Roughness	        		& \textit{REAL}: Aerodynamic roughness for the ABL wall function. Mandatory value for the ABL law.  & -- \\ \hline
+Wall Plane Displacement			& \textit{REAL}: Plane displacement due to roughness for the ABL wall function  & 0.0 \\ \hline
+Wall Function Use Average       & \textit{LOGICAL}: Use the time average of the velocity in the wall function, each time step the time average is recalculated. & .FALSE. \\ \hline
+
+
+\end{tabular}
+\label{tab:wallFunckey}
+\end{table}
+
+\subsection{Tripping}
+
+A numerical source term is added to the momentum equations to replicate the effect of a tripping mechanism used commonly in explerimental tests. The forcing is described via the product of two independent functions: one that depends streamwise and vertical directions (space only) and the other one describing the spanwise direction and time (space and time).
+It can be used for the compressible NS, both LES and RANS.
+The keywords for the trip options are listed in table \ref{tab:trip}.
+
+\begin{table}[htbp]
+\caption{Keywords for Tripping model}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+use trip                        & \textit{LOGICAL}: This is the main keyword for activating the trip & .FALSE. \\ \hline
+trip time scale                 & \textit{REAL}: Time interval between the change of the time dependent part of the trip. & \textbf{Mandatory} \\ \hline
+trip number of modes            & \textit{INTEGER}: Number of Fourier modes in the spanwise direction of the trip. & \textbf{Mandatory} \\ \hline
+trip z points                   & \textit{INTEGER}: Number of points to create the Fourier Transformation of the spanwise direction, it must be greater than the number of modes and should be ideally equal to the number of discretization points of the mesh in the same direction. & \textbf{Mandatory} \\ \hline
+trip attenuation                & \textit{REAL ARRAY(2)}: Length scale of the gaussian attenuation of the trip, the first position is the streamwise direction and the second is the wall-normal direction. & \textbf{Mandatory} \\ \hline
+trip zone                       & \textit{CHARACTER(*) ARRAY(:)}: Boundary condition name that constrains at least one surface where the trip center is located. It can be ither one or two boundary conditions, the latter used to generate a trip in two different positions (i.e. pressure and suction sides of an airfoil).  & \textbf{Mandatory} \\ \hline
+trip center                     & \textit{REAL}: Position of the origin of the trip in the streamwise direction. & \textbf{Mandatory} \\ \hline
+trip center 2                   & \textit{REAL}: Position of the origin of the second trip, if used, in the streamwise direction. & -- \\ \hline
+trip amplitude                  & \textit{REAL}: Maximum time varying amplitude of the trip. & 1.0 \\ \hline
+trip amplitude steady           & \textit{REAL}: Maximum steady amplitude of the trip. & 0.0 \\ \hline
+random seed 1                   & \textit{INTEGER}: Number used to initialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart. & 930187532 \\ \hline
+random seed 2                   & \textit{INTEGER}: Number used to initialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart. & 597734650 \\ \hline
+\end{tabular}
+\label{tab:trip}
+\end{table}
+
+
+\chapter{Implicit Solvers with Newton linearisation}
+\section{General Keywords}
+The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
+
+%\begin{table}[htbp]
+%\caption{Keywords for implicit solvers.}
+%\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+%\hline
+%\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for implicit solvers.} \label{tab:implicitkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for implicit solvers - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit' for the BDF solvers and to 'rosenbrock' for Rosenbrock schemes. & 'explicit' \\ \hline
+
+linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\
+				\begin{itemize}
+					\item 'petsc': PETSc library Krylov-Subspace methods. Available in serial, but use with care (PETSc is not thread-safe, so OpenMP is not recommended). Only available in parallel (MPI) for preallocated Jacobians (see next section).
+					\item 'pardiso': Intel MKL PARDISO. Only available in serial or with OpenMP.
+					\item 'matrix-free gmres': A matrix-free version of the GMRES algorithm. Can be used without preconditioner or with a recursive GMRES preconditioner using 'preconditioner=GMRES'. Available in serial and parallel (OpenMP+MPI)
+					\item 'smooth': Traditional iterative methods. One can select either 'smoother=WeightedJacobi' or 'smoother=BlockJacobi'.
+					\item 'matrix-free smooth': A matrix-free version of the previous solver. Only available with 'smoother=BlockJacobi'.
+				\end{itemize}
+										& 'petsc'  \\ \hline
+
+
+
+\end{longtable}
+
+\section{Keywords for the BDF Methods}
+
+The BDF methods implemented in HORSES3D use a Newton's method
+
+\begin{longtable}{|p{4cm}|p{9cm}|p{3.2cm}|}
+\caption{Keywords for the BDF solvers.} \label{tab:BDFkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the BDF solvers - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+bdf order             & \textit{INTEGER}: If present, the solver uses a BDF solver of the specified order. BDF1 - BDF5 are available, and BDF2 - BDF5 require constant time steps. & 1 \\ \hline
+
+jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath a threshold (hard-coded). This improves performance.  & .FALSE. \\ \hline
+
+compute jacobian every & \textit{INTEGER}: Forces the Jacobian to be computed in an interval of iterations that is specified. & Inf \\ \hline
+
+%% Keywords for the Newton's method
+
+print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
+implicit adaptive dt  & \textit{LOGICAL}: Specifies if the time-step should be computed according to the convergence behavior of the Newton iterative method and the linear solver. & .FALSE. \\ \hline
+
+newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton's method. &  $10^{-6}$ for time-accurate simulations, or $MaxResidual \times a$ for steady-state simulations, where $a$ is the keyword \textit{newton factor} \\ \hline
+
+newton max iter    & \textit{INTEGER}: Maximum number of Newton iterations for BDF solver.  & 30 \\ \hline
+
+linsolver max iter	& \textit{INTEGER}: Maximum number of iterations to be taken by the linear solver. This keyword only affects iterative linear solvers.		    & 500 \\ \hline
+
+newton factor 	& \textit{REAL}: In simulations that are not time-accurate, the tolerance of the Newton's method is a function of the residual: $MaxResidual \times a$, where $a$ is the specified value.	& $10^{-3}$	\\ \hline
+
+%% Keywords for the linear solver tolerance
+
+linsolver tol factor 	& \textit{REAL}: The linear solver tolerance is a function of the absolute error of the Newton's method: $tol=\norm{e}_{\infty}*a^i$, where $e$ is the absolute error of the Newton's method, $i$ is the Newton iteration number, and $a$ is the specified value.	& $0.5$	\\ \hline
+
+newton first norm  & \textit{REAL}: Specifies an assumed infinity norm of the absolute error of the Newton's method at the iteration $0$ of the time step $1$.
+This can change the behavior of the first Newton iterative method because of the dependency of the linear system tolerance on the absolute error of the Newton's method (see keyword \textit{linsolver tol factor}).
+				   & $0.2$ \\ \hline
+
+
+
+
+
+
+
+\end{longtable}
+
+\section{Keywords for the Rosenbrock-Type Implicit Runge-Kutta Methods}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the Rosenbrock schemes.} \label{tab:Rosenbrockkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the Rosenbrock schemes - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+rosenbrock scheme	& \textit{CHARACTER}: Rosenbrock scheme to be used. Currently, only the \textit{RO6-6} is implemented.		    & -- \\ \hline
+
+\end{longtable}
+
+\section{Jacobian Specifications}
+The Jacobian must be defined using a block of the form:
+\begin{lstlisting}
+#define Jacobian
+   type = 2
+   print info = .TRUE.
+   preallocate = .TRUE.
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for Jacobian definition block.} \label{tab:Jacobiankey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for Jacobian definition block - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+
+type             & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
+				\begin{enumerate}
+					\item Numerical Jacobian: Uses a coloring algorithm and a finite difference method to compute the DG Jacobian matrix (only available with shared memory parallelization).
+					\item Analytical Jacobian: Available with shared (OpenMP) or distributed (MPI) memory parallelization for advective and/or diffusive nonlinear conservation laws, \textbf{BUT} only for the standard DGSEM (no split-form).
+					\end{enumerate}
+										& \textbf{Mandatory Keyword} \\ \hline
+
+print info      & \textit{LOGICAL}: Specifies the verbosity of the Jacobian subroutines  & .TRUE. \\ \hline
+
+preallocate     & \textit{LOGICAL}: Specifies if the Jacobian must be allocated in preprocessing (.TRUE. - only available for advective/diffusive nonlinear conservation laws) or every time it is computed (.FALSE.)  & .FALSE. \\ \hline
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Explicit Solvers}
+
+Explicit time integration schemes available in HORSES3D.
+The main keywords to use it are shown in Table \ref{tab:explicitKey}.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the multigrid solver.} \label{tab:explicitKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the multigrid solver - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword to activate the multigrid solvers. The value of it should be set to 'FAS' for the Full Approximation Scheme (FAS) nonlinear multigrid  solvers and to 'AnisFAS' for anisotropic FAS schemes. & 'explicit' \\ \hline
+
+\textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
+
+explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33' and 'SSPRK43'. & RK3 \\ \hline
+
+rk order & \textit{INTEGER}: Order of Runge-Kutta method optimized for steady-state solver ('RKOpt'). Possible orders are from 2 to 7. & 2 \\ \hline
+
+limit timestep & \textit{LOGICAL}: Activate the possitivity limiter of Zhang and Shu (only for SSPRK methods). & .false. \\ \hline
+
+limiter minimum & \textit{REAL}: Minimum value of density and pressure allowed by the limiter. & 1e-13 \\ \hline
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\chapter{Nonlinear $p$-Multigrid solver (FAS)}
+
+The code has an implementation of the Full Approximation Scheme (FAS) nonlinear $p$-multigrid method. The main keywords to use it are shown in Table \ref{tab:multigridKey}.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the multigrid solver.} \label{tab:multigridKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the multigrid solver - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword to activate the multigrid solvers. The value of it should be set to 'FAS' for the Full Approximation Scheme (FAS) nonlinear multigrid  solvers and to 'AnisFAS' for anisotropic FAS schemes. & 'explicit' \\ \hline
+
+\textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration (the exact method can be set using 'bdf order' option) and uses FAS as a local steady-state problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
+
+multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
+
+delta n          & \textit{INTEGER}: Interval of reduction of polynomial order for creating coarser multigrid levels.& 1 \\ \hline
+
+multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
+
+mg sweeps    & \textit{INTEGER}: Number of smoothing sweeps to be taken. & 1* \\ \hline
+
+mg sweeps pre    & \textit{INTEGER}: Number of pre-smoothing sweeps to be taken. & 1* \\ \hline
+
+mg sweeps post    & \textit{INTEGER}: Number of post-smoothing sweeps to be taken. & 1* \\ \hline
+
+mg sweeps coarsest   & \textit{INTEGER}: Number of pre- and post-smoothing sweeps to be taken on the coarsest multigrid level. & Average between pre-sweeps and post-sweeps \\ \hline
+
+mg sweeps exact & \textit{INTEGER(:)}: Alternative to 'mg sweeps'. Defines exact number of pre- and post- smoothing sweeps to be taken on each level. Index of the array indicates the MG level for the sweeps to be performed, e.g. [1,4] performs 1 pre-sweep and 1 post-sweep on level 1 and 4 pre-\/post-sweeps on level 2. & 1* \\ \hline
+
+mg sweeps pre exact & \textit{INTEGER(:)}: Alternative to 'mg sweeps pre'. Defines exact number of pre-smoothing sweeps to be taken on each level. Index of the array indicates the MG level for the sweeps to be performed, e.g. [1,4] performs 1 pre-sweep on level 1 and 4 pre-sweeps on level 2. & 1* \\ \hline
+
+mg sweeps post exact & \textit{INTEGER(:)}: Alternative to 'mg sweeps post'. Defines exact number of post-smoothing sweeps to be taken on each level. Index of the array indicates the MG level for the sweeps to be performed, e.g. [1,4] performs 1 post-sweep on level 1 and 4 post-sweeps on level 2. & 1* \\ \hline
+
+mg smoother     & \textit{CHARACTER}: The smoothing technique to be used. The keywords and possible explicit smoothers are the same as the 'explicit method' in \ref{tab:explicitKey}. For the semi-implicit residual relaxation use 'BIRK5'. & RK3 \\ \hline
+
+%% FMG keywords
+
+fasfmg residual & \textit{REAL}: When this keyword is used, the code uses a full multigrid (FMG) method to obtain an initial condition for the simulation.
+The initial condition has the specified residual.	& --	\\ \hline
+
+fasfmg save solutions & \textit{LOGICAL}: Save the solutions that are obtained at the different FMG levels.
+Only usable when \textit{fasfmg residual} is used. 	& .FALSE.	\\ \hline
+
+%% Smoothing tuning keywords
+
+postsmooth option    & \textit{CHARACTER}: When this keyword is used, the code performs extra post-smoothing sweeps, so that the final residual after completing the post-smoothing is lower than the residual achieved by the pre-smoothing. The options are:\
+
+\begin{itemize}
+\item \textit{f-cycle}: Do the extra post-smoothing with an FMG cycle.
+\item \textit{smooth}: Do normal smoothing.
+\end{itemize}  & -- \\ \hline
+
+smooth fine & \textit{REAL}: Extra pre-smoothing is performed on a multigrid level of order $P$, until a residual is obtained $\norm{\tilde{\Res}^{P}}_{\infty} < \eta \norm{\tilde{\Res}^{N}}_{\infty}$, where $N$ is the polynomial order of the next (coarsest) grid, and $\eta$ is the specified value.	& --	\\ \hline
+
+max mg sweeps & \textit{INTEGER}: Maximum number of smoothing sweeps to be performed. This only makes sense if one uses the keywords \textit{postsmooth option} and/or \textit{smooth fine}.	& 10000	\\ \hline
+
+mg initialization & \textit{LOGICAL}: Sets the initial explicit residual smoothing with RK3 and local time stepping. & .FALSE.	\\ \hline
+
+initial residual & \textit{REAL}: Threshold for the $\norm{\tilde{\Res}^{P}}_{\infty}$ after which solver switches from the 'mg initialization' settings to user specified. & 1.0	\\ \hline
+
+initial cfl & \textit{REAL}: CFL and DCFL number for initial residual smoothing. & 0.1	\\ \hline
+
+\multicolumn{3}{p{16.4cm}}{*  The user must specify \textit{mg sweeps pre} \textbf{and} \textit{mg sweeps post}, or \textit{mg sweeps}.} \\
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{p-Adaptation Methods}
+The p-adaptation methods are used when the p-adaptation region is specified in the control file. There are two different types of p-adaptation algorithms: A Truncation Error (TE) algorithm and a Reinforcement Learning (RL) algorithm.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{General keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{General keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+adaptation type & \textit{CHARACTER}: Can be either "TE" or "RL". & TE \\ \hline
+
+Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm (limited to 6 for RL adaptation type). &
+					\textbf{Mandatory keyword} \\ \hline
+
+Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. &
+					[1,1,1] \\ \hline
+
+conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  &
+					-- \\ \hline
+
+order across faces &
+			\textit{CHARACTER}: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only $N*2/3$ and $N-1$ are supported. &
+					$N-1$ \\ \hline
+
+mode &
+			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be performed by \textit{time} or by \textit{iteration}. &
+					\textit{static} \\ \hline
+
+interval &
+			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
+					\textit{huge number} \\ \hline
+
+restart files &
+			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
+					.FALSE. \\ \hline
+
+adjust nz &
+    \textit{LOGICAL}: If .TRUE., the order across faces is adjusted in the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-coded) in limiting the jumps in the polynomial order. &
+            .FALSE. \\ \hline
+\end{longtable}
+
+\section{Truncation Error p-Adaptation}
+This algorithm can perform a p-adaptation to decrease the truncation error below a threshold.
+\begin{lstlisting}
+#define p-adaptation
+   adaptation type       = TE
+   Truncation error type = isolated
+   truncation error      = 1.d-2
+   Nmax                  = [10,10,10]
+   Nmin                  = [2 ,2 ,2 ]
+   Conforming boundaries = [InnerCylinder,sphere]
+   order across faces    = N*2/3
+   increasing            = .FALSE.
+   write error files     = .FALSE.
+   adjust nz             = .FALSE.
+   mode                  = time
+   interval              = 1.d0
+   restart files         = .TRUE.
+   max N decrease        = 1
+   padapted mg sweeps pre      = 10
+   padapted mg sweeps post     = 12
+   padapted mg sweeps coarsest = 20
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the TE p-adaptation algorithm.} \label{tab:TEpAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the TE p-adaptation algorithm - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+truncation error type & \textit{CHARACTER}: Can be either "isolated" or "non-isolated". & isolated \\ \hline
+
+truncation error & \textit{REAL}: Target truncation error for the p-adaptation algorithm. & \textbf{Mandatory keyword} \\ \hline
+
+coarse truncation error & \textit{REAL}: Truncation error used for coarsening. & same as truncation error \\ \hline
+
+increasing & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used. &
+					.FALSE. \\ \hline
+
+write error files &
+			\textit{LOGICAL}: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder \textit{./TauEstimation/}. When the simulation has several adaptation stages, the new information is just appended. &
+			 		.FALSE. \\ \hline
+
+max N decrease &
+			\textit{INTEGER}: Maximum decrease in the polynomial order in every p-adaptation procedure. &
+					$N-N_{\textit{min}}$ \\ \hline
+
+post smoothing residual &
+			\textit{REAL}: Specifies the maximum allowable deviation of $\partial_t q$ after the p-adaptation procedure. &
+					-- \\ \hline
+
+post smoothing method &
+			\textit{CHARACTER}: Either RK3 or FAS. &
+					RK3, if the last keyword is activated \\ \hline
+
+estimation files &
+			\textit{CHARACTER}: Name of the folder that contains the error estimations obtained with the multi tau-estimation (section \ref{sec:MultiTau}). &
+					-- \\ \hline
+
+estimation files number &
+			\textit{INTEGER(2)}: First and last estimation stages to be used for p-adaptation. &
+					Mandatory if last keyword is used. \\ \hline
+
+padapted $\ll \textit{keyword} \gg$ &
+			\textit{MULTIPLE}: Specifies control file keywords that should be replaced after the adaptation procedure. Currently, only 'mg sweeps         ', 'mg sweeps pre', 'mg sweeps post', and 'mg sweeps coarsest' are supported. &
+					-- \\ \hline
+
+\end{longtable}
+
+\section{Reinforcement Learning p-Adaptation}
+This algorithm can perform a p-adaptation based on a trained RL agent.
+
+\begin{lstlisting}
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 1d-2
+   Nmax                  = [6, 6, 2]
+   Nmin                  = [2, 2, 2]
+   Conforming boundaries = [cylinder]
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 50
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the RL p-adaptation algorithm.} \label{tab:RLpAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the RL p-adaptation algorithm - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+agent file & \textit{CHARACTER}: Relative path to the binary file that provide the policy of the RL agent. & \textbf{Mandatory keyword} \\ \hline
+
+tolerance & \textit{REAL}: Tolerance for the RL agent. The smaller the tolerance, the wider the adapted region. & 0.01 \\ \hline
+
+
+\end{longtable}
+
+
+\section{Multiple truncation error estimations} \label{sec:MultiTau}
+When using Truncation Error based adaptation, a static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:
+
+\begin{lstlisting}
+#define multi tau-estimation
+   truncation error type = isolated
+   interval              = 10
+   folder                = MultiTau
+#end
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Immersed boundary method}
+
+The immersed boundary is activated during the simulation if the following lines are specified in the control file:
+\begin{lstlisting}
+#define IBM
+   name                           = myIBM
+   active                         = .true.
+   penalization                   = 1.0d-6
+   semi implicit                  = .false.
+   number of objects              = 5 
+   number of interpolation points = 15
+   band region                    = .true.
+   band region coefficient        = 1.3
+   compute distance               = .true.
+   clip axis                      =  1
+   aab                            = .false.
+   describe                       = .true.
+   plot obb                       = .false.
+   plot kdtree                    = .false.
+   plot mask                      = .true.
+   plot band points               = .false.
+#end
+\end{lstlisting}
+
+A folder called 'IBM' must be created.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the immersed boundary method.} \label{tab:IBMtab} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the immersed boundary method - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name & \textit{CHARACTER}: name assigned to immersed boundary method job &  \\ \hline
+
+active & \textit{LOGICAL}: When .TRUE. the immersed boundary method is active. & .FALSE. \\ \hline
+
+penalization & \textit{REAL}: Specifies the value of the penalization term, \textit{i.e.} \eta. & \Delta t \\ \hline
+
+semi implicit & \textit{LOGICAL}: The source term is treated in a semi-implicit manner. & .FALSE. \\ \hline
+
+
+number of objects & \textit{INTEGER}: Specifies the maximum number of objects inside a leaf of the KD-tree. & 5 \\ \hline
+
+number of interpolation points & \textit{INTEGER}: Number of points used for the interpolation of the variables' values on the surface. It's needed for the computation of the forces.  & 15 \\ \hline
+
+band region & \textit{LOGICAL}: If it's true, the band region is computed, otherwise it is not. & .FALSE. \\ \hline
+
+band region coefficient  & \textit{INTEGER}: A region $n$-times the oriented bounding box is created (where $n$ is the band region coefficient): all the points inside this region belong to the band region. The band region's points are used for the interpolation. It must be greater then 1 and '\textit{band region}' must be .true. . & 1.5 \\ \hline
+
+compute distance & \textit{LOGICAL}: If it's true, the distance between the points in the band region and the stl file is computed, otherwise it is not. If the distance is not required, turn it off since it is an expansive operation. & .FALSE. \\ \hline
+
+clip axis  & \textit{INTEGER}: It's the axis along which the stl is cut. It is only needed if the forces are computed so that the integration of the variables is performed only on the portion of the stl surface lying inside the mesh. 1 corresponds to \textit{x-axis}, 2 with \textit{y-axis} and 3 with \textit{z-axis}&  0 \\ \hline
+
+aab  & \textit{LOGICAL}: The Axis Aligned Box is computed instead of the Oriented Bounding box. It is recommended when '\textit{clip axis}' $\ne$ 0. & .FALSE. \\ \hline
+
+describe & \textit{LOGICAL}: The immersed boundary parameters are printed on the screen. & .FALSE. \\ \hline
+
+plot obb & \textit{LOGICAL}: The oriented-bounding box is plotted. & .FALSE. \\ \hline
+
+plot kdtree & \textit{LOGICAL}: The kd-tree is plotted. & .FALSE. \\ \hline
+
+plot mask & \textit{LOGICAL}: The degrees of freedom belonging to the mask are plotted. & .FALSE. \\ \hline
+
+plot band points & \textit{LOGICAL}: The band region's points are plotted. & .FALSE. \\ \hline
+
+\end{longtable}
+
+
+\subsection{STL file}
+
+Immersed boundary requires, along with the mesh, a STL file. It must be put in the MESH folder with the mesh. The STL file name must be in lowercase character. In some programs, like AutoCAD, a STL file has always positive coordinates: the mesh should be built according to this consideration.\\
+In the case of 2D simulations, the STL can be automatically cut by horses3D through the addition of the line \textit{clip axis} (described in the previous section) so that only the STL portions inside the mesh are considered.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for stl files.} \label{tab:IBMstl} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for stl files - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+number of stl = & \textit{INTEGER}: Number of stl files. & 1 \\ \hline
+
+stl file name = & \textit{CHARACTER}: The name of the STL file, without extension; it has to be inside the folder "MESH" . & \textbf{Mandatory keyword} \\ \hline
+
+stl file nameN = & \textit{CHARACTER}: The name of the $\mathrm{N}^{th}$-STL file (where N starts from 2), without extension; for the first STL just use "stl file name". It has to be inside the folder "MESH" . & none \\ \hline
+ 
+
+\end{longtable}
+
+
+\subsection{Computing forces}
+
+In order to compute the forces on a body, the monitor should be defined as usual but the "Marker=" has to be equal to the name of the stl file on which the user wants to compute the forces. Given a STL file called "stlname", the monitor should be:
+\begin{lstlisting}
+#define surface monitor 1
+   marker = stlname
+   .
+   .
+   .
+#end
+\end{lstlisting}
+The result of this operation is a \textit{.tec} file inside the RESULTS folder. This file contains a scalar or a vector data projected on the body surface. 
+
+\subsection{Moving bodies}
+
+If one or more of the stl files move, then the following lines must be added:
+\begin{lstlisting}
+#define stl motion 1
+   stl name         = mySTL
+   type             = rotation 
+   angular velocity = 134.5d0
+   motion axis      = 2
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for a moving stl.} \label{tab:movingstl} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for a moving stl - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+stl name & \textit{CHARACTER}: name of the moving stl; it has to be equal to the name of one of the stl files. & \textbf{mandatory keyword} \\ \hline
+
+type & \textit{CHARACTER}: Type of motion, it can be ROTATION or LINEAR. & \textbf{Mandatory keyword} \\ \hline
+
+angular velocity & \textit{REAL}: Specifies the angular velocity. It must be in [Rad]/[s] & \textbf{Mandatory keyword for rotation type} \\ \hline
+
+velocity & \textit{REAL}: Specifies the translation velocity. It must be in [m]/[s] & \textbf{Mandatory keyword for linear type} \\ \hline
+
+motion axis & \textit{REAL}: Specifies the axis along which the rotation/translation occurs. & \textbf{Mandatory keyword} \\ \hline
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\chapter{Monitors}~\label{sect:monitors}
+
+The monitors are specified individually as blocks in the control file.
+The only general keyword that can be specified is explained in Table \ref{tab:monitorsKey}.
+
+
+
+\begin{table}[h]
+\caption{Keywords for monitors.} \label{tab:monitorsKey}
+
+\begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+
+monitors flush interval 	&
+			\textit{INTEGER}: Iteration interval to flush the monitor information to the monitor files. &
+							100 \\ \hline
+
+\end{tabular}
+\end{table}
+
+\section{Residual Monitors}
+
+\section{Statistics Monitor}
+\begin{lstlisting}
+#define statistics
+   initial time      = 1.d0
+   initial iteration = 10
+   sampling interval = 10
+   dump interval     = 20
+   @start
+#end
+\end{lstlisting}
+
+By default, the statistic monitor will average following variables:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item u
+\item v
+\item w
+\item uu
+\item vv
+\item ww
+\item uv
+\item uw
+\item vw
+\end{itemize}
+\end{multicols}
+
+A keyword preceded by @ is used in real-time to signalize the solver what it must do with the statistics computation:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item @start
+\item @pause
+\item @stop
+\item @reset
+\item @dump
+\end{itemize}
+\end{multicols}
+
+After reading the keyword, the solver performs the desired action and marks it with a star, e.g. @start*.
+
+\textbf{ATTENTION:} Real-time keywords may not work in parallel MPI computations. I depends on how the system is configured.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Probes}
+
+\begin{lstlisting}
+#define probe 1
+   name     = SomeName
+   variable = SomeVariable
+   position = [0.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for probes.} \label{tab:ProbesKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	&
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{3}
+\begin{itemize}
+\item pressure
+\item velocity
+\item u
+\item v
+\item w
+\item mach
+\item k
+\end{itemize}
+\end{multicols}
+			 &
+							\textbf{Mandatory Keyword} \\ \hline
+
+position 	&
+			\textit{REAL(3)}: Coordinates of the point to be monitored. &
+							\textbf{Mandatory Keyword} \\ \hline
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Surface Monitors}
+
+
+\begin{lstlisting}
+#define surface monitor 1
+   name              = SomeName
+   marker            = NameOfBoundary
+   variable          = SomeVariable
+   reference surface = 1.d0
+   direction         = [1.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for probes.} \label{tab:SurfaceMonitorKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+marker &
+			\textit{CHARACTER}: Name of the boundary where a variable will be monitored. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	&
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item mass-flow
+\item flow
+\item pressure-force
+\item viscous-force
+\item force
+\item lift
+\item drag
+\item pressure-average
+\end{itemize}
+\end{multicols}
+			 &
+							\textbf{Mandatory Keyword} \\ \hline
+
+reference surface 	&
+			\textit{REAL}: Reference surface [area] for the monitor. Needed for "lift" and "drag" computations. &
+							-- \\ \hline
+
+direction 	&
+			\textit{REAL(3)}: Direction in which the force is going to be measured. Needed for "pressure-force", "viscous-force" and "force". Can be specified for "lift" (default [0.d0,1.d0,0.d0]) and "drag" (default [1.d0,0.d0,0.d0])   &
+							-- \\ \hline
+\end{longtable}
+
+
+\section{Volume Monitors}
+Volume monitors compute the average of a quantity in the whole domain. They can be scalars(s) or vectors(v).
+
+\begin{lstlisting}
+#define volume monitor 1
+   name     = SomeName
+   variable = SomeVariable
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for volume monitors.} \label{tab:VolMonitorsKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	&
+			\textit{CHARACTER}: Variable to be monitored. The variable can be scalar (s) or vectorial (v). Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item[\textbf{(s)}] kinetic energy
+\item[\textbf{(s)}] kinetic energy rate
+\item[\textbf{(s)}] enstrophy
+\item[\textbf{(s)}] entropy
+\item[\textbf{(s)}] entropy rate
+\item[\textbf{(s)}] mean velocity
+\item[\textbf{(v)}] velocity
+\item[\textbf{(v)}] momentum
+\item[\textbf{(v)}] source
+\end{itemize}
+\end{multicols}
+
+			 &
+							\textbf{Mandatory Keyword} \\ \hline
+
+
+\end{longtable}
+
+\chapter{Advanced User Setup}
+
+Advanced users can have additional control over a simulation without having to modify the source code and recompile the code. To do that, the user can provide a set of routines that are called in different stages of the simulation via the Problem file (\textit{ProblemFile.f90}). A description of the routines of the Problem File can be found in section \ref{sec:ProblemFile}.
+
+\section{Routines of the Problem File: \textit{ProblemFile.f90}} \label{sec:ProblemFile}
+
+\begin{itemize}
+\item UserDefinedStartup: Called before any other routines
+
+\item UserDefinedFinalSetup: Called after the mesh is read in to allow mesh related initializations or memory allocations.
+
+\item UserDefinedInitialCondition: called to set the initial condition for the flow. By default it sets an uniform initial condition, but the user can change it.
+
+\item UserDefinedState1, UserDefinedNeumann: Used to define an user-defined boundary condition.
+
+\item UserDefinedPeriodicOperation: Called before every time-step to allow periodic operations to be performed.
+
+\item UserDefinedSourceTermNS: Called to apply source terms to the equation.
+
+\item UserDefinedFinalize: Called after the solution computed to allow, for example error tests to be performed.
+
+\item UserDefinedTermination: Called at the the end of the main driver after everything else is done.
+\end{itemize}
+
+\section{Compiling the Problem File}
+
+The Problem File file must be compiled using a specific Makefile that links it with the libraries of the code. If you are using the \textit{horses/dev} environment module, you can get templates of the \textit{Problemfile.f90} and \textit{Makefile} with the following commands:
+
+\begin{lstlisting}[language=bash]
+	$ horses-get-makefile
+	$ horses-get-problemfile
+\end{lstlisting}
+
+Otherwise, search the test cases for examples.\\
+
+To run a simulation using user-defined operations, create a folder called SETUP on the path were the simulation is going to be run. Then, store the modified \textit{ProblemFile.f90} and the \textit{Makefile} in SETUP, and compile using:
+
+\begin{lstlisting}[language=bash]
+	$ make <<Options>>
+\end{lstlisting}
+where again the options are (bold are default):
+\begin{itemize}
+\item MODE=DEBUG/HPC/\textbf{RELEASE}
+\item COMPILER=ifort/\textbf{gfortran}
+\item COMM=PARALLEL/\textbf{SEQUENTIAL}
+\item ENABLE\_THREADS=NO/\textbf{YES}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Postprocessing}
+
+For postprocessing the Simulation Results
+
+\section{Visualization with Tecplot Format: \textit{horses2plt}}
+
+HORSES3D provides a script for converting the native binary solution files (*.hsol) into tecplot ASCII format (*.tec), which can be visualized in Pareview or Tecplot. It can also export the solution to the more recent VTKHDF format; however, note that this feature does \textbf{not} export boundary information or mesh files. Usage:
+
+\begin{lstlisting}[language=bash]
+	$ horses2plt SolutionFile.hsol MeshFile.hmesh <<Options>>
+\end{lstlisting}
+
+The options comprise following flags:
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Flags for \textit{horses2plt}.} \label{tab:Postprocessing} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Additional flags for postprocessing with \textit{horses2plt}} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+-{}-output-order= 	&
+			\textit{INTEGER}: Output order nodes. The solution is interpolated into the desired number of points. &
+							Not Present \\ \hline
+
+-{}-output-basis= 	&
+			\textit{CHARACTER}: Either \textit{Homogeneous} (for equispaced nodes, or \textit{Gauss}.  &
+							\textit{Gauss}* \\ \hline
+
+-{}-output-mode= 	&
+			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-file} is defined).
+			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  &
+							\textit{multizone} \\ \hline
+
+-{}-output-variables= 	&
+			\textit{CHARACTER}: Output variables separated by commas.A complete description can be found in Section \ref{PostProc:hsol}. &
+							Q \\ \hline
+
+-{}-dimensionless 	&
+			Specifies that the output quantities must be dimensionless &
+							Not Present  \\ \hline
+
+-{}-partition-file= 	&
+			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. &
+							Not Present  \\ \hline
+
+-{}-boundary-file= 	&
+			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. &
+							Not Present  \\ \hline
+
+-{}-output-type= 	&
+            \textit{CHARACTER}: Specifies the type of output file: \textit{tecplot} or \textit{vtkhdf}. &
+                            \textit{tecplot}  \\ \hline
+\multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
+
+\end{longtable}
+
+Additionally, depending on the type of solution file, the user can specify additional options.
+
+\subsection{Solution Files (*.hsol)} \label{PostProc:hsol}
+
+For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag \textit{-{}-output-variables=}.
+The options are:
+
+\begin{multicols}{5}
+\begin{itemize}
+\item $Q$ (default)
+\item $rho$
+\item $u$
+\item $v$
+\item $w$
+\item $p$
+\item $T$
+\item $Mach$
+\item $s$
+\item $Vabs$
+\item $V$
+\item $Ht$
+\item $rhou$
+\item $rhov$
+\item $rhow$
+\item $rhoe$
+\item $c$
+\item $Nxi$
+\item $Neta$
+\item $Nzeta$
+\item $Nav$
+\item $N$
+\item $Ax\_Xi$
+\item $Ax\_Eta$
+\item $Ax\_Zeta$
+\item $ThreeAxes$
+\item $Axes$
+\item $mpi\_rank$
+\item $eID$
+\item $gradV$
+\item $u\_x$
+\item $v\_x$
+\item $w\_x$
+\item $u\_y$
+\item $v\_y$
+\item $w\_y$
+\item $u\_z$
+\item $v\_z$
+\item $w\_z$
+\item $c\_x$
+\item $c\_y$
+\item $c\_z$
+\item $omega$
+\item $omega\_x$
+\item $omega\_y$
+\item $omega\_z$
+\item $omega\_abs$
+\item $Qcrit$
+\end{itemize}
+\end{multicols}
+
+\subsection{Statistics Files (*.stats.hsol)}
+Statistics files can generate the standard variables as well as the following variables (being $S_{ij}$ the components of the Reynolds Stress tensor):
+
+\begin{multicols}{3}
+\begin{itemize}
+\item $umean$
+\item $vmean$
+\item $wmean$
+\item $S_{xx}$
+\item $S_{yy}$
+\item $S_{zz}$
+\item $S_{xy}$
+\item $S_{xz}$
+\item $S_{yz}$
+\end{itemize}
+\end{multicols}
+
+\section{Extract geometry}
+Under construction.
+
+\section{Merge statistics tool}
+
+Tool to merge several statistics files. The usage is the following:
+
+\begin{lstlisting}[language=bash]
+	$ horses.mergeStats *.hsol --initial-iteration=INTEGER --file-name=CHARACTER
+\end{lstlisting}
+
+Some remarks:
+\begin{itemize}
+\item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations.
+\item Only constant time-stepping is supported.
+\item If the hsol files have the gradients, the following flag must be used
+\begin{lstlisting}[language=bash]
+	$ --has-gradients
+\end{lstlisting}
+\item Dynamic p-adaptation is currently not supported.
+\end{itemize}
+
+\section{Mapping result to different mesh} \label{tab:meshInterpolation}
+HORSES3D addons, \textit{horsesConverter}, has a capability to map result into different mesh file, with both have a consistent geometry. This is done by performing interpolation with the polynomial inside each element for each node point of the new mesh. The type of node quadrature will follow the quadrature defined in the .hmesh file with selected polynomial order in the control file. A control input file is required and must has name \textit{horsesConverter.convert}. The template of control input file will be generated by default when executing \textit{./horsesConverter} in a directory without the control file. Error message is given when at least one node point of the new mesh is not within any element of the old mesh. After completion, a new result file is generated and named \textit{Result\_interpolation.hsol}. The required keywords in the control file are described in table \ref{tab:mappingresult}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for \textit{meshInterpolation}.} \label{tab:mappingresult} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+Task 	        		& \textit{meshInterpolation} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Result 1 			& Location of the solution file with origin mesh (*.hsol) 	&  \\ \hline
+Mesh Filename 2 		& Location of the target mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 2 	& Location of the target boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Polynomial order of the target mesh 	& (1, 1, 1) \\ \hline
+\end{longtable}
+
+\section{Generate OpenFOAM mesh} \label{tab:horsesMesh2OF}
+Another functionality of \textit{horsesConverter} addons is to convert the mesh files, (*.hmesh) and (*.bmesh), into OpenFOAM format, the \textit{polyMesh} folder. Each element is discretised into $n_x \times n_y \times n_z$ cells distributed as Gauss-Lobatto nodes. The number of division of each element, ($n_x$, $n_y$, and $n_z$), is required in the control file, see section \ref{tab:meshInterpolation}. After completion, a folder named \emph{foamFiles} is generated. OpenFOAM mesh files, i.e. \textit{points}, \textit{faces}, \textit{owner}, \textit{neighbour}, and \textit{boundary}, are located within \emph{foamFiles/constant/polyMesh}. The required keywords in the control file are described in table \ref{tab:horsesMesh2of}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for \textit{horsesMesh2OF}.} \label{tab:horsesMesh2of} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+Task 	        		& \textit{horsesMesh2OF} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Number of division of each element ($n_x$, $n_y$, and $n_z$) 	& (1, 1, 1) \\ \hline
+\end{longtable}
+
+NOTE: Before running the mesh in the OpenFOAM environment, the type of boundaries inside the boundary file needs to be adjusted according to the actual type (\textit{patch}, \textit{wall}, and \textit{symmetry}).
+
+\section{Generate HORSES3D solution file from OpenFOAM result}
+HORSES3D provides a capability to convert OpenFOAM result into HORSES3D solution file (*.hsol). The mesh of the OpenFOAM result must be generated by converting HORSES3D mesh files, see section \ref{tab:horsesMesh2OF}. Beforehand, the OpenFOAM result must be converted into VTK format(*.vtk). This not only  allows the result to be in the single file but also converts cell data into point data. In the OpenFOAM environment, the command for this conversion:  
+\begin{lstlisting}[language=c++]
+	$ foamToVTK -fields "(U p T rho)" -ascii -latestTime
+\end{lstlisting}
+The necessary file (.vtk) required for the control file input is inside VTK folder, see section \ref{tab:meshInterpolation} for the control file template. The HORSES3D solution file is named \emph{Result\_OF.hsol}. The required keywords in the control file are described in table \ref{tab:OF2Horses}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+
+\begin{longtable}{|p{5cm}|p{9cm}|p{2.2cm}|}
+\caption{Keywords for \textit{OF2Horses}.} \label{tab:OF2Horses} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for \textit{OF2Horses} - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+Task 	        		& \textit{OF2Horses} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Polynomial order of the solution file (.hsol)  & (1, 1, 1) \\ \hline
+VTK file         	& Location of VTK file (.vtk)   &             \\ \hline
+Reynolds Number    	& Reynolds Number/m of the solution -- $L_{ref}$=1.0m   &             \\ \hline
+Mach Number         	& Mach Number of the solution      &             \\ \hline
+Reference pressure (Pa)         	& Reference Pressure   & 101325             \\ \hline
+Reference temperature (K)        & Reference Temperature   & 288.889             \\ \hline
+
+\end{longtable}
+
+
+
+\clearpage
+\section*{Appendices}
+
+\subsection*{Non-dimensional Navier Stokes equations}
+
+To illustrate the roles of various terms in the governing equations, we present here the non-dimensionalized governing compressible Navier Stokes equations with particles. We define the non-dimensional variables as
+\begin{equation}
+x_i^*=x_i/L_o, \quad y_i^*=y_i/L_o, \quad t^*=tu_o/L_o, \quad \rho^*=\rho/\rho_o, \quad u_i^*=u_i/u_o	
+\end{equation}
+\begin{equation}
+v_i^*=v_i/u_o, \quad p^*=p/\rho_o u_o^2, \quad e^*=e/u_o^2 \quad T^*=T/T_o, \quad T_p^* = T_p / T_o, 
+\end{equation}
+\begin{equation}
+\quad \mu^* = \mu / \mu_o, \quad \kappa^* = \kappa / \kappa_o \quad g^*_i = g_i / g_o	
+\end{equation}
+
+where the subscript $o$ denotes a reference value. Under these scalings, the Navier Stokes equations become
+\begin{equation}
+\label{eq:NS_cont_nd}
+\frac{\partial \rho^*}{\partial t^*} + \frac{\partial \rho^* u_j^*}{\partial x_j^*} = 0,	
+\end{equation}
+\begin{equation}
+\label{eq:NS_mom_nd}
+\frac{\partial \rho^* u_i^*}{\partial t^*} + \frac{\partial \rho^* u_i^* u_j^*}{\partial x_j^*} = - \frac{\partial p^*}{\partial x_i^*} + \frac{1}{Re}\frac{\partial \tau_{ij}^*}{\partial x_j^*} + \frac{1}{Fr^2} g_i^* - \beta\frac{\mu^* \phi_m}{N_p St}  \sum_{n=1}^{N_p} (u_i^*-v_{i,n}^*)\delta(\mathbf{x}^* - \mathbf{y}_n^* ),	
+\end{equation}
+\begin{equation}
+\label{eq:NS_en_nd}
+\begin{split}
+\frac{\partial \rho^* e^*}{\partial t^*} + \frac{\partial u_j^* (\rho^* e^* + p^*)}{\partial x_j^*} = & \frac{1}{Re}\left[\frac{\partial \tau_{ij}^* u_j^*}{\partial x_i^*} + \frac{1}{(\gamma-1)Pr M_o^2}\frac{\partial}{\partial x_j^*}\left( k^* \frac{\partial T^*}{\partial x_j^*}\right)\right]+ \\
+& + \beta \frac{\phi_m}{3N_p} \frac{Nu}{(\gamma-1)Pr M_o^2St}\sum_{n=1}^{N_p} (T_{p,n}^* - T^*) \delta(\mathbf{x}^* - \mathbf{y}_n^* ).
+\end{split}
+\end{equation}
+
+Where $Re=\frac{\rho_o L_o u_o}{\mu_o}$ is the Reynolds number, $Fr=\frac{u_o}{\sqrt{g_o L_o}}$ is the Froude number, $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$, $St=\frac{\tau_p}{\tau_f}$ is the Stokes number which for Stokesian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$, the Prandtl number (which is assumed constant and equal to 0.72) $Pr=\frac{\mu_o c_p}{k_o}$, the Nusselt number $Nu=\frac{h D_p}{k_o}=2$ (for Stokesian particles) and  the Mach number $M_o=\frac{u_o}{\sqrt{\gamma R T_o}}$. 
+
+
+\subsection*{Non-dimensional particle equations}
+
+The non dimensional set of equations for the particles reads:
+
+\begin{equation}
+\label{eq:part_motion}
+\frac{d y_i^*}{dt^*} = v_i^*, \quad \frac{d v_i^*}{dt^*} = \frac{\mu^*}{St}\left(u_i^* - v_i^*\right) + \frac{1}{Fr^2}g_i^*.
+\end{equation}
+
+\begin{equation}
+\label{eq:part_energy}
+\frac{d T_p^*}{dt^*} = \frac{\gamma}{3\Gamma St Pr} \left(I_o^* - Nu(T_p^*-T^*)\right),
+\end{equation}
+
+where $I_o^*=\frac{I_o D_p}{4k_oT_o}$ and $\Gamma=c_{v,p}/c_{v}$ is the ratio of the particle specific heat capacity to the fluid isochoric specific heat capacity. 
+
+
+
+
+
+
+\bibliography{../LaTeX/9_backmatter/library}
+
+\end{document}

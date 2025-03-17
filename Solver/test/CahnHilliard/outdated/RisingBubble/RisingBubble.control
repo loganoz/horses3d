@@ -1,0 +1,99 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ./MESH/RisingBubble12x16.mesh
+                      Solution file name = ./RESULTS/RisingBubble12x16.hsol
+              Save gradients to solution = .true.
+                2D mesh offset direction = y
+                                 Restart = .false.
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS  ! Euler
+                             Mach number = 0.1
+                         Reynolds number = 10000.0
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Gravity direction = [1.0,0.0,0.0]
+                       Compute gradients = .true.
+
+!                        ** Cahn-Hilliard
+                           Peclet number = 10.0
+                          Capilar number = 0.01
+         Interface width (dimensionless) = 0.1 !0.035
+               Density ratio (rho2/rho1) = 100.0
+               Viscosity ratio (mu2/mu1) = 1.0
+                      Wall contact angle = 0.0
+
+!------------------------- Discretization:-
+                        Polynomial order = 5
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Roe  
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Split-form
+                               Averaging = Pirozzoli
+                  Viscous discretization = IP
+            Cahn-Hilliard discretization = IP
+                       Penalty parameter = 1.0
+                Interior penalty variant = SIPG
+
+!----------------------- Time integration:-
+                        Time integration = IMEX
+                                      dt = 1.0d-4
+                    Number of time steps = 500000
+                   Convergence tolerance = 1.0d-10
+                         Output interval = 1
+                         Simulation type = time-accurate
+                              Final time = 100.0
+                           Autosave mode = Iteration
+                       Autosave interval = 1
+#define Jacobian
+   type = 1
+#end
+
+!-------------------- Boundary conditions:-
+Number of boundaries  = 6
+top 0.0 FreeSlipWall
+bottom 0.0 FreeSlipWall
+left 0.0 FreeSlipWall
+right 0.0 FreeSlipWall
+front 0.0 FreeSlipWall
+back 0.0 FreeSlipWall
+
+
+!#define probe 1
+!                Name = Probe example
+!            Position = [x,y,z]
+!            Variable = pressure/velocity/u/v/w/mach/K
+!#end
+
+!#define surface monitor 1
+!                Name = Surface monitor example
+!              Marker = bnameX
+!            Variable = mass-flow/flow/pressure-force/viscous-force/force/lift/drag/pressure-average
+!           Direction = [x,y,z]
+!   Reference surface = 1.0
+!#end
+
+!#define volume monitor 1
+!                Name = Surface monitor example
+!            Variable = kinetic energy/kinetic energy rate/enstrophy/entropy/entropy rate/mean velocity
+!#end
+
+!#define statistics
+!            Variable = kinetic energy/kinetic energy rate/enstrophy/entropy/entropy rate/mean velocity
+!   Sampling interval = 10
+!  Starting iteration = 0
+!       Starting time = 0.0
+!!Real time control commands:
+!@start
+!@stop
+!@pause
+!@reset
+!@dump
+!#end

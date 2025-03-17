@@ -1,0 +1,24 @@
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/Box27.mesh"
+plot file name        = "PlotFiles/PeriodicFlow.tec"
+restart file name     = "RestartFiles/PeriodicFlow.rst"
+save file name        = "RestartFiles/PeriodicFlow_saved.rst"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 1000
+Output Interval       = 10
+Number of plot points = 3
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+mach number           = 0.3
+Reynolds number       = 0.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+Number of boundaries  = 6
+Front 0.0 periodic+
+bottom 0.0 periodic+
+top 0.0 periodic-
+back 0.0 periodic-
+left 0.0 periodic+
+right 0.0 periodic-
+/

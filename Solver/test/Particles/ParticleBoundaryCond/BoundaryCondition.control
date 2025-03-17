@@ -1,0 +1,129 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/PouransariChannel.mesh"
+Polynomial order      = 2
+Number of time steps  = 100
+Output Interval       = 1
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 0.5
+Reynolds number       = 1000.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+inviscid discretization = Split-form
+averaging = Pirozzoli
+   !enable SVV = .false.
+   !svv filter cutoff = 0.1
+#################
+#   PARTICLES   #
+#################
+lagrangian particles  = .true.
+high order particles source term = .false.
+number of particles   = 10 
+particles per parcel  = 1
+# Right now, it has to be chosen between injecting particles through one face (only one) or 
+# initialise the domain with particles and follow their evolution.
+# particles file        = "RandomParticles.txt" ! If not provided, initialization without particles. 
+injection             = .true. 
+particles injection   = [0,1,0]                ! axis direction for initializacion. 
+particles per step    = 1                    ! particles injected per step.
+particles iter period = 1                      ! iteration period for particles injection.  
+particles injection velocity    = [2.d0,10.d0,2.d0]
+particles injection temperature = 2.0d0
+minimum box           = [0.d0,0.d0,0.d0]
+maximum box           = [4.d-2,1.6d-1,4.d-2]
+bc box                = [2,0,1] ! [yz,xz,xy] 0 is inflow/outflow, 1 is wall, 2 is periodic 
+stokes number         = 0.192
+Gamma                 = 0.626741
+phi_m                 = 4.40084E-6
+Radiation source      = 0.0
+#################
+# END PARTICLES	#
+#################
+riemann solver = Roe
+simulation type       = time-accurate
+final time            = 0.32
+autosave mode = iteration
+autosave interval = 100
+solution file name    = "RESULTS/Pouransari0041/Pouransari0041"
+save gradients with solution = .true.
+restart               = .false.
+restart file name    = ""
+Number of boundaries  = 6
+#define boundary front
+  type = user-defined
+  #type = periodic
+  #coupled boundary = back
+#end
+
+#define boundary back
+  type = outflow
+  #type = periodic
+  #coupled boundary = front
+#end
+
+#define boundary top
+  type = periodic
+  coupled boundary = bottom
+#end
+
+#define boundary bottom
+  type = periodic
+  coupled boundary = top 
+#end
+
+#define boundary left
+  type = periodic
+  coupled boundary = right
+#end
+
+#define boundary right
+  type = periodic
+  coupled boundary = left
+#end
+
+#define probe 1
+   Name = u
+   Position = [0.02,0.02,0.02]
+   Variable = u
+#end
+
+#define probe 2
+   Name = v
+   Position = [0.02,0.02,0.02]
+   Variable = v
+#end
+
+#define probe 3
+   Name = w
+   Position = [0.02,0.02,0.02]
+   Variable = w
+#end
+
+#define volume monitor 1
+   name = mean_vel
+   variable = velocity
+#end
+
+!#define surface monitor 1
+!   name = vis-for-top
+!   marker = top
+!   variable = viscous-force
+!   reference surface = 1.d0
+!   direction = [0.d0, 1.d0, 0.d0]
+!#end 
+
+!#define surface monitor 2
+!   name = vis-for-bot
+!   marker = bottom
+!   variable = viscous-force
+!   reference surface = 1.d0
+!   direction = [0.d0, 1.d0, 0.d0]
+!#end
+
+!#define statistics
+! !  Sampling interval = 1
+!  ! Starting iteration = 15
+!   !Starting time = 0.0
+!   @dump*
+!#end

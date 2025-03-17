@@ -1,0 +1,71 @@
+flow equations = "Euler"
+mesh file name        = "./MESH/Square8x8.mesh"
+discretization nodes = Gauss
+restart file name     = "./RESULTS/VortexTransport8x8.hsol"
+solution file name    = "./RESULTS/VortexTransport8x8.hsol"
+restart               = .false.
+Polynomial order      = 5
+Gradient energy coefficient = 1.0d-2
+Number of time steps  = 10000000
+Output Interval       = 100
+Convergence tolerance = 1.d-10
+cfl = 0.4
+2D mesh offset direction = y
+Riemann solver = Central
+Inviscid discretization = Split-Form
+Averaging = Entropy and Energy conserving
+simulation type       = time-accurate
+final time            = 10.0d0
+Mach number = 0.6
+autosave mode         = time
+autosave interval     = 10.0d0
+
+#define boundary front
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
+
+#define volume monitor 1
+   Name = Entropy
+   Variable = Entropy
+#end
+
+#define volume monitor 2
+   Name = EntropyRate
+   Variable = Entropy rate
+#end
+
+#define volume monitor 3
+   Name = KinEn
+   Variable = Kinetic energy
+#end
+
+#define volume monitor 4
+   Name = KinEnRate
+   Variable = Kinetic energy rate
+#end

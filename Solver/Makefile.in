@@ -1,0 +1,484 @@
+#####################################################################
+## HORSES - a High-Order Spectral Element Solver
+##
+##	Main code Makefile
+##
+##
+#####################################################################
+
+########################################
+# 1.- User defined parameters
+########################################
+PLATFORM?=LINUX
+COMPILER?=gfortran
+MODE?=RELEASE
+COMM?=SEQUENTIAL
+ENABLE_THREADS?=YES
+WITH_PETSC?=NO
+WITH_METIS?=NO
+WITH_HDF5?=NO
+WITH_MKL?=NO
+
+MAKE=make
+AR=ar
+RANLIB=ranlib
+
+########################################
+# 2.- User defined paths
+########################################
+HOME_DIR?=@HORSES_HOME_DIR
+INSTALL_DIR=$(HOME_DIR)
+INCLUDE=-I$(HOME_DIR)/include
+LIBS = 
+MACROS = 
+EXTLIB_INC =
+-include $(HOME_DIR)/make.inc
+
+########################################
+# 3.- User defined compilation flags 
+########################################
+GNU_HPC_FLAGS= -cpp -fallow-argument-mismatch -std=legacy -ffree-line-length-0 -O3 -ftree-vectorize \
+		   -ftree-vectorizer-verbose=0 -fbackslash -D_has_Quad -march=znver3 -funroll-loops
+GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
+		   -fbackslash -D_has_Quad
+GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
+		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
+		  -fbackslash -fcheck=pointer -D_has_Quad
+INTEL_HPC_FLAGS= -cpp -Ofast -msse4.2 -axAVX,CORE-AVX2 -assume bscc -D_has_Quad  -fp-model=fast=2 -ipo
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad -fp-model precise
+INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback \
+		   -check bounds -check uninit -ftrapuv -debug all \
+		   -ftrace=full -ftz -fp-model precise \
+		   -fp-speculation=off -assume bscc -D_has_Quad
+ARFLAGS=crv
+
+
+##########################################
+## Select platform
+##########################################
+ifeq ($(PLATFORM),MACOSX)
+   PROBLEM_LIB_NS=$(HOME_DIR)/lib/libproblemfile_ns.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_NSSA=$(HOME_DIR)/lib/libproblemfile_nssa.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_iNS=$(HOME_DIR)/lib/libproblemfile_ins.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_CH=$(HOME_DIR)/lib/libproblemfile_ch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_MU=$(HOME_DIR)/lib/libproblemfile_mu.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+else ifeq ($(PLATFORM),LINUX)
+   PROBLEM_LIB_NS=-L$(HOME_DIR)/lib -lproblemfile_ns -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_NSSA=-L$(HOME_DIR)/lib -lproblemfile_nssa -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_iNS=-L$(HOME_DIR)/lib -lproblemfile_ins -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_CH=-L$(HOME_DIR)/lib -lproblemfile_ch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_MU=-L$(HOME_DIR)/lib -lproblemfile_mu -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+endif
+
+##########################################
+## Select compiler 
+##########################################
+ifeq ($(COMPILER),gfortran)
+  FC:=gfortran
+  MOD_FLAG:=-J
+else ifeq ($(COMPILER),gnu)
+  FC:=gfortran
+  MOD_FLAG:=-J
+else ifeq ($(COMPILER),GNU)
+  FC:=gfortran
+  MOD_FLAG:=-J
+endif
+
+ifeq ($(COMPILER),ifort)
+  FC:=ifort
+  MOD_FLAG:=-module 
+else ifeq ($(COMPILER),intel)
+  FC:=ifort
+  MOD_FLAG:=-module 
+else ifeq ($(COMPILER),INTEL)
+  FC:=ifort
+  MOD_FLAG:=-module 
+endif
+
+##########################################
+## Select mode
+##########################################
+ifeq ($(MODE),RELEASE)
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_RELEASE_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_RELEASE_FLAGS)
+     endif
+else ifeq ($(MODE),HPC)
+	 MACROS+= -D_HPC_MODE
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_HPC_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_HPC_FLAGS)
+     endif	 
+else ifeq ($(MODE),DEBUG)
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_DEBUG_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_DEBUG_FLAGS)
+     endif
+endif
+
+##########################
+## 	MPI      	##
+##########################
+ifeq ($(COMM),PARALLEL)
+    ifeq ($(FC),gfortran)
+        FC=mpif90
+	MACROS+= -D_HAS_MPI_
+    else ifeq ($(FC),ifort)
+        FC=mpiifort
+	MACROS+= -D_HAS_MPI_
+    endif
+endif
+
+##########################
+## 	THREADS  	##
+##########################
+ifeq ($(ENABLE_THREADS),YES)
+    FFLAGS+=-fopenmp
+endif
+
+##########################
+## 	Link MKL 	##
+##########################
+ifeq '$(WITH_MKL)''YES'
+  ifeq '$(FC)''gfortran'
+    ifeq '$(strip $(LIB_BLAS)$(LIB_LAPACK))'''
+      $(error option WITH_MKL = YES with gfortran requires defining path to blas and lapack with LIB_BLAS and LIB_LAPACK)
+    endif
+	LIB_BLAS := $(strip $(LIB_BLAS))
+	LIB_LAPACK := $(strip $(LIB_LAPACK))
+	MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
+  else #ifort
+  	MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	FFLAGS+= -qmkl
+  endif
+endif
+
+################
+## Link METIS ##
+################
+ifeq ($(WITH_METIS),YES)
+   METIS_DIR ?= $(METIS_HOME)  	#keep this for retrocompatibility
+   METIS_DIR := $(strip $(METIS_DIR))
+   ifdef METIS_DIR
+      MACROS+= -D_HAS_METIS_
+      LIBS+=-L$(METIS_DIR)/lib -lmetis
+   else 
+    $(error option WITH_METIS = YES requires defining path to METIS with METIS_DIR)
+  endif
+endif
+
+##########################
+## 	Link PETSc 	##
+##########################
+ifeq ($(WITH_PETSC),YES)
+  ifdef PETSC_DIR
+	PETSC_DIR := $(strip $(PETSC_DIR))
+    MACROS+= -DHAS_PETSC
+	LIBS += -L$(PETSC_DIR)/$(PETSC_ARCH)/lib -lpetsc
+	EXTLIB_INC+= -I$(PETSC_DIR)/include -I$(PETSC_DIR)/$(PETSC_ARCH)/include
+  else 
+    $(error option WITH_PETSC = YES requires defining path to PETSC with PETSC_DIR)
+  endif 
+endif
+
+##########################
+## 	Link HDF5 	##
+##########################
+ifeq ($(WITH_HDF5),YES)
+  HDF5_DIR ?= $(HDF5_ROOT)	#keep this for retrocompatibility
+  HDF5_DIR := $(strip $(HDF5_DIR))
+  ifdef HDF5_DIR
+    ifneq ("$(wildcard $(HDF5_DIR)/lib/libhdf5_fortran-shared.so)","")
+	  LIBS += -L$(HDF5_DIR)/lib -lhdf5_fortran-shared
+	  MACROS+= -DHAS_HDF5
+	  EXTLIB_INC += -I$(HDF5_DIR)/include/shared -I$(HDF5_DIR)/include
+	else ifneq ("$(wildcard $(HDF5_DIR)/lib/libhdf5_fortran.*)","")
+	  LIBS += -L$(HDF5_DIR)/lib -lhdf5_fortran
+	  MACROS+= -DHAS_HDF5
+	  EXTLIB_INC += -I$(HDF5_DIR)/include/shared -I$(HDF5_DIR)/include
+	endif
+##  	FC = $(HDF5_EXE)
+  else 
+    $(error option WITH_HDF5 = YES requires defining path to HDF5 with HDF5_DIR)
+  endif 
+endif 
+
+##########################################
+##  	Select HORSES libraries 	##
+##########################################
+HORSES_LIBS_GENERAL = ftobject foundation mpiutils ml spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/spallartalmaras
+HORSES_LIBS_PARTICULAR = physics/common mesh particles sources monitors problemfile discretization jacobian timeintegrator
+HORSES_LIBS=$(HORSES_LIBS_GENERAL) $(HORSES_LIBS_PARTICULAR)
+HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ins -lml
+HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ns -lml
+HORSES_LIBS_NSSA=-L$(HOME_DIR)/lib -ltimeintegrator_nssa -ljacobian_nssa -ldiscretization_nssa -lmonitors_nssa -lparticles_nssa -lmesh_nssa -lphysics_nssa -lphysicsnssa -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_nssa -lml
+HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ch -lml
+HORSES_LIBS_MU=-L$(HOME_DIR)/lib -ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_mu -lml
+ADDONS=horses2tecplot extractgeometry mergeStatistics tools horsesConverter
+HORSESFLAGS += $(MACROS)
+ADDONSFLAGS += $(MACROS)
+
+LIBFLAGS=  FC='$(FC)' \
+	   FFLAGS='$(FFLAGS)' \
+	   INCLUDE='$(INCLUDE)' \
+           INSTALL_DIR='$(INSTALL_DIR)' \
+	   AR='$(AR)' \
+	   ARFLAGS='$(ARFLAGS)' \
+	   RANLIB='$(RANLIB)' \
+	   MOD_FLAG='$(MOD_FLAG)' \
+	   EXTLIB_INC='$(EXTLIB_INC)' \
+	   MACROS='$(MACROS)' \
+	   LIBS='$(LIBS)'
+
+HORSES_NS_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_NS) $(PROBLEM_LIB_NS)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
+HORSES_NSSA_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_NSSA) $(PROBLEM_LIB_NSSA)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
+
+HORSES_iNS_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_iNS) $(PROBLEM_LIB_iNS)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
+HORSES_CH_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_CH) $(PROBLEM_LIB_CH)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
+HORSES_MU_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_MU) $(PROBLEM_LIB_MU)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
+ADDONSFLAGS= FC='$(FC)' \
+ 	     FFLAGS='$(FFLAGS)'\
+             INCLUDE='$(INCLUDE)' \
+             INSTALL_DIR='$(INSTALL_DIR)' \
+	     MOD_FLAG='$(MOD_FLAG)'\
+	     HORSES_LIBS_EXEC='$(HORSES_LIBS_NS) $(PROBLEM_LIB_NS)' \
+	     EXTLIB_INC='$(EXTLIB_INC)' \
+	     MACROS='$(MACROS)' \
+	     LIBS='$(LIBS)'
+
+
+##########################################################
+##		COMPILATION RULES 			##
+##########################################################
+
+.DEFAULT_GOAL := all
+
+all: header mkdirs horseslibs horses3d.ns horses3d.nssa horses3d.ins horses3d.ch horses3d.mu addons
+
+mu: header mkdirs horseslibs-mu horses3d.mu 
+ns: header mkdirs horseslibs-ns horses3d.ns
+nssa: header mkdirs horseslibs-nssa horses3d.nssa
+
+horses3d.ns: 
+	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  NS   - SUCCESFULLY COMPILED "
+	@echo "================================"
+
+horses3d.nssa: 
+	(cd $(HOME_DIR)/src/NavierStokesSolverRANS/ && $(MAKE) $(HORSES_NSSA_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  NNSA - SUCCESFULLY COMPILED "
+	@echo "================================"
+
+horses3d.ins: 
+	(cd $(HOME_DIR)/src/IncompressibleNSSolver/ && $(MAKE) $(HORSES_iNS_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  iNS  - SUCCESFULLY COMPILED "
+	@echo "================================"
+
+horses3d.ch: 
+	(cd $(HOME_DIR)/src/CahnHilliardSolver/ && $(MAKE) $(HORSES_CH_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  CH   - SUCCESFULLY COMPILED "
+	@echo "================================"
+
+horses3d.mu: 
+	(cd $(HOME_DIR)/src/MultiphaseSolver/ && $(MAKE) $(HORSES_MU_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  MU   - SUCCESFULLY COMPILED "
+	@echo "================================"
+
+horseslibs:
+	@for subdir in $(HORSES_LIBS) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+
+horseslibs-mu:
+	@for subdir in $(HORSES_LIBS_GENERAL) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+	@for subdir in $(HORSES_LIBS_PARTICULAR) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-mu) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-mu) || exit 1; \
+		fi \
+	done
+
+horseslibs-ns:
+	@for subdir in $(HORSES_LIBS_GENERAL) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+	@for subdir in $(HORSES_LIBS_PARTICULAR) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-ns) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-ns) || exit 1; \
+		fi \
+	done
+
+horseslibs-nssa:
+	@for subdir in $(HORSES_LIBS_GENERAL) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+	@for subdir in $(HORSES_LIBS_PARTICULAR) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-nssa) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-nssa) || exit 1; \
+		fi \
+	done
+
+bench: all
+	(export PYTHONPATH=$(HOME_DIR)/../utils/PythonUtilities \
+	&& export PYTHONISDEFINED=YES \
+	&& echo $(PYTHONPATH) \
+	&& cd $(HOME_DIR)/test/Euler/Benchmark/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
+	&& cd ../ && chmod ugo+rwx ./Benchmark && ./Benchmark ) || exit 1;
+
+addons:
+	@for subdir in $(ADDONS); do \
+	    (cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) install) || exit 1; \
+	done
+	@echo "================================"
+	@echo ">> ADDONS- SUCCESFULLY COMPILED "
+	@echo "================================"
+
+##########################################
+##	Extra auxiliary rules 		##
+##########################################
+clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
+	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
+	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
+	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod $(HOME_DIR)/include/*.h $(HOME_DIR)/lib/*.a
+	@rm -f $(HOME_DIR)/build_ns/*.o* $(HOME_DIR)/include_ns/*.mod $(HOME_DIR)/include_ns/*.h
+	@rm -f $(HOME_DIR)/build_nssa/*.o* $(HOME_DIR)/include_nssa/*.mod $(HOME_DIR)/include_nssa/*.h
+	@rm -f $(HOME_DIR)/build_ins/*.o* $(HOME_DIR)/include_ins/*.mod $(HOME_DIR)/include_ins/*.h
+	@rm -f $(HOME_DIR)/build_ch/*.o* $(HOME_DIR)/include_ch/*.mod $(HOME_DIR)/include_ch/*.h
+	@rm -f $(HOME_DIR)/build_mu/*.o* $(HOME_DIR)/include_mu/*.mod $(HOME_DIR)/include_mu/*.h
+	@rm -f $(HOME_DIR)/lib/libproblemfile_ns.so
+	@rm -f $(HOME_DIR)/lib/libproblemfile_nssa.so
+	@rm -f $(HOME_DIR)/lib/libproblemfile_ch.so
+	@rm -f $(HOME_DIR)/lib/libproblemfile_mu.so
+	@rm -f $(HOME_DIR)/lib/libproblemfile_ins.so
+
+test: all
+	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
+	&& cd ../ && ./horses3d.ns DiffuserFlow.control ) || exit 1; 
+	(cd $(HOME_DIR)/test/NavierStokes/Cylinder/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
+	&& cd ../ && ./horses3d.ns Cylinder.control ) || exit 1; 
+
+allclean: FORCE clean
+	@rm -f $(HOME_DIR)/bin/*
+
+horseslibclean: FORCE
+	@for subdir in $(HORSES_LIBS); do \
+	 echo "clean $$subdir"; \
+	 (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) clean ) || exit 1; \
+	 done
+
+problemfileclean: FORCE
+	(cd $(HOME_DIR)/src/libs/problemfile && $(MAKE) $(LIBFLAGS) clean) || exit 1; 
+
+horsesclean: FORCE
+	(cd $(HOME_DIR)/src/NavierStokesSolver && $(MAKE) $(HORSES_NS_FLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/NavierStokesSolverRANS && $(MAKE) $(HORSES_NSSA_FLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/IncompressibleNSSolver && $(MAKE) $(HORSES_iNS_FLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/CahnHilliardSolver && $(MAKE) $(HORSES_CH_FLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/MultiphaseSolver && $(MAKE) $(HORSES_MU_FLAGS) clean) || exit 1;
+
+addonsclean: FORCE
+	@for subdir in $(ADDONS); do \
+		(cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) clean) || exit 1; \
+	done
+
+mkdirs: FORCE
+	@mkdir -p $(HOME_DIR)/build $(HOME_DIR)/build_ns $(HOME_DIR)/build_nssa $(HOME_DIR)/build_ins $(HOME_DIR)/build_ch $(HOME_DIR)/build_mu
+	@mkdir -p $(HOME_DIR)/include $(HOME_DIR)/include_ns $(HOME_DIR)/include_nssa $(HOME_DIR)/include_ins $(HOME_DIR)/include_ch $(HOME_DIR)/include_mu
+	@mkdir -p $(HOME_DIR)/bin
+	@mkdir -p $(HOME_DIR)/lib
+
+header: FORCE
+	@echo
+	@echo "================================"
+	@echo ">>   Building HORSES3D   "
+	@echo "================================"
+	@echo
+	@echo
+
+## Dummy target to make sure a rule is executed
+FORCE:

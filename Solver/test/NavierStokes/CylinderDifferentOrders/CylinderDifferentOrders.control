@@ -1,0 +1,68 @@
+/* Test case for the cylinder with different polynomial orders */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
+restart file name     = "RESULTS/CylinderN2N3N4N5.rst"
+solution file name    = "RESULTS/Cylinder.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart interval      = 50
+polynomial order file = "MESH/OrdersN2N3N4N5_anisotropy.csv"
+Number of time steps  = 100
+Output Interval       = 10
+!Number of plot points = 5
+Convergence tolerance = 1.d-10
+cfl                   = 0.2
+dcfl                  = 0.2
+mach number           = 0.3
+Reynolds number       = 45.0
+AOA theta             = 0.0
+AOA phi               = 90.0
+riemann solver        = roe
+
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary back__left__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
+
+
+!-------------------------------------------------------------
+!-----Information about time integration solver---------------
+simulation type         = steady-state
+time integration        = explicit
+jacobian flag           = 2
+linear solver           = Petsc
+jacobian by convergence = .false. 
+!-------------------------------------------------------------
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,0.5,4.0]
+   Variable = u
+#end
