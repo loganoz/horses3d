@@ -51,9 +51,10 @@ module pAdaptationClassRL
       real(kind=RP)            :: tol = 1e-2_RP
       logical                  :: error_estimation = .false.
       logical                  :: avg_error_type = .true. !True for average error, false for max error
-      integer                  :: error_variable !1:u, 2:v, 3:w, 4:rho*u, 5:rho*v, 6:rho*w, 7:p (only for Navier-Stokes)
+      integer                  :: error_variable !1:u, 2:v, 3:w, 4:rho*u, 5:rho*v, 6:rho*w, 7:p (only for Navier-Stokes), 8:rho
       logical                  :: acoustics = .false.
       real(kind=RP)            :: acoustic_tol = 1e-4_RP
+      integer                  :: acoustic_variable !7:p, 8:rho
       real(kind=RP)            :: acoustic_distance = 1_RP
       real(kind=RP)            :: observer(NDIM)
       character(len=BC_STRING_LENGTH), allocatable :: acoustic_sources(:)
@@ -94,7 +95,7 @@ module pAdaptationClassRL
       character(LINE_LENGTH)         :: in_label
       character(LINE_LENGTH)         :: agentFile
       character(20*BC_STRING_LENGTH) :: confBoundaries, R_acoustic_sources
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd, R_ErrorType, R_ErrorVariable, R_observer
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd, R_ErrorType, R_ErrorVariable, R_observer, R_acoustic_variable
       logical      , allocatable     :: R_increasing, reorganize_z, R_restart, R_ErrorEstimation, R_acoustics
       real(kind=RP), allocatable     :: R_tolerance, R_threshold, R_acoustic_tol, R_acoustic_distance
       ! Extra vars
@@ -142,6 +143,7 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "acoustic distance"      , R_acoustic_distance, in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "acoustic observer"      , R_observer         , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "acoustic sources"       , R_acoustic_sources , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "acoustic variable"      , R_acoustic_variable, in_label , "# end" )
       
 !     Conforming boundaries
 !     ----------------------
@@ -235,13 +237,14 @@ module pAdaptationClassRL
                this % error_variable = 5
             case ("rhow")
                this % error_variable = 6
-#ifdef NAVIERSTOKES
             case ("p")
+#ifdef NAVIERSTOKES
                this % error_variable = 7
 #elif defined(MULTIPHASE)
-            case ("p")
                this % error_variable = 7
 #endif
+            case ("rho")
+               this % error_variable = 8
             case default
                WRITE(STD_OUT,*) 'Not recognized error variable. Using u velocity by default.'
                this % error_variable = 1
@@ -315,6 +318,25 @@ module pAdaptationClassRL
             end do
          else
             error stop 'Keyword acoustic sources is mandatory for p-adaptation with acoustics'
+         end if
+
+         if ( R_acoustic_variable /= "" ) then
+            select case ( trim (R_acoustic_variable) )
+            case ("p")
+#ifdef NAVIERSTOKES
+               this % acoustic_variable = 7
+#elif defined(MULTIPHASE)
+               this % acoustic_variable = 7
+#endif
+            case ("rho")
+               this % acoustic_variable = 8
+            case default
+               WRITE(STD_OUT,*) 'Not recognized acoustic variable. Using pressure by default.'
+               this % acoustic_variable = 7
+            end select
+         else
+            WRITE(STD_OUT,*) 'Undefined acoustic variable. Using pressure by default.'
+            this % acoustic_variable = 7
          end if
 
          call mesh % DefineAcousticElements(this % observer, this % acoustic_sources, this % acoustic_distance, surfacesMesh % zones)
@@ -419,7 +441,7 @@ module pAdaptationClassRL
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
       integer                    :: Ndir = 3, Ndir_acoustics = 4
-      integer                    :: pressure_var = 7
+      ! integer                    :: pressure_var = 7, rho_var = 8
       !-mpi-variables-------------------------
       integer                    :: ierr
       integer                    :: local_DOFs, global_DOFs
@@ -444,7 +466,7 @@ module pAdaptationClassRL
 !$omp parallel do schedule(runtime) private(eID)
          do i = 1, size(sem % mesh % elements_acoustics)
             eID = sem % mesh % elements_acoustics(i)
-            call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID) , NNew(:,eID), this % acoustic_tol, Ndir_acoustics, pressure_var) 
+            call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID) , NNew(:,eID), this % acoustic_tol, Ndir_acoustics, this % acoustic_variable) 
             if ( .not. all( sem % mesh % elements(eID)  % Nxyz == NNew(:,eID)) ) then
 !$omp critical
                adaptedElements = adaptedElements + 1
@@ -700,6 +722,9 @@ module pAdaptationClassRL
                            !Pressure
                            Q_error1(k) = e % storage % QNS(IMP,k,j,i)
 #endif
+                        else if (this % error_variable == 8) then
+                           !Density
+                           Q_error1(k) = e % storage % Q(1,k,j,i)
                         end if
                      end if
                      if (dir == Ndir) then 
@@ -715,6 +740,9 @@ module pAdaptationClassRL
                         !Pressure
                         Q_dir1(dir, k) = e % storage % QNS(IMP,k,j,i)
 #endif
+                     else if (adaptation_var == 8) then
+                        !Density
+                        Q_dir1(dir, k) = e % storage % Q(1,k,j,i)
                      end if
                   end if
 
@@ -815,6 +843,9 @@ module pAdaptationClassRL
                            !Pressure
                            Q_error2(k) = e % storage % QNS(IMP,j,k,i)
 #endif
+                        else if (this % error_variable == 8) then
+                           !Density
+                           Q_error2(k) = e % storage % Q(1,j,k,i)
                         end if
                      end if
                      if (dir == Ndir) then 
@@ -831,6 +862,9 @@ module pAdaptationClassRL
                         !Pressure
                         Q_dir2(dir, k) = e % storage % QNS(IMP,j,k,i)
 #endif
+                     else if (adaptation_var == 8) then
+                        !Density
+                        Q_dir2(dir, k) = e % storage % Q(1,j,k,i)
                      end if
                   end if
                enddo
@@ -933,6 +967,9 @@ module pAdaptationClassRL
                            !Pressure
                            Q_error3(k) = e % storage % QNS(IMP,j,i,k)
 #endif
+                        else if (this % error_variable == 8) then
+                           !Density
+                           Q_error3(k) = e % storage % Q(1,j,i,k)
                         end if
                      end if
                      if (dir == Ndir) then 
@@ -949,6 +986,9 @@ module pAdaptationClassRL
                         !Pressure
                         Q_dir3(dir, k) = e % storage % QNS(IMP,j,i,k)
 #endif
+                     else if (adaptation_var == 8) then
+                        !Density
+                        Q_dir3(dir, k) = e % storage % Q(1,j,i,k)
                      end if
                   end if
                enddo
