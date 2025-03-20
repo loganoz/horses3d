@@ -431,7 +431,7 @@ module IBMClass
 
          this% stl(STLNum)% filename = controlVariables% stringValueForKey(trim(filename), requestedLength = LINE_LENGTH)
          
-         call STLfile_GetInfo( this% stl(STLNum), this% STLfilename(STLNum) )
+         call this% stl(STLNum)% GetInfo( this% STLfilename(STLNum) )
          
          if( .not. this% HO_IBM ) this% stl(STLNum)% BFcorrection = .false. 
 

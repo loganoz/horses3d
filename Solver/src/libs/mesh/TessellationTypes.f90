@@ -111,9 +111,14 @@ module TessellationTypes
                                                       read = .false.,                  &
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
+      logical                                      :: FSImove
+      integer                                      :: FSINumOfMode
+      real(kind=RP), allocatable                   :: FSIModefrequency(:),FSIModedampingRatio(:)
+      character(LINE_LENGTH)                       :: FSIModefilename
       
        contains
          procedure :: ReadTessellation
+         procedure :: GetInfo                => STLfile_GetInfo
          procedure :: Clip                   => STL_Clip
          procedure :: updateNormals          => STL_updateNormals
          procedure :: SetIntegration         => STL_SetIntegration
@@ -724,6 +729,7 @@ module TessellationTypes
       !-arguments-----------------------------------
       class(STLfile),   intent(inout) :: this
       character(len=*), intent(in)    :: filename
+      integer                         :: FSI_i
 
       if( MPI_Process% isRoot) then
        
@@ -734,7 +740,18 @@ module TessellationTypes
 
          write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "Moving: " , this% move
-         if( .not. this% move ) write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
+         write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSImove: " , this% FSImove
+
+         if ( this% FSImove ) then
+            write(STD_OUT,'(30X,A,A35,I10)') "->", "FSINumOfMode: ", this% FSINumOfMode
+            do FSI_i = 1, this% FSINumOfMode
+              write(STD_OUT,'(30X,A,A32,I0,A,F10.2)') "->", "FSIModedampingRatio", FSI_i, ": ", this% FSIModedampingRatio(FSI_i)
+              write(STD_OUT,'(30X,A,A32,I0,A,F10.2)') "->", "FSIModefrequency", FSI_i, ": ", this% FSIModefrequency(FSI_i)
+            end do
+            write(STD_OUT,'(30X,A,A35,A)') "->", "FSIModefilename: ", trim(this% FSIModefilename)
+         end if
+
+         if ( (.not. this% move) .and. (.not. this% FSImove) ) write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "BF correction: " , this% BFcorrection
          if( this% read ) then 
             write(STD_OUT,'(30X,A,A35,A)') "->" , "Mask file: " , this% maskName
@@ -988,7 +1005,7 @@ module TessellationTypes
       use GenericBoundaryConditionClass, only: CheckIfStlNameIsContained, CheckIfBoundaryNameIsContained
       implicit none
       !-arguments-------------------------------------------------------
-      type(STLfile),    intent(inout) :: this
+      class(STLfile),   intent(inout) :: this
       character(len=*), intent(inout) :: STLfilename
       !-local-arguments-------------------------------------------------
       integer                    :: fid, i, bctype, io, GetZoneType
@@ -997,6 +1014,8 @@ module TessellationTypes
       character(len=LINE_LENGTH) :: keyword, keyval
       type(FTValueDIctionary)    :: bcdict
       character(LINE_LENGTH)     :: ext, stlname, stlNoPath
+      integer                    :: FSI_modeIndex
+      character(len=LINE_LENGTH) :: FSI_modeKey
 
       ext = getFileExtension(trim(this% filename))
 
@@ -1026,7 +1045,7 @@ module TessellationTypes
          call PreprocessInputLine(currentLine)
          call toLower(currentLine)
 
-         if ( index(trim(currentLine),"#define stl") .ne. 0 ) then
+         if ( index(trim(currentLine),"#define stlboundary") .ne. 0 ) then
             inside = CheckIfStlNameIsContained(trim(currentLine), trim(loweredbname)) 
          end if
 
@@ -1062,22 +1081,66 @@ module TessellationTypes
       if ( GetZoneType .eq. -1 ) then
          GetZoneType = 3 
       end if
+      this% bctype = GetZoneType
 
       if ( .not. bcdict % ContainsKey("moving") ) then
          logval = .false. 
       else 
          logval = bcdict % logicalValueForKey("moving")
-      end if 
+      end if  
+      this% move  = logval
 
-      this% bctype = GetZoneType
-      this% move   = logval
+      if ( .not. bcdict % ContainsKey("fsimove") ) then
+         logval = .false. 
+      else 
+         logval = bcdict % logicalValueForKey("fsimove")
+      end if 
+      this% FSImove  = logval
+
+      if (this% FSImove) then
+         if ( .not. bcdict % ContainsKey("fsinumofmode") ) then
+            error stop "[Error] FSINumOfMode must be defined when FSImove=T"
+         else
+            this % FSINumOfMode = bcdict % integerValueForKey("fsinumofmode")
+            if ( this % FSINumOfMode < 1 ) error stop "[Error] Invalid FSINumOfMode"
+         end if
+        
+         allocate(this% FSIModedampingRatio(this%FSINumOfMode))
+         allocate(this% FSIModefrequency(this%FSINumOfMode))
+
+         do FSI_modeIndex = 1, this % FSINumOfMode
+            ! Read damping ratio
+            write(FSI_modeKey,'(A,I0,A)') 'fsimode', FSI_modeIndex, '_dampingratio'
+
+            if ( .not. bcdict % ContainsKey(trim(FSI_modeKey)) ) then
+               error stop "[Error] Missing parameter: "//trim(FSI_modeKey)
+            else
+               this % FSIModedampingRatio(FSI_modeIndex) = 1.0_RP !&
+                        !   bcdict % realValueForKey(trim(FSI_modeKey))
+            end if
+
+            ! Read frequency 
+            write(FSI_modeKey,'(A,I0,A)') 'fsimode', FSI_modeIndex, '_frequency'
+            if ( .not. bcdict % ContainsKey(trim(FSI_modeKey)) ) then
+               error stop "[Error] Missing parameter: "//trim(FSI_modeKey)
+            else
+               this % FSIModefrequency(FSI_modeIndex) = &
+                          bcdict % realValueForKey(trim(FSI_modeKey))
+            end if
+         end do
+
+         if ( .not. bcdict % ContainsKey("fsimodefilename") ) then
+            error stop "[Error] FSIModefilename must be defined"
+         else
+            this % FSIModefilename = bcdict % stringValueForKey("fsimodefilename", &
+                                      requestedLength = LINE_LENGTH)
+         end if
+
+      end if
 
       call bcdict % Destruct
-      close(fid)
 
       ! check if stl is BF correctd
-
-      open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
       inside = .false.
       do 

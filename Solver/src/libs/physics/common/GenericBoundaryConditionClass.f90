@@ -537,7 +537,7 @@ module GenericBoundaryConditionClass
          logical     :: found
                
       
-         str = "#define stl"
+         str = "#define stlboundary"
 !
 !        Exit if not a #define boundary sentinel
 !        ---------------------------------------
