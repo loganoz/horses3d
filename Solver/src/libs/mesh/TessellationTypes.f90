@@ -112,12 +112,16 @@ module TessellationTypes
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
       logical                                      :: FSImove
-      integer                                      :: FSINumOfMode
-      real(kind=RP), allocatable                   :: FSIModefrequency(:),FSIModedampingRatio(:)
+      integer                                      :: FSINumOfMode, FSIModeDim
+      real(kind=RP), allocatable                   :: FSIModefrequency(:),FSIModedampingRatio(:), &
+                                                      FSIModeX(:,:), & ![numOfModalAnalysisNode,FSIModeDim]
+                                                      FSIModePhi(:,:)  ![numOfModalAnalysisNode, numOfMode]
+      real(kind=RP)                                :: FSILengthScale
       character(LINE_LENGTH)                       :: FSIModefilename
       
        contains
          procedure :: ReadTessellation
+         procedure :: FSIReadModefile
          procedure :: GetInfo                => STLfile_GetInfo
          procedure :: Clip                   => STL_Clip
          procedure :: updateNormals          => STL_updateNormals
@@ -743,12 +747,14 @@ module TessellationTypes
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSImove: " , this% FSImove
 
          if ( this% FSImove ) then
+            write(STD_OUT,'(30X,A,A35,I10)') "->", "FSIModeDim: ", this% FSIModeDim
             write(STD_OUT,'(30X,A,A35,I10)') "->", "FSINumOfMode: ", this% FSINumOfMode
             do FSI_i = 1, this% FSINumOfMode
               write(STD_OUT,'(30X,A,A32,I0,A,F10.2)') "->", "FSIModedampingRatio", FSI_i, ": ", this% FSIModedampingRatio(FSI_i)
-              write(STD_OUT,'(30X,A,A32,I0,A,F10.2)') "->", "FSIModefrequency", FSI_i, ": ", this% FSIModefrequency(FSI_i)
+              write(STD_OUT,'(30X,A,A32,I0,A,F10.6)') "->", "FSIModefrequency", FSI_i, ": ", this% FSIModefrequency(FSI_i)
             end do
             write(STD_OUT,'(30X,A,A35,A)') "->", "FSIModefilename: ", trim(this% FSIModefilename)
+            write(STD_OUT,'(30X,A,A35,F10.6)') "->", "FSILengthScale: ", this% FSILengthScale
          end if
 
          if ( (.not. this% move) .and. (.not. this% FSImove) ) write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
@@ -756,7 +762,6 @@ module TessellationTypes
          if( this% read ) then 
             write(STD_OUT,'(30X,A,A35,A)') "->" , "Mask file: " , this% maskName
          end if 
-         
       end if
    
    end subroutine Describe_STLfile
@@ -1043,7 +1048,7 @@ module TessellationTypes
          if( io .ne. 0 ) exit
 
          call PreprocessInputLine(currentLine)
-         call toLower(currentLine)
+         ! call toLower(currentLine)
 
          if ( index(trim(currentLine),"#define stlboundary") .ne. 0 ) then
             inside = CheckIfStlNameIsContained(trim(currentLine), trim(loweredbname)) 
@@ -1098,13 +1103,40 @@ module TessellationTypes
       this% FSImove  = logval
 
       if (this% FSImove) then
+         if ( .not. bcdict % ContainsKey("fsimodedim") ) then
+            if( MPI_Process% isRoot) then
+               error stop "[Error] FSIModeDim must be defined when FSImove=T"
+            else
+               error stop
+            end if
+         else
+            this % FSIModeDim = bcdict % integerValueForKey("fsimodedim")
+            if ( (this % FSIModeDim /= 1) .and. (this % FSIModeDim /= 2) ) then
+               if( MPI_Process% isRoot) then
+                  error stop "[Error] Invalid FSIModeDim should be 1 or 2"
+               else
+                  error stop
+               end if
+            end if
+         end if
+
          if ( .not. bcdict % ContainsKey("fsinumofmode") ) then
-            error stop "[Error] FSINumOfMode must be defined when FSImove=T"
+            if( MPI_Process% isRoot) then
+               error stop "[Error] FSINumOfMode must be defined when FSImove=T"
+            else
+               error stop
+            end if
          else
             this % FSINumOfMode = bcdict % integerValueForKey("fsinumofmode")
-            if ( this % FSINumOfMode < 1 ) error stop "[Error] Invalid FSINumOfMode"
+            if ( this % FSINumOfMode < 1 )  then
+               if( MPI_Process% isRoot) then
+                  error stop "[Error] Invalid FSINumOfMode"
+               else
+                  error stop
+               end if
+            end if
          end if
-        
+     
          allocate(this% FSIModedampingRatio(this%FSINumOfMode))
          allocate(this% FSIModefrequency(this%FSINumOfMode))
 
@@ -1113,27 +1145,42 @@ module TessellationTypes
             write(FSI_modeKey,'(A,I0,A)') 'fsimode', FSI_modeIndex, '_dampingratio'
 
             if ( .not. bcdict % ContainsKey(trim(FSI_modeKey)) ) then
-               error stop "[Error] Missing parameter: "//trim(FSI_modeKey)
+               this % FSIModedampingRatio(FSI_modeIndex) = 0.0_RP
             else
-               this % FSIModedampingRatio(FSI_modeIndex) = 1.0_RP !&
-                        !   bcdict % realValueForKey(trim(FSI_modeKey))
+               this % FSIModedampingRatio(FSI_modeIndex) = &
+                          bcdict % realValueForKey(trim(FSI_modeKey))
             end if
 
             ! Read frequency 
             write(FSI_modeKey,'(A,I0,A)') 'fsimode', FSI_modeIndex, '_frequency'
             if ( .not. bcdict % ContainsKey(trim(FSI_modeKey)) ) then
-               error stop "[Error] Missing parameter: "//trim(FSI_modeKey)
+               if( MPI_Process% isRoot) then
+                  error stop "[Error] Missing parameter: "//trim(FSI_modeKey)
+               else
+                  error stop
+               end if
             else
                this % FSIModefrequency(FSI_modeIndex) = &
                           bcdict % realValueForKey(trim(FSI_modeKey))
             end if
          end do
 
+         if ( .not. bcdict % ContainsKey("fsilengthscale") ) then
+            this % FSILengthScale = 1.0_RP
+         else
+            this % FSILengthScale = bcdict % realValueForKey("fsilengthscale")
+         end if
+
          if ( .not. bcdict % ContainsKey("fsimodefilename") ) then
-            error stop "[Error] FSIModefilename must be defined"
+            if( MPI_Process% isRoot) then
+               error stop "[Error] FSIModefilename must be defined"
+            else
+               error stop
+            end if
          else
             this % FSIModefilename = bcdict % stringValueForKey("fsimodefilename", &
                                       requestedLength = LINE_LENGTH)
+            call this % FSIReadModefile
          end if
 
       end if
@@ -1632,5 +1679,48 @@ module TessellationTypes
       end if
 
   end subroutine get_num_of_objs
+
+  subroutine FSIReadModefile( this )
+   use SMConstants
+   use Utilities, only: UnusedUnit
+   implicit none
+   class(STLfile), intent(inout) :: this
+   !-local-variables--------------------------------------------------
+   integer                       :: funit, io, i, j, nLines
+   real(kind=RP), allocatable    :: buffer(:)
+   character(len=LINE_LENGTH)    :: line
+            
+   funit = UnusedUnit()
+   open(unit=funit, file=trim(this%FSIModefilename), status='old', action='read', iostat=io)
+   if (io /= 0) then
+      if( MPI_Process% isRoot) print *, "Error: Unable to open mode file '", trim(this%FSIModefilename), "'"
+      error stop
+   end if
+            
+   nLines = 0
+   do 
+      read(funit, '(A)', iostat=io) line
+      if (io /= 0) exit
+      if ( len_trim(line) > 0 ) nLines = nLines + 1  ! ignore blank lines
+   end do
+   rewind(funit) 
+            
+   allocate( this%FSIModeX(nLines,this% FSIModeDim), this%FSIModePhi(nLines, this%FSINumOfMode) )
+            
+   allocate( buffer(this% FSIModeDim+this%FSINumOfMode) )  ! column = FSIModeDim + nMode(Phi)
+   do i = 1, nLines
+      read(funit, *, iostat=io) buffer
+      if (io /= 0) then
+         if( MPI_Process% isRoot) print *, "Error reading line ", i, " in '", trim(this%FSIModefilename), "'"
+         error stop
+      end if
+      this%FSIModeX(i,:)    = buffer(1:this% FSIModeDim)  ! X
+      this%FSIModePhi(i,:)  = buffer(this% FSIModeDim+1:this%FSINumOfMode + 1)  !Phi
+   end do
+   deallocate(buffer)
+   ! print *, 'here, nLine=',size(this%FSIModeX,1), 'FSIModeX=',this%FSIModeX(size(this%FSIModeX,1),:),'FSIModePhi=',this%FSIModePhi(size(this%FSIModeX,1),:)
+   close(funit)
+end subroutine FSIReadModefile
+
 
 end module TessellationTypes
