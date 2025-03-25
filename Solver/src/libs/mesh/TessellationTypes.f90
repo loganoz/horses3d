@@ -112,16 +112,19 @@ module TessellationTypes
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
       logical                                      :: FSImove
-      integer                                      :: FSINumOfMode, FSIModeDim
+      integer                                      :: FSINumOfMode, FSIModeDim, FSInumOfControlPoint
       real(kind=RP), allocatable                   :: FSIModefrequency(:),FSIModedampingRatio(:), &
-                                                      FSIModeX(:,:), & ![numOfModalAnalysisNode,FSIModeDim]
-                                                      FSIModePhi(:,:)  ![numOfModalAnalysisNode, numOfMode]
+                                                      FSIModeX(:,:), &    ![numOfControlPoint,FSIModeDim]
+                                                      FSIModePhi(:,:), &  ![numOfControlPoint, numOfMode]
+                                                      FSITPS_Coef(:,:), & ![1+FSIModeDim+numOfControlPoint, numOfMode]
+                                                      FSIModeQdQ(:,:)     ![2=[Q;dQ],numOfMode]
       real(kind=RP)                                :: FSILengthScale
       character(LINE_LENGTH)                       :: FSIModefilename
       
        contains
          procedure :: ReadTessellation
          procedure :: FSIReadModefile
+         procedure :: FSICalculateModeQdQ
          procedure :: GetInfo                => STLfile_GetInfo
          procedure :: Clip                   => STL_Clip
          procedure :: updateNormals          => STL_updateNormals
@@ -134,6 +137,8 @@ module TessellationTypes
          procedure :: plot                   => STLfile_plot
          procedure :: SetIntegrationPoints   => STL_SetIntegrationPoints
          procedure :: ResetIntegrationPoints => STL_ResetIntegrationPoints
+         procedure :: FSIBuildTPSCoeffMatrix => STL_FSIBuildTPSCoeffMatrix
+         procedure :: FSIGetModePhi          => STL_FSIGetModePhi
    end type
    
    type ObjsDataLinkedList_t
@@ -1180,7 +1185,8 @@ module TessellationTypes
          else
             this % FSIModefilename = bcdict % stringValueForKey("fsimodefilename", &
                                       requestedLength = LINE_LENGTH)
-            call this % FSIReadModefile
+            call this % FSIReadModefile()
+            call this % FSIBuildTPSCoeffMatrix()
          end if
 
       end if
@@ -1720,7 +1726,53 @@ module TessellationTypes
    deallocate(buffer)
    ! print *, 'here, nLine=',size(this%FSIModeX,1), 'FSIModeX=',this%FSIModeX(size(this%FSIModeX,1),:),'FSIModePhi=',this%FSIModePhi(size(this%FSIModeX,1),:)
    close(funit)
+   this % FSInumOfControlPoint = size(this%FSIModeX,1)
+   ! print *,'here, FSInumOfControlPoint=',this % FSInumOfControlPoint
 end subroutine FSIReadModefile
+
+subroutine STL_FSIBuildTPSCoeffMatrix(this)
+   implicit none
+   class(STLfile), intent(inout)   :: this
+   !-local-variables--------------------------------------------------
+   real(kind=RP) :: TPSMatrix_K (this%FSINumOfControlPoint, this%FSINumOfControlPoint), &
+                    TPSMatrix_P(this%FSINumOfControlPoint, this%FSIModeDim+1), &
+                    TPSMatrix_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDim+1, this%FSINumOfControlPoint+this%FSIModeDim+1)
+   integer       :: nControl, mAdd
+
+   nControl = this%FSINumOfControlPoint
+   mAdd = this%FSIModeDim+1
+
+
+
+
+end subroutine STL_FSIBuildTPSCoeffMatrix
+
+subroutine STL_FSIGetModePhi(this)
+   implicit none
+   class(STLfile), intent(inout)   :: this
+   !-local-variables--------------------------------------------------
+
+end subroutine STL_FSIGetModePhi
+
+subroutine FSICalculateModeQdQ( this )
+   implicit none
+   class(STLfile), intent(inout)   :: this
+   !-local-variables--------------------------------------------------
+   integer                         :: FSI_i
+   
+   if( .not. allocated(this%FSIModeQdQ) ) allocate( this%FSIModeQdQ(2,this% FSIModeDim))
+
+   do FSI_i = 1, this% FSINumOfMode
+      this % FSIModeQdQ(1,FSI_i) = 0.0_RP
+      this % FSIModeQdQ(2,FSI_i) = 0.0_RP
+   end do 
+
+   this % FSIModeQdQ(1,1) = 1.0_RP
+   this % FSIModeQdQ(2,1) = 2.0_RP
+
+   print *, 'here, Calculate Mode Q & dQ with Mode1 Q=',this % FSIModeQdQ(1,1),', dQ=',this % FSIModeQdQ(2,1)
+   print *, 'here, Calculate Mode Q & dQ with Mode2 Q=',this % FSIModeQdQ(1,2),', dQ=',this % FSIModeQdQ(2,2)
+end subroutine FSICalculateModeQdQ
 
 
 end module TessellationTypes

@@ -251,6 +251,7 @@ module SpatialDiscretization
          
          if( mesh% IBM% active ) then   
             call mesh% IBM% MoveBody( mesh % elements, mesh % faces, mesh% MPIfaces, mesh % NDOF, mesh % child, time, mesh% IBM% iter, mesh% IBM% autosave )
+            call mesh% IBM% FSIMoveBody( mesh % elements, mesh % faces, mesh% MPIfaces, mesh % NDOF, mesh % child, time, mesh% IBM% iter, mesh% IBM% autosave )
             call mesh% IBM% updateImagePoint( NCONS, mesh % elements, mesh % NDOF )
          end if 
          
