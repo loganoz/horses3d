@@ -81,7 +81,6 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     logical                        :: save_average = .false.
     logical                        :: save_instant = .false.
     logical                        :: verbose = .false.
-    logical                        :: averageSubElement = .true.
     character(len=LINE_LENGTH)     :: file_name
     integer                        :: number_iterations
     integer                        :: save_iterations
@@ -139,7 +138,6 @@ contains
     self % save_instant = controlVariables % getValueOrDefault("actuator save instant", .false.)
     self % save_iterations = controlVariables % getValueOrDefault("actuator save iteration", 1)
     self % verbose = controlVariables % getValueOrDefault("actuator verbose", .false.)
-    self % averageSubElement = controlVariables % getValueOrDefault("actuator average subelement", .true.)
     self % tolerance_factor = controlVariables % getValueOrDefault("actuator tolerance", 0.2_RP)
 
     restart_name = controlVariables % stringValueForKey( restartFileNameKey, requestedLength = STRING_CONSTANT_LENGTH )
@@ -298,7 +296,6 @@ contains
         end select
         write(STD_OUT,'(30X,A,A28,F10.3,F10.3)') "->", 'Tip correction constants: ', self%turbine_t(1)%blade_t(1)%tip_c1, self%turbine_t(1)%blade_t(1)%tip_c2
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Projection formulation: ", self % calculate_with_projection
-        if (.not. self%calculate_with_projection) write(STD_OUT,'(30X,A,A28,L1)') "->", "Average sub-Element: ", self % averageSubElement
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save blade average values: ", self % save_average
         if (fileExists)  write(STD_OUT,'(30X,A)') 'Using restaring operations of turbines'
     end if
@@ -639,8 +636,8 @@ contains
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
            call FindActuatorPointElement(mesh, x, eID, xi, found)
            if (found) then
-             ! averaged state values of the cell
-             Qtemp = element_averageQ(mesh,eID, xi, self % averageSubElement)
+             ! interpolate state values in the element
+             Qtemp = interpolateQ(mesh,eID, xi)
              delta_temp = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
            else
              Qtemp = 0.0_RP
@@ -1285,32 +1282,7 @@ function InterpolateAirfoilData(x1,x2,y1,y2,new_x)
     InterpolateAirfoilData=a*new_x+b
 end function
 
-function full_element_averageQ(mesh,eID)
-   use HexMeshClass
-   use PhysicsStorage
-   use NodalStorageClass
-   implicit none
-
-   type(HexMesh), intent(in)    :: mesh
-   integer, intent(in)          :: eID 
-   integer                      :: k, j, i
-
-   integer                      :: total_points
-   real(kind=RP), dimension(NCONS)   :: full_element_averageQ, Qsum
-
- 
-   Qsum(:) = 0.0_RP
-   total_points = 0
-   do k = 0, mesh%elements(eID) % Nxyz(3)   ; do j = 0, mesh%elements(eID) % Nxyz(2) ; do i = 0, mesh%elements(eID) % Nxyz(1)
-       Qsum(:)=Qsum(:)+mesh%elements(eID) % Storage % Q(:,i,j,k)
-       total_points=total_points + 1
-   end do                  ; end do                ; end do
-
-   full_element_averageQ(:) = Qsum(:) / real(total_points,RP)
-
-end function full_element_averageQ
-
-Function semi_element_averageQ(mesh,eID,xi) result(Qe)
+Function interpolateQ(mesh,eID,xi) result(Qe)
    use HexMeshClass
    use PhysicsStorage
    use NodalStorageClass
@@ -1321,58 +1293,32 @@ Function semi_element_averageQ(mesh,eID,xi) result(Qe)
    real(kind=RP), dimension(NDIM), intent(in) :: xi
    real(kind=RP), dimension(NCONS)   :: Qe
 
-   real(kind=RP), dimension(NCONS)   :: Qsum
+   integer                        :: k, j, i
+   integer, dimension(NDIM)       :: Nxyz
+   type(NodalStorage_t), pointer  :: spAxi, spAeta, spAzeta
+   real(kind=RP), allocatable     :: lxi(:) , leta(:), lzeta(:) !interpolants
 
-   integer                      :: k, j, i, direction, N, ind
-   integer, dimension(NDIM)     :: firstNodeIndex
-   integer                      :: total_points
-   type(NodalStorage_t), pointer :: spAxi
+     Nxyz = mesh % elements(eID) % Nxyz
 
-   ! fist get the sub element nodes index
-   do direction = 1, NDIM
+     spAxi   => NodalStorage(Nxyz(1))
+     spAeta   => NodalStorage(Nxyz(2))
+     spAzeta   => NodalStorage(Nxyz(3))
 
-     N = mesh % elements(eID) % Nxyz(direction)
-     spAxi   => NodalStorage(N)
+     allocate( lxi(0:Nxyz(1)), leta(0:Nxyz(2)), lzeta(0:Nxyz(3)) )
 
-     do ind = 0, N
-         firstNodeIndex(direction) = ind-1
-         if (xi(direction) .le. spAxi%x(ind)) exit
-     end do
+     lxi = spAxi % lj(xi(1))
+     leta = spAeta % lj(xi(2))
+     lzeta = spAzeta % lj(xi(3))
 
-     if (firstNodeIndex(direction) .eq. -1) firstNodeIndex(direction) = 0
+     Qe = 0.0_RP
+     do k = 0, Nxyz(3)    ; do j = 0, Nxyz(2)  ; do i = 0, Nxyz(1)
+         Qe = Qe + mesh % elements(eID) % Storage % Q(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
+     end do               ; end do             ; end do
 
-   end do
+     deallocate(lxi,leta,lzeta)
+     nullify(spAxi,spAeta,spAzeta)
 
-   nullify(spAxi)
-
-   ! now average on the sub element
-   Qsum(:) = 0.0_RP
-   total_points = 0
-   do k = firstNodeIndex(IZ), firstNodeIndex(IZ)+1   ; do j = firstNodeIndex(IY), firstNodeIndex(IY)+1 ; do i = firstNodeIndex(IX),firstNodeIndex(IX)+1
-       Qsum(:) = Qsum(:) + mesh % elements(eID) % Storage % Q(:,i,j,k)
-       total_points = total_points + 1
-   end do                  ; end do                ; end do
-
-   Qe(:) = Qsum(:) / real(total_points,RP)
-
-End Function semi_element_averageQ
-
-Function element_averageQ(mesh,eID,xi,averageSubElement) result(Qe)
-   use HexMeshClass
-   use PhysicsStorage
-   Implicit None
-   type(HexMesh), intent(in)    :: mesh
-   integer, intent(in)          :: eID 
-   logical, intent(in)          :: averageSubElement
-   real(kind=RP), dimension(NDIM), intent(in) :: xi
-   real(kind=RP), dimension(NCONS)   :: Qe
-
-    if (averageSubElement) then
-        Qe = semi_element_averageQ(mesh, eid, xi)
-    else
-        Qe = full_element_averageQ(mesh, eid)
-    end if 
-End Function element_averageQ
+END Function interpolateQ
 
 #endif
 end module 

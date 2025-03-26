@@ -76,7 +76,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/EulerRK3_pAdaptationRL \
             ./NavierStokes/Cylinder_acoustics_pAdaptationRL \
             ./NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL \
-            ./NavierStokes/ActuatorLineAverage \
+            ./NavierStokes/ActuatorLineInterpolation \
             ./NavierStokes/ActuatorLineProjection \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
@@ -85,7 +85,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/RayleighTaylor \
             ./IncompressibleNS/Cylinder \
             ./IncompressibleNS/CylinderVreman \
-            ./IncompressibleNS/ActuatorLineAverage \
+            ./IncompressibleNS/ActuatorLineInterpolation \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
@@ -93,7 +93,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Multiphase/RisingBubbleVreman\
             ./Multiphase/Pipe \
             ./Multiphase/Monopole_pAdaptationRL \
-            ./Multiphase/ActuatorLineAverage \
+            ./Multiphase/ActuatorLineInterpolation \
             ./Particles/FreeFall \
             ./Particles/RadiationHeat \
             ./Particles/Pouransari \
