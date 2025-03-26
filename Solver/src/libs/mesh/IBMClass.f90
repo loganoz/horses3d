@@ -3594,7 +3594,7 @@ module IBMClass
          do i = 1, this% stl(STLNum)% NumOfObjs
             do j = 1, NumOfVertices
 #if defined(NAVIERSTOKES)
-               this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) = this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) + 0.1_RP
+               ! this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) = this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) + 0.1_RP
                ! call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords, t, this% dt, cL, cD )
 #endif 
             end do 
@@ -3602,7 +3602,7 @@ module IBMClass
             if( this% ComputeBandRegion ) then 
                do j = 1, NumOfIntegrationVertices
 #if defined(NAVIERSTOKES)
-                  this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) = this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) + 0.1_RP
+                  ! this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) = this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) + 0.1_RP
                   ! call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, t, this% dt, cL, cD )
 #endif
                end do 

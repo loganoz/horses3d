@@ -6,6 +6,7 @@ module TessellationTypes
    use IntegerDataLinkedList
    use ParamfileRegions                , only: readValueInRegion
    use PhysicsStorage
+   use DenseMatUtilities
 
    implicit none
 
@@ -123,8 +124,8 @@ module TessellationTypes
       
        contains
          procedure :: ReadTessellation
-         procedure :: FSIReadModefile
-         procedure :: FSICalculateModeQdQ
+         procedure :: FSIReadModefile        => STLfile_FSIReadModefile
+         procedure :: FSICalculateModeQdQ    => STL_FSICalculateModeQdQ
          procedure :: GetInfo                => STLfile_GetInfo
          procedure :: Clip                   => STL_Clip
          procedure :: updateNormals          => STL_updateNormals
@@ -1187,6 +1188,11 @@ module TessellationTypes
                                       requestedLength = LINE_LENGTH)
             call this % FSIReadModefile()
             call this % FSIBuildTPSCoeffMatrix()
+
+            ! pointX_Dimensionless = reshape([3.8_RP, 100.0_RP, 13.0_RP],shape(pointX_Dimensionless))
+            ! call this % FSIGetModePhi(pointX_Dimensionless, pointX_ModePhi)
+            ! print* ,'here, pointX_Dimensionless = ',pointX_Dimensionless
+            ! print* ,'here, pointX_ModePhi = ',pointX_ModePhi
          end if
 
       end if
@@ -1684,95 +1690,168 @@ module TessellationTypes
           stop 'Error: number of objects not found in zone info'
       end if
 
-  end subroutine get_num_of_objs
+   end subroutine get_num_of_objs
 
-  subroutine FSIReadModefile( this )
-   use SMConstants
-   use Utilities, only: UnusedUnit
-   implicit none
-   class(STLfile), intent(inout) :: this
-   !-local-variables--------------------------------------------------
-   integer                       :: funit, io, i, j, nLines
-   real(kind=RP), allocatable    :: buffer(:)
-   character(len=LINE_LENGTH)    :: line
+   subroutine STLfile_FSIReadModefile( this )
+      use SMConstants
+      use Utilities, only: UnusedUnit
+      implicit none
+      class(STLfile), intent(inout) :: this
+      !-local-variables--------------------------------------------------
+      integer                       :: funit, io, i, j, nLines
+      real(kind=RP), allocatable    :: buffer(:)
+      character(len=LINE_LENGTH)    :: line
             
-   funit = UnusedUnit()
-   open(unit=funit, file=trim(this%FSIModefilename), status='old', action='read', iostat=io)
-   if (io /= 0) then
-      if( MPI_Process% isRoot) print *, "Error: Unable to open mode file '", trim(this%FSIModefilename), "'"
-      error stop
-   end if
-            
-   nLines = 0
-   do 
-      read(funit, '(A)', iostat=io) line
-      if (io /= 0) exit
-      if ( len_trim(line) > 0 ) nLines = nLines + 1  ! ignore blank lines
-   end do
-   rewind(funit) 
-            
-   allocate( this%FSIModeX(nLines,this% FSIModeDim), this%FSIModePhi(nLines, this%FSINumOfMode) )
-            
-   allocate( buffer(this% FSIModeDim+this%FSINumOfMode) )  ! column = FSIModeDim + nMode(Phi)
-   do i = 1, nLines
-      read(funit, *, iostat=io) buffer
+      funit = UnusedUnit()
+      open(unit=funit, file=trim(this%FSIModefilename), status='old', action='read', iostat=io)
       if (io /= 0) then
-         if( MPI_Process% isRoot) print *, "Error reading line ", i, " in '", trim(this%FSIModefilename), "'"
+         if( MPI_Process% isRoot) print *, "Error: Unable to open mode file '", trim(this%FSIModefilename), "'"
          error stop
       end if
-      this%FSIModeX(i,:)    = buffer(1:this% FSIModeDim)  ! X
-      this%FSIModePhi(i,:)  = buffer(this% FSIModeDim+1:this%FSINumOfMode + 1)  !Phi
-   end do
-   deallocate(buffer)
-   ! print *, 'here, nLine=',size(this%FSIModeX,1), 'FSIModeX=',this%FSIModeX(size(this%FSIModeX,1),:),'FSIModePhi=',this%FSIModePhi(size(this%FSIModeX,1),:)
-   close(funit)
-   this % FSInumOfControlPoint = size(this%FSIModeX,1)
-   ! print *,'here, FSInumOfControlPoint=',this % FSInumOfControlPoint
-end subroutine FSIReadModefile
+            
+      nLines = 0
+      do 
+         read(funit, '(A)', iostat=io) line
+         if (io /= 0) exit
+         if ( len_trim(line) > 0 ) nLines = nLines + 1  ! ignore blank lines
+      end do
+      rewind(funit) 
+            
+      allocate( this%FSIModeX(nLines,this% FSIModeDim), this%FSIModePhi(nLines, this%FSINumOfMode) )
+            
+      allocate( buffer(this% FSIModeDim+this%FSINumOfMode) )  ! column = FSIModeDim + nMode(Phi)
+      do i = 1, nLines
+         read(funit, *, iostat=io) buffer
+         if (io /= 0) then
+            if( MPI_Process% isRoot) print *, "Error reading line ", i, " in '", trim(this%FSIModefilename), "'"
+            error stop
+         end if
+         this%FSIModeX(i,:)    = buffer(1:this% FSIModeDim)  ! X
+         this%FSIModePhi(i,:)  = buffer(this% FSIModeDim+1:this%FSINumOfMode + 1)  !Phi
+      end do
+      deallocate(buffer)
+      close(funit)
+      this % FSInumOfControlPoint = size(this%FSIModeX,1)
 
-subroutine STL_FSIBuildTPSCoeffMatrix(this)
-   implicit none
-   class(STLfile), intent(inout)   :: this
-   !-local-variables--------------------------------------------------
-   real(kind=RP) :: TPSMatrix_K (this%FSINumOfControlPoint, this%FSINumOfControlPoint), &
-                    TPSMatrix_P(this%FSINumOfControlPoint, this%FSIModeDim+1), &
-                    TPSMatrix_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDim+1, this%FSINumOfControlPoint+this%FSIModeDim+1)
-   integer       :: nControl, mAdd
+   end subroutine STLfile_FSIReadModefile
 
-   nControl = this%FSINumOfControlPoint
-   mAdd = this%FSIModeDim+1
+   pure function FSI_RadialBasisFunction(r) result(phi)
+      real(kind=RP), intent(in) :: r
+      real(kind=RP) :: phi
 
+      if (r > epsilon(1.0_RP)) then
+         phi = r**2 * log(r) 
+      else 
+         phi = 0.0_RP
+      end if 
+   end function FSI_RadialBasisFunction
+  
+   subroutine FSI_SolveTPSLinearSystem(A, Phi, Coef)
+      implicit none
+      real(kind=RP), intent(in)                 :: A(:,:), Phi(:,:)
+      real(kind=RP), allocatable, intent(inout) :: Coef(:,:)
+      !-local-variables--------------------------------------------------
+      real(kind=RP), allocatable                :: A_inv(:,:),A_copy(:,:)
 
+      A_copy = A
+      A_inv = inverse(A)    
 
+      Coef = matmul(A_inv, Phi)
 
-end subroutine STL_FSIBuildTPSCoeffMatrix
-
-subroutine STL_FSIGetModePhi(this)
-   implicit none
-   class(STLfile), intent(inout)   :: this
-   !-local-variables--------------------------------------------------
-
-end subroutine STL_FSIGetModePhi
-
-subroutine FSICalculateModeQdQ( this )
-   implicit none
-   class(STLfile), intent(inout)   :: this
-   !-local-variables--------------------------------------------------
-   integer                         :: FSI_i
+      deallocate(A_inv)
    
-   if( .not. allocated(this%FSIModeQdQ) ) allocate( this%FSIModeQdQ(2,this% FSIModeDim))
+   end subroutine FSI_SolveTPSLinearSystem  
 
-   do FSI_i = 1, this% FSINumOfMode
-      this % FSIModeQdQ(1,FSI_i) = 0.0_RP
-      this % FSIModeQdQ(2,FSI_i) = 0.0_RP
-   end do 
+   subroutine STL_FSIBuildTPSCoeffMatrix(this)
+      implicit none
+      class(STLfile), intent(inout)   :: this
+      !-local-variables--------------------------------------------------
+      real(kind=RP) :: TPSPhi_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDim+1,this%FSINumOfMode), &
+                       TPSMatrix_K (this%FSINumOfControlPoint, this%FSINumOfControlPoint), &
+                       TPSMatrix_P(this%FSINumOfControlPoint, this%FSIModeDim+1), &
+                       TPSMatrix_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDim+1, this%FSINumOfControlPoint+this%FSIModeDim+1)
+      integer       :: nControl, mAdd, i, j
 
-   this % FSIModeQdQ(1,1) = 1.0_RP
-   this % FSIModeQdQ(2,1) = 2.0_RP
+      nControl = this%FSINumOfControlPoint
+      mAdd = this%FSIModeDim+1
 
-   print *, 'here, Calculate Mode Q & dQ with Mode1 Q=',this % FSIModeQdQ(1,1),', dQ=',this % FSIModeQdQ(2,1)
-   print *, 'here, Calculate Mode Q & dQ with Mode2 Q=',this % FSIModeQdQ(1,2),', dQ=',this % FSIModeQdQ(2,2)
-end subroutine FSICalculateModeQdQ
+      ! 1. Build TPS kernel matrix TPSMatrixK
+      do i=1, nControl
+         do j=1, nControl
+            TPSMatrix_K(i,j) = FSI_RadialBasisFunction(norm2(this%FSIModeX(i,:) - this%FSIModeX(j,:)))
+         end do
+      end do
+
+      ! 2. Build polynomial matrix P [1, x, y, ...]
+      TPSMatrix_P(:,1) = 1.0_RP 
+      TPSMatrix_P(:,2:mAdd) = this%FSIModeX 
+
+      ! 3. Assemble augmented matrix [K   P]
+      !                              [P^T 0]
+      TPSMatrix_Aaugmented(1:nControl, 1:nControl) = TPSMatrix_K
+      TPSMatrix_Aaugmented(1:nControl, nControl+1:nControl+mAdd) = TPSMatrix_P
+      TPSMatrix_Aaugmented(nControl+1:nControl+mAdd, 1:nControl) = transpose(TPSMatrix_P)
+      TPSMatrix_Aaugmented(nControl+1:nControl+mAdd, nControl+1:nControl+mAdd) = 0.0_RP 
+
+      TPSPhi_Aaugmented(1:nControl,:) = this%FSIModePhi
+      TPSPhi_Aaugmented(nControl+1:nControl+mAdd,:) = 0.0_RP 
+
+      ! 4. Solve for TPS coefficients 
+      call FSI_SolveTPSLinearSystem(TPSMatrix_Aaugmented, TPSPhi_Aaugmented, this%FSITPS_Coef)
+
+   end subroutine STL_FSIBuildTPSCoeffMatrix
+
+   subroutine STL_FSIGetModePhi(this, pointX_Dimensionless, pointX_ModePhi)
+      implicit none
+      class(STLfile), intent(in)    :: this
+      real(kind=RP),  intent(in)    :: pointX_Dimensionless(NDIM)
+      real(kind=RP),  intent(inout) :: pointX_ModePhi(:)
+  
+      !-local-variables--------------------------------------------------
+      integer                    :: i, nControl, mAdd
+      real(kind=RP), allocatable :: TPSVector(:), RadialPart(:)
+      real(kind=RP)              :: pointX_Dimension(NDIM)
+  
+      pointX_Dimension = pointX_Dimensionless * this % FSILengthScale
+      
+      nControl = this%FSINumOfControlPoint       
+      mAdd = this%FSIModeDim + 1                 
+  
+      ! Construct TPS vector: TPSVector = [radial basis term; polynomial term]
+      allocate(TPSVector(nControl + mAdd), RadialPart(nControl))
+      
+      do i = 1,nControl
+         RadialPart(i) = FSI_RadialBasisFunction( norm2(pointX_Dimension(1:this%FSIModeDim) - this%FSIModeX(i,:)) )
+      end do
+  
+      TPSVector(:) = [RadialPart, 1.0_RP, pointX_Dimension(1:this%FSIModeDim)]
+  
+      ! Cross product calculation: the value of each mode = TPSVector · FSITPS_Coef(:, mode)
+      pointX_ModePhi(:) = matmul(TPSVector, this%FSITPS_Coef)
+  
+      deallocate(TPSVector, RadialPart)
+   end subroutine STL_FSIGetModePhi
+  
+
+   subroutine STL_FSICalculateModeQdQ( this )
+      implicit none
+      class(STLfile), intent(inout)   :: this
+      !-local-variables--------------------------------------------------
+      integer                         :: FSI_i
+   
+      if( .not. allocated(this%FSIModeQdQ) ) allocate( this%FSIModeQdQ(2,this% FSIModeDim))
+
+      do FSI_i = 1, this% FSINumOfMode
+         this % FSIModeQdQ(1,FSI_i) = 0.0_RP
+         this % FSIModeQdQ(2,FSI_i) = 0.0_RP
+      end do 
+
+      this % FSIModeQdQ(1,1) = 1.0_RP
+      this % FSIModeQdQ(2,1) = 2.0_RP
+
+      print *, 'here, Calculate Mode Q & dQ with Mode1 Q=',this % FSIModeQdQ(1,1),', dQ=',this % FSIModeQdQ(2,1)
+      print *, 'here, Calculate Mode Q & dQ with Mode2 Q=',this % FSIModeQdQ(1,2),', dQ=',this % FSIModeQdQ(2,2)
+   end subroutine STL_FSICalculateModeQdQ
 
 
 end module TessellationTypes
