@@ -751,18 +751,18 @@ jobs:
         if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
 #
-# 31) Actuator Line (AL) average formulation
+# 31) Actuator Line (AL) Interpolation formulation
 # --------------------------------------------
 
       - name: Build AL_average
-        working-directory: ./Solver/test/NavierStokes/ActuatorLineAverage/SETUP
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
         if: '!cancelled()'
 
       - name: Run AL_average
-        working-directory: ./Solver/test/NavierStokes/ActuatorLineAverage
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineInterpolation
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Actuator.control

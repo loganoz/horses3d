@@ -272,14 +272,14 @@ jobs:
 # -------------------------------
 
       - name: Build Mu-AL
-        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage/SETUP
+        working-directory: ./Solver/test/Multiphase/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
       - name: Run Mu-AL
-        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage
+        working-directory: ./Solver/test/Multiphase/ActuatorLineInterpolation
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu Actuator.control
@@ -435,14 +435,14 @@ jobs:
 # -------------------------------
 
       - name: Build iNS-AL
-        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineAverage/SETUP
+        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
       - name: Run iNS-AL
-        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineAverage
+        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineInterpolation
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins Actuator.control
