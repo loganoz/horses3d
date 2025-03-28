@@ -115,7 +115,7 @@ module IBMClass
          procedure :: constructImagePoint                 => IBM_constructImagePoint
          procedure :: updateImagePoint                    => IBM_updateImagePoint
          procedure :: RelaxingSourceTerm                  => IBM_RelaxingSourceTerm
-         procedure :: FSIMoveBody                         => IBM_FSIMoveBody
+         procedure :: FSIGetPointForce                    => IBM_FSIGetPointForce
    end type
 
    public :: expCoeff, EXPONENTIAL, GetPointState, GetPointGrads
@@ -1474,7 +1474,7 @@ module IBMClass
 !  ------------------------------------------------------------
 !  Moving bodies
 !  ------------------------------------------------------------
-   subroutine IBM_MoveBody( this, elements, faces, MPIfaces, no_of_DoFs, isChild, t, iter, autosave )
+   subroutine IBM_MoveBody( this, elements, faces, MPIfaces, no_of_DoFs, isChild, dt, iter, autosave )
       use MPI_Process_Info
       use FluidData
       use MPI_Face_Class
@@ -1486,34 +1486,84 @@ module IBMClass
       type(MPI_FacesSet_t),      intent(inout) :: MPIfaces
       integer,                   intent(in)    :: no_of_DoFs
       logical,                   intent(in)    :: isChild
-      real(kind=RP),             intent(in)    :: t
+      real(kind=RP),             intent(in)    :: dt
       integer,         optional, intent(in)    :: iter
       logical,         optional, intent(in)    :: autosave
       !-local-variables-----------------------------------------------------------
       integer       :: i, domains, NumOfObjs, j, STLNum
       real(kind=RP) :: cL, cD 
 
-      this% dt = t - this% t 
+      this% dt = dt 
+      this% t = this% t + dt
 
+      ! ---------------------------------------------
+      !          Cycle for IBM Move
+      ! ---------------------------------------------
       if( any(this% stl(:)% move) ) this% MPIfixed = .false.
-      
+
       do STLNum = 1, this% NumOfSTL
 
          if( .not. this% stl(STLNum)% move ) cycle 
          
+         if( MPI_Process% isRoot) print *,'here moving stl with IBM move ...'
+         
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
          do i = 1, this% stl(STLNum)% NumOfObjs
+            
             do j = 1, NumOfVertices
 #if defined(NAVIERSTOKES)
-               call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords, t, this% dt, cL, cD )
+               call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords, this%t, this% dt, cL, cD )
 #endif 
             end do 
             call this% stl(STLNum)% updateNormals( this% stl(STLNum)% ObjectsList(i) )
             if( this% ComputeBandRegion ) then 
                do j = 1, NumOfIntegrationVertices
 #if defined(NAVIERSTOKES)
-                  call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, t, this% dt, cL, cD )
+                  call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, this%t, this% dt, cL, cD )
 #endif
+               end do 
+            end if 
+         end do
+         
+         call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB, .false.)
+
+         if( autosave ) call plotSTL( this% stl(STLNum), iter )
+
+         call OBB(STLNum)% GetGLobalVertices()
+         call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )
+         
+         this% plot              = autosave
+         this% plotKDtree        = .false.
+         this% stl(STLNum)% show = .false.
+         
+         call this% constructSTL_KDtree( STLNum )
+         
+         call this% build( elements, faces, MPIfaces, no_of_DoFs, STLNum, isChild, .true., iter )
+         
+      end do
+      ! ---------------------------------------------
+      !          Cycle for IBM FSI Move
+      ! ---------------------------------------------
+      if( any(this% stl(:)% FSImove) ) this% MPIfixed = .false.
+      do STLNum = 1, this% NumOfSTL
+
+         if( .not. this% stl(STLNum)% FSImove ) cycle 
+         
+         call this% FSIGetPointForce (elements, STLNum)
+         call this% stl(STLNum)% FSIStructuralMechanicsSolver (this% t, this% dt)
+         
+         if( MPI_Process% isRoot) print *,'Moving structural stl with FSI motion ...'
+
+         call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
+         do i = 1, this% stl(STLNum)% NumOfObjs
+            
+            do j = 1, NumOfVertices
+               call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords)
+            end do 
+            call this% stl(STLNum)% updateNormals( this% stl(STLNum)% ObjectsList(i) )
+            if( this% ComputeBandRegion ) then 
+               do j = 1, NumOfIntegrationVertices
+                  call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords)
                end do 
             end if 
          end do 
@@ -1533,9 +1583,7 @@ module IBMClass
          
          call this% build( elements, faces, MPIfaces, no_of_DoFs, STLNum, isChild, .true., iter )
          
-      end do 
-
-      this% t = t 
+      end do
 
    end subroutine IBM_MoveBody
 
@@ -2084,6 +2132,8 @@ module IBMClass
 #if defined(NAVIERSTOKES)
       if( this% stl(STLNum)% move ) then 
          call BCsIBM(STLNum)% bc% FlowStateMoving_IBM( Q, x, t, dt, cL, cD, Qsb )
+      else if (this% stl(STLNum)% FSImove) then
+         call this% stl(STLNum) % FSIGetIBMSource( Q, x, Qsb)
       else
          call BCsIBM(STLNum)% bc% FlowState_VPIBM( Q, x, Qsb ) 
       end if 
@@ -3557,77 +3607,41 @@ module IBMClass
    end subroutine TECtriangle_3points
 
 !  ------------------------------------------------------------
-!  Moving bodies with FSI motion
+!  Get the FSI Force on all STL Object IntegrationVertices
 !  ------------------------------------------------------------
-   subroutine IBM_FSIMoveBody( this, elements, faces, MPIfaces, no_of_DoFs, isChild, t, iter, autosave )
-      use MPI_Process_Info
-      use FluidData
-      use MPI_Face_Class
+   subroutine IBM_FSIGetPointForce( this, elements, STLNum)
+      use VariableConversion
+      use Physics
       implicit none
       !-arguments-----------------------------------------------------------------
       class(IBM_type),           intent(inout) :: this
       type(element),             intent(inout) :: elements(:)
-      type(face),                intent(inout) :: faces(:)
-      type(MPI_FacesSet_t),      intent(inout) :: MPIfaces
-      integer,                   intent(in)    :: no_of_DoFs
-      logical,                   intent(in)    :: isChild
-      real(kind=RP),             intent(in)    :: t
-      integer,         optional, intent(in)    :: iter
-      logical,         optional, intent(in)    :: autosave
-      !-local-variables-----------------------------------------------------------
-      integer                    :: i, domains, NumOfObjs, j, STLNum
-      real(kind=RP)              :: cL, cD
+      integer,                   intent(in)    :: STLNum
+      !-local-variables---------------------------------------------------------------------------
+      integer            :: i, j
+      real(kind=RP)      :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS)
+      real(kind=RP)      :: P, tau(NDIM,NDIM), viscStress(NDIM)
 
-      this% dt = t - this% t 
-
-      if( any(this% stl(:)% FSImove) ) this% MPIfixed = .false.
-      
-      do STLNum = 1, this% NumOfSTL
-
-         if( .not. this% stl(STLNum)% FSImove ) cycle 
-
-         call this% stl(STLNum)% FSICalculateModeQdQ ()
-
-         print *, 'here, IBM_FSIMoveBody: FSImove=true, STLNum=',STLNum
-         
-         call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
-         do i = 1, this% stl(STLNum)% NumOfObjs
-            do j = 1, NumOfVertices
 #if defined(NAVIERSTOKES)
-               ! this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) = this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) + 0.1_RP
-               ! call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords, t, this% dt, cL, cD )
-#endif 
-            end do 
-            call this% stl(STLNum)% updateNormals( this% stl(STLNum)% ObjectsList(i) )
-            if( this% ComputeBandRegion ) then 
-               do j = 1, NumOfIntegrationVertices
-#if defined(NAVIERSTOKES)
-                  ! this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) = this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords(2) + 0.1_RP
-                  ! call BCsIBM(STLNum)% bc% PositionMoving_IBM( this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords, t, this% dt, cL, cD )
-#endif
-               end do 
-            end if 
+      call BandPointsState( this% BandRegion(STLNum), elements, NCONS, this% HO_IBM, this% zoneMask(STLNum), this% STL(STLNum) )
+
+      do i = 1, this% stl(STLNum)% NumOfObjs
+         associate( obj =>  this% stl(STLNum)% ObjectsList(i) )
+         do j = 1, NumOfIntegrationVertices
+            call this% GetPointInterpolation( obj% IntegrationVertices(j), this% BandRegion(STLnum)% IBMmask )       
+            call GetPointState( NCONS, obj% IntegrationVertices(j), this% BandRegion(STLnum)% IBMmask, this% NumOfInterPoints, this% InterpolationType, Q )
+            call GetPointGrads( NCONS, obj% IntegrationVertices(j), this% BandRegion(STLnum)% IBMmask, this% NumOfInterPoints, this% InterpolationType, U_x, U_y, U_z )
+            
+            P = pressure(Q)
+            call getStressTensor(Q, U_x, U_y, U_z, tau)
+            viscStress = matmul(tau,obj% normal)
+
+            obj% IntegrationVertices(j)% FSIPointForce = -P * obj% normal + viscStress
+
          end do 
-         
-         call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB, .false.)
-
-         if( autosave ) call plotSTL( this% stl(STLNum), iter )
-
-         call OBB(STLNum)% GetGLobalVertices()
-         call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )
-         
-         this% plot              = autosave
-         this% plotKDtree        = .false.
-         this% stl(STLNum)% show = .false.
-         
-         call this% constructSTL_KDtree( STLNum )
-         
-         call this% build( elements, faces, MPIfaces, no_of_DoFs, STLNum, isChild, .true., iter )
-         
-      end do 
-
-      this% t = t 
-
-   end subroutine IBM_FSIMoveBody
+         end associate
+      end do
+#endif 
+   end subroutine IBM_FSIGetPointForce
 
 end module IBMClass

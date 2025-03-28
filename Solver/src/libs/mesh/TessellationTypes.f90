@@ -7,6 +7,9 @@ module TessellationTypes
    use ParamfileRegions                , only: readValueInRegion
    use PhysicsStorage
    use DenseMatUtilities
+#ifdef _HAS_MPI_
+   use mpi
+#endif
 
    implicit none
 
@@ -41,8 +44,8 @@ module TessellationTypes
    
       class(point_type), pointer :: next => null(), prev => null()
       
-      real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi, VectorValue
-      real(kind=rp)                  :: theta, dist, Rank, ScalarValue, xiB, xiI
+      real(kind=RP), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi, VectorValue
+      real(kind=RP)                  :: theta, dist, Rank, ScalarValue, xiB, xiI
       integer                        :: index, element_index, NumOfIntersections = 0, &
                                         Translate = 0, partition, objIndex, isForcingPoint, &
                                         STLNum, element_in, faceID, domain = 0, N
@@ -52,6 +55,8 @@ module TessellationTypes
       real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:)
       real(kind=RP)                  :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS)
       integer,       allocatable     :: domains(:), indeces(:)  !interPoint, index, domain
+      real(kind=RP), dimension(NDIM) :: FSIPointForce
+      real(kind=RP), allocatable     :: FSIPointModePhi(:)
 
       contains
          procedure :: copy => point_type_copy
@@ -113,19 +118,22 @@ module TessellationTypes
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
       logical                                      :: FSImove
-      integer                                      :: FSINumOfMode, FSIModeDim, FSInumOfControlPoint
-      real(kind=RP), allocatable                   :: FSIModefrequency(:),FSIModedampingRatio(:), &
-                                                      FSIModeX(:,:), &    ![numOfControlPoint,FSIModeDim]
-                                                      FSIModePhi(:,:), &  ![numOfControlPoint, numOfMode]
-                                                      FSITPS_Coef(:,:), & ![1+FSIModeDim+numOfControlPoint, numOfMode]
-                                                      FSIModeQdQ(:,:)     ![2=[Q;dQ],numOfMode]
-      real(kind=RP)                                :: FSILengthScale
+      integer                                      :: FSINumOfMode, FSIModeDIM, FSInumOfControlPoint
+      real(kind=RP), allocatable                   :: FSIModefrequency_dimHz(:),FSIModedampingRatio(:), &
+                                                      FSIModeX_dimM(:,:), &   ![numOfControlPoint,FSIModeDIM]
+                                                      FSIModePhi(:,:), &      ![numOfControlPoint, numOfMode]
+                                                      FSITPS_Coef(:,:), &     ![1+FSIModeDIM+numOfControlPoint, numOfMode]
+                                                      FSIModeGeneralizedForce_dimN(:), &        ![numOfMode]
+                                                      FSIModeGeneralizedDisplacement_dimM(:), & ![numOfMode]
+                                                      FSIModeGeneralizedVelocity_dimMS(:)       ![numOfMode]
+      real(kind=RP)                                :: FSITime, &
+                                                      FSIModeDirection(NDIM), &
+                                                      FSILengthScale_dimM, FSIRho_dimKgM3, FSIUinlet_dimMS
       character(LINE_LENGTH)                       :: FSIModefilename
+      real(kind=RP)                                :: FSI_UserDefineRigidPart_dimM = 0.0_RP! need to define in the future
       
-       contains
+      contains
          procedure :: ReadTessellation
-         procedure :: FSIReadModefile        => STLfile_FSIReadModefile
-         procedure :: FSICalculateModeQdQ    => STL_FSICalculateModeQdQ
          procedure :: GetInfo                => STLfile_GetInfo
          procedure :: Clip                   => STL_Clip
          procedure :: updateNormals          => STL_updateNormals
@@ -138,8 +146,14 @@ module TessellationTypes
          procedure :: plot                   => STLfile_plot
          procedure :: SetIntegrationPoints   => STL_SetIntegrationPoints
          procedure :: ResetIntegrationPoints => STL_ResetIntegrationPoints
-         procedure :: FSIBuildTPSCoeffMatrix => STL_FSIBuildTPSCoeffMatrix
-         procedure :: FSIGetModePhi          => STL_FSIGetModePhi
+         procedure :: FSIReadModefile                     => STLfile_FSIReadModefile
+         procedure :: FSIBuildTPSCoeffMatrix              => STL_FSIBuildTPSCoeffMatrix
+         procedure :: FSIGetPointModePhi                  => STL_FSIGetPointModePhi
+         procedure :: FSIGetGeneralizedForce              => STL_FSIGetGeneralizedForce
+         procedure :: FSIStructuralInitialization         => STL_FSIStructuralInitialization 
+         procedure :: FSIStructuralMechanicsSolver        => STL_FSIStructuralMechanicsSolver
+         procedure :: FSIUpdatePosition                   => STL_FSIUpdatePosition
+         procedure :: FSIGetIBMSource                     => STL_FSIGetIBMSource
    end type
    
    type ObjsDataLinkedList_t
@@ -752,22 +766,29 @@ module TessellationTypes
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "Moving: " , this% move
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSImove: " , this% FSImove
 
-         if ( this% FSImove ) then
-            write(STD_OUT,'(30X,A,A35,I10)') "->", "FSIModeDim: ", this% FSIModeDim
-            write(STD_OUT,'(30X,A,A35,I10)') "->", "FSINumOfMode: ", this% FSINumOfMode
-            do FSI_i = 1, this% FSINumOfMode
-              write(STD_OUT,'(30X,A,A32,I0,A,F10.2)') "->", "FSIModedampingRatio", FSI_i, ": ", this% FSIModedampingRatio(FSI_i)
-              write(STD_OUT,'(30X,A,A32,I0,A,F10.6)') "->", "FSIModefrequency", FSI_i, ": ", this% FSIModefrequency(FSI_i)
-            end do
-            write(STD_OUT,'(30X,A,A35,A)') "->", "FSIModefilename: ", trim(this% FSIModefilename)
-            write(STD_OUT,'(30X,A,A35,F10.6)') "->", "FSILengthScale: ", this% FSILengthScale
-         end if
-
          if ( (.not. this% move) .and. (.not. this% FSImove) ) write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "BF correction: " , this% BFcorrection
          if( this% read ) then 
             write(STD_OUT,'(30X,A,A35,A)') "->" , "Mask file: " , this% maskName
          end if 
+
+         if ( this% FSImove ) then
+            write(STD_OUT,'(/)')
+            call SubSection_Header("FSI: Reading structural mode")
+
+            write(STD_OUT, '(30X,A,A35,A,3F6.2,A)') "->", "FSIModeDirection: ","[", this% FSIModeDirection,"]"
+            write(STD_OUT,'(30X,A,A35,I10)') "->", "FSIModeDIM: ", this% FSIModeDIM
+            write(STD_OUT,'(30X,A,A35,I10)') "->", "FSINumOfMode: ", this% FSINumOfMode
+            do FSI_i = 1, this% FSINumOfMode
+              write(STD_OUT,'(30X,A,A32,I0,A,F10.3)') "->", "FSIModedampingRatio", FSI_i, ": ", this% FSIModedampingRatio(FSI_i)
+              write(STD_OUT,'(30X,A,A32,I0,A,F10.6,A3)') "->", "FSIModefrequency", FSI_i, ": ", this% FSIModefrequency_dimHz(FSI_i), "Hz"
+            end do
+            write(STD_OUT,'(30X,A,A35,A)') "->", "FSIModefilename: ", trim(this% FSIModefilename)
+            write(STD_OUT,'(30X,A,A35,F10.6,A2)') "->", "FSILengthScale: ", this% FSILengthScale_dimM, "m"
+            write(STD_OUT,'(30X,A,A35,F10.6,A7)') "->", "FSIRho: ", this% FSIRho_dimKgM3, "kg/m^3"
+            write(STD_OUT,'(30X,A,A35,F10.6,A4)') "->", "FSIUinlet: ", this% FSIUinlet_dimMS, "m/s"
+            write(STD_OUT,'(30X,A,A34,A6,F3.1,A2)') "->", "User Defined Rigid Part:"," x <= ",this%FSI_UserDefineRigidPart_dimM,"m"
+         end if
       end if
    
    end subroutine Describe_STLfile
@@ -899,13 +920,23 @@ module TessellationTypes
 !          6
       do i = 1, this% NumOfObjs 
          associate(obj => this% ObjectsList(i))
-         if( .not. allocated(obj% IntegrationVertices) ) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
-         obj% IntegrationVertices(NumOfIntegrationVertices)% coords = 0.0_RP 
+         
          do j = 1, NumOfVertices
-            obj% IntegrationVertices(j)% coords                        = obj% vertices(j)% coords
-            ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords + &
-            !                                                              obj% vertices(j)% coords
-         end do 
+            call this % FSIGetPointModePhi(obj% vertices(j)% coords, obj% vertices(j)% FSIPointModePhi) 
+         end do
+
+         if( .not. allocated(obj% IntegrationVertices) ) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
+         do j = 1, NumOfIntegrationVertices
+            obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
+            call this % FSIGetPointModePhi(obj% IntegrationVertices(j)% coords, obj% IntegrationVertices(j)% FSIPointModePhi) 
+         end do
+
+         ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = 0.0_RP 
+         ! do j = 1, NumOfVertices
+         !    obj% IntegrationVertices(j)% coords                        = obj% vertices(j)% coords
+         !    ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords + &
+         !    !                                                              obj% vertices(j)% coords
+         ! end do 
          ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords/NumOfVertices
          ! indecesL = (/ 1, 2, 3 /)
          ! indecesR = (/ 2, 3, 1 /)
@@ -1109,17 +1140,35 @@ module TessellationTypes
       this% FSImove  = logval
 
       if (this% FSImove) then
-         if ( .not. bcdict % ContainsKey("fsimodedim") ) then
+         if ( .not. bcdict % ContainsKey("fsimodedirection") ) then
             if( MPI_Process% isRoot) then
-               error stop "[Error] FSIModeDim must be defined when FSImove=T"
+               error stop "[Error] FSIModeDirection must be defined when FSImove=T"
             else
                error stop
             end if
          else
-            this % FSIModeDim = bcdict % integerValueForKey("fsimodedim")
-            if ( (this % FSIModeDim /= 1) .and. (this % FSIModeDim /= 2) ) then
+            keyval = bcdict % stringValueForKey("fsimodedirection",requestedLength = LINE_LENGTH)
+            this % FSIModeDirection = getRealArrayFromString(keyval)
+            if ( size(this % FSIModeDirection) .ne. 3) then
                if( MPI_Process% isRoot) then
-                  error stop "[Error] Invalid FSIModeDim should be 1 or 2"
+                  error stop "[Error] Incorrect direction for FSIModeDirection"
+               else
+                  error stop
+               end if
+            end if
+         end if
+
+         if ( .not. bcdict % ContainsKey("fsimodedim") ) then
+            if( MPI_Process% isRoot) then
+               error stop "[Error] FSIModeDIM must be defined when FSImove=T"
+            else
+               error stop
+            end if
+         else
+            this % FSIModeDIM = bcdict % integerValueForKey("fsimodedim")
+            if ( (this % FSIModeDIM /= 1) .and. (this % FSIModeDIM /= 2) ) then
+               if( MPI_Process% isRoot) then
+                  error stop "[Error] Invalid FSIModeDIM should be 1 or 2"
                else
                   error stop
                end if
@@ -1142,9 +1191,9 @@ module TessellationTypes
                end if
             end if
          end if
-     
+
          allocate(this% FSIModedampingRatio(this%FSINumOfMode))
-         allocate(this% FSIModefrequency(this%FSINumOfMode))
+         allocate(this% FSIModefrequency_dimHz(this%FSINumOfMode))
 
          do FSI_modeIndex = 1, this % FSINumOfMode
             ! Read damping ratio
@@ -1166,15 +1215,27 @@ module TessellationTypes
                   error stop
                end if
             else
-               this % FSIModefrequency(FSI_modeIndex) = &
+               this % FSIModefrequency_dimHz(FSI_modeIndex) = &
                           bcdict % realValueForKey(trim(FSI_modeKey))
             end if
          end do
 
          if ( .not. bcdict % ContainsKey("fsilengthscale") ) then
-            this % FSILengthScale = 1.0_RP
+            this % FSILengthScale_dimM = 1.0_RP
          else
-            this % FSILengthScale = bcdict % realValueForKey("fsilengthscale")
+            this % FSILengthScale_dimM = bcdict % realValueForKey("fsilengthscale")
+         end if
+
+         if ( .not. bcdict % ContainsKey("fsirho") ) then
+            this % FSIRho_dimKgM3 = 1.0_RP
+         else
+            this % FSIRho_dimKgM3 = bcdict % realValueForKey("fsirho")
+         end if
+
+         if ( .not. bcdict % ContainsKey("fsiuinlet") ) then
+            this % FSIUinlet_dimMS = 1.0_RP
+         else
+            this % FSIUinlet_dimMS = bcdict % realValueForKey("fsiuinlet")
          end if
 
          if ( .not. bcdict % ContainsKey("fsimodefilename") ) then
@@ -1188,12 +1249,9 @@ module TessellationTypes
                                       requestedLength = LINE_LENGTH)
             call this % FSIReadModefile()
             call this % FSIBuildTPSCoeffMatrix()
-
-            ! pointX_Dimensionless = reshape([3.8_RP, 100.0_RP, 13.0_RP],shape(pointX_Dimensionless))
-            ! call this % FSIGetModePhi(pointX_Dimensionless, pointX_ModePhi)
-            ! print* ,'here, pointX_Dimensionless = ',pointX_Dimensionless
-            ! print* ,'here, pointX_ModePhi = ',pointX_ModePhi
          end if
+
+         call this % FSIStructuralInitialization()
 
       end if
 
@@ -1717,21 +1775,21 @@ module TessellationTypes
       end do
       rewind(funit) 
             
-      allocate( this%FSIModeX(nLines,this% FSIModeDim), this%FSIModePhi(nLines, this%FSINumOfMode) )
+      allocate( this%FSIModeX_dimM(nLines,this% FSIModeDIM), this%FSIModePhi(nLines, this%FSINumOfMode) )
             
-      allocate( buffer(this% FSIModeDim+this%FSINumOfMode) )  ! column = FSIModeDim + nMode(Phi)
+      allocate( buffer(this% FSIModeDIM+this%FSINumOfMode) )  ! column = FSIModeDIM + nMode(Phi)
       do i = 1, nLines
          read(funit, *, iostat=io) buffer
          if (io /= 0) then
             if( MPI_Process% isRoot) print *, "Error reading line ", i, " in '", trim(this%FSIModefilename), "'"
             error stop
          end if
-         this%FSIModeX(i,:)    = buffer(1:this% FSIModeDim)  ! X
-         this%FSIModePhi(i,:)  = buffer(this% FSIModeDim+1:this%FSINumOfMode + 1)  !Phi
+         this%FSIModeX_dimM(i,:)    = buffer(1:this% FSIModeDIM)  ! X
+         this%FSIModePhi(i,:)  = buffer(this% FSIModeDIM+1:this%FSINumOfMode + 1)  !Phi
       end do
       deallocate(buffer)
       close(funit)
-      this % FSInumOfControlPoint = size(this%FSIModeX,1)
+      this % FSInumOfControlPoint = size(this%FSIModeX_dimM,1)
 
    end subroutine STLfile_FSIReadModefile
 
@@ -1766,25 +1824,25 @@ module TessellationTypes
       implicit none
       class(STLfile), intent(inout)   :: this
       !-local-variables--------------------------------------------------
-      real(kind=RP) :: TPSPhi_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDim+1,this%FSINumOfMode), &
+      real(kind=RP) :: TPSPhi_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDIM+1,this%FSINumOfMode), &
                        TPSMatrix_K (this%FSINumOfControlPoint, this%FSINumOfControlPoint), &
-                       TPSMatrix_P(this%FSINumOfControlPoint, this%FSIModeDim+1), &
-                       TPSMatrix_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDim+1, this%FSINumOfControlPoint+this%FSIModeDim+1)
+                       TPSMatrix_P(this%FSINumOfControlPoint, this%FSIModeDIM+1), &
+                       TPSMatrix_Aaugmented(this%FSINumOfControlPoint+this%FSIModeDIM+1, this%FSINumOfControlPoint+this%FSIModeDIM+1)
       integer       :: nControl, mAdd, i, j
 
       nControl = this%FSINumOfControlPoint
-      mAdd = this%FSIModeDim+1
+      mAdd = this%FSIModeDIM+1
 
       ! 1. Build TPS kernel matrix TPSMatrixK
       do i=1, nControl
          do j=1, nControl
-            TPSMatrix_K(i,j) = FSI_RadialBasisFunction(norm2(this%FSIModeX(i,:) - this%FSIModeX(j,:)))
+            TPSMatrix_K(i,j) = FSI_RadialBasisFunction(norm2(this%FSIModeX_dimM(i,:) - this%FSIModeX_dimM(j,:)))
          end do
       end do
 
       ! 2. Build polynomial matrix P [1, x, y, ...]
       TPSMatrix_P(:,1) = 1.0_RP 
-      TPSMatrix_P(:,2:mAdd) = this%FSIModeX 
+      TPSMatrix_P(:,2:mAdd) = this%FSIModeX_dimM 
 
       ! 3. Assemble augmented matrix [K   P]
       !                              [P^T 0]
@@ -1801,57 +1859,237 @@ module TessellationTypes
 
    end subroutine STL_FSIBuildTPSCoeffMatrix
 
-   subroutine STL_FSIGetModePhi(this, pointX_Dimensionless, pointX_ModePhi)
+   subroutine STL_FSIGetPointModePhi(this, pointX_Dimensionless, pointX_ModePhi)
       implicit none
       class(STLfile), intent(in)    :: this
       real(kind=RP),  intent(in)    :: pointX_Dimensionless(NDIM)
-      real(kind=RP),  intent(inout) :: pointX_ModePhi(:)
+      real(kind=RP),  allocatable, intent(inout) :: pointX_ModePhi(:)
   
       !-local-variables--------------------------------------------------
       integer                    :: i, nControl, mAdd
       real(kind=RP), allocatable :: TPSVector(:), RadialPart(:)
-      real(kind=RP)              :: pointX_Dimension(NDIM)
-  
-      pointX_Dimension = pointX_Dimensionless * this % FSILengthScale
-      
+      real(kind=RP)              :: pointX_dimM(NDIM)
+
+      pointX_dimM = pointX_Dimensionless * this % FSILengthScale_dimM
+      allocate(pointX_ModePhi(this%FSINumOfMode))
+
+      ! to define rigid part of structure: set ModePhi = 0
+      ! this % FSI_UserDefineRigidPart_dimM = 0.0_RP ! simplest here, but need to define in the future
+      if (pointX_dimM(1) <= this % FSI_UserDefineRigidPart_dimM) then
+         pointX_ModePhi(:) = 0.0_RP
+         return
+      end if
+
       nControl = this%FSINumOfControlPoint       
-      mAdd = this%FSIModeDim + 1                 
-  
+      mAdd = this%FSIModeDIM + 1                 
+      
       ! Construct TPS vector: TPSVector = [radial basis term; polynomial term]
       allocate(TPSVector(nControl + mAdd), RadialPart(nControl))
       
       do i = 1,nControl
-         RadialPart(i) = FSI_RadialBasisFunction( norm2(pointX_Dimension(1:this%FSIModeDim) - this%FSIModeX(i,:)) )
+         RadialPart(i) = FSI_RadialBasisFunction( norm2(pointX_dimM(1:this%FSIModeDIM) - this%FSIModeX_dimM(i,:)) )
       end do
   
-      TPSVector(:) = [RadialPart, 1.0_RP, pointX_Dimension(1:this%FSIModeDim)]
+      TPSVector(:) = [RadialPart, 1.0_RP, pointX_dimM(1:this%FSIModeDIM)]
   
       ! Cross product calculation: the value of each mode = TPSVector · FSITPS_Coef(:, mode)
       pointX_ModePhi(:) = matmul(TPSVector, this%FSITPS_Coef)
   
       deallocate(TPSVector, RadialPart)
-   end subroutine STL_FSIGetModePhi
-  
+   end subroutine STL_FSIGetPointModePhi
 
-   subroutine STL_FSICalculateModeQdQ( this )
+   subroutine STL_FSIGetGeneralizedForce(this)
+      use MPI_Process_Info
+      implicit none
+      class(STLfile), intent(inout)    :: this
+      !-local-variables--------------------------------------------------
+      integer                          :: FSI_i, i, j
+      real(kind=RP)                    :: tmpPointForce(NDIM), &
+                                          tmpPointModePhi
+      real(kind=RP)                    :: tmpGeneralizedForce
+#ifdef _HAS_MPI_
+      real(kind=RP) :: localval
+      integer       :: ierr 
+#endif 
+
+      if( .not. allocated(this % FSIModeGeneralizedForce_dimN) ) &
+                allocate (this % FSIModeGeneralizedForce_dimN(this% FSINumOfMode))
+      this % FSIModeGeneralizedForce_dimN(:) = 0.0_RP
+
+      do FSI_i = 1, this%FSINumOfMode
+         do i = 1, this% NumOfObjs
+            associate( obj =>  this% ObjectsList(i) )
+            do j = 1, NumOfIntegrationVertices
+               tmpPointForce = obj% IntegrationVertices(j)% FSIPointForce
+               tmpPointModePhi = obj% IntegrationVertices(j)% FSIPointModePhi(FSI_i)
+            
+               obj % IntegrationVertices(j) % ScalarValue &
+                  = dot_product(tmpPointForce, this % FSIModeDirection) &
+                  * tmpPointModePhi
+
+            end do
+            end associate
+         end do
+
+         tmpGeneralizedForce = this % ComputeScalarIntegral()
+#ifdef _HAS_MPI_
+         localval = tmpGeneralizedForce
+         call mpi_allreduce(localval, tmpGeneralizedForce, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+
+         this % FSIModeGeneralizedForce_dimN(FSI_i) = tmpGeneralizedForce &
+            *  this % FSIRho_dimKgM3 &
+            * (this % FSIUinlet_dimMS ** 2) &
+            * (this % FSILengthScale_dimM ** 2)
+      
+      end do 
+        
+   end subroutine STL_FSIGetGeneralizedForce
+
+   function FSICalculateGeneralizedDisplacement( dt, GeneralizedQLast, omega, dampingRatio, GeneralizedForce ) result( GeneralizedQ )
+      implicit none
+      real(kind=RP),  intent(in)    :: dt, GeneralizedQLast(2), omega, dampingRatio, GeneralizedForce
+      real(kind=RP)                 :: GeneralizedQ(2)
+      real(kind=RP)                 :: matA(2,2), matB(2)
+      real(kind=RP)                 :: k1(2), k2(2), k3(2), k4(2)
+
+      ! Define the system matrices
+      matA = reshape([0.0_RP, -omega**2, 1.0_RP, -2.0_RP*dampingRatio*omega], shape(matA))
+      matB = [0.0_RP, GeneralizedForce]
+      
+      !------------------------------------------------------------------------
+      ! Runge Kutta 4 Method to Solve Equation:
+      !          dQ = AQ+B
+      ! Detailed: for each structural mode
+      !       d[ Q] = [       0              1][ Q] + [       0]
+      !       d[dQ] = [-omega^2 -2*ratio*omega][dQ] + [GenForce]
+      !------------------------------------------------------------------------
+      ! k1 = matA * GeneralizedQLast + matB
+      k1 = matmul(matA, GeneralizedQLast) + matB
+      
+      ! Calculate k2 = matA * (GeneralizedQLast + dt/2 * k1) + matB
+      k2 = matmul(matA, (GeneralizedQLast + dt/2.0_RP * k1)) + matB
+      
+      ! Calculate k3 = matA * (GeneralizedQLast + dt/2 * k2) + matB
+      k3 = matmul(matA, (GeneralizedQLast + dt/2.0_RP * k2)) + matB
+      
+      ! Calculate k4 = matA * (GeneralizedQLast + dt * k3) + matB
+      k4 = matmul(matA, (GeneralizedQLast + dt * k3)) + matB
+      
+      ! GeneralizedQ = GeneralizedQLast + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+      GeneralizedQ = GeneralizedQLast + dt/6.0_RP * (k1 + 2.0_RP*k2 + 2.0_RP*k3 + k4)
+
+   end function FSICalculateGeneralizedDisplacement
+  
+   ! -----------------------------------------------------------------------
+   !  Initialized FSI Mode Generalized Displacement and Generalized Velocity
+   !  simplest here, but need to complete in the future
+   !  especial for restart case
+   ! -----------------------------------------------------------------------
+   subroutine STL_FSIStructuralInitialization (this)
       implicit none
       class(STLfile), intent(inout)   :: this
+      
+      if( MPI_Process% isRoot) print *, 'FSIStructuralInitialization ...'
+      
+      allocate (this % FSIModeGeneralizedDisplacement_dimM(this% FSINumOfMode))
+      this % FSIModeGeneralizedDisplacement_dimM(:) = 0.0_RP
+      
+      allocate (this % FSIModeGeneralizedVelocity_dimMS(this% FSINumOfMode))
+      this % FSIModeGeneralizedVelocity_dimMS(:) = 0.0_RP
+
+   end subroutine STL_FSIStructuralInitialization
+
+   subroutine STL_FSIStructuralMechanicsSolver( this, time, dt )
+      implicit none
+      class(STLfile), intent(inout)   :: this
+      real(kind=RP),  intent(in)      :: time, dt
       !-local-variables--------------------------------------------------
       integer                         :: FSI_i
-   
-      if( .not. allocated(this%FSIModeQdQ) ) allocate( this%FSIModeQdQ(2,this% FSIModeDim))
+      real(kind=RP)                   :: FSI_dt_dimS, &
+                                         FSI_omega_dim, FSI_dampingRatio, FSI_GeneralizedForce_dimN, &
+                                         FSI_GeneralizedQLast_dim(2), FSI_GeneralizedQ_dim(2)
 
-      do FSI_i = 1, this% FSINumOfMode
-         this % FSIModeQdQ(1,FSI_i) = 0.0_RP
-         this % FSIModeQdQ(2,FSI_i) = 0.0_RP
-      end do 
+      if( MPI_Process% isRoot) print *,'Running FSIStructuralMechanicsSolver: Time = ', time 
+      this% FSITime = time
 
-      this % FSIModeQdQ(1,1) = 1.0_RP
-      this % FSIModeQdQ(2,1) = 2.0_RP
+      call this % FSIGetGeneralizedForce()
 
-      print *, 'here, Calculate Mode Q & dQ with Mode1 Q=',this % FSIModeQdQ(1,1),', dQ=',this % FSIModeQdQ(2,1)
-      print *, 'here, Calculate Mode Q & dQ with Mode2 Q=',this % FSIModeQdQ(1,2),', dQ=',this % FSIModeQdQ(2,2)
-   end subroutine STL_FSICalculateModeQdQ
+      do FSI_i = 1, this%FSINumOfMode
 
+         FSI_dt_dimS = dt * (this % FSILengthScale_dimM ) / (this % FSIUinlet_dimMS )
+
+         FSI_omega_dim = 2.0_RP * PI * this % FSIModefrequency_dimHz(FSI_i)
+         FSI_dampingRatio = this % FSIModedampingRatio(FSI_i)
+         FSI_GeneralizedForce_dimN = this % FSIModeGeneralizedForce_dimN(FSI_i)
+
+         FSI_GeneralizedQLast_dim(1) = this % FSIModeGeneralizedDisplacement_dimM(FSI_i)
+         FSI_GeneralizedQLast_dim(2) = this % FSIModeGeneralizedVelocity_dimMS(FSI_i)
+
+         FSI_GeneralizedQ_dim = FSICalculateGeneralizedDisplacement &
+                                 (  &
+                                    FSI_dt_dimS, FSI_GeneralizedQLast_dim, &
+                                    FSI_omega_dim,FSI_dampingRatio,FSI_GeneralizedForce_dimN &
+                                 )
+         
+         this % FSIModeGeneralizedDisplacement_dimM(FSI_i) = FSI_GeneralizedQ_dim(1)
+         this % FSIModeGeneralizedVelocity_dimMS(FSI_i) = FSI_GeneralizedQ_dim(2)
+
+      end do
+
+      if( MPI_Process% isRoot) print *, 'here, FSIModeGeneralizedForce_dimN = ', this % FSIModeGeneralizedForce_dimN
+      if( MPI_Process% isRoot) print *, 'here, FSIModeGeneralizedDisplacement_dimM = ', this % FSIModeGeneralizedDisplacement_dimM
+      if( MPI_Process% isRoot) print *, 'here, FSIModeGeneralizedVelocity_dimMS = ', this % FSIModeGeneralizedVelocity_dimMS
+
+   end subroutine STL_FSIStructuralMechanicsSolver
+
+   subroutine STL_FSIUpdatePosition(this, x)
+      implicit none
+      class(STLfile), intent(inout) :: this
+      real(kind=RP),  intent(inout) :: x(NDIM)
+      !-local-variables--------------------------------------------------
+      real(kind=RP)                 :: displacement_dimMS
+      real(kind=RP),  allocatable   :: pointX_ModePhi(:)
+
+      call this % FSIGetPointModePhi(x, pointX_ModePhi)
+
+      displacement_dimMS = dot_product(pointX_ModePhi, this % FSIModeGeneralizedDisplacement_dimM)      
+      
+      x(:) = x(:) + this % FSIModeDirection * displacement_dimMS / this % FSILengthScale_dimM
+
+      deallocate(pointX_ModePhi)
+
+   end subroutine STL_FSIUpdatePosition
+
+   subroutine STL_FSIGetIBMSource(this, Q, x, Qsb)
+      use VariableConversion
+      implicit none
+      class(STLfile), intent(inout) :: this
+      real(kind=RP),  intent(in)    :: Q(NCONS)
+      real(kind=RP),  intent(in)    :: x(NDIM)
+      real(kind=RP),  intent(inout) :: Qsb(NCONS)
+      !-local-variables--------------------------------------------------
+      real(kind=RP)                 :: V(NDIM), P, velocity_dimMS
+      real(kind=RP),  allocatable   :: pointX_ModePhi(:)
+
+      call this % FSIGetPointModePhi(x, pointX_ModePhi)
+
+      velocity_dimMS = dot_product(pointX_ModePhi, this % FSIModeGeneralizedVelocity_dimMS)
+
+      V(:) = this % FSIModeDirection * velocity_dimMS / this % FSIUinlet_dimMS
+      
+#if defined(NAVIERSTOKES)
+      associate(gammaMinus1 => thermodynamics% gammaMinus1 )
+
+      P                = pressure(Q)
+      Qsb(IRHO)        = Q(IRHO) 
+      Qsb(IRHOU:IRHOW) = Q(IRHO)*V
+      Qsb(IRHOE)       = P/gammaMinus1 + 0.5_RP * Q(IRHO) * sum(V*V)
+
+      end associate 
+#endif
+
+      deallocate(pointX_ModePhi)
+   end subroutine STL_FSIGetIBMSource
 
 end module TessellationTypes

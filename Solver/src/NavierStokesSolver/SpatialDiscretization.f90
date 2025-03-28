@@ -249,9 +249,8 @@ module SpatialDiscretization
             call mesh% IBM% MPI_GatherStancilState( NCONS, mesh % faces, time )  
          end if 
          
-         if( mesh% IBM% active ) then   
-            call mesh% IBM% MoveBody( mesh % elements, mesh % faces, mesh% MPIfaces, mesh % NDOF, mesh % child, time, mesh% IBM% iter, mesh% IBM% autosave )
-            call mesh% IBM% FSIMoveBody( mesh % elements, mesh % faces, mesh% MPIfaces, mesh % NDOF, mesh % child, time, mesh% IBM% iter, mesh% IBM% autosave )
+         if( mesh% IBM% active) then 
+            ! call mesh% IBM% MoveBody( mesh % elements, mesh % faces, mesh% MPIfaces, mesh % NDOF, mesh % child, time, mesh% IBM% iter, mesh% IBM% autosave )
             call mesh% IBM% updateImagePoint( NCONS, mesh % elements, mesh % NDOF )
          end if 
          
