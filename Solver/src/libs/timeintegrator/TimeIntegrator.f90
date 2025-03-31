@@ -515,6 +515,11 @@
 !     Check initial residuals
 !     -----------------------
       if( sem% mesh% IBM% active ) sem% mesh% IBM% t = t
+      call sem% mesh% IBM% MoveBody( &
+         sem% mesh % elements, sem% mesh % faces, sem% mesh% MPIfaces, &
+         sem% mesh % NDOF, sem% mesh % child, &
+         sem% mesh% IBM% iter, sem% mesh% IBM% autosave, &
+         dt=0.0_RP)
       if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )     
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
@@ -605,8 +610,8 @@
             sem % mesh% IBM% iter     = k+1
             call sem% mesh% IBM% MoveBody( &
                sem% mesh % elements, sem% mesh % faces, sem% mesh% MPIfaces, &
-               sem% mesh % NDOF, sem% mesh % child, dt, &
-               sem% mesh% IBM% iter, sem% mesh% IBM% autosave )
+               sem% mesh % NDOF, sem% mesh % child, &
+               sem% mesh% IBM% iter, sem% mesh% IBM% autosave, dt)
          end if
 !
 !        User defined periodic operation

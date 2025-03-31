@@ -55,7 +55,7 @@ module TessellationTypes
       real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:)
       real(kind=RP)                  :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS)
       integer,       allocatable     :: domains(:), indeces(:)  !interPoint, index, domain
-      real(kind=RP), dimension(NDIM) :: FSIPointForce
+      real(kind=RP), dimension(NDIM) :: FSIPointForce, FSIcoords_stl0
       real(kind=RP), allocatable     :: FSIPointModePhi(:)
 
       contains
@@ -154,6 +154,8 @@ module TessellationTypes
          procedure :: FSIStructuralMechanicsSolver        => STL_FSIStructuralMechanicsSolver
          procedure :: FSIUpdatePosition                   => STL_FSIUpdatePosition
          procedure :: FSIGetIBMSource                     => STL_FSIGetIBMSource
+         procedure :: FSIMonitorWrite                     => STL_FSIMonitorWrite
+         procedure :: FSIWriteOutputHeader                => STL_FSIWriteOutputHeader
    end type
    
    type ObjsDataLinkedList_t
@@ -886,7 +888,7 @@ module TessellationTypes
             min_x = min(min_x, vertex(1))
             min_y = min(min_y, vertex(2))
             min_z = min(min_z, vertex(3))
-            Objs(i)% vertices(j)% coords = vertex !/Lref -> always 1                                     
+            Objs(i)% vertices(j)% coords = vertex !/Lref -> always 1                      
          end do
          read(funit) padding
          Objs(i)% index = i
@@ -918,16 +920,22 @@ module TessellationTypes
 !      /   7    \
 !   1 *----*-----* 3
 !          6
+      ! -----------------------------------------------------------
+      ! Set IntegrationPoints for calculating force on body ib
+      ! Record stl vortex coords at t0 time.
+      ! -----------------------------------------------------------
       do i = 1, this% NumOfObjs 
          associate(obj => this% ObjectsList(i))
          
          do j = 1, NumOfVertices
+            obj% vertices(j)% FSIcoords_stl0 = obj% vertices(j)% coords
             call this % FSIGetPointModePhi(obj% vertices(j)% coords, obj% vertices(j)% FSIPointModePhi) 
          end do
 
          if( .not. allocated(obj% IntegrationVertices) ) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
          do j = 1, NumOfIntegrationVertices
             obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
+            obj% IntegrationVertices(j)% FSIcoords_stl0 = obj% IntegrationVertices(j)% coords
             call this % FSIGetPointModePhi(obj% IntegrationVertices(j)% coords, obj% IntegrationVertices(j)% FSIPointModePhi) 
          end do
 
@@ -1251,7 +1259,7 @@ module TessellationTypes
             call this % FSIBuildTPSCoeffMatrix()
          end if
 
-         call this % FSIStructuralInitialization()
+         ! call this % FSIStructuralInitialization()
 
       end if
 
@@ -1983,22 +1991,122 @@ module TessellationTypes
   
    ! -----------------------------------------------------------------------
    !  Initialized FSI Mode Generalized Displacement and Generalized Velocity
-   !  simplest here, but need to complete in the future
-   !  especial for restart case
+   !  Simplest initial var = 0 here.
+   !  Restart case: if output1 and output2 exit, the last line is read for initialization
    ! -----------------------------------------------------------------------
-   subroutine STL_FSIStructuralInitialization (this)
+   subroutine STL_FSIStructuralInitialization(this)
       implicit none
-      class(STLfile), intent(inout)   :: this
-      
-      if( MPI_Process% isRoot) print *, 'FSIStructuralInitialization ...'
-      
-      allocate (this % FSIModeGeneralizedDisplacement_dimM(this% FSINumOfMode))
-      this % FSIModeGeneralizedDisplacement_dimM(:) = 0.0_RP
-      
-      allocate (this % FSIModeGeneralizedVelocity_dimMS(this% FSINumOfMode))
-      this % FSIModeGeneralizedVelocity_dimMS(:) = 0.0_RP
-
+      class(STLfile), intent(inout) :: this
+      !-local-variables-------------------------------------------
+      logical :: disp_file_exists, vel_file_exists, found_header
+      integer :: fileUnit, io_stat
+      character(len=LINE_LENGTH) :: filename_disp, filename_vel, line, last_line
+      integer :: iter_temp, FSI_i
+      real(kind=RP) :: time_temp
+      real(kind=RP), allocatable :: buffer(:)
+  
+      allocate(this%FSIModeGeneralizedDisplacement_dimM(this%FSINumOfMode))
+      allocate(this%FSIModeGeneralizedVelocity_dimMS(this%FSINumOfMode))
+  
+      ! Initialized FSI Mode Generalized Displacement
+      filename_disp = "FSI/Output1_FSIModeGeneralizedDisplacement_dimM.dat"
+      inquire(file=trim(filename_disp), exist=disp_file_exists)
+  
+      if (disp_file_exists) then
+          open(newunit=fileUnit, file=trim(filename_disp), status='old', action='read')
+          last_line = ''
+          found_header = .false.
+  
+          ! Locate header rows (format: Iteration Time mode1 mode2...)
+          do
+              read(fileUnit, '(A)', iostat=io_stat) line
+              if (io_stat /= 0) exit
+              if (index(line, "Iteration") > 0 .and. index(line, "Time") > 0) then
+                  found_header = .true.
+                  exit
+              end if
+          end do
+  
+          if (found_header) then
+              ! Read all data rows, keeping the last valid row
+              do
+                  read(fileUnit, '(A)', iostat=io_stat) line
+                  if (io_stat /= 0) exit
+                  line = adjustl(line)
+                  if (len_trim(line) == 0) cycle  ! Skip blank line
+                  last_line = line                ! Stores the last non-empty line
+              end do
+          end if
+  
+          if (found_header .and. len_trim(last_line) > 0) then
+              allocate(buffer(this%FSINumOfMode + 2))
+              read(last_line, *, iostat=io_stat) iter_temp, time_temp, (buffer(FSI_i), FSI_i=3, this%FSINumOfMode+2)
+              if (io_stat == 0) then
+                  this%FSIModeGeneralizedDisplacement_dimM = buffer(3:this%FSINumOfMode+2)
+              else
+                  this%FSIModeGeneralizedDisplacement_dimM(:) = 0.0_RP
+              end if
+              deallocate(buffer)
+          else
+              this%FSIModeGeneralizedDisplacement_dimM(:) = 0.0_RP
+          end if
+          close(fileUnit)
+      else
+          this%FSIModeGeneralizedDisplacement_dimM(:) = 0.0_RP
+      end if
+  
+      ! Initialized FSI Mode Generalized Velocity
+      filename_vel = "FSI/Output2_FSIModeGeneralizedVelocity_dimMS.dat"
+      inquire(file=trim(filename_vel), exist=vel_file_exists)
+  
+      if (vel_file_exists) then
+          open(newunit=fileUnit, file=trim(filename_vel), status='old', action='read')
+          last_line = ''
+          found_header = .false.
+  
+          do
+              read(fileUnit, '(A)', iostat=io_stat) line
+              if (io_stat /= 0) exit
+              if (index(line, "Iteration") > 0 .and. index(line, "Time") > 0) then
+                  found_header = .true.
+                  exit
+              end if
+          end do
+  
+          if (found_header) then
+              do
+                  read(fileUnit, '(A)', iostat=io_stat) line
+                  if (io_stat /= 0) exit
+                  line = adjustl(line)
+                  if (len_trim(line) == 0) cycle
+                  last_line = line
+              end do
+          end if
+  
+          if (found_header .and. len_trim(last_line) > 0) then
+              allocate(buffer(this%FSINumOfMode + 2))
+              read(last_line, *, iostat=io_stat) iter_temp, time_temp, (buffer(FSI_i), FSI_i=3, this%FSINumOfMode+2)
+              if (io_stat == 0) then
+                  this%FSIModeGeneralizedVelocity_dimMS = buffer(3:this%FSINumOfMode+2)
+              else
+                  this%FSIModeGeneralizedVelocity_dimMS(:) = 0.0_RP
+              end if
+              deallocate(buffer)
+          else
+              this%FSIModeGeneralizedVelocity_dimMS(:) = 0.0_RP
+          end if
+          close(fileUnit)
+      else
+          this%FSIModeGeneralizedVelocity_dimMS(:) = 0.0_RP
+      end if
+  
+      if (MPI_Process%isRoot) then
+          print*, 'FSI Structural Initialization ...'
+          if (disp_file_exists) print*, '- Displacement loaded from: '//trim(filename_disp)
+          if (vel_file_exists)  print*, '- Velocity loaded from:     '//trim(filename_vel)
+      end if
    end subroutine STL_FSIStructuralInitialization
+  
 
    subroutine STL_FSIStructuralMechanicsSolver( this, time, dt )
       implicit none
@@ -2037,25 +2145,21 @@ module TessellationTypes
 
       end do
 
-      if( MPI_Process% isRoot) print *, 'here, FSIModeGeneralizedForce_dimN = ', this % FSIModeGeneralizedForce_dimN
-      if( MPI_Process% isRoot) print *, 'here, FSIModeGeneralizedDisplacement_dimM = ', this % FSIModeGeneralizedDisplacement_dimM
-      if( MPI_Process% isRoot) print *, 'here, FSIModeGeneralizedVelocity_dimMS = ', this % FSIModeGeneralizedVelocity_dimMS
-
    end subroutine STL_FSIStructuralMechanicsSolver
 
-   subroutine STL_FSIUpdatePosition(this, x)
+   subroutine STL_FSIUpdatePosition(this, pointVertex)
       implicit none
-      class(STLfile), intent(inout) :: this
-      real(kind=RP),  intent(inout) :: x(NDIM)
+      class(STLfile), intent(inout)  :: this
+      type(point_type),intent(inout) :: pointVertex
       !-local-variables--------------------------------------------------
-      real(kind=RP)                 :: displacement_dimMS
-      real(kind=RP),  allocatable   :: pointX_ModePhi(:)
+      real(kind=RP)                  :: displacement_dimMS
+      real(kind=RP),  allocatable    :: pointX_ModePhi(:)
 
-      call this % FSIGetPointModePhi(x, pointX_ModePhi)
+      call this % FSIGetPointModePhi(pointVertex % coords, pointX_ModePhi)
 
       displacement_dimMS = dot_product(pointX_ModePhi, this % FSIModeGeneralizedDisplacement_dimM)      
       
-      x(:) = x(:) + this % FSIModeDirection * displacement_dimMS / this % FSILengthScale_dimM
+      pointVertex % coords = pointVertex % FSIcoords_stl0 + this % FSIModeDirection * displacement_dimMS / this % FSILengthScale_dimM
 
       deallocate(pointX_ModePhi)
 
@@ -2091,5 +2195,84 @@ module TessellationTypes
 
       deallocate(pointX_ModePhi)
    end subroutine STL_FSIGetIBMSource
+
+   subroutine STL_FSIMonitorWrite(this, iter, time)
+      implicit none
+      class(STLfile), intent(inout) :: this
+      integer,        intent(in)    :: iter
+      real(kind=RP),  intent(in)    :: time
+      
+      integer :: FSI_i, unit
+      character(len=100) :: filename
+      logical :: header_written
+
+      ! Generalized Displacement
+      filename = "FSI/Output1_FSIModeGeneralizedDisplacement_dimM.dat"
+      inquire(file=filename, exist=header_written)
+      if (.not. header_written) then
+         open(newunit=unit, file=filename, status='replace', action='write')
+         call this % FSIWriteOutputHeader(unit, 'Generalized Displacement (m)')
+      end if
+      open(newunit=unit, file=filename, status='old', position='append', action='write')
+      write(unit, '(I10,2X,ES24.16)', advance = "no") iter, time
+      do FSI_i = 1, this%FSINumOfMode
+         write(unit, '(2X,ES24.16)', advance = "no") this%FSIModeGeneralizedDisplacement_dimM(FSI_i)
+      end do
+      write(unit, *)
+      close(unit)
+      
+      ! Generalized Velocity
+      filename = "FSI/Output2_FSIModeGeneralizedVelocity_dimMS.dat"
+      inquire(file=filename, exist=header_written)
+      if (.not. header_written) then
+         open(newunit=unit, file=filename, status='replace', action='write')
+         call this % FSIWriteOutputHeader(unit, 'Generalized Velocity (m/s)')
+      end if
+      open(newunit=unit, file=filename, status='old', position='append', action='write')
+      write(unit, '(I10,2X,ES24.16)', advance = "no") iter, time
+      do FSI_i = 1, this%FSINumOfMode
+         write(unit, '(2X,ES24.16)', advance = "no") this%FSIModeGeneralizedVelocity_dimMS(FSI_i)
+      end do
+      close(unit)
+
+      if (iter == 0) return 
+      
+      ! Generalized Force
+      filename = "FSI/Output3_FSIModeGeneralizedForce_dimN.dat"
+      inquire(file=filename, exist=header_written)
+      if (.not. header_written) then
+         open(newunit=unit, file=filename, status='replace', action='write')
+         call this % FSIWriteOutputHeader(unit, 'Generalized Force (N)')
+      end if
+      open(newunit=unit, file=filename, status='old', position='append', action='write')
+      write(unit, '(I10,2X,ES24.16)', advance = "no") iter, time
+      do FSI_i = 1, this%FSINumOfMode
+         write(unit, '(2X,ES24.16)', advance = "no") this%FSIModeGeneralizedForce_dimN(FSI_i)
+      end do
+      close(unit)
+      
+   end subroutine STL_FSIMonitorWrite
+  
+   subroutine STL_FSIWriteOutputHeader(this, unit, varName)
+      implicit none
+      class(STLfile),   intent(in) :: this
+      integer,          intent(in) :: unit
+      character(len=*), intent(in) :: varName
+      integer                      :: FSI_i
+      character(len=50)            :: mode_name
+      
+      write(unit, *) "Modal Approach for FSI"
+      write(unit,'(A,A20,I10)') "-","FSINumOfMode: ", this% FSINumOfMode
+      write(unit,'(A,A20,F10.6,A2)') "-","FSILengthScale: ", this% FSILengthScale_dimM, "m"
+      write(unit,'(A,A20,F10.6,A7)') "-","FSIRho: ", this% FSIRho_dimKgM3, "kg/m^3"
+      write(unit,'(A,A20,F10.6,A4)') "-","FSIUinlet: ", this% FSIUinlet_dimMS, "m/s"
+      write(unit, '(A,A20,A)') "-","Variable Type: ", trim(varName)
+      write(unit, *)
+      write(unit, ' ( A10, 3X, A10 ) ', advance = "no") "Iteration", "Time"
+      do FSI_i = 1, this%FSINumOfMode
+         write(mode_name, '(A,I0)') "mode", FSI_i
+         write(unit, '(3X, A10)', advance = "no") trim(mode_name)
+      end do
+   end subroutine STL_FSIWriteOutputHeader  
 
 end module TessellationTypes

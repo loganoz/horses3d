@@ -1474,7 +1474,7 @@ module IBMClass
 !  ------------------------------------------------------------
 !  Moving bodies
 !  ------------------------------------------------------------
-   subroutine IBM_MoveBody( this, elements, faces, MPIfaces, no_of_DoFs, isChild, dt, iter, autosave )
+   subroutine IBM_MoveBody( this, elements, faces, MPIfaces, no_of_DoFs, isChild, iter, autosave, dt )
       use MPI_Process_Info
       use FluidData
       use MPI_Face_Class
@@ -1486,9 +1486,9 @@ module IBMClass
       type(MPI_FacesSet_t),      intent(inout) :: MPIfaces
       integer,                   intent(in)    :: no_of_DoFs
       logical,                   intent(in)    :: isChild
-      real(kind=RP),             intent(in)    :: dt
       integer,         optional, intent(in)    :: iter
       logical,         optional, intent(in)    :: autosave
+      real(kind=RP),             intent(in)    :: dt
       !-local-variables-----------------------------------------------------------
       integer       :: i, domains, NumOfObjs, j, STLNum
       real(kind=RP) :: cL, cD 
@@ -1549,21 +1549,28 @@ module IBMClass
 
          if( .not. this% stl(STLNum)% FSImove ) cycle 
          
-         call this% FSIGetPointForce (elements, STLNum)
-         call this% stl(STLNum)% FSIStructuralMechanicsSolver (this% t, this% dt)
+         if (this%iter == 0) then
+            call this % stl(STLNum)% FSIStructuralInitialization()
+         else
+            call this % FSIGetPointForce (elements, STLNum)
+            call this % stl(STLNum)% FSIStructuralMechanicsSolver (this% t, this% dt)
+         end if
          
-         if( MPI_Process% isRoot) print *,'Moving structural stl with FSI motion ...'
+         if( MPI_Process% isRoot) then 
+            call this% stl(STLNum)% FSIMonitorWrite(this% iter, this% t)
+            print *,'Moving structural stl with FSI motion ...'
+         end if
 
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
          do i = 1, this% stl(STLNum)% NumOfObjs
             
             do j = 1, NumOfVertices
-               call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% vertices(j)% coords)
+               call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% vertices(j))
             end do 
             call this% stl(STLNum)% updateNormals( this% stl(STLNum)% ObjectsList(i) )
             if( this% ComputeBandRegion ) then 
                do j = 1, NumOfIntegrationVertices
-                  call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j)% coords)
+                  call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j))
                end do 
             end if 
          end do 
