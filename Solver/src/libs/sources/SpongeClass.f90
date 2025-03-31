@@ -252,6 +252,8 @@ Module SpongeClass  !
                         r_vector(:) = e % geom % x(:,i,j,k) - self % x0(sponge_number,:)
                         select case (whichSponge)
                         case (SPONGE_CYLINDRICAL)
+                            ! remove components in the axis direction
+                            r_vector(:) = r_vector(:) - sum((e % geom % x(:,i,j,k) - self % x0(sponge_number,:))*self % axis(sponge_number,:))*self % axis(sponge_number,:)
                             ! in this case xStar is actually rdiff ^2
                             xStar(i,j,k) = sum(r_vector*r_vector) - POW2(self % radious(sponge_number))
                         case (SPONGE_CARTESIAN)
