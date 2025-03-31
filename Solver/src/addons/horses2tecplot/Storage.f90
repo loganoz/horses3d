@@ -10,7 +10,7 @@ module Storage
    public Mesh_t, Element_t, Boundary_t
    public NVARS, NGRADVARS, hasMPIranks, hasBoundaries, isOldStats
    public partitionFileName, boundaryFileName, flowEq
-   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs
+   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs, hasSource
 
    integer                          :: NVARS, NGRADVARS
    logical                          :: hasMPIranks, hasBoundaries, isOldStats
@@ -19,6 +19,7 @@ module Storage
    logical                          :: hasMu_NS = .false.
    logical                          :: hasWallY     = .false.
    logical                          :: hasMu_sgs = .false.
+   logical                          :: hasSource = .false.
    character(len=LINE_LENGTH)       :: boundaryFileName, partitionFileName, flowEq
    integer, parameter               :: NSTAT = 9
 
@@ -42,6 +43,7 @@ module Storage
       real(kind=RP), pointer     :: ut_NS(:,:,:,:)
       real(kind=RP), pointer     :: wallY(:,:,:,:)
       real(kind=RP), pointer     :: mu_sgs(:,:,:,:)
+      real(kind=RP), pointer     :: source(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
       real(kind=RP)              :: sensor
 !                                /* Output quantities */
@@ -56,6 +58,7 @@ module Storage
       real(kind=RP), pointer     :: ut_NSout(:,:,:,:)
       real(kind=RP), pointer     :: wallYout(:,:,:,:)
       real(kind=RP), pointer     :: mu_sgsout(:,:,:,:)
+      real(kind=RP), pointer     :: sourceout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
 
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
@@ -414,6 +417,11 @@ module Storage
                if (hasMu_sgs) then
                    allocate( e % mu_sgs(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % mu_sgs
+               end if
+
+               if (hasSource) then
+                   allocate( e % source(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % source
                end if
 
                end associate
