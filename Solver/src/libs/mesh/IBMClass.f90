@@ -1505,7 +1505,7 @@ module IBMClass
 
          if( .not. this% stl(STLNum)% move ) cycle 
          
-         if( MPI_Process% isRoot) print *,'here moving stl with IBM move ...'
+         ! if( MPI_Process% isRoot) print *,'here moving stl with IBM move ...'
          
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
          do i = 1, this% stl(STLNum)% NumOfObjs
@@ -1558,7 +1558,7 @@ module IBMClass
          
          if( MPI_Process% isRoot) then 
             call this% stl(STLNum)% FSIMonitorWrite(this% iter, this% t)
-            print *,'Moving structural stl with FSI motion ...'
+            ! print *,'Moving structural stl with FSI motion ...'
          end if
 
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )

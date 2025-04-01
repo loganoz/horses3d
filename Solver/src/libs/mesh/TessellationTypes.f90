@@ -2118,7 +2118,7 @@ module TessellationTypes
                                          FSI_omega_dim, FSI_dampingRatio, FSI_GeneralizedForce_dimN, &
                                          FSI_GeneralizedQLast_dim(2), FSI_GeneralizedQ_dim(2)
 
-      if( MPI_Process% isRoot) print *,'Running FSIStructuralMechanicsSolver: Time = ', time 
+      ! if( MPI_Process% isRoot) print *,'Running FSIStructuralMechanicsSolver: Time = ', time 
       this% FSITime = time
 
       call this % FSIGetGeneralizedForce()
