@@ -295,10 +295,9 @@
 !
       integer       :: i, j, k, l, m, ii, jj
       real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-      ! real(kind=RP) :: QdotE_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: QdotE_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
       logical :: prolongQdot
 
-      ! prolongQdot = present(QdotE)
       if (present(computeQdot)) then
           prolongQdot = computeQdot
       else
@@ -343,9 +342,17 @@
             Qe_rot(:,i,j) = Qe(:,ii,jj) 
          end do                        ; end do
 
+         if (prolongQdot) then
+             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+                QdotE_rot(:,i,j) = QdotE(:,ii,jj) 
+             end do                        ; end do
+         end if
+
          select case ( self % projectionType(2) )
          case (0)
             Qf = Qe_rot
+            if (prolongQdot) self % storage(2) % Qdot = QdotE_rot
          case (1)
             Qf = 0.0_RP
             do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)

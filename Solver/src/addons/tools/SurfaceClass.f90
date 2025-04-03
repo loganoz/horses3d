@@ -51,6 +51,7 @@ Module SurfaceClass
         integer                                             :: eID
         integer                                             :: globaleID
         integer                                             :: fID
+        integer                                             :: nfaces
         integer, dimension(:), allocatable                  :: extrafIDs
         logical                                             :: needSecondFace
         logical                                             :: isInBCZone
