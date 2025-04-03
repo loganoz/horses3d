@@ -222,7 +222,6 @@ module Storage
          integer                        :: i,j,k
          integer                        :: iter
          real(kind=RP)                  :: time
-         real(kind=RP), allocatable     :: Qdot(:,:,:,:)
          character(len=1024)  :: msg
 
          self % solutionName = trim(solutionName)
@@ -347,11 +346,9 @@ module Storage
                read(fid) e % Q
 
               ! Qdot goes before gradients when present
-              ! for now is not saved anywhere, just to be able to read gradients
                if (self % hasTimeDeriv) then
-                   allocate( Qdot(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
-                   read(fid) Qdot
-                   deallocate(Qdot)
+                   allocate( e % Qdot(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e% Qdot
                end if
 
                if ( self % hasGradients ) then
@@ -420,7 +417,7 @@ module Storage
                end if
 
                if (hasSource) then
-                   allocate( e % source(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   allocate( e % source(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % source
                end if
 

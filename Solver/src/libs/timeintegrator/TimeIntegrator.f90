@@ -413,6 +413,7 @@
       use RosenbrockTimeIntegrator
       use StopwatchClass
       use FluidData
+      use mainKeywordsModule
 #if defined(NAVIERSTOKES)
       use ShockCapturing
       use TripForceClass, only: randomTrip
@@ -459,7 +460,7 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders, saveSource
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -522,9 +523,10 @@
 !     Configure restarts
 !     ------------------
 !
-      saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
-      saveLES = controlVariables % logicalValueForKey("save les with solution")
-      saveSensor    = controlVariables % logicalValueForKey("save sensor with solution")
+      saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
+      saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
+      saveLES          = controlVariables % logicalValueForKey(saveLESToSolutionKey)
+      saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
 !
 !     -----------------------
 !     Check initial residuals
@@ -753,7 +755,7 @@
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES, saveSource)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -876,7 +878,7 @@
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource)
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       use SpongeClass, only: sponge
 #endif
@@ -894,6 +896,7 @@
       logical,          intent(in) :: saveGradients
       logical,          intent(in) :: saveSensor
       logical,          intent(in) :: saveLES
+      logical,          intent(in) :: saveSource
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -901,7 +904,7 @@
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource)
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       call sponge % writeBaseFlow(sem % mesh, k, t)
 #endif

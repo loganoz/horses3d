@@ -3152,6 +3152,7 @@ slavecoord:             DO l = 1, 4
          end if
 
          if (saveLES) padding = padding + 2
+         if (saveSource) padding = padding + NCONS
 !
 !        Write arrays
 !        ------------
