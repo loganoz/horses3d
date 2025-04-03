@@ -12,7 +12,6 @@ Module RandomNumberGenerator_OpenACC
     use curand
     use curand_device
     use openacc_curand
-#endif
   Implicit None
 
   private
@@ -102,5 +101,6 @@ implicit none
 
   end subroutine addnoise
 
+#endif
 
 End Module RandomNumberGenerator_OpenACC

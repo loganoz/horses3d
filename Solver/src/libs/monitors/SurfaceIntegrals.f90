@@ -245,7 +245,7 @@ module SurfaceIntegrals
          use mpi
 #endif
          implicit none
-         type(HexMesh),      intent(in)    :: mesh 
+         type(HexMesh),       intent(inout) :: mesh 
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType, iter
          real(kind=RP)                      :: val(NDIM)
@@ -255,7 +255,7 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, i, j, ierr
-          real(kind=RP) :: localval(NDIM)
+         real(kind=RP) :: localval(NDIM)
          real(kind=RP)  :: valx, valy, valz
          real(kind=RP)  :: localx, localy, localz
          real(kind=RP)  :: p, tau(1:NDIM, 1:NDIM)
@@ -266,6 +266,12 @@ module SurfaceIntegrals
          valx = 0.0_RP
          valy = 0.0_RP
          valz = 0.0_RP
+
+         !$acc wait 
+         call HexMesh_ProlongSolToFaces(mesh, NCONS)
+         if ( computeGradients ) then
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+         end if
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
@@ -446,8 +452,6 @@ module SurfaceIntegrals
 !$acc end parallel loop
            
          end select
-
-         !!$acc update host(valx, valy, valz)
             
          val(1:3) = [valx, valy, valz]
          
