@@ -754,7 +754,7 @@ jobs:
 # 31) Actuator Line (AL) Interpolation formulation
 # --------------------------------------------
 
-      - name: Build AL_average
+      - name: Build AL_interpolation
         working-directory: ./Solver/test/NavierStokes/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true

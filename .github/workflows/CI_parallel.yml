@@ -898,14 +898,14 @@ jobs:
       #
 # 31) Actuator Line (AL) Interpolation formulation
 # --------------------------------------------
-      - name: Build AL_average
+      - name: Build AL_interpolation
         working-directory: ./Solver/test/NavierStokes/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
         if: '!cancelled()'
 
-      - name: Run AL_average
+      - name: Run AL_interpolation
         working-directory: ./Solver/test/NavierStokes/ActuatorLineInterpolation
         run: |
           source /opt/intel/oneapi/setvars.sh || true
