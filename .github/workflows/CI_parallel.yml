@@ -1089,6 +1089,22 @@ jobs:
           mpiexec -n 64 ./horses3d.mu Actuator.control
         if: '!cancelled()'
 
+#
+# 7) Snell
+# ----------------------------
+      - name: Build MultiphaseSnell
+        working-directory: ./Solver/test/Multiphase/Snell/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: ('!cancelled()')
+
+      - name: Run MultiphaseSnell
+        working-directory: ./Solver/test/Multiphase/Snell
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.mu snell_N80.control
+        if: ('!cancelled()')
 
 # ########################################################################
 # #######                      INCOMPRESSIBLE                     ########

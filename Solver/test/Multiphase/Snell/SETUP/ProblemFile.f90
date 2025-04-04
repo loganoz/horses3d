@@ -450,7 +450,6 @@ END DO
             
 
 #if defined(MULTIPHASE)
-!
 !           Usage example
 !           -------------
             S = 0.0_RP
@@ -462,30 +461,31 @@ END DO
             !fMin = 500.0_RP
             !df = 0.5_RP
 
-            c0 = sqrt(thermodynamics_ % c02(1)) 
+            !c0 = sqrt(thermodynamics_ % c02(1)) 
 
             !freqVector(0:Nfreq) = [(fMin+i*df,i=0, Nfreq)]
-            freqVector(0) = 1000.0_RP
+            !freqVector(0) = 1000.0_RP
 
             ! phase using parabolic distribution to avoid over increases
-            dummy = 1.0
-            phi = [(i,i=1,Nfreq+1)]
-            phi = 1 - phi * phi
-            phi = -PI/(real(Nfreq,RP)+1)*phi
-            xwrap = mod(phi, 2.0_RP*PI)
-            phi = xwrap + merge(-2.0_RP*PI,0.0_RP,abs(xwrap)>PI)*sign(dummy, xwrap)
+            ! dummy = 1.0
+            ! phi = [(i,i=1,Nfreq+1)]
+            ! phi = 1 - phi * phi
+            ! phi = -PI/(real(Nfreq,RP)+1)*phi
+            ! xwrap = mod(phi, 2.0_RP*PI)
+            ! phi = xwrap + merge(-2.0_RP*PI,0.0_RP,abs(xwrap)>PI)*sign(dummy, xwrap)
 
             ! s of p
-            freqTerm = 0.0_RP
-            do i = 0,Nfreq
-                w = 2.0_RP*PI*freqVector(i)
-                freqTerm = freqTerm + cos(w*time + phi(i))
-            end do
+            ! freqTerm = 0.0_RP
+            ! do i = 0,Nfreq
+            !     w = 2.0_RP*PI*freqVector(i)
+            !     freqTerm = freqTerm + cos(w*time + phi(i))
+            ! end do
             ! r = x-x0
             r = x(IX:IY)-x0
             ! f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum(r*r) ) * cos(w*time)
             ! f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum(r*r) ) * freqTerm
-            f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum((x(IX)-x0)*(x(IX)-x0)) ) * freqTerm
+            freqTerm = 1000.0_RP
+            f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum((x(IX)-x0)*(x(IX)-x0)) ) * cos(2.0_RP*PI*time*freqTerm)
             !S(1) = f /(c0*c0)
             S(5) = f 
 #endif
@@ -542,11 +542,11 @@ END DO
             CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Sell"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter           :: residuals_saved(5) = [7.9799640251084957E-06_RP, &
-                                                                        1.1963398830164460E-03_RP, &
-                                                                        1.0057909661148713E-10_RP, &
-                                                                        4.1E-17_RP, &
-                                                                        4.5280452127505794E-01_RP]
+            real(kind=RP), parameter           :: residuals_saved(5) = [8.1570941337862981E-06_RP, &
+                                                                        7.9488815735830488E-04_RP, &
+                                                                        5.2560876758969745E-10_RP, &
+                                                                        2.3047237097072765E-17_RP, &
+                                                                        1.9703080805466400E-01_RP]
 
 
             CALL initializeSharedAssertionsManager

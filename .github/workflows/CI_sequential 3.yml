@@ -316,7 +316,7 @@ jobs:
         working-directory: ./Solver/test/Multiphase/Snell
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu snell_N125.control
+          ./horses3d.mu snell_N80.control
         if: ('!cancelled()')
 
 ########################################################################

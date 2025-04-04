@@ -1,4 +1,4 @@
-mesh file name        = "MESH/N125.msh"
+mesh file name        = "MESH/N80.msh"
 
 Polynomial order i = 3
 Polynomial order j = 3
