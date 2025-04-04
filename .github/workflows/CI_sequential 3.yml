@@ -286,7 +286,7 @@ jobs:
         if: '!cancelled()'
 
 #
-# 7) Multiphase monopole with acoustics, sponge and Reinforcement Learning p-adaptation
+# 7) Multiphase monopole with acoustics, sponge, and Reinforcement Learning p-adaptation
 # --------------------------------------------
       - name: Build Multiphase_Monopole_pAdaptationRL
         working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL/SETUP
@@ -301,6 +301,23 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu monopole_pAdaptationRL.control
         if: '!cancelled()'
+
+#
+# 8) Snell
+# ----------------------------
+      - name: Build MultiphaseSnell
+        working-directory: ./Solver/test/Multiphase/Snell/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: ('!cancelled()')
+
+      - name: Run MultiphaseSnell
+        working-directory: ./Solver/test/Multiphase/Snell
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu snell_N125.control
+        if: ('!cancelled()')
 
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
