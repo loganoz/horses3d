@@ -3060,7 +3060,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_, saveSource_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -3071,6 +3071,7 @@ slavecoord:             DO l = 1, 4
          logical,             intent(in)        :: saveGradients
          logical, optional,   intent(in)        :: saveSensor_
          logical, optional,   intent(in)        :: saveLES_
+         logical, optional,   intent(in)        :: saveSource_
 !
 !        ---------------
 !        Local variables
@@ -3080,7 +3081,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor, saveLES
+         logical                          :: saveSensor, saveLES, saveSource
 #if (!defined(NAVIERSTOKES) || !defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
@@ -3124,6 +3125,11 @@ slavecoord:             DO l = 1, 4
          else
             saveLES = .false.
          end if
+         if (present(saveSource_)) then
+            saveSource = saveSource_
+         else
+            saveSource = .false.
+         end if
 
          if (saveGradients .and. computeGradients) then
             if (saveSensor) then
@@ -3146,6 +3152,7 @@ slavecoord:             DO l = 1, 4
          end if
 
          if (saveLES) padding = padding + 2
+         if (saveSource) padding = padding + NCONS
 !
 !        Write arrays
 !        ------------
@@ -3214,6 +3221,15 @@ slavecoord:             DO l = 1, 4
                deallocate(Q)
 #endif
           end if 
+
+#ifdef FLOW
+          if (saveSource) then
+               allocate(Q(1:NCONS,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q = e % storage % S_NS
+               write(fid) Q
+               deallocate(Q)
+          end if 
+#endif
 
             end associate
          end do

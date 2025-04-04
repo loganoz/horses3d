@@ -33,7 +33,7 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients, saveSensor
+      LOGICAL                             :: success, saveGradients, saveSensor, saveSource
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
@@ -167,7 +167,8 @@
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor)
+         saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveSource)
          if ( sem % particles % active ) then 
             call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
          end if 

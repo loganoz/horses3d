@@ -11,26 +11,28 @@ Module FWHPreSurface  !
     public extractSurface
 
     interface
-        Function elementInGeo(r, ratio, centerPosition, x, y, N, lengthAspect, filter) result(isIn)
+        Function elementInGeo(r, ratio, centerPosition, x, y, z, N, Np, lengthAspect, filter) result(isIn)
             use SMConstants
             implicit none
             real(kind=RP)               , intent(in)    :: r, ratio, lengthAspect
-            real(kind=RP), dimension(N) , intent(in)    :: x, y
-            real(kind=RP), dimension(2) , intent(in)    :: centerPosition
+            real(kind=RP), dimension(N) , intent(in)    :: x, y, z
+            real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
             integer                     , intent(in)    :: N
+            integer                     , intent(in)    :: Np
             logical, optional           , intent(in)    :: filter
             logical                                     :: isIn
         End Function elementInGeo
 
-        Function distaceToGeo(r, ratio, centerPosition, x, y) result(rdiff)
+        Function distanceToGeo(r, ratio, centerPosition, x, y, z, Np) result(rdiff)
 
             use SMConstants
             implicit none
 
-            real(kind=RP), intent(in)                   :: r, ratio, x, y
-            real(kind=RP), dimension(2), intent(in)     :: centerPosition
+            real(kind=RP), intent(in)                   :: r, ratio, x, y, z
+            real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
+            integer                    , intent(in)     :: Np
             real(kind=RP)                               :: rdiff
-        End Function distaceToGeo
+        End Function distanceToGeo
 
     end interface
 
@@ -45,6 +47,7 @@ Module FWHPreSurface  !
         use mainKeywordsModule
         use FileReadingUtilities, only: getFileName, getRealArrayFromString, RemovePath, getCharArrayFromString, getIntArrayFromString
         use Utilities,            only: toLower
+        use ElementConnectivityDefinitions, only: FACES_PER_ELEMENT
 
         implicit none
 
@@ -52,23 +55,27 @@ Module FWHPreSurface  !
         type(FTValueDictionary)                             :: controlVariables
 
         !local variables
-        type(Surface_t), allocatable                       :: surface
+        type(Surface_t), allocatable                        :: surface
         real(kind=RP)                                       :: radii, ratio, lengthAspect
-        real(kind=RP), dimension(:), allocatable            :: centerPosition
+        real(kind=RP), dimension(:), allocatable            :: temp
+        real(kind=RP), dimension(:,:), allocatable          :: boxLimits, centerPosition
         integer, dimension(:), allocatable                  :: eIDs, globaleIDs, numberOfFacesperElement, firstFIDs
         integer                                             :: numberOfElements, numberOfFaces, numberOfSecondFaces, numberOfVerifiedFaces
         character(len=LINE_LENGTH)                          :: geometry, fileName, meshName, center, boundaryNames, newElems, discElems
         character(len=LINE_LENGTH), allocatable             :: boundaryNamesArr(:)
         procedure(elementInGeo), pointer                    :: isInGeometry => null()
-        procedure(distaceToGeo), pointer                    :: rToGeometry => null()
-        type(SurfaceFace_t), dimension(:), allocatable     :: firstFaces, allCreatedFaces
-        type(SurfaceFace_t), dimension(:), allocatable     :: secondFaces, oldFaces, oldTemp
+        procedure(distanceToGeo), pointer                   :: rToGeometry => null()
+        type(SurfaceFace_t), dimension(:), allocatable      :: firstFaces, allCreatedFaces
+        type(SurfaceFace_t), dimension(:), allocatable      :: secondFaces, oldFaces, oldTemp
         type(SurfaceFace_t), allocatable     :: tempSecFaces
-        type(SurfaceElement_t), dimension(:), allocatable  :: elementsOfFaces
+        type(SurfaceElement_t), dimension(:), allocatable   :: elementsOfFaces
         integer                                             :: fID, eID, eIndex
         integer                                             :: i, k, numberOfBCZones, j, numberOfNewFaces
         logical                                             :: connectedAtBoundary, discardElems, includeElems, useFilter, saveForMPI
+        integer                                             :: Np
         integer, dimension(:), allocatable                  :: zoneMarkers
+        logical                                             :: isBox
+        logical                                             :: useOnlyMeshConnections
 
         integer, dimension(:), allocatable                  :: allE, allgE, allF
         integer, dimension(:), allocatable                  :: nE, newElemID, allNewElemID, allExcludedElemID, discElemID, secIdsNot
@@ -76,33 +83,61 @@ Module FWHPreSurface  !
         integer                                             :: nNe, NelemDir, numberOfBCElemNew, numberOfBCElemDisc, numberOfBCFaces
 
 !       Get the solution and mesh file names
-!       ------------------------------------
+!       -----------------------------------
         fileName = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = LINE_LENGTH )
         fileName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".surfaceZone"
         meshName = trim(controlVariables % stringValueForKey( meshFileNameKey, requestedLength = LINE_LENGTH ))
+
+        useOnlyMeshConnections = controlVariables % getValueOrDefault("only mesh connections", .true.)
 
 
 !       Get the geometry info
 !       ---------------------
         geometry = controlVariables % stringValueForKey("geometry", LINE_LENGTH)
         call toLower(geometry)
-        radii = controlVariables % doublePrecisionValueForKey("radii")
-        ratio = controlVariables % getValueOrDefault("ratio", 1.0_RP)
+
+        isBox = trim(geometry) .eq. "box"
+
+        if (isBox) then
+            ! use center as temp variable
+            Np = NDIM
+            allocate(boxLimits(2,Np))
+            center = trim(controlVariables % stringValueForKey("x box limits",LINE_LENGTH))
+            boxLimits(:,1) = getRealArrayFromString(center)
+            center = trim(controlVariables % stringValueForKey("y box limits",LINE_LENGTH))
+            boxLimits(:,2) = getRealArrayFromString(center)
+            center = trim(controlVariables % stringValueForKey("z box limits",LINE_LENGTH))
+            boxLimits(:,3) = getRealArrayFromString(center)
+
+            radii = 0.0_RP
+            ratio = 1.0_RP
+            allocate(centerPosition(2,Np))
+            centerPosition = boxLimits
+        else
+            Np = 1
+            radii = controlVariables % doublePrecisionValueForKey("radii")
+            ratio = controlVariables % getValueOrDefault("ratio", 1.0_RP)
+            center = trim(controlVariables % stringValueForKey("center position",LINE_LENGTH))
+            temp = getRealArrayFromString(center)
+            allocate(centerPosition(2,Np))
+            centerPosition(:,1) = temp
+            deallocate(temp)
+        end if 
+
         connectedAtBoundary = controlVariables % getValueOrDefault("include boundaries", .false.)
-        center = trim(controlVariables % stringValueForKey("center position",LINE_LENGTH))
-        centerPosition = getRealArrayFromString(center)
         lengthAspect = controlVariables % getValueOrDefault("surface tolerance", 0.7_RP)
 
 !       Get the BC info
 !       ----------------
         if (controlVariables%containsKey("boundary names")) then
             boundaryNames = trim(controlVariables % stringValueForKey("boundary names",LINE_LENGTH))
+            call toLower(boundaryNames)
+            call getCharArrayFromString(boundaryNames, LINE_LENGTH, boundaryNamesArr)
+            numberOfBCZones = size(boundaryNamesArr)
         else
             boundaryNames = ""
+            numberOfBCZones = 0
         end if
-        call toLower(boundaryNames)
-        call getCharArrayFromString(boundaryNames, LINE_LENGTH, boundaryNamesArr)
-        numberOfBCZones = size(boundaryNamesArr)
         allocate(zoneMarkers(numberOfBCZones))
         zoneMarkers = 0
         bc_loop: do k = 1, numberOfBCZones
@@ -136,16 +171,19 @@ Module FWHPreSurface  !
 !       ----------------------------
 
         select case (trim(geometry))
+        case ("box")
+            isInGeometry => isInBox
+            rToGeometry  => distanceToBox
         case ("circle")
             isInGeometry => isInCircle
-            rToGeometry  => distaceToCircle
+            rToGeometry  => distanceToCircle
         case ("ellipse")
             isInGeometry => isInEllipse
             rToGeometry  => distanceToEllipse
         case default
             print *, "Warning, no geometry defined, using circle as default"
             isInGeometry => isInCircle
-            rToGeometry  => distaceToCircle
+            rToGeometry  => distanceToCircle
         end select
 
 !       get the forced elements to include
@@ -176,18 +214,93 @@ Module FWHPreSurface  !
             end do
         end if 
 
+        pure_mesh_cond:if (useOnlyMeshConnections) then
+        if (isBox) then
+            call getElements(mesh, isInGeometry, radii, ratio, 1.0_RP, boxLimits, allNewElemID, allExcludedElemID, eIDs, &
+                             globaleIDs, Np, useFilter=.false.)
+            call getAllInteriorElements(mesh, isInGeometry, radii, ratio, boxLimits, 1.0_RP, Np, .false., [-1], [-1], oldIdsTemp, nNe)
+        else
+            print *, "Pure mesh connection only for box section"
+            call exit(99)
+        end if 
+        numberOfElements = size(eIDs)
+
+        print *, "numberOfElements: ", numberOfElements
+        print *, "nNe: ", nNe
+
+        ! set arrays bigger to include all possible faces
+        numberOfFaces = 2*numberOfElements + 8
+        allocate(allE(numberOfFaces),allgE(numberOfFaces),allF(numberOfFaces))
+        allocate(elementsOfFaces(numberOfElements))
+
+        ! loop to each element and set no connection as an exterior face
+        k = 0
+        numberOfVerifiedFaces = 0
+        do i = 1, numberOfElements
+            ! ignore if same element
+            numberOfNewFaces = 0
+            associate ( e => mesh % elements(eIDs(i)) )
+                do j = 1, FACES_PER_ELEMENT
+                    ! add to array if neighbour element not found in allInteriorElements
+                    if ( any(oldIdsTemp(:,2) .eq. e % Connection(j) % globID) ) cycle
+                    numberOfNewFaces = numberOfNewFaces + 1
+                    k = k + 1
+                    allE(k) = eIDs(i)
+                    allgE(k) = globaleIDs(i)
+                    allF(k) = e % faceIDs(j)
+                end do
+            end associate
+            fID = allF(k-numberOfNewFaces+1)
+            ! call elementsOfFaces(i) % construct(mesh, eIDs(i), globaleIDs(i), fID, [-1], 1, .true.)
+            ! if (numberOfNewFaces .gt. 1) then
+            !     call elementsOfFaces(i) % setNeedSecond(numberOfNewFaces-1)
+            !     elementsOfFaces(i) % extrafIDs = allF(k-numberOfNewFaces+2:k)
+            ! end if 
+
+            numberOfVerifiedFaces = numberOfVerifiedFaces + numberOfNewFaces
+        end do 
+
+
+        allocate( oldIds(numberOfVerifiedFaces,3) )
+        oldIds(:,1) = allE(1:numberOfVerifiedFaces)
+        oldIds(:,2) = allgE(1:numberOfVerifiedFaces)
+        oldIds(:,3) = allF(1:numberOfVerifiedFaces)
+
+        ! numberOfFaces = numberOfVerifiedFaces
+        ! allocate(allCreatedFaces(numberOfFaces))
+        ! do i = 1, numberOfFaces
+        !     call allCreatedFaces(i) % construct(mesh, oldIds(i,1), oldIds(i,2), oldIds(i,3))
+        ! end do     
+
+        ! check if all connected
+        ! do i = 1, numberOfFaces
+        !     if ( .not. allCreatedFaces(i) % isFullConnected(allCreatedFaces, numberOfElements) ) then
+        !         print *, "Warning, face not conected, ids: ", oldIds(i,:)
+        !     end if
+        ! end do     
+
+        else
+
+        ! old routines!
+
 !       get the elements ids
 !       --------------------
-        call getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, allNewElemID, allExcludedElemID, eIDs, &
-                         globaleIDs, useFilter)
+        if (isBox) then
+            call getElements(mesh, isInGeometry, radii, ratio, 1.0_RP, boxLimits, allNewElemID, allExcludedElemID, eIDs, &
+                             globaleIDs, Np, useFilter=.false.)
+        else
+            call getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, allNewElemID, allExcludedElemID, eIDs, &
+                             globaleIDs, Np, useFilter)
+        end if 
         numberOfElements = size(eIDs)
+
 
 !       get the first faces ids and construct the faces
 !       ----------------------------------------------
         allocate(firstFIDs(numberOfElements))
         allocate(firstFaces(numberOfElements))
         do i = 1, numberOfElements
-            call getFirstFace(mesh, rToGeometry, eIDs(i), radii, ratio, centerPosition, firstFIDs(i))
+            call getFirstFace(mesh, rToGeometry, eIDs(i), radii, ratio, centerPosition, Np, firstFIDs(i))
             call firstFaces(i) % construct(mesh, eIDs(i), globaleIDs(i), firstFIDs(i))
         end do     
 
@@ -246,7 +359,8 @@ Module FWHPreSurface  !
 
         k = 1
         do i = 1, numberOfElements
-            if ( (.not. elementsOfFaces(i) % needSecondFace) .or. (elementsOfFaces(i) % extrafIDs(1) /= 0) ) cycle
+            if (.not. elementsOfFaces(i) % needSecondFace) cycle
+            if (elementsOfFaces(i) % extrafIDs(1) /= 0) cycle
             call elementsOfFaces(i) % getNotConnectedN(mesh, elementsOfFaces, numberOfElements, secIds(k,3))
             secIds(k,1) = eIDs(i)
             secIds(k,2) = globaleIDs(i)
@@ -443,13 +557,15 @@ Module FWHPreSurface  !
 !       get boundary faces if needed
 !       ----------------------------
         if (connectedAtBoundary) then
-            call getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, allExcludedElemID, allNewElemID, zoneMarkers, numberOfBCZones, bcFaces, numberOfBCFaces)
+            call getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, allExcludedElemID, allNewElemID, zoneMarkers, numberOfBCZones, Np, bcFaces, numberOfBCFaces)
             allocate(oldIdsTemp(numberOfVerifiedFaces+numberOfBCFaces,3))
             oldIdsTemp(1:numberOfVerifiedFaces,:) = oldIds
             oldIdsTemp(numberOfVerifiedFaces+1:,:) = bcFaces
             call move_alloc(oldIdsTemp,oldIds)
             numberOfVerifiedFaces = numberOfVerifiedFaces + numberOfBCFaces
         end if 
+
+        end if pure_mesh_cond
 
 !       create final surface and create output files
 !       --------------------------------------------
@@ -464,7 +580,7 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, toInclude, toExclude, eIDArray, geIDArray, useFilter)
+    Subroutine getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, toInclude, toExclude, eIDArray, geIDArray, Np, useFilter)
 
         use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT, FACES_PER_ELEMENT, normalAxis
         use MeshTypes,                      only: emptyBCName
@@ -473,9 +589,10 @@ Module FWHPreSurface  !
         type(HexMesh)                     , intent(in)          :: mesh
         procedure(elementInGeo)                                 :: isInGeometry
         real(kind=RP)                     , intent(in)          :: radii, ratio, lengthAspect
-        real(kind=RP), dimension(2)       , intent(in)          :: centerPosition
+        real(kind=RP), dimension(2,Np)    , intent(in)          :: centerPosition
         integer, dimension(:), intent(in)                       :: toInclude, toExclude
         integer, dimension(:), allocatable, intent(out)         :: geIDArray,eIDArray
+        integer, intent(in)                                     :: Np
         logical, intent(in)                                     :: useFilter
 
         !local variables
@@ -484,7 +601,7 @@ Module FWHPreSurface  !
         integer                                                 :: nElements, extrudedDirectionIndex, numberOfNeighbours, totalNeighbours
         integer, dimension(:), allocatable                      :: neighboursIndex
 
-        call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, useFilter, toExclude, toInclude, allElements, nElements)
+        call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, Np, useFilter, toExclude, toInclude, allElements, nElements)
 
         if (.not. useFilter) then
             allocate(elementsTemp(nElements,2))
@@ -526,7 +643,7 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, useFilter, toExclude, toInclude, allElements, nElements)
+    Subroutine getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, Np, useFilter, toExclude, toInclude, allElements, nElements)
 
 
         use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT
@@ -535,8 +652,9 @@ Module FWHPreSurface  !
         type(HexMesh)                     , intent(in)          :: mesh
         procedure(elementInGeo)                                 :: isInGeometry
         real(kind=RP)                     , intent(in)          :: radii, ratio, lengthAspect
-        real(kind=RP), dimension(2)       , intent(in)          :: centerPosition
+        real(kind=RP), dimension(2,Np)    , intent(in)          :: centerPosition
         logical, intent(in)                                     :: useFilter
+        integer, intent(in)                                     :: Np
         integer, dimension(:), intent(in)                       :: toInclude, toExclude
         integer, dimension(:,:), allocatable, intent(out)       :: allElements
         integer, intent(out)                                    :: nElements
@@ -582,7 +700,7 @@ Module FWHPreSurface  !
                     z => xx(3,:)
 
                     ! todo: configure to call x,z or y,z too
-                    if (isInGeometry(radii, ratio, centerPosition, x, y, NODES_PER_ELEMENT, lengthAspect, filter=useFilter)) then
+                    if (isInGeometry(radii, ratio, centerPosition, x, y, z, NODES_PER_ELEMENT, Np, lengthAspect, filter=useFilter)) then
                         allElements(k,1) = e % eID
                         allElements(k,2) = e % globID
                         k = k + 1
@@ -599,7 +717,7 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, toExclude, toInclude, zoneMarkers, nBC, BCFaces, nBCFaces)
+    Subroutine getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, toExclude, toInclude, zoneMarkers, nBC, Np, BCFaces, nBCFaces)
 
         use ElementConnectivityDefinitions, only: FACES_PER_ELEMENT
         implicit none
@@ -607,10 +725,11 @@ Module FWHPreSurface  !
         type(HexMesh)                     , intent(in)          :: mesh
         procedure(elementInGeo)                                 :: isInGeometry
         real(kind=RP)                     , intent(in)          :: radii, ratio, lengthAspect
-        real(kind=RP), dimension(2)       , intent(in)          :: centerPosition
+        real(kind=RP), dimension(2,Np)    , intent(in)          :: centerPosition
         integer, dimension(:), intent(in)                       :: toInclude, toExclude
         integer, dimension(nBC), intent(in)                     :: zoneMarkers
         integer, intent(in)                                     :: nBC
+        integer                           , intent(in)          :: Np
         integer, dimension(:,:), allocatable, intent(out)       :: BCFaces
         integer, intent(out)                                    :: nBCFaces
 
@@ -625,7 +744,7 @@ Module FWHPreSurface  !
         end do
 
         !get all BC elements IDs
-        call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, .false., toExclude, toInclude, allElements, nElements)
+        call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, Np, .false., toExclude, toInclude, allElements, nElements)
         allocate(elementsTemp(nElements,2))
         elementsTemp = allElements(1:nElements,:)
         deallocate(allElements)
@@ -667,20 +786,21 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine getFirstFace(mesh, distanceToGeometry, eID, radii, ratio, centerPosition, fID)
+    Subroutine getFirstFace(mesh, distanceToGeometry, eID, radii, ratio, centerPosition, Np, fID)
 
         type(HexMesh), intent(in)                   :: mesh
-        procedure(distaceToGeo)                     :: distanceToGeometry
+        procedure(distanceToGeo)                    :: distanceToGeometry
         integer, intent(in)                         :: eID
         real(kind=RP), intent(in)                   :: radii, ratio
-        real(kind=RP), dimension(2), intent(in)     :: centerPosition
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
+        integer, intent(in)                         :: Np
         integer, intent(out)                        :: fID
 
         ! local variables
         integer                                     :: i, faceIndex
         integer                                     :: Nx,Ny
         integer, dimension(6)                       :: fIDs
-        real(kind=RP), dimension(2)                 :: faceCenter
+        real(kind=RP), dimension(NDIM)                 :: faceCenter
         real(kind=RP), dimension(6)                 :: faceDistance
 
         fIDs = mesh % elements(eID) % faceIDs
@@ -689,15 +809,16 @@ Module FWHPreSurface  !
                 Nx = f % Nf(1)
                 Ny = f % Nf(2)
                 associate (x => f % geom % x)
-                    if (x(3,0,0) .eq. x(3,Nx,Ny)) then
+                    if (x(3,0,0) .eq. x(3,Nx,Ny) .and. Np .eq. 1) then
                         faceDistance(i) = huge(x(1,0,0))
                         cycle
                     end if
                     faceCenter(1) = (x(1,0,0) + x(1,Nx,Ny)) / 2.0_RP
                     faceCenter(2) = (x(2,0,0) + x(2,Nx,Ny)) / 2.0_RP
+                    faceCenter(3) = (x(3,0,0) + x(3,Nx,Ny)) / 2.0_RP
                 end associate
             end associate
-            faceDistance(i) = abs(distanceToGeometry(radii, ratio, centerposition, faceCenter(1), faceCenter(2)))
+            faceDistance(i) = abs(distanceToGeometry(radii, ratio, centerposition, faceCenter(1), faceCenter(2), faceCenter(3), Np))
         end do
 
         faceIndex = minloc(faceDistance, dim=1)
@@ -767,12 +888,14 @@ Module FWHPreSurface  !
 ! isInGeometry functions
 !////////////////////////////////////////////////////////////////////////
 !
-    Function isInEllipse(mayorAxis, ratio, centerPosition, x, y, N, lengthAspect, filter) result(isIn)
+    Function isInEllipse(mayorAxis, ratio, centerPosition, x, y, z, N, Np, lengthAspect, filter) result(isIn)
 
+        implicit none
         real(kind=RP)               , intent(in)    :: mayorAxis, ratio, lengthAspect
-        real(kind=RP), dimension(N) , intent(in)    :: x, y
-        real(kind=RP), dimension(2) , intent(in)    :: centerPosition
-        integer                     , intent(in)    :: N
+        real(kind=RP), dimension(N) , intent(in)    :: x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
+        integer                     , intent(in)    :: N 
+        integer                    , intent(in)     :: Np
         logical, optional           , intent(in)    :: filter
         logical                                     :: isIn
 
@@ -791,8 +914,8 @@ Module FWHPreSurface  !
         end if 
 
         isIn = .false.
-        xo = centerPosition(1)
-        yo = centerPosition(2)
+        xo = centerPosition(1,1)
+        yo = centerPosition(2,1)
         allocate(rCalcsqr(N,3))
         k = 1
         do i = 1, N
@@ -807,8 +930,8 @@ Module FWHPreSurface  !
             k = maxloc(rCalcsqr(:,3),dim=1)
             xx = rCalcsqr(k,1)
             yy = rCalcsqr(k,2)
-            rdiff = distanceToEllipse(mayoraxis, ratio, centerposition, xx, yy)
-            eSize = getElementSize(x, y, centerPosition, N)
+            rdiff = distanceToEllipse(mayoraxis, ratio, centerposition, xx, yy, 0.0_RP, Np)
+            eSize = getElementSize(x, y, centerPosition, N, Np)
             if ( abs(rdiff) .gt. eSize*lengthAspect ) return
         end if
         isIn = .true.
@@ -817,12 +940,14 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Function isInCircle(r, ratio, centerPosition, x, y, N, lengthAspect, filter) result(isIn)
+    Function isInCircle(r, ratio, centerPosition, x, y, z, N, Np, lengthAspect, filter) result(isIn)
 
+        implicit none
         real(kind=RP)               , intent(in)    :: r, ratio, lengthAspect
-        real(kind=RP), dimension(N) , intent(in)    :: x, y
-        real(kind=RP), dimension(2) , intent(in)    :: centerPosition
+        real(kind=RP), dimension(N) , intent(in)    :: x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
         integer                     , intent(in)    :: N
+        integer                    , intent(in)     :: Np
         logical, optional           , intent(in)    :: filter
         logical                                     :: isIn
 
@@ -840,8 +965,8 @@ Module FWHPreSurface  !
         end if 
 
         isIn = .false.
-        xo = centerPosition(1)
-        yo = centerPosition(2)
+        xo = centerPosition(1,1)
+        yo = centerPosition(2,1)
         allocate(rCalcsqr(N))
         k = 1
         do i = 1, N
@@ -857,19 +982,46 @@ Module FWHPreSurface  !
         isIn = .true.
 
     End Function isInCircle
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Function isInBox(r, ratio, limits, x, y, z, N, Np, lengthAspect, filter) result(isIn)
+        Implicit None
+        real(kind=RP)               , intent(in)    :: r, ratio, lengthAspect
+        real(kind=RP), dimension(N) , intent(in)    :: x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: limits
+        integer                     , intent(in)    :: N
+        integer                    , intent(in)     :: Np
+        logical, optional           , intent(in)    :: filter
+        logical                                     :: isIn
 
+        ! local variables
+        integer                                     :: i, j, k
+
+
+        isIn = .false.
+        if (all(x .ge. limits(1,1)) .and. all(x .le. limits(2,1))) then
+            if (all(y .ge. limits(1,2)) .and. all(y .le. limits(2,2))) then
+                if (all(z .ge. limits(1,3)) .and. all(z .le. limits(2,3))) then
+                    isIn = .true.
+                end if 
+            end if 
+        end if 
+
+    End Function isInBox
 !
 !////////////////////////////////////////////////////////////////////////
 ! distance to geometry functions
 !////////////////////////////////////////////////////////////////////////
 !
-    Function distanceToEllipse(mayorAxis, ratio, centerPosition, x, y) result(rdiff)
+    Function distanceToEllipse(mayorAxis, ratio, centerPosition, x, y, z, Np) result(rdiff)
 
         use Utilities, only: AlmostEqual
         implicit none
 
-        real(kind=RP), intent(in)                   :: mayorAxis, ratio, x, y
-        real(kind=RP), dimension(2), intent(in)     :: centerPosition
+        real(kind=RP), intent(in)                   :: mayorAxis, ratio, x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
+        integer                    , intent(in)     :: Np
         real(kind=RP)                               :: rdiff
 
         ! local variables
@@ -878,8 +1030,8 @@ Module FWHPreSurface  !
         real(kind=RP)                               :: xo, yo
         real(kind=RP)                               :: r, xs(2), rs(2), xEllipse, yEllipse, rPoint
 
-        xo = centerPosition(1)
-        yo = centerPosition(2)
+        xo = centerPosition(1,1)
+        yo = centerPosition(2,1)
 
         vertical_case: if (AlmostEqual(x, xo)) then
             a = 1
@@ -919,35 +1071,62 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Function distaceToCircle(r, ratio, centerPosition, x, y) result(rdiff)
+    Function distanceToCircle(r, ratio, centerPosition, x, y, z, Np) result(rdiff)
 
         use Utilities, only: AlmostEqual
         implicit none
 
-        real(kind=RP), intent(in)                   :: r, ratio, x, y
-        real(kind=RP), dimension(2), intent(in)     :: centerPosition
+        real(kind=RP), intent(in)                   :: r, ratio, x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)    :: centerPosition
+        integer                    , intent(in)     :: Np
         real(kind=RP)                               :: rdiff
 
         ! local variables
         real(kind=RP)                               :: xo, yo, rPoint
 
-        xo = centerPosition(1)
-        yo = centerPosition(2)
+        xo = centerPosition(1,1)
+        yo = centerPosition(2,1)
 
         rPoint = sqrt(POW2(x - xo) + POW2(y - yo))
         rdiff = rPoint - r
 
-    End Function distaceToCircle
+    End Function distanceToCircle
+!
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Function distanceToBox(r, ratio, limits, x, y, z, Np) result(rdiff)
+
+        use Utilities, only: AlmostEqual
+        implicit none
+
+        real(kind=RP), intent(in)                   :: r, ratio, x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: limits
+        integer                    , intent(in)     :: Np
+        real(kind=RP)                               :: rdiff
+
+        ! local variables
+        real(kind=RP)                               :: dx, dy, dz
+
+        dx = minval(abs(x - limits(:,1)))
+        dy = minval(abs(y - limits(:,2)))
+        dz = minval(abs(z - limits(:,3)))
+
+        rdiff = min(dx,dy,dz)
+
+    End Function distanceToBox
 !
 !////////////////////////////////////////////////////////////////////////
 ! extra helper functions
 !////////////////////////////////////////////////////////////////////////
 !
-    Function getElementSize(x, y, centerPosition, N) result(eS)
+    Function getElementSize(x, y, centerPosition, N, Np) result(eS)
+        implicit none
 
         real(kind=RP), dimension(N), intent(in)     :: x, y
-        real(kind=RP), dimension(2), intent(in)     :: centerPosition
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
         integer , intent(in)                        :: N
+        integer                    , intent(in)     :: Np
         real(kind=RP)                               :: eS
 
         ! local variables
@@ -958,8 +1137,8 @@ Module FWHPreSurface  !
         ! eps = 0.15_RP
         ! eps = 0.25_RP
         eps = 0.3_RP
-        xo = centerPosition(1)
-        yo = centerPosition(2)
+        xo = centerPosition(1,1)
+        yo = centerPosition(2,1)
         r = POW2(x(1) - xo) + POW2(y(1) - yo)
         dx = (abs(x(1) - xo)) / r
         dy = (abs(y(1) - yo)) / r

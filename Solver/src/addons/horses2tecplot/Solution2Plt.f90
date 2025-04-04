@@ -202,6 +202,7 @@ module Solution2PltModule
          if (hasMu_NS) e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
          if (hasWallY) e % wallYout(1:,0:,0:,0:) => e % wallY
          if (hasMu_sgs) e % mu_sgsout(1:,0:,0:,0:) => e % mu_sgs
+         if (hasSource) e % sourceout(1:,0:,0:,0:) => e % source
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -272,7 +273,7 @@ module Solution2PltModule
                                                                     Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                                     Tset(e % Nout(2), e % Nsol(2)) % T, &
                                                                     Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                                    mesh % hasGradients, mesh % isStatistics )
+                                                                    mesh % hasGradients, mesh % isStatistics, mesh % hasTimeDeriv)
 
             end associate
          end do
@@ -329,7 +330,7 @@ module Solution2PltModule
 
       end subroutine Solution2Plt_GaussPoints_FixedOrder
 
-      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz, hasGradients, hasStats)
+      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz, hasGradients, hasStats, hasTimeDeriv)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -344,6 +345,7 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: Tz(0:e % Nout(3), 0:e % Nsol(3))
          logical,             intent(in)  :: hasGradients
          logical,             intent(in)  :: hasStats
+         logical,             intent(in)  :: hasTimeDeriv
 !
 !        Project mesh
 !        ------------         
@@ -374,6 +376,7 @@ module Solution2PltModule
             if (hasMu_NS) e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
             if (hasWallY) e % wallYout(1:,0:,0:,0:) => e % wallY
             if (hasMu_sgs) e % mu_sgsout(1:,0:,0:,0:) => e % mu_sgs
+            if (hasSource) e % sourceout(1:,0:,0:,0:) => e % source
 
          else
             allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
@@ -413,8 +416,15 @@ module Solution2PltModule
                 call prolongSolutionToGaussPoints(1, e % Nsol, e % mu_sgs, e % Nout, e % mu_sgsout, Tx, Ty, Tz)            
             end if
 
+            if (hasSource) then
+                allocate( e % sourceout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+                call prolongSolutionToGaussPoints(1, e % Nsol, e % source, e % Nout, e % sourceout, Tx, Ty, Tz)            
+            end if
+
             allocate( e % QDot_out(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call prolongSolutionToGaussPoints(NVARS, e % Nsol, e % QDot, e % Nout, e % QDot_out, Tx, Ty, Tz)
+            if ( hasTimeDeriv ) then
+                call prolongSolutionToGaussPoints(NVARS, e % Nsol, e % QDot, e % Nout, e % QDot_out, Tx, Ty, Tz)
+            end if
 
          end if
 
@@ -494,7 +504,7 @@ module Solution2PltModule
                                                      Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                      Tset(e % Nout(2), e % Nsol(2)) % T, &
                                                      Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                     mesh % hasGradients, mesh % isStatistics )
+                                                     mesh % hasGradients, mesh % isStatistics, mesh % hasTimeDeriv)
 
 
             end associate
@@ -553,7 +563,7 @@ module Solution2PltModule
 
       end subroutine Solution2Plt_Homogeneous
 
-      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats)
+      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats, hasTimeDeriv)
          use Storage
          use NodalStorageClass
          implicit none
@@ -566,6 +576,7 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: TzSol(0:e % Nout(3), 0:e % Nsol(3))
          logical,             intent(in)  :: hasGradients
          logical,             intent(in)  :: hasStats
+         logical,             intent(in)  :: hasTimeDeriv
 !
 !        ---------------
 !        Local variables
@@ -595,6 +606,18 @@ module Solution2PltModule
                e % Qout(:,i,j,k) = e % Qout(:,i,j,k) + e % Q(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
             end do            ; end do            ; end do
          end do            ; end do            ; end do
+
+
+         allocate( e % QDot_out(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % QDot_out = 0.0_RP
+         if ( hasTimeDeriv ) then
+
+             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+                do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                   e % QDot_out(:,i,j,k) = e % QDot_out(:,i,j,k) + e % QDot(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+                end do            ; end do            ; end do
+             end do            ; end do            ; end do
+         end if
 
          if ( hasGradients ) then
             allocate( e % U_xout(1:NGRADVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
@@ -672,6 +695,16 @@ module Solution2PltModule
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
                do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
                   e % mu_sgsout(:,i,j,k) = e % mu_sgsout(:,i,j,k) + e % mu_sgs(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do  
+         end if
+
+         if (hasSource) then
+            allocate( e % sourceout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % sourceout = 0.0_RP
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % sourceout(:,i,j,k) = e % sourceout(:,i,j,k) + e % source(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
             end do            ; end do            ; end do  
          end if

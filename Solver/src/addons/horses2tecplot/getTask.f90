@@ -351,6 +351,8 @@ module getTask
                     case ("les")
                         hasMu_NS = .true.
                         hasMu_sgs     = .true.
+                    case ("source")
+                        hasSource     = .true.
                     case default
                         write(STD_OUT,'(A,A,A)') "The variable asked, ", trim(addVar), " is not implemented"
                 end select
