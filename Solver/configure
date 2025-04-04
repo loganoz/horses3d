@@ -91,6 +91,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
             ./Multiphase/RisingBubbleVreman\
+            ./Multiphase/Snell\
             ./Multiphase/Pipe \
             ./Multiphase/Monopole_pAdaptationRL \
             ./Multiphase/ActuatorLineAverage \
