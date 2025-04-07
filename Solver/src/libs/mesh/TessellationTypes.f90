@@ -117,7 +117,7 @@ module TessellationTypes
                                                       read = .false.,                  &
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
-      logical                                      :: FSImove
+      logical                                      :: FSImove,FSI_IfRigidPart
       integer                                      :: FSINumOfMode, FSIModeDIM, FSInumOfControlPoint
       real(kind=RP), allocatable                   :: FSIModefrequency_dimHz(:),FSIModedampingRatio(:), &
                                                       FSIModeX_dimM(:,:), &   ![numOfControlPoint,FSIModeDIM]
@@ -130,7 +130,7 @@ module TessellationTypes
                                                       FSIModeDirection(NDIM), &
                                                       FSILengthScale_dimM, FSIRho_dimKgM3, FSIUinlet_dimMS
       character(LINE_LENGTH)                       :: FSIModefilename
-      real(kind=RP)                                :: FSI_UserDefineRigidPart_dimM = 0.0_RP! need to define in the future
+      real(kind=RP)                                :: FSI_UserDefineRigidPart_dimM
       
       contains
          procedure :: ReadTessellation
@@ -787,9 +787,9 @@ module TessellationTypes
             end do
             write(STD_OUT,'(30X,A,A35,A)') "->", "FSIModefilename: ", trim(this% FSIModefilename)
             write(STD_OUT,'(30X,A,A35,F10.6,A2)') "->", "FSILengthScale: ", this% FSILengthScale_dimM, "m"
-            write(STD_OUT,'(30X,A,A35,F10.6,A7)') "->", "FSIRho: ", this% FSIRho_dimKgM3, "kg/m^3"
+            write(STD_OUT,'(30X,A,A35,F12.6,A7)') "->", "FSIRho: ", this% FSIRho_dimKgM3, "kg/m^3"
             write(STD_OUT,'(30X,A,A35,F10.6,A4)') "->", "FSIUinlet: ", this% FSIUinlet_dimMS, "m/s"
-            write(STD_OUT,'(30X,A,A34,A6,F3.1,A2)') "->", "User Defined Rigid Part:"," x <= ",this%FSI_UserDefineRigidPart_dimM,"m"
+            if (this%FSI_IfRigidPart) write(STD_OUT,'(30X,A,A34,A6,F10.6,A2)') "->", "User Defined Rigid Part:"," x <= ",this%FSI_UserDefineRigidPart_dimM,"m"
          end if
       end if
    
@@ -1238,12 +1238,20 @@ module TessellationTypes
             this % FSIRho_dimKgM3 = 1.0_RP
          else
             this % FSIRho_dimKgM3 = bcdict % realValueForKey("fsirho")
+
          end if
 
          if ( .not. bcdict % ContainsKey("fsiuinlet") ) then
             this % FSIUinlet_dimMS = 1.0_RP
          else
             this % FSIUinlet_dimMS = bcdict % realValueForKey("fsiuinlet")
+         end if
+
+         if ( .not. bcdict % ContainsKey("fsirigidregion") ) then
+            this % FSI_IfRigidPart = .false.
+         else
+            this % FSI_IfRigidPart = .true.
+            this % FSI_UserDefineRigidPart_dimM = bcdict % realValueForKey("fsirigidregion")
          end if
 
          if ( .not. bcdict % ContainsKey("fsimodefilename") ) then
@@ -1882,10 +1890,12 @@ module TessellationTypes
       allocate(pointX_ModePhi(this%FSINumOfMode))
 
       ! to define rigid part of structure: set ModePhi = 0
-      ! this % FSI_UserDefineRigidPart_dimM = 0.0_RP ! simplest here, but need to define in the future
-      if (pointX_dimM(1) <= this % FSI_UserDefineRigidPart_dimM) then
-         pointX_ModePhi(:) = 0.0_RP
-         return
+      ! x <= this % FSI_UserDefineRigidPart_dimM = 0.0_RP ! simplest here 
+      if (this%FSI_IfRigidPart) then
+         if (pointX_dimM(1) <= this % FSI_UserDefineRigidPart_dimM) then
+            pointX_ModePhi(:) = 0.0_RP
+            return
+         end if
       end if
 
       nControl = this%FSINumOfControlPoint       

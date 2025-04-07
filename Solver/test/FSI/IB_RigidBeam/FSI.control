@@ -1,0 +1,102 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "MESH/beamvivIB1_RefMedium.msh"
+
+Polynomial order      = 3
+simulation type       = time-accurate
+Number of time steps  = 20
+Output Interval       = 1
+autosave mode         = "iteration"
+autosave interval     = 10
+
+mach number           = 0.25d0
+Reynolds number       = 204.2308d0
+
+solution file name    = "RESULTS/IBM.hsol"
+save gradients with soluton = .false.
+restart               = .true.
+restart polorder      = 3
+restart file name     = "RESULTS/IBM_0000500000.hsol"
+riemann solver         = "lax-friedrichs"
+
+viscous discretization = "BR1"
+
+convergence tolerance = 1.0d-12
+cfl                   = 0.3d0
+dcfl                  = 0.3d0
+!dt                    = 2.0d-5
+
+partitioning          = SFC
+
+!--STL
+stl file name         = "MESH/body.stl"
+
+#define IBM
+  name = body
+  active = .true.
+  describe = .true.
+  number of objects = 5
+  number of interpolation points = 15
+  plot mask = .true.
+  band region = .true.
+  band region coefficient = 1.5
+  plot band points = .true.
+  compute distance = .true.
+  clip axis = 3
+  abb = .true.
+#end
+
+#define stlboundary body
+  moving = .false.
+  FSImove = .true.
+  FSIModeDirection = [0.0,1.0,0.0]
+  FSIModeDIM = 1
+  FSINumOfMode = 3
+  FSIMode1_dampingRatio = 0.0
+  FSIMode2_dampingRatio = 0.0
+  FSIMode3_dampingRatio = 0.0
+  FSIMode1_frequency = 0.64827
+  FSIMode2_frequency = 4.0622
+  FSIMode3_frequency = 11.376
+  FSIModefilename = "FSI/modexphiy.txt"
+  FSILengthScale = 0.01
+  FSIRho = 1.18
+  FSIUinlet = 0.315
+  FSIRigidRegion = 0.0
+#end
+
+#define boundary inlet
+  type = Inflow
+#end
+
+#define boundary outlet
+   type = Outflow
+#end
+
+#define boundary back__front
+  type = FreeSlipWall
+#end
+
+#define boundary top__bottom
+  type = FreeSlipWall
+#end
+
+!#define boundary body
+!  type = NoSlipWall
+!#end
+
+#define surface monitor 1
+   Name = cl
+   Marker = body
+   Variable = lift
+   Direction = [0.0,1.0,0.0]
+   Reference surface = 1
+#end
+
+#define surface monitor 2
+   Name = cd
+   Marker = body
+   Variable = drag
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1
+#end
