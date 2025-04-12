@@ -90,7 +90,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
-            ./Multiphase/RisingBubbleVreman\
+            ./Multiphase/RisingBubbleVreman \
+            ./Multiphase/Snell \
             ./Multiphase/Pipe \
             ./Multiphase/Monopole_pAdaptationRL \
             ./Multiphase/ActuatorLineInterpolation \
