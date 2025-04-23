@@ -236,21 +236,10 @@
 #if (!defined(NAVIERSTOKES)) && (!defined(INCNS))
          logical  :: computeGradients = .true.
 #endif
-real(kind=RP) :: oo(4)
-real(kind=RP) :: ss(4)
-real(kind=RP) :: x 
 
-x=-1.0_RP/3.0_RP
-oo(1)=(x-1.0_rp)/2.0_rp 
-oo(2)=(x+1.0_rp)/2.0_rp 
-oo(3)=(1.0_rp-x)/2.0_rp 
-oo(4)=(-x-1.0_rp)/2.0_rp 
-ss(1)=oo(1)+1.0_rp 
-ss(2)=1.0_rp-oo(2)
-ss(3)=1.0_rp-oo(3)
-ss(4)=oo(4)+1.0_rp 
 
-if (self % ID==288) write(*,*) 'linking face 288' 
+
+
    !     i
    !     -------------------------------------------------------------
    !     First, get face elements polynomial orders (without rotation)
@@ -332,24 +321,24 @@ if (self % ID==288) write(*,*) 'linking face 288'
          end if 
          if (present(offset) .and. present(s)) then !Sliding
             !write(*,*) 'sliding mortars projections'
-            if (self% Mortarpos==1) then 
-               call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)!in    !o=-0.5
-               call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)!out
+            if (self% Mortarpos==0) then!!!!!!0  !!!!1
+               call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(1), 1)!in    !o=-0.5
+               call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(1), 2)!out
               ! write(*,*)'tset 1, offset :', offset(1), 'scale:',s(1)
-               call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)      !o=0.5
-               call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(2), 2)
-              ! write(*,*)'tset 2, offset :', offset(2), 'scale:',s(2)
+               call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(2), 1)      !o=0.5
+               call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(2), 2)
+               !write(*,*)'tset 1 and 2, :', offset, 'scale:',s
                !write(*,*) "TsetM 1 1 ", TsetM(self % NfLeft(1), self % Nf(1), 1, 1)%T
                !write(*,*) "TsetM 1 2 ", TsetM(self % Nf(1), self % NfLeft(1), 1, 2)%T
                !write(*,*) "TsetM 2 1 ", TsetM(self % NfLeft(1), self % Nf(1), 2, 1)%T
                !write(*,*) "TsetM 2 2 ", TsetM(self % Nf(1), self % NfLeft(1), 2, 2)%T
-            else if (self%Mortarpos==0)  then
-               call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(1), 1)       !o=0.5
-               call TsetM(self % Nf(1), self % NfLeft(1), 3, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(1), 2)
+            else if (self%Mortarpos==1)  then!!!!!!1  !!!!!0
+               call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(1), 1)       !o=0.5
+               call TsetM(self % Nf(1), self % NfLeft(1), 3, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(1), 2)
              !  write(*,*)'tset 3, offset :', offset(1), 'scale:',s(1)
-               call TsetM(self % NfLeft(1), self % Nf(1), 4, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(2), 1)     !o=-0.5
-               call TsetM(self % Nf(1), self % NfLeft(1), 4, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(2), 2)
-             !  write(*,*)'tset 4, offset :', offset(2), 'scale:',s(2)
+               call TsetM(self % NfLeft(1), self % Nf(1), 4, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(2), 1)     !o=-0.5
+               call TsetM(self % Nf(1), self % NfLeft(1), 4, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(2), 2)
+              ! write(*,*)'tset 3 and 4, offset :', offset, 'scale:',s
                !write(*,*) "TsetM 3 1 ", TsetM(self % NfLeft(1), self % Nf(1), 3, 1)%T
                !write(*,*) "TsetM 3 2 ", TsetM(self % Nf(1), self % NfLeft(1), 3, 2)%T
                !write(*,*) "TsetM 4 1 ", TsetM(self % NfLeft(1), self % Nf(1), 4, 1)%T
@@ -573,28 +562,73 @@ if (self % ID==288) write(*,*) 'linking face 288'
 !write(*,*)'fma%pos==4, corresponding element:', fma%elementIDs
             end select 
          else 
-            if (fma%Mortarpos==1) then 
-               MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)   !1;1
+            if (fma%Mortarpos==0) then 
+               MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)   !1;1!!!!!!!
                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)   !2;1
             end if 
-            if (fma%Mortarpos==0) then  
-               MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)   !3;1
+            if (fma%Mortarpos==1) then  
+               MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)   !3;1!!!!!!!!!!!!
                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)   !4;1
             end if 
          end if 
         ! write(*,*) 'mortar proj MInt(:,:,1)',MInt(:,:,1)
         ! write(*,*) 'mortar proj MInt(:,:,2)',MInt(:,:,2)
 
-        ! if (present(sliding)) then
-           ! write(*,*) 'MOD(fma% ID, 2)',MOD(fma% ID, 2)
-            !write(*,*)'side', side
-            !write(*,*) 'Tset',TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T  
-           ! do j = 0, fma %Nf(2) ; do i = 0,fma %Nf(1)
-             !  write(*,*) 'Mint i,j',i,j, MInt(i,j,1)
-            !end do                 ; end do                 
-            !write(*,*) 'Mint 2', MInt(:,:,2)
-            !(*,*) 'QE 2', Qe
-         !end if 
+         !if (present(sliding)) then 
+         !    if ((self%elementIDs(1)==43) )then 
+        !     !if (side==1) then 
+        !        xx=0.0_RP
+       !         write(*,*) 'we are in faceclass, self%elementIDs(1)=',self%elementIDs(1), 'side==',side, 'fma%Mortarpos',fma%Mortarpos
+        !!        write(*,*) 'fma%elementIDs=',fma%elementIDs
+         !       do j = 0, fma %Nf(2)  ; do i = 0, fma %Nf(2)
+         !         write(*,*) 'before adapting self % x(:,i,j) with the mortar projection', self%geom%x(:,i,j)
+         !       end do ;end do 
+          !     xxrot=0.0_RP
+         !!       do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+         !         do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+         !           xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T(j,l)*self%geom%x(:,i,l)
+         !         end do                  ; end do                   ; end do
+         !         do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
+         !            write(*,*) 'after TsetM(3,1) adapting  self % x(:,i,j) with the mortar projection', xx(:,i,j)
+         !          end do ;end do 
+         !     xx=0.0_RP
+              !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+         !!     do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+          !      xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T(j,l)*self%geom%x(:,i,l)
+         !!     end do                  ; end do                   ; end do
+         !     do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
+          !       write(*,*) 'after  TsetM(1,1) adapting with  % x(:,i,j) with the mortar projection', xx(:,i,j)
+          !     end do ;end do 
+          !end if 
+          !end if 
+ 
+          !if (present(sliding)) then 
+          !   if (self%elementIDs(1)==38) then 
+          !     ! if (side==2) then 
+          !      xx=0.0_RP
+          !      write(*,*) 'we are in faceclass, self%elementIDs(1)=',self%elementIDs(1), 'side==',side, 'fma%Mortarpos',fma%Mortarpos
+          !      write(*,*) 'fma%elementIDs=',fma%elementIDs
+          !      do j = 0, fma %Nf(2)  ; do i = 0, fma %Nf(2)
+          !        write(*,*) 'before adapting self % x(:,i,j) with the mortar projection', self%geom%x(:,i,j)
+          !      end do ;end do 
+          !      xx=0.0_RP
+          !      !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+          !      do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+          !         xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T(j,l)*self%geom%x(:,i,l)
+          !       end do                  ; end do                   ; end do
+          !       do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
+          !          write(*,*) 'after adapting TsetM(2,1) self % x(:,i,j) with the mortar projection', xx(:,i,j)
+          !        end do ;end do 
+          !   xx=0.0_RP
+          !   do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+         !    !do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+          !      xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T(j,l)*self%geom%x(:,i,l)
+          !    end do                  ; end do                   ; end do
+          !   do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
+          !       write(*,*) 'after adapting TsetM(4,1) self % x(:,i,j) with the mortar projection', xx(:,i,j)
+           !    end do ;end do 
+           ! end if 
+          !end if 
          if (.not.present(sliding)) then 
             associate(Qf => fma % storage(1) % Q)
                 Qf=0.0_RP
@@ -629,7 +663,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                !end associate 
                associate(Qf => fma % storage(2) % Q)
                   Qf=0.0_RP
-              ! do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+               !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
                   do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
                   Qf(:,i,j) = Qf(:,i,j)  + MInt(j,l,2) *  Qe_rot(:,i,l)
                end do                  ; end do                   ; end do
@@ -828,10 +862,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
                  !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
               end select 
             else 
-               if (fma%Mortarpos==1) then 
+               if (fma%Mortarpos==0) then 
                   MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
                   MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               elseif (fma%Mortarpos==0) then  
+               elseif (fma%Mortarpos==1) then  
                   MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
                   MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
                end if 
@@ -1317,6 +1351,8 @@ if (self % ID==288) write(*,*) 'linking face 288'
          real(kind=RP)     :: fStarAux2(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
          real(kind=RP)     :: tmp(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
          real(kind=RP)     :: tmp2(nEqn, 0:fma % NfRight(1), 0:fma % NfRight(2))
+         real(kind=RP)  :: xx(NDIM,0:fma%Nf(1),0:fma%Nf(1))
+
 
          if (.not.present(sliding)) then 
             select case (fma%Mortarpos)
@@ -1343,14 +1379,39 @@ if (self % ID==288) write(*,*) 'linking face 288'
             !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
            end select 
          else 
-            if (fma%Mortarpos==1) then 
+            if (fma%Mortarpos==0) then 
                Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)    !1;2
                Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)   !2,2
-            elseif (fma%Mortarpos==0) then  
+            elseif (fma%Mortarpos==1) then  
                Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 3, 2) % T)    !3;2
                Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T)   !4,2
             end if 
          end if 
+
+         !if (present(sliding)) then 
+         !   if((self%elementIDs(1)==24) .AND. (fma%Mortarpos==1))then 
+          !     xx=0.0_RP
+         !!      write(*,*) 'we are in faceclass, self%elementIDs(1)=',self%elementIDs(1)
+          !     do j = 0, fma %Nf(2)  ; do i = 0, fma %Nf(2)
+           !      write(*,*) 'before readapting fma % x(:,i,j) with the mortar projection', fma%geom%x(:,i,j)
+           !    end do ;end do 
+
+
+            !   do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+            !  xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T(i,l)*fma%geom%x(:,l,j)
+            !end do                  ; end do                   ; end do
+
+            !do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
+            !   write(*,*) 'after  readapting self % x(:,i,j) with the mortar projection', xx(:,i,j)
+            ! end do ;end do 
+
+             !do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
+             !  write(*,*) 'after  readapting self % x(:,i,j) with the mortar projection',fma%s(1) *xx(:,i,j)
+             !end do ;end do 
+            !end if 
+         !end if 
+   
+
          if (.not.present(sliding)) then 
              fStarAux(1:nEqn,:,:) = 0.0_RP 
              fStarAux2(1:nEqn,:,:) = 0.0_RP 
@@ -1398,7 +1459,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
             else 
                fStarAux(1:nEqn,:,:) = 0.0_RP 
                do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-              ! do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
+              !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
                   fStarAux(1:nEqn,i,j)= fStarAux(1:nEqn,i,j) + Mout(j,l,2) * flux_M1(1:nEqn,i,l)
                end do     
                
@@ -1422,6 +1483,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
                   !if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
                   !if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
                end associate
+               fStarAux2=0.0_RP
 
                associate(fStar => self % storage(1) % Fstar)
                   do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
@@ -1870,10 +1932,10 @@ if (self % ID==288) write(*,*) 'linking face 288'
          !Mout(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 2) % T)
         end select 
       else 
-         if (fma%Mortarpos==1) then 
+         if (fma%Mortarpos==0) then 
             Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 1, 2) % T)
             Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 2, 2) % T)
-         elseif (fma%Mortarpos==0) then  
+         elseif (fma%Mortarpos==1) then  
             Mout(:,:,1)=(TsetM(fma % Nf(1), fma % NfLeft(1), 3, 2) % T)
             Mout(:,:,2)=(TsetM(fma % Nf(2), fma % NfLeft(2), 4, 2) % T)
          end if 
@@ -1899,7 +1961,8 @@ if (self % ID==288) write(*,*) 'linking face 288'
       else 
       if (whichElements(1)==1) then
          hStarAux = 0.0_RP 
-            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+             do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
             hStarAux(:,:,i,j)= hStarAux(:,:,i,j) + Mout(j,l,whichElements(1)) * Hflux(:,:,i,l)
          end do                  ; end do                   ; end do 
 
@@ -1929,6 +1992,7 @@ if (self % ID==288) write(*,*) 'linking face 288'
             if (whichElements(1)==2) then 
                hStarAux = 0.0_RP 
                do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+                  !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0, fma %Nf(1)
                hStarAux(:,:,i,j)= hStarAux(:,:,i,j) + Mout(j,l,whichElements(1)) * Hflux(:,:,i,l)
                    end do                  ; end do                   ; end do 
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

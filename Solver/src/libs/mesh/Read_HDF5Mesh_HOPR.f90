@@ -175,7 +175,7 @@ contains
 !    ********************************
 !
       Sliding=.true.
-      !Sliding=.false.
+      Sliding=.false.
       if ( mpi_partition % Constructed ) then
          call ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, periodRelative, success ) 
          return

@@ -492,7 +492,7 @@ Module MappedGeometryClass
 !  -----------------------------------------
 !  Computation of the metric terms on a face
 !  -----------------------------------------
-   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot, sliding, fID,eID)
+   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot, sliding, fID,scale,IsMortar)
       use PhysicsStorage
       use InterpolationMatrices
       implicit none
@@ -511,7 +511,8 @@ Module MappedGeometryClass
       integer,                   intent(in)     :: rot
       logical,   optional,       intent(in)     :: sliding 
       integer,   optional,       intent(in)     :: fID 
-      integer,   optional,       intent(in)     :: eID 
+      real(kind=RP), optional,   intent(in)     :: scale
+      integer,   optional,       intent(in)     :: IsMortar
 !
 !     ---------------
 !     Local variables
@@ -533,10 +534,10 @@ Module MappedGeometryClass
       real(kind=RP) ::  xxx(NDIM, 0:Nelf(1), 0:Nf(2),2)
       real(kind=RP) ::  xrot(NDIM, 0:Nelf(1), 0:Nf(2))
       real(kind=RP) ::  xrot2(NDIM, 0:Nelf(1), 0:Nf(2))
-      if (present(sliding)) then 
-         MInt(:,:,1)=transpose(TsetM(Nelf(1), Nf(1),1,1) % T)
-         MInt(:,:,2)=transpose(TsetM(Nelf(1), Nf(1),3,1) % T)
-      end if 
+      ! (present(sliding)) then 
+         !(:,:,1)=transpose(TsetM(Nelf(1), Nf(1),1,1) % T)
+        !! MInt(:,:,2)=transpose(TsetM(Nelf(1), Nf(1),3,1) % T)
+     ! end if 
 
       if (.not.allocated(self % jacobian)) allocate( self % jacobian(0:Nf(1), 0:Nf(2)))
       if (.not.allocated(self % x)) allocate( self % x       (NDIM, 0:Nf(1), 0:Nf(2)))
@@ -569,12 +570,16 @@ Module MappedGeometryClass
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
                x = [-1.0_RP, xi, eta]
-               !if (present(sliding) .and. present(fID)) then 
-                !  write(*,*)'calculating x for mortars,side ELEFT', side
-               !end if 
+               if (present(IsMortar)) then 
+                  write(*,*)'calculating x before transfiniteMap,side ELEFT', x
+               end if 
+               !write(*,*)'x befor transfite map'
                self % x(:,i,j) = hexMap % transfiniteMapAt(x)
+               if (present(IsMortar)) then 
+                  write(*,*)' x after transfiniteMap,side ELEFT', self % x(:,i,j)
+               end if 
             end do ; end do
-!
+!  
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
@@ -595,11 +600,16 @@ Module MappedGeometryClass
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
                x = [ 1.0_RP, xi, eta ]
+               if (present(IsMortar)) then 
+                  write(*,*)'calculating x before transfiniteMap,side ERIGHT', x
+               end if 
+               !write(*,*)'x befor transfite map'
                self % x(:,i,j) = hexMap % transfiniteMapAt(x)
-               !if (present(sliding) .and. present(fID)) then 
-                !  write(*,*)'calculating x for mortars,side ERIGHT', side
-               !end if 
+               if (present(IsMortar)) then 
+                  write(*,*)' x after transfiniteMap,side ERIGHT', self % x(:,i,j)
+               end if 
             end do ; end do
+           ! write(*,*)'calculating x,side ERIGHT', self % x
 !
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
@@ -614,11 +624,16 @@ Module MappedGeometryClass
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
                x = [xi, eta,-1.0_RP]
-               !if (present(sliding) .and. present(fID)) then 
-                !  write(*,*)'calculating x for mortars,side EBOTTOM', side
-               !end if 
+               if (present(IsMortar)) then 
+                  write(*,*)'calculating x before transfiniteMap,side EBOTTOM', x
+               end if 
+               !write(*,*)'x befor transfite map'
                self % x(:,i,j) = hexMap % transfiniteMapAt(x)
+               if (present(IsMortar)) then 
+                  write(*,*)' x after transfiniteMap,side EBOTTOM', self % x(:,i,j)
+               end if 
             end do ; end do
+            !write(*,*)'calculating x,side EBOTTOM', self % x
 !
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
@@ -637,11 +652,16 @@ Module MappedGeometryClass
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
                x = [xi, eta, 1.0_RP]
-               !if (present(sliding) .and. present(fID)) then 
-                !  write(*,*)'calculating x for mortars,side ETOP', side
-               !end if 
+               if (present(IsMortar)) then 
+                  write(*,*)'calculating x before transfiniteMap,side ETOP', x
+               end if 
+               !write(*,*)'x befor transfite map'
                self % x(:,i,j) = hexMap % transfiniteMapAt(x)
+               if (present(IsMortar)) then 
+                  write(*,*)' x after transfiniteMap,side ETOP', self % x(:,i,j)
+               end if 
             end do ; end do
+            !write(*,*)'calculating x,side ETOP', self % x
 !
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
@@ -656,11 +676,16 @@ Module MappedGeometryClass
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
                x = [xi, -1.0_RP, eta]
-               !if (present(sliding) .and. present(fID)) then 
-                !  write(*,*)'calculating x for mortars,side EFRONT', side
-               !end if 
+               if (present(IsMortar)) then 
+                  write(*,*)'calculating x before transfiniteMap,side EFRONT', x
+               end if 
+               !write(*,*)'x befor transfite map'
                self % x(:,i,j) = hexMap % transfiniteMapAt(x)
+               if (present(IsMortar)) then 
+                  write(*,*)' x after transfiniteMap,side EFRONT', self % x(:,i,j)
+               end if 
             end do ; end do
+            !write(*,*)'calculating,side EFRONT', self % x
 !
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
@@ -679,11 +704,16 @@ Module MappedGeometryClass
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
                x = [xi, 1.0_RP, eta]
-               !if (present(sliding) .and. present(fID)) then 
-                !  write(*,*)'calculating x for mortars,side EBACK', side
-               !end if 
+               if (present(IsMortar)) then 
+                  write(*,*)'calculating x before transfiniteMap,side EBACK', x
+               end if 
+               !write(*,*)'x befor transfite map'
                self % x(:,i,j) = hexMap % transfiniteMapAt(x)
+               if (present(IsMortar)) then 
+                  write(*,*)' x after transfiniteMap,side EBACK', self % x(:,i,j)
+               end if 
             end do ; end do
+            !write(*,*)'calculating x,side EBACK',  self % x
 !
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
@@ -711,36 +741,16 @@ Module MappedGeometryClass
          GradZetaRot = GradZeta
 
       else
-        ! if (.not.present(sliding)) then 
          do j = 0, Nelf(2) ; do i = 0, Nelf(1)
             call leftIndexes2Right(i,j,Nelf(1), Nelf(2), rot, ii, jj)
-           ! if (present(sliding))  then 
-             !   xrot(:,i,j)= self%x(:,ii,jj)
-            !end if 
+
             dSRot(:,i,j) = dS(:,ii,jj)
             GradXiRot  (:,i,j) = GradXi  (:,ii,jj)
             GradEtaRot (:,i,j) = GradEta (:,ii,jj)
             GradZetaRot(:,i,j) = GradZeta(:,ii,jj)
          end do            ; end do
-      !end if 
       end if
-     ! if (present(eID)) then 
-      !   if (eID==385) then 
-       !     write(*,*) '****************element',eID,'****************************'
-        !    write(*,*) 'x(1,:,:) without rotation:',self%x(1,:,:)
-         !   write(*,*) 'x(2,:,:) without rotation:',self%x(2,:,:)
-          !  write(*,*) 'x(3,:,:) without rotation:',self%x(3,:,:)
-      !do k=0,7
-       !  do j = 0, Nelf(2) ; do i = 0, Nelf(1)
-        !    call leftIndexes2Right(i,j,Nelf(1), Nelf(2), k, ii, jj)
-        !    xrot2(:,i,j)= self%x(:,ii,jj)
-        ! end do            ; end do
-        ! write(*,*) 'x(1,:,:) with rotation of:',k,xrot2(1,:,:)
-        ! write(*,*) 'x(2,:,:) with rotation of:',k,xrot2(2,:,:)
-        ! write(*,*) 'x(3,:,:) with rotation of:',k,xrot2(3,:,:)
-   !end do 
-!end if 
-!end if 
+     
 !
 !     Perform p-Adaption
 !     ------------------
@@ -804,33 +814,7 @@ Module MappedGeometryClass
       if (present(sliding) .and. present(fID)) then 
          if (sliding) then 
          allocate(xx(NDIM, 0:Nf(1), 0:Nf(2)))
-         xx= self % x 
-         DO j=1,2
-            xxx(:,:,:,j)=0.0_RP
-            DO q=0,Nf(2)
-              DO p=0,Nf(2) ! for every xi-layer perform Mortar operation in eta-direction 
-                DO l=0,Nf(2)
-                  xxx(:,p,q,j)=xxx(:,p,q,j) +MInt(l,q,j)*xx(:,p,l)
-                END DO
-              END DO
-            END DO
-          END DO !jNb=1,2
-         ! write(*,*)'1******1*1111********'
-         ! write(*,*)'1 x adapted  1', xxx(1,:,:,1)
-         ! write(*,*)'1 x adapted  2', xxx(2,:,:,1)
-         ! write(*,*)'1 x adapted  3', xxx(3,:,:,1)
-         ! write(*,*)'xx master 1 ', xx(1,:,:)
-         ! write(*,*)'xx master 2 ', xx(2,:,:)
-         ! write(*,*)'xx master 3 ', xx(3,:,:)
-!write(*,*)'1 x rat', xxx(:,:,:,1)/xx
-         ! write(*,*)'2******2*2222********'
-         ! write(*,*)'2 x adapted  1', xxx(1,:,:,2)
-         ! write(*,*)'2 x adapted  2', xxx(2,:,:,2)
-         ! write(*,*)'2 x adapted  3', xxx(3,:,:,2)
-         ! write(*,*)'xx master 1 ', xx(1,:,:)
-         ! write(*,*)'xx master 2 ', xx(2,:,:)
-         ! write(*,*)'xx master 3 ', xx(3,:,:)
- !         write(*,*)'2 x rat', xxx(:,:,:,2)/xx
+        
          xx= self % x 
          xrot=self % x 
          xxx=0.0_RP
@@ -839,88 +823,33 @@ Module MappedGeometryClass
          self % GradXi   = 0.0_RP
          self % GradEta  = 0.0_RP
          self % GradZeta = 0.0_RP
-         
-         if(fID==0) then !2
-           ! write(*,*) 'tseM mod=0',TsetM(Nelf(1), Nf(1), 3, 1) % T
-         !do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
 
+         if(fID==1) then !2
             do l = 0, Nelf(2)  ; do j = 0, Nf(2)   ; do i = 0, Nf(1)    !3;1
               ! self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 4, 1) % T(j,l) * xrot(:,i,l)
                self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * xrot(:,i,l)
                self % normal(:,i,j) = self % normal(:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * dSRot(:,i,l)
                self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * GradXiRot  (:,i,l)
-               self % GradEta (:,i,j) = self % GradEta (:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * GradEtaRot (:,i,l)
+               self % GradEta (:,i,j) = self % GradEta (:,i,j) + TsetM(Nelf(1), Nf(1),3 , 1) % T(j,l) * GradEtaRot (:,i,l)
                self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + TsetM(Nelf(1), Nf(1), 3, 1) % T(j,l) * GradZetaRot(:,i,l)
             end do                  ; end do                   ; end do
-            self % GradXi=self % GradXi*0.5_RP
-            self % GradEta=self % GradEta *0.5_RP
-            self % GradZeta=self % GradZeta*0.5_RP
+            self % GradXi=self % GradXi*scale
+            self % GradEta=self % GradEta *scale
+            self % GradZeta=self % GradZeta*scale
          else 
-           ! write(*,*) 'tseM mod=1',TsetM(Nelf(1), Nf(1), 1, 1) % T
             !do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
             do l = 0, Nelf(2)  ; do j = 0, Nf(2)   ; do i = 0, Nf(1)        !1;1
                self % x(:,i,j)= self % x(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * xx(:,i,l)
-               self % normal(:,i,j) = self % normal(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * dSRot(:,i,l)
+               self % normal(:,i,j) = self % normal(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l)* dSRot(:,i,l)
                self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * GradXiRot  (:,i,l)
                self % GradEta (:,i,j) = self % GradEta (:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * GradEtaRot (:,i,l)
                self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + TsetM(Nelf(1), Nf(1), 1, 1) % T(j,l) * GradZetaRot(:,i,l)
 
             end do                  ; end do                   ; end do
-            self % GradXi=self % GradXi*0.5_RP
-            self % GradEta=self % GradEta *0.5_RP
-            self % GradZeta=self % GradZeta*0.5_RP
+            self % GradXi=self % GradXi*scale
+            self % GradEta=self % GradEta *scale
+            self % GradZeta=self % GradZeta*scale
          end if 
-         !write(*,*)'x adapted  1', self%x(1,:,:)
-         !write(*,*)'x adapted  2', self%x(2,:,:)
-         !write(*,*)'x adapted  3', self%x(3,:,:)
-         !write(*,*)'xx master 1 ', xx(1,:,:)
-         !write(*,*)'xx master 2 ', xx(2,:,:)
-         !write(*,*)'xx master 3 ', xx(3,:,:)
-         !write(*,*)'x adapted todo', self%x(:,:,:)
-         !write(*,*)'xx master todo ', xx(:,:,:)
-         !write(*,*)'x master face', self%x
-        ! write(*,*)'x rat', self%x/xx
-         !write(*,*)'************************************************'
-         !write(*,*)'normal adapted',   self%normal
-         !write(*,*)'master normal', dSrot
-         !write(*,*)'normal diff :', dSRot-self % normal
-        ! write(*,*)'normal rat :', self % normal/dSRot
-         !write(*,*)'************************************************'
-         !write(*,*)'GradXi adapted 1:',  self%GradXi(1,:,:)
-         !write(*,*)'GradXi adapted 2:',  self%GradXi(2,:,:)
-         !write(*,*)'GradXi adapted 3:',  self%GradXi(3,:,:)
-         !write(*,*)'master GradXi 1', GradXiRot(1,:,:)
-         !write(*,*)'master GradXi 2', GradXiRot(2,:,:)
-         !write(*,*)'master GradXi 3', GradXiRot(3,:,:)
-        ! write(*,*)'GradXi at :', self % GradXi/GradXiRot
-         !write(*,*)'************************************************'
-         !write(*,*)'GradEta adapted:',  self%GradEta
-         !write(*,*)'master GradEta', GradEtaRot
-       ! ! write(*,*)'GradEta rat :', self  %GradEta/GradEtaRot
-         !write(*,*)'************************************************'
-         !write(*,*)'GradZeta adapted:',  self%GradZeta
-         !write(*,*)'master GradZeta', GradZetaRot
-        ! write(*,*)'GradZeta rat :', self  % GradZeta/GradZetaRot
-         !write(*,*)'************************************************'
-         !write(*,*)'x mortars brfore:', xx 
-         !write(*,*)'x mortars after :', self % x
-        ! write(*,*)'side',side
-        ! write(*,*)'x', x
-        ! write(*,*)'xx', xx
-        ! write(*,*)'x diff :', xx-self % x
-        ! write(*,*)'x rat :', xx/self % x
-!write(*,*)'normal 1 mortar before',dSRot(1,:,:)
-        ! write(*,*)'normal 2 mortar before',dSRot(2,:,:)
-        ! write(*,*)'normal 3 mortar before',dSRot(3,:,:)
-        ! write(*,*)'normal 1 mortar after',self % normal(1,:,:)
-        ! write(*,*)'normal 2 mortar after',self % normal(2,:,:)
-        ! write(*,*)'normal 3 mortar after',self % normal(3,:,:)
-        ! write(*,*)'normal diff :', dSRot-self % normal
-        ! write(*,*)'normal rat :', dSRot/self % normal
-        ! write(*,*)'GradXi at :', GradXiRot/self % GradXi
-        ! write(*,*)'GradEta rat :', GradEtaRot/self %GradEta
-        ! write(*,*)'GradZeta rat :', GradZetaRot/self % GradZeta
-        ! write(*,*)'********************************************************************************************************************************'
          deallocate(xx)
       end if 
       end if 
@@ -958,11 +887,6 @@ Module MappedGeometryClass
       do j = 0, Nf(2) ; do i = 0, Nf(1)
          self % surface = self % surface + spAf(1) % w(i) * spAf(2) % w(j) * self % jacobian(i,j)
       end do          ; end do
-
-      !if (present(sliding) .and. present(fID)) then 
-       !  write(*,*)'fid', fID
-        ! write(*,*) 'surface mortar faces:',self % surface
-      !end if 
 
    end subroutine ConstructMappedGeometryFace
 !
