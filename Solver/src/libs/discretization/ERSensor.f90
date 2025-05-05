@@ -85,7 +85,7 @@ public initializeERFilters, filterSolutions, getER
             call elementMomentumInteral(sem_filterA % mesh % elements(eID), integralFilterA)
             call elementMomentumInteral(sem_filterB % mesh % elements(eID), integralFilterB)
 
-            ER = sum(POW2(integralSolution - integralFilterA)) / sum(POW2(integralSolution - integralFilterB))
+            ER = sum(POW2(integralSolution - integralFilterA)) / (sum(POW2(integralSolution - integralFilterB)) + 1.0E-15_RP)
 
             mesh % elements(eID) % storage % sensor = ER
 

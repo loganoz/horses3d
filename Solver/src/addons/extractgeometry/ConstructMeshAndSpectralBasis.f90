@@ -34,6 +34,7 @@ module ConstructMeshAndSpectralBasis_MOD
          real(kind=RP)                                :: time
          integer                                      :: NDOF
          logical                                      :: useRelaxPeriodic
+         logical                                      :: has_sensor
          
          call AssignControlFileName(controlFile)
          
@@ -50,11 +51,24 @@ module ConstructMeshAndSpectralBasis_MOD
 !
 !        Set the file padding
 !        --------------------
-         if ( fileType .eq. SOLUTION_FILE ) then
-            padding = NCONS
-         else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
+         select case (fileType)
+         case(SOLUTION_FILE)
+            padding = 1*NCONS
+
+         case(SOLUTION_AND_SENSOR_FILE)
+            padding = 1*NCONS
+            has_sensor = .TRUE.
+
+         case(SOLUTION_AND_GRADIENTS_FILE)
             padding = NCONS + 3 * NGRAD
-         end if
+
+         case(SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
+            padding = NCONS + 3 * NGRAD
+            has_sensor = .TRUE.
+         case default
+            print*, "Unknown restart file format"
+            error stop
+         end select
             
          fid = putSolutionFileInReadDataMode(trim(solutionFile))
 !
@@ -73,6 +87,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !           -----------------------------
             pos = pos + 5*SIZEOF_INT + &
                         padding*(Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)*SIZEOF_RP 
+            if (has_sensor) pos = pos + SIZEOF_RP
 
             NDOF = NDOF + (Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)
          end do
