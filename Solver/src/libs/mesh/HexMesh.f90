@@ -428,6 +428,7 @@ MODULE HexMeshClass
                           END IF
                        END IF 
                        IF (self%elements(eID)%MortarFaces(faceNumber)==1) THEN    !we construct the new big face and the 4 small faces
+                        write(*,*) 'big mortar face construction line 431'
                         DO j = 1, 4
                            faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
                         END DO
@@ -3126,7 +3127,6 @@ if (.not.self % nonconforming) then
             domain = partition % mpiface_sharedDomain(bFace)
             no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
          end do
-
 !
 !        ---------------
 !        Allocate memory
@@ -3162,11 +3162,12 @@ if (.not.self % nonconforming) then
             associate(f => self % faces(fID))
             f % faceType = HMESH_MPI
             f % rotation = partition % mpiface_rotation(bFace)
+
             f % elementIDs(eSide) = eID
+
             f % elementIDs(otherSide(eSide)) = HMESH_NONE   ! This makes sense since elementIDs are in local numbering...
             f % elementSide(eSide) = side
             f % elementSide(otherSide(eSide)) = partition % element_mpifaceSideOther(bFace)
-
             if (eSide == RIGHT) f % nodeIDs = f % nodeIDs (invRot (:,f % rotation) )
             end associate
 
@@ -3179,13 +3180,15 @@ if (.not.self % nonconforming) then
             no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
             self % MPIfaces % faces(domain) % faceIDs(no_of_mpifaces(domain)) = fID
             self % MPIfaces % faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
+               write(*,*) 'curent partition:', partition%ID 
+               write(*,*) 'shared partition:', domain
                         !if (f % IsMortar==1) then 
               ! write(*,*) 'MPI Big Mortar fID', fID 
             !elseif (f % IsMortar==2) then 
               ! write(*,*) 'MPI slave Mortar fID', fID 
             !end if
          end do
-                 !write(*,*) 'number mpifaces', no_of_mpifaces
+                 write(*,*) 'number mpifaces', no_of_mpifaces
       
       end subroutine HexMesh_UpdateFacesWithPartition
 !
@@ -3643,10 +3646,10 @@ if (.not.self % nonconforming) then
                f % geom % h = min(minval(self % elements(f % elementIDs(1)) % geom % jacobian), &
                                   minval(self % elements(f % elementIDs(2)) % geom % jacobian)) &
                         / maxval(f % geom % jacobian)
-               if (f % geom % h==0.0_RP) then 
-                  write(*,*)'self % elements(f % elementIDs(1)) % geom % jacobian',self % elements(f % elementIDs(1)) % geom % jacobian
-                  write(*,*)'self % elements(f % elementIDs(2)) % geom % jacobian',self % elements(f % elementIDs(2)) % geom % jacobian
-               end if 
+               !if (f % geom % h==0.0_RP) then 
+               !   write(*,*)'self % elements(f % elementIDs(1)) % geom % jacobian',self % elements(f % elementIDs(1)) % geom % jacobian
+               !   write(*,*)'self % elements(f % elementIDs(2)) % geom % jacobian',self % elements(f % elementIDs(2)) % geom % jacobian
+               !end if 
                elseif(f % IsMortar==1 .or. f % IsMortar==3) then 
                   f % geom % h = minval(self % elements(f % elementIDs(1)) % geom % jacobian) &
                   / maxval(f % geom % jacobian)
@@ -5911,7 +5914,7 @@ call elementMPIList % destruct
 
    end subroutine HexMesh_UpdateHOArrays
 
-   subroutine HexMesh_RotateMesh(self, rad, center, dir2D, numBFacePoints, nodes )
+   subroutine HexMesh_RotateMesh(self, rad, center, dir2D, numBFacePoints, nodes, mpi )
       USE Physics
       use PartitionedMeshClass
       use MPI_Process_Info
@@ -5922,6 +5925,7 @@ call elementMPIList % destruct
       integer, intent(inout)       :: dir2D
       integer, intent(inout)       :: numBFacePoints
       integer                          :: nodes
+      logical, intent(in)          :: mpi 
 
       integer :: n_sliding
       integer :: n_slidingnewnodes 
@@ -5944,24 +5948,31 @@ call elementMPIList % destruct
       integer :: numberOfNodes
       integer :: l, i, j 
       logical :: success
+      integer :: oldnfaces
 
       call self % MarkRadius(rad, center, n_sliding, n_slidingnewnodes)
 
-      oldnode=size(self%nodes)
-      allocate(tmp_nodes(oldnode))
-      do i=1, oldnode
-         CALL ConstructNode( tmp_nodes(i), self%nodes(i)%x, self%nodes(i)%globID )
-      end do 
-      do i=1, oldnode
-         call self % nodes(i)%destruct
-      end do 
-      safedeallocate (self%nodes)
-      numberOfNodes=(size(tmp_nodes)+2*n_slidingnewnodes)
-      allocate(self%nodes(size(tmp_nodes)+2*n_slidingnewnodes))
-      do i=1, oldnode
-         CALL ConstructNode( self%nodes(i), tmp_nodes(i)%x, tmp_nodes(i)%globID )
-      end do 
-      safedeallocate (tmp_nodes)
+      write(*,*) 'n_sliding',n_sliding
+      write(*,*) 'n_sliding',n_slidingnewnodes
+
+      !reconstruct the nodes 
+      if (.NOT.mpi) then 
+         oldnode=size(self%nodes)
+         allocate(tmp_nodes(oldnode))
+         do i=1, oldnode
+            CALL ConstructNode( tmp_nodes(i), self%nodes(i)%x, self%nodes(i)%globID )
+         end do 
+         do i=1, oldnode
+            call self % nodes(i)%destruct
+         end do 
+         safedeallocate (self%nodes)
+         numberOfNodes=(size(tmp_nodes)+2*n_slidingnewnodes)
+         allocate(self%nodes(size(tmp_nodes)+2*n_slidingnewnodes))
+         do i=1, oldnode
+            CALL ConstructNode( self%nodes(i), tmp_nodes(i)%x, tmp_nodes(i)%globID )
+         end do 
+         safedeallocate (tmp_nodes)
+      end if 
       allocate(arr1(n_slidingnewnodes))
       allocate(arr2(n_slidingnewnodes))
       allocate(mortararr1(n_slidingnewnodes,2))
@@ -6001,9 +6012,15 @@ call elementMPIList % destruct
             end if 
          end do 
       end do 
+
+      oldnfaces=size(self%faces)
       do i=1,size(self%faces)
          call self%faces(i)%Destruct
       end do 
+      if (.not.mpi) then 
+         safedeallocate (self%faces)
+         allocate(self%faces(oldnfaces + n_slidingnewnodes))
+      end if 
       CALL ConstructFaces( self, success )
       if (allocated(self % zones) ) then 
          deallocate(self % zones)
@@ -6205,6 +6222,9 @@ call elementMPIList % destruct
    ll=0
    l=0
   
+   !do i=1, size(arr2)
+   !   write(*,*) 'arr2 i=',i, arr2(i)
+   !end do 
    Mat=0
    do i=1,size(arr2)
       Mat(i,1)=arr2(i)
@@ -6336,6 +6356,7 @@ call elementMPIList % destruct
           end do 
           !now we have the sliding neighbour element, we search for the non sliding neighbour (mortar)
           do j=1,6
+            if(Mat(i,2) .NE. 0) then 
               if (self%faces(self%elements(Mat(i,2))%faceIDs(j))%elementIDs(1)==Mat(i,2)) then 
                   eID3=self%faces(self%elements(Mat(i,2))%faceIDs(j))%elementIDs(2)
                else   
@@ -6349,8 +6370,10 @@ call elementMPIList % destruct
                      Mat(i,8)=self%faces(self%elements(Mat(i,2))%faceIDs(j))%rotation
                   end if  
                end if    
+            end if 
           end do 
           do j=1,6
+            if (Mat(i,3) .NE. 0) then 
               if (self%faces(self%elements(Mat(i,3))%faceIDs(j))%elementIDs(1)==Mat(i,3)) then 
                   eID3=self%faces(self%elements(Mat(i,3))%faceIDs(j))%elementIDs(2)
                else   
@@ -6362,6 +6385,7 @@ call elementMPIList % destruct
 
                   Mat(i,9)=self%faces(self%elements(Mat(i,3))%faceIDs(j))%rotation
                end if 
+            end if 
           end do 
       end if 
       !it's on the bottom of the circle 
@@ -6462,6 +6486,7 @@ call elementMPIList % destruct
            end if 
       end do 
       do j=1,6
+         if (Mat(i,2) .NE. 0) then 
           if (self%faces(self%elements(Mat(i,2))%faceIDs(j))%elementIDs(1)==Mat(i,2)) then 
               eID3=self%faces(self%elements(Mat(i,2))%faceIDs(j))%elementIDs(2)
            else   
@@ -6475,8 +6500,10 @@ call elementMPIList % destruct
                Mat(i,8)=self%faces(self%elements(Mat(i,2))%faceIDs(j))%rotation
                end if 
             end if     
+         end if 
       end do 
       do j=1,6
+         if (Mat(i,3) .NE. 0) then 
           if (self%faces(self%elements(Mat(i,3))%faceIDs(j))%elementIDs(1)==Mat(i,3)) then 
               eID3=self%faces(self%elements(Mat(i,3))%faceIDs(j))%elementIDs(2)
            else   
@@ -6487,6 +6514,7 @@ call elementMPIList % destruct
               self%elements(Mat(i,3))%MortarFaces(j)=1 
               Mat(i,9)=self%faces(self%elements(Mat(i,3))%faceIDs(j))%rotation
            end if 
+         end if 
       end do 
       end if 
       !if (Mat(i,1)==125) then 
@@ -6498,39 +6526,43 @@ call elementMPIList % destruct
    end do 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
+   do i=1,size(arr2)
+      write(*,*) 'Mat i',i,Mat(i,:)
+   end do 
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    do i=1,size(arr2)
       !write(*,*) 'Mat(i=', Mat(i,:)
-      if (.not.self%elements(Mat(i,1))%sliding_newnodes) write(*,*) 'for i=',i,'(i,1) is not sliding_newnodes'
-      if (.not.self%elements(Mat(i,2))%sliding_newnodes) write(*,*) 'for i=',i,'(i,2) is not sliding_newnodes'
-      if (self%elements(Mat(i,3))%sliding_newnodes) write(*,*) 'for i',i,'(i,3) is sliding_newnodes'
-      if (self%elements(Mat(i,3))%sliding) write(*,*) 'for i',i,'(i,3) is sliding'
-      eID=self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1)
-      eID2=self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2)
-      if (eID==Mat(i,1)) then 
-         if (self%elements(eID2)%sliding) write(*,*) 'problem with (i,4)'
-      else 
-         if (self%elements(eID)%sliding) write(*,*) 'problem with (i,4)'
+      if ((Mat(i,2) .NE. 0) .AND. (Mat(i,3) .NE. 0)) then 
+         if (.not.self%elements(Mat(i,1))%sliding_newnodes) write(*,*) 'for i=',i,'(i,1) is not sliding_newnodes'
+         if (.not.self%elements(Mat(i,2))%sliding_newnodes) write(*,*) 'for i=',i,'(i,2) is not sliding_newnodes'
+         if (self%elements(Mat(i,3))%sliding_newnodes) write(*,*) 'for i',i,'(i,3) is sliding_newnodes'
+         if (self%elements(Mat(i,3))%sliding) write(*,*) 'for i',i,'(i,3) is sliding'
+         eID=self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1)
+         eID2=self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2)
+         if (eID==Mat(i,1)) then 
+            if (self%elements(eID2)%sliding) write(*,*) 'problem with (i,4)'
+         else 
+            if (self%elements(eID)%sliding) write(*,*) 'problem with (i,4)'
+         end if 
+         if ((eID .NE. Mat(i,1)) .AND.(eID2 .NE. Mat(i,1))) write(*,*) 'problem with (i,4) line 6195'
+         eID=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1)
+         eID2=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2)
+         if (eID==Mat(i,2)) then 
+            if (self%elements(eID2)%sliding) write(*,*) 'problem with (i,5)'
+         else 
+            if (self%elements(eID)%sliding) write(*,*) 'problem with (i,5)'
+         end if 
+         if ((eID .NE. Mat(i,2)) .AND.(eID2 .NE. Mat(i,2))) write(*,*) 'problem with (i,5) line 6203'
+         eID=self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1)
+         eID2=self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2)
+         if (eID==Mat(i,3)) then 
+            if (.not.self%elements(eID2)%sliding) write(*,*) 'problem with (i,6)'
+         else 
+            if (.not.self%elements(eID)%sliding) write(*,*) 'problem with (i,6)'
+         end if 
+         if ((eID .NE. Mat(i,3)) .AND.(eID2 .NE. Mat(i,3))) write(*,*) 'problem with (i,5) line 6211'
       end if 
-      if ((eID .NE. Mat(i,1)) .AND.(eID2 .NE. Mat(i,1))) write(*,*) 'problem with (i,4) line 6195'
-      eID=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1)
-      eID2=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2)
-      if (eID==Mat(i,2)) then 
-         if (self%elements(eID2)%sliding) write(*,*) 'problem with (i,5)'
-      else 
-         if (self%elements(eID)%sliding) write(*,*) 'problem with (i,5)'
-      end if 
-      if ((eID .NE. Mat(i,2)) .AND.(eID2 .NE. Mat(i,2))) write(*,*) 'problem with (i,5) line 6203'
-      eID=self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1)
-      eID2=self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2)
-      if (eID==Mat(i,3)) then 
-         if (.not.self%elements(eID2)%sliding) write(*,*) 'problem with (i,6)'
-      else 
-         if (.not.self%elements(eID)%sliding) write(*,*) 'problem with (i,6)'
-      end if 
-      if ((eID .NE. Mat(i,3)) .AND.(eID2 .NE. Mat(i,3))) write(*,*) 'problem with (i,5) line 6211'
    end do
    connect=0
    do i=1, size(arr2) 
@@ -6629,25 +6661,29 @@ call elementMPIList % destruct
    !end do
 
    do i=1, size(arr2)
-      if (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%rotation .NE. Mat(i,7)) write(*,*) 'problem with rotation of mat(i7)'
-      if ((self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1) .NE. Mat(i,1)) .AND. (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2) .NE. Mat(i,1))) write(*,*) 'problem with face i1'
-      if (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation .NE. Mat(i,8)) write(*,*) 'problem with rotation of mat(i8)'
-      if ((self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1) .NE. Mat(i,2)) .AND. (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2) .NE. Mat(i,2))) write(*,*) 'problem with face i2'
-      if (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%rotation .NE. Mat(i,9)) write(*,*) 'problem with rotation of mat(i9)'
-      if ((self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1) .NE. Mat(i,3)) .AND. (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2) .NE. Mat(i,3))) write(*,*) 'problem with face i3'
+         if ((Mat(i,2) .NE. 0) .AND. (Mat(i,3) .NE. 0))  then 
+         if (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%rotation .NE. Mat(i,7)) write(*,*) 'problem with rotation of mat(i7)'
+         if ((self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1) .NE. Mat(i,1)) .AND. (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2) .NE. Mat(i,1))) write(*,*) 'problem with face i1'
+         if (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation .NE. Mat(i,8)) write(*,*) 'problem with rotation of mat(i8)'
+         if ((self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1) .NE. Mat(i,2)) .AND. (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2) .NE. Mat(i,2))) write(*,*) 'problem with face i2'
+         if (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%rotation .NE. Mat(i,9)) write(*,*) 'problem with rotation of mat(i9)'
+         if ((self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1) .NE. Mat(i,3)) .AND. (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2) .NE. Mat(i,3))) write(*,*) 'problem with face i3'
+         end if          
    end do 
    !Mat=Matrot
    do i=1, size(arr2)
-      nodeIDs1=self%elements(Mat(i,3))% nodeIDs
-      nodeIDs2=self%elements(Mat(i,2))% nodeIDs
-      faceNumber1=Mat(i,6)
-      faceNumber2=Mat(i,5)
-      do j=1,4
-         faceNodeIDs1(j)=nodeIDs1(localFaceNode(j,faceNumber1))
-         faceNodeIDs2(j)=nodeIDs2(localFaceNode(j,faceNumber2))
-      end do 
-      facer(i,1)=facerotation(masterNodeIDs=faceNodeIDs1, slaveNodeIDs=faceNodeIDs2)
-      facer(i,2)=facerotation(masterNodeIDs=faceNodeIDs2, slaveNodeIDs=faceNodeIDs1)
+      if ((Mat(i,2) .NE. 0) .AND. (Mat(i,3) .NE. 0)) then 
+         nodeIDs1=self%elements(Mat(i,3))% nodeIDs
+         nodeIDs2=self%elements(Mat(i,2))% nodeIDs
+         faceNumber1=Mat(i,6)
+         faceNumber2=Mat(i,5)
+         do j=1,4
+            faceNodeIDs1(j)=nodeIDs1(localFaceNode(j,faceNumber1))
+            faceNodeIDs2(j)=nodeIDs2(localFaceNode(j,faceNumber2))
+         end do 
+         facer(i,1)=facerotation(masterNodeIDs=faceNodeIDs1, slaveNodeIDs=faceNodeIDs2)
+         facer(i,2)=facerotation(masterNodeIDs=faceNodeIDs2, slaveNodeIDs=faceNodeIDs1)
+      end if 
    end do
 
    ind1=0
@@ -6685,7 +6721,9 @@ call elementMPIList % destruct
   !    write(*,*) 'line 6548, i=',i,'ind1=', ind1
   ! end do 
    do i=1,size(arr2)
-      Mat(i,8)=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation
+      if (Mat(i,2) .NE. 0) then 
+         Mat(i,8)=self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation
+      end if 
    end do 
   end subroutine HexMesh_MarkSlidingElementsRadius
 

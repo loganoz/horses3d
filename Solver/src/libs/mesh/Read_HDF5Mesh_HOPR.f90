@@ -165,6 +165,8 @@ contains
       real(kind=RP), allocatable :: s(:)
       real(kind=RP) :: center(2)
       real(kind=RP):: th
+      integer :: oldnode
+      real(kind=RP) :: rad
 
       integer :: new_nFaces
       !---------------------------------------------------------------
@@ -369,7 +371,7 @@ contains
                            values(:,i,j) = NodeCoords(:,HOPRNodeID) / Lref
                         END DO  
                      END DO
-                     write(*,*)'constructing facepatch cruved'
+                    ! write(*,*)'constructing facepatch cruved'
                      call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
 
                   END IF
@@ -454,110 +456,110 @@ contains
 !     Construct the element faces
 !     ---------------------------
 !
-      if (.not.ConformingMesh) then 
-         do i=1,self%no_of_elements
-            
-            select case (i)
-            case(1)
-               write(*,*) 'nodes of element element 1'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
-               !self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
-               !self % elements(5) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
-               !self % elements(5) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
-               !self % elements(5) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
-               !self % elements(5) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
-            case(2)
-               write(*,*) 'nodes of element element 2'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
-               !self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
-               !self % elements(6) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
-               !self % elements(6) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
-               !self % elements(6) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
-               !self % elements(6) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
-            case(3)
-               write(*,*) 'nodes of element element 3'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
-               !self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
-               !self % elements(7) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
-               !self % elements(7) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
-               !self % elements(7) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
-               !self % elements(7) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
-            case(4)
-               write(*,*) 'nodes of element element 4'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
-               !self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
-               !self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
-               !self % elements(8) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
-               !self % elements(8) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
-               !self % elements(8) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
-               !self % elements(8) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
-            case(5)
-               write(*,*) 'nodes of element element 5'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
+      !if (.not.ConformingMesh) then 
+      !   do i=1,self%no_of_elements
+      !      
+      !      select case (i)
+      !      case(1)
+      !         write(*,*) 'nodes of element element 1'
+      !         do j=1,8
+      !         write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+      !         write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+      !         end do 
+      !         self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
+      !         self % elements(5) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
+      !         self % elements(5) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
+      !         self % elements(5) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
+      !         self % elements(5) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
+      !      case(2)
+      !         write(*,*) 'nodes of element element 2'
+      !         do j=1,8
+      !         write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+      !         write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+      !         end do 
+      !         self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
+      !      self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
+      !         self % elements(6) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
+      !         self % elements(6) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
+      !         self % elements(6) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
+      !         self % elements(6) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
+      !      case(3)
+      !         write(*,*) 'nodes of element element 3'
+      !         do j=1,8
+      !         write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+      !         write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+      !         end do 
+      !         self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
+      !         self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
+      !         self % elements(7) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
+      !         self % elements(7) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
+      !         self % elements(7) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
+       !        self % elements(7) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
+       !     case(4)
+       !        write(*,*) 'nodes of element element 4'
+       !        do j=1,8
+       !        write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+       !        write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+       !        end do 
+       !        self % elements(i) % SurfInfo % corners(3,5)=self % elements(i) % SurfInfo % corners(3,5)+(0.03809885025_RP)
+       !        self % elements(i) % SurfInfo % corners(3,6)=self % elements(i) % SurfInfo % corners(3,6)+(0.03809885025_RP)
+        !       self % elements(i) % SurfInfo % corners(3,7)=self % elements(i) % SurfInfo % corners(3,7)+(0.03809885025_RP)
+        !       self % elements(i) % SurfInfo % corners(3,8)=self % elements(i) % SurfInfo % corners(3,8)+(0.03809885025_RP)
+         !      self % elements(8) % SurfInfo % corners(3,1)=self % elements(i) % SurfInfo % corners(3,5)
+         !      self % elements(8) % SurfInfo % corners(3,2)=self % elements(i) % SurfInfo % corners(3,6)
+         !      self % elements(8) % SurfInfo % corners(3,3)=self % elements(i) % SurfInfo % corners(3,7)
+         !      self % elements(8) % SurfInfo % corners(3,4)=self % elements(i) % SurfInfo % corners(3,8)
+         !   case(5)
+         !      write(*,*) 'nodes of element element 5'
+         !      do j=1,8
+         !      write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+         !      write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+         !      end do 
 
-            case(6)
-               write(*,*) 'nodes of element element 6'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
+         !   case(6)
+         !      write(*,*) 'nodes of element element 6'
+          !     do j=1,8
+          !     write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+          !     write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+           !    end do 
 
-            case(7)
-               write(*,*) 'nodes of element element 7'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do
+         !   case(7)
+         !      write(*,*) 'nodes of element element 7'
+         !      do j=1,8
+         !      write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+         !      write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+         !      end do
 
-            case(8)
-               write(*,*) 'nodes of element element 8'
-               do j=1,8
-               write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
-               write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
-               end do 
+         !   case(8)
+         !      write(*,*) 'nodes of element element 8'
+         !      do j=1,8
+         !      write(*,*) 'ID of node',j, self%elements(i)%nodeIDs(j)
+         !      write(*,*) 'node',j, self%nodes(self%elements(i)%nodeIDs(j))%X
+         !      end do 
 
-            end select 
-         end do 
+         !   end select 
+         !end do 
         !!!!!! 
          !self%nodes(5)%X(3)=self%nodes(5)%X(3)+(0.03809885025_RP)
          !self%nodes(6)%X(3)=self%nodes(6)%X(3)+(0.03809885025_RP)
          !self%nodes(7)%X(3)=self%nodes(7)%X(3)+(0.03809885025_RP)
          !self%nodes(8)%X(3)=self%nodes(8)%X(3)+(0.03809885025_RP)
-         !self%nodes(11)%X(3)=self%nodes(11)%X(3)+(0.03809885025_RP)
-         !self%nodes(12)%X(3)=self%nodes(12)%X(3)+(0.03809885025_RP)
-         !self%nodes(15)%X(3)=self%nodes(15)%X(3)+(0.03809885025_RP)
-         !self%nodes(16)%X(3)=self%nodes(16)%X(3)+(0.03809885025_RP)
-         !self%nodes(18)%X(3)=self%nodes(18)%X(3)+(0.03809885025_RP)
+      !self%nodes(11)%X(3)=self%nodes(11)%X(3)+(0.03809885025_RP)
+      !  self%nodes(12)%X(3)=self%nodes(12)%X(3)+(0.03809885025_RP)
+      !self%nodes(15)%X(3)=self%nodes(15)%X(3)+(0.03809885025_RP)
+      !   self%nodes(16)%X(3)=self%nodes(16)%X(3)+(0.03809885025_RP)
+      !   self%nodes(18)%X(3)=self%nodes(18)%X(3)+(0.03809885025_RP)
 
        
 
-      end if    
+      !end if    
       if (ConformingMesh) then 
          numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
          if (Sliding) then 
@@ -645,7 +647,7 @@ contains
       if ( .not. MPI_Process % doMPIRootAction ) then
          call self % ConstructGeometry()
       end if
-      if (.NOT.ConformingMesh) Sliding=.false.
+      !if (.NOT.ConformingMesh) Sliding=.false.
    
       !do i=1,size(self%faces )-400
       !   write(*,*) 'normal of face', i, self%faces(i)%geom%normal 
@@ -675,8 +677,6 @@ contains
       !allocate(arr3(384))
       !allocate(Mat(48,7))
       !allocate(Connect(48, 9, 6))
-      new_nFaces=0
-      write(*,*) 'number of nodes before rotating',  nUniqueNodes+96
       !call self % MarkSlidingElementsRadius(0.51_RP, center, arr3, arr2, arr1, Mat, Connect,new_nFaces)
      ! do i=1,size(arr2)
      !    write(*,*)'Nodes of element', arr2(i)
@@ -684,245 +684,45 @@ contains
      !       write(*,*) 'node',j, self%nodes(self%elements(arr2(i))%nodeIDs(j))%X
      !    end do 
      ! end do 
-      if (Sliding) then 
-        ! allocate(arr1(400))
-       !  allocate(arr2(400))
-       !  allocate(arr3(400))
-       !  allocate(Mat(400,3))
-         center(1)=0.0_RP
-         center(2)=0.0_RP
-         allocate(arr1(48))
-         allocate(arr2(48))
-         allocate(mortararr1(48,2))
-         allocate(mortararr2(48,2))
-         allocate(arr3(384))
-         allocate(Mat(48,9))
-         allocate(face_nodes(48,4))
-         allocate(face_othernodes(48,4))
-         allocate(Connect(48, 9, 6))
-         allocate(rotmortars(96))
-         arr1=0
-         arr2=0
-         arr3=0
-         Mat=0
-         Connect=0
-         face_nodes=0
-         face_othernodes=0
-         allocate(o(4))
-         allocate(s(4))
-         write(*,*)'nUniqueSides',nUniqueSides
-         call self % Modifymesh(nodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th )
-         do l=1, size(arr2)
-            do j=1,6
-               if (self%elements(arr2(l))%MortarFaces(j)==1) then 
-                  mortararr2(l,1)=arr2(l)
-                  mortararr2(l,2)=j
-                  self%elements(arr2(l))%MortarFaces=0
-               end if 
-               if (self%elements(arr1(l))%MortarFaces(j)==1) then 
-                  mortararr1(l,1)=arr1(l)
-                  mortararr1(l,2)=j
-                  self%elements(arr1(l))%MortarFaces=0
-               end if 
-            end do 
-         end do 
-         do i=1,size(self%faces)
-            call self%faces(i)%Destruct
-         end do 
-         CALL ConstructFaces( self, success )
-         if (allocated(self % zones) ) then 
-            deallocate(self % zones)
-         end if 
-         call self % ConstructZones()
+      !center(1)=0.0_RP
+      !center(2)=0.0_RP
+      !allocate(arr1(48))
+      !allocate(arr2(48))
+      !allocate(mortararr1(48,2))
+      !allocate(mortararr2(48,2))
+      !allocate(arr3(384))
+      !allocate(Mat(48,9))
+      !allocate(face_nodes(48,4))
+      !allocate(face_othernodes(48,4))
+      !allocate(Connect(48, 9, 6))
+      !allocate(rotmortars(96))
+      !arr1=0
+      !arr2=0
+      !arr3=0
+      !Mat=0
+      !Connect=0
+      !face_nodes=0
+      !face_othernodes=0
 
-         CALL getElementsFaceIDs(self)
-         call self % DefineAsBoundaryFaces()
-         i=0
-         
-         if ( .not. MPI_Process % doMPIRootAction ) then
-            call self % CheckIfMeshIs2D()
-         end if
+      !call self % MarkSlidingElementsRadius(0.51_RP, center, arr3, arr2, arr1, Mat, Connect, new_nFaces, face_nodes,face_othernodes, rotmortars)
 
-         if ( dir2D .ne. 0 ) then
-            call SetMappingsToCrossProduct
-            !write(*,*) 'line 516 readhdf5'
-            call self % CorrectOrderFor2DMesh(dir2D)
-         end if
+      !do i=1,size(arr2)
+      !   write(*,*) 'elements', self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs
+      !   write(*,*) 'i=',i,'rot', self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%rotation
+      !   write(*,*) 'rotation in Mat', Mat(i,9)
+      !end do 
 
-        ! do l=1, size(arr1)
-           ! self%faces(self % elements(arr1(l))%faceIDs(5))%IsMortar=3
-            !self%faces(self % elements(arr1(l))%faceIDs(5))%facetype=1
-            !self%faces(self % elements(arr2(l))%faceIDs(5))%IsMortar=3
-            !self%faces(self % elements(arr2(l))%faceIDs(5))%facetype=1
-
-         !end do 
-         do l=1, size(arr2) 
-               self%faces(self%elements(arr2(l))%faceIDs(mortararr2(l,2)))%IsMortar=3
-               self%faces(self%elements(arr2(l))%faceIDs(mortararr2(l,2)))%facetype=1
-  
-               self%faces(self%elements(arr1(l))%faceIDs(mortararr1(l,2)))%IsMortar=3
-               self%faces(self%elements(arr1(l))%faceIDs(mortararr1(l,2)))%facetype=1
-         end do 
-         do l=1, size(self%faces)
-            if (self % faces(l) % faceType==-1) then 
-               write(*,*) 'face', l ,'has type -1n it belongs to elements', self%faces(l)%elementIDs
-               self % faces(l) % faceType=1
-            end if 
-         end do
-         i=0
-         do l=1, size(self%faces)
-            if (self%faces(l)%FaceType==2) then 
-               i=i+1
-            end if 
-         end do 
-         write(*,*) 'n boundary face', i
-         call self % SetConnectivitiesAndLinkFaces(nodes) 
-
-         
-         !do i=1, size(self%elements)
-        !    if (self%elements(i)%sliding_newnodes) then 
-        !       write(*,*) 'sliding_newnodes elements', i
-        !       do j=1,6
-        !          write(*,*) 'face',j,'of the sliding_newnodes% elementid 1', self%faces(self%elements(i)%faceIDs(j))%elementIDs(1)
-        !          write(*,*) 'face',j,'of the sliding_newnodes% elementid 2', self%faces(self%elements(i)%faceIDs(j))%elementIDs(2)
-        !      end do 
-      !   end if 
-      !   end do 
-
-         !do i=1, size(self%elements)
-         !   if (self%elements(i)%sliding .and. .not.self%elements(i)%sliding_newnodes) then 
-         !      write(*,*) 'sliding elements', i
-         !      do j=1,6
-         !         write(*,*) 'face',j,'of the sliding% elementid 1', self%faces(self%elements(i)%faceIDs(j))%elementIDs(1)
-         !         write(*,*) 'face',j,'of the sliding% elementid 2', self%faces(self%elements(i)%faceIDs(j))%elementIDs(2)
-         !      end do 
-         !   end if 
-         !end do 
-
-        ! do i=1,size(self%faces)
-        !    if (self%faces(i)%FaceType==HMESH_INTERIOR) then 
-        !       if (self%faces(i)% IsMortar==0 .OR. self%faces(i) % IsMortar==2) then
-        !         ! write(*,*) 'lline 752 of hexmesh, eIDLeft, just sliding',self%faces(i) % elementIDs(1)
-        !          if(self%faces(i) % elementIDs(1)==0) then
-        !             write(*,*)'mkawda line 775'
-        !             cycle
-        !          else
-        !             if (self%elements(self%faces(i)%elementIDs(1))%sliding) then 
-        !             
-        !             if (self%elements(self%faces(i)%elementIDs(1))%sliding_newnodes) write(*,*)'sliding_newnodes'
-        !             endif
-        !          end if 
-        !         ! write(*,*) 'lline 752 of hexmesh, eIDRight, just sliding',self%faces(i) % elementIDs(2)
-        !          if(self%faces(i) % elementIDs(2)==0) then
-        !             write(*,*)'mkawda line 785'
-        !             cycle
-        !          else
-        !          if (self%elements(self%faces(i)%elementIDs(2))%sliding) then 
-        !!             
-         !!            if (self%elements(self%faces(i)%elementIDs(2))%sliding_newnodes) write(*,*)'sliding_newnodes'
-          !        endif
-         !         end if 
-         !      endif 
-         !   endif 
-         !end do 
-         call self % ConstructGeometry()
-
-         write(*,*)'mesh info'
-         write(*,*) 'element', Size(self%elements)
-         write(*,*) 'faces', Size(self%faces)
-        ! write(*,*) 'line 559, nfaces after second construction of the FACESself % numberOfFaces',self % numberOfFaces,'size of faces', SIZE(self % faces) 
+      !deallocate(arr1)
+      !deallocate(arr2)
+      !deallocate(arr3)
+      !deallocate(Mat)
+      !deallocate(mortararr1)
+      !deallocate(mortararr2)
+      !deallocate(face_nodes)
+      !deallocate(face_othernodes)
+      !deallocate(Connect)
+      !deallocate(rotmortars)
       
-         !do l=1, SIZE(self%faces)
-            !!!call self % faces(l) % Destruct
-                 !self % faces(l) % IsMortar =0
-                ! if (allocated(self % faces(l) % Mortar)) then
-                ! self % faces(l) % Mortar = 0
-                   !end if 
-        !end do 
-        !call self % ConstructSlidingMortars(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars, th)
-        call self % ConstructSlidingMortarsConforming(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars)
-        !call self % ConstructMortars(nodes, 48, arr1, arr2,Mat,o, s, mortararr2,rotmortars, th)
-
-        self%sliding=.true.
-        !write(*,*) 'line 840 of readhdf5'
-        !do i=1,size(self%mortar_faces)
-        ! write(*,*) 'mortar number',i, 'corresponding faces:'
-        ! write(*,*) 'face 1',self%mortar_faces(i)%Mortar(1)
-        ! write(*,*) 'face 2',self%mortar_faces(i)%Mortar(2)
-        ! write(*,*) 'and correspond to elements:'
-        ! write(*,*) 'element 1', self%faces(self%mortar_faces(i)%Mortar(1))%elementIDs(1)
-        ! write(*,*) 'element 2', self%faces(self%mortar_faces(i)%Mortar(2))%elementIDs(1)
-        ! write(*,*) 'face 1 is mortar', self%faces(self%mortar_faces(i)%Mortar(1))%IsMortar
-        ! write(*,*) 'face 2 is mortar', self%faces(self%mortar_faces(i)%Mortar(2))%IsMortar
-        ! write(*,*) 'now we check if the faces correspond to the mortar:'
-        ! write(*,*) 'Motars of 1st face',self%faces(self%mortar_faces(i)%Mortar(1))%Mortar(1), self%faces(self%mortar_faces(i)%Mortar(1))%Mortar(2)
-        ! write(*,*) 'Motars of 2nd face',self%faces(self%mortar_faces(i)%Mortar(2))%Mortar(1),self%faces(self%mortar_faces(i)%Mortar(2))%Mortar(2)
-        !end do 
-
-        !do i=1,size(self%mortar_faces)
-        !if ( self%faces(self%mortar_faces(i)%Mortar(1))%IsMortar .NE. 3) write(*,*) 'we have a problem... line 856'
-        !if ( self%faces(self%mortar_faces(i)%Mortar(2))%IsMortar .NE. 3) write(*,*) 'we have a problem... line 857'
-        !end do 
-        !do i=1, size(arr2)
-        ! if (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%IsMortar .NE. 3) write(*,*) 'we have a problem line 860'
-        ! if (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%IsMortar .NE. 3)write(*,*) 'we have a problem line 861'
-        ! if (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%IsMortar .NE. 3)write(*,*) 'we have a problem line 862'
-
-       !if ( (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(1) .NE. self%mortar_faces(self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(1))%ID ) .AND. &
-       !(self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(2) .NE. self%mortar_faces(self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%Mortar(1))%ID )) write(*,*) 'problem mortar connectivity line 865'
-       ! end do
-  
-       ! write(*,*) 'after rotation, facesgeometry'
-       ! do i=1,size(arr2)
-       !!    write(*,*) 'element', Mat(i,1)
-       !    write(*,*) 'faceID',self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%ID
-       !    write(*,*) 'x',self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%geom%x
-       !    write(*,*) 'normal', self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%geom%normal
-       !    write(*,*) 't1', self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%geom%t1
-       !    write(*,*) 't2',self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%geom%t2
-       ! end do 
-        !do l=1, size(arr2) 
-        ! self%faces(self%elements(arr2(l))%faceIDs(mortararr2(l,2)))%IsMortar=0
-        ! self%faces(self%elements(arr2(l))%faceIDs(mortararr2(l,2)))%facetype=1
-
-!         self%faces(self%elements(arr1(l))%faceIDs(mortararr1(l,2)))%IsMortar=0
-!         self%faces(self%elements(arr1(l))%faceIDs(mortararr1(l,2)))%facetype=1
-!   end do 
-        !do l=1, size(self % faces)
-        !if (self%faces(l)%Ismortar==3) write(*,*)'faces', l, 'is mortar 3', self%faces(l)%elementIDs
-         !if((self%faces(l)%IsMortar==3) .and. (.not.allocated(self%faces(l)%Mortar))) write(*,*) 'fID', l,'isMortar=3 but Mortar(2) not allocated'
-       ! do i=1, size(self%faces)
-        ! write(*,*)'face',i,'NelLeft',self%faces(i)%NelLeft,'NelRight',self%faces(i)%NelRight,'NfLeft',self%faces(i)% NfLeft,' NfRight', self%faces(i)%NfRight 
-         !write(*,*) 'Nf', self%faces(i)%Nf, 'ismortar',self%faces(i)%IsMortar
-        !end do 
-      !end do 
-
-        !do l=1, size(arr1)
-
-
-         !write(*,*)'self%faces(self % elements(arr1(l))%faceIDs(5))%elementIDs', self%faces(self % elements(arr1(l))%faceIDs(5))%elementIDs
-         !write(*,*)'self%faces(self % elements(arr2(l))%faceIDs(5))%elementIDs',self%faces(self % elements(arr2(l))%faceIDs(5))%elementIDs
-
-         !write(*,*)'self % elements(arr1(l))%faceSide ',self % elements(arr1(l))%faceSide 
-         !write(*,*)'self % elements(arr2(l))%faceSide ',self % elements(arr2(l))%faceSide 
-      !end do 
-      !  write(*,*) 'geometry of the sliding elements after rotation'
-   !do i=1,size(arr2)
-!write(*,*) 'element ', arr2(2)
-!write(*,*) 'x=', self%elements(arr2(i))%geom%x 
-!write(*,*) 'jGradXi=', self%elements(arr2(i))%geom%jGradXi 
-!write(*,*) 'jGradEta=', self%elements(arr2(i))%geom%jGradEta 
-!write(*,*) 'jGradZeta=', self%elements(arr2(i))%geom%jGradZeta
-
-
- !  end do 
-        deallocate(arr1)
-        deallocate(arr2)
-        deallocate(arr3)
-        deallocate(Mat)
-        deallocate(o)
-        deallocate(s)
-      end if 
 !
 !     Finish up
 !     ---------
