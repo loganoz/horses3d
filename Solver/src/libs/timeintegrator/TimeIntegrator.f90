@@ -31,6 +31,7 @@
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
+      use ERSensor
 #if defined(NAVIERSTOKES)
       use SurfaceMesh                     , only: surfacesMesh, getU_tauInSurfaces, getWallDistInSurfaces
 #else
@@ -788,9 +789,13 @@
 #if defined(NAVIERSTOKES) 
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then        
          IF( self % pAdaptator % hasToAdapt(k+1) ) then
-            call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+           if (ER_adapt) then
+                call self % pAdaptator % pAdaptER (sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            else
+                call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+     end if
    else if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toAdapt)) then ! if p-adaptation based on the viscous sensor is requested !
          if ((self % pAdaptator % hasToAdapt(k+1)) .and. (k+1 >= ViscousRegionDetectionDriver % IterMin )) then
             call self % pAdaptator % pAdaptVIS (sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
@@ -798,7 +803,11 @@
    end if      
 #else
    IF( self % pAdaptator % hasToAdapt(k+1) ) then
-      call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+      if (ER_adapt)
+          call self % pAdaptator % pAdaptER (sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+      else
+          call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+      end if
    end if
    call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 #endif                 

@@ -8,10 +8,16 @@ Module ERSensor  !
 
 private
 
+public ER_adapt, ERLimitMax, ERLimitMin, ER_PLim
 public initializeERFilters, filterSolutions, getER
 
     type(DGSem)                                  :: sem_filterA
     type(DGSem)                                  :: sem_filterB
+
+    logical                                      :: ER_adapt
+    integer                                      :: ER_PLim
+    real(kind=RP)                                :: ERLimitMax
+    real(kind=RP)                                :: ERLimitMin
 
     contains
 
@@ -35,6 +41,7 @@ public initializeERFilters, filterSolutions, getER
         print *, "polynomial filter A: ", ntemp
         call controlVariablesFilterA % removeObjectForKey("polynomial order")
         call controlVariablesFilterA % addValueForKey(ntemp,TRIM("polynomial order"))
+        ER_PLim = ntemp+1
 
         call getSimpleOrders(controlVariablesFilterA,Nx_A,Ny_A,Nz_A)
         call sem_filterA % construct (controlVariables = controlVariablesFilterA, Nx_ = Nx_A, Ny_ = Ny_A, Nz_ = Nz_A, success = success, ChildSem = .true. )
@@ -47,6 +54,17 @@ public initializeERFilters, filterSolutions, getER
         call getSimpleOrders(controlVariablesFilterB,Nx_B,Ny_B,Nz_B)
         call sem_filterB % construct (controlVariables = controlVariablesFilterB, Nx_ = Nx_B, Ny_ = Ny_B, Nz_ = Nz_B, success = success, ChildSem = .true. )
         ! print *, "end initializing ER sensor"
+
+        ER_adapt = controlVariables % logicalValueForKey("er adapt")
+        ! default values huge so it doesnt adapt
+        ERLimitMax = controlVariables % getValueOrDefault("er max limit", -huge(1.0_RP)/10.0_RP)
+        ERLimitMin = controlVariables % getValueOrDefault("er min limit", huge(1.0_RP)/10.0_RP)
+
+        if (ER_adapt) then
+            write(STD_OUT,"(30X,A,A52,L)") "->", " Perform p-adaptation with ER: ", ER_adapt
+            print *, "ERLimitMin: ", ERLimitMin
+            print *, "ERLimitMax: ", ERLimitMax
+        end if 
 
     End Subroutine initializeERFilters
 
@@ -109,7 +127,7 @@ public initializeERFilters, filterSolutions, getER
                     wy => NodalStorage(e % Nxyz(2)) % w, &
                     wz => NodalStorage(e % Nxyz(3)) % w    )
            do k = 0, e % Nxyz(3)  ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-              integral= integral + wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) * e % geom % jacobian(i,j,k)
+              integral= integral + wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) /  e % storage % Q(IRHO,i,j,k) * e % geom % jacobian(i,j,k)
            end do            ; end do           ; end do
 !
         end associate
