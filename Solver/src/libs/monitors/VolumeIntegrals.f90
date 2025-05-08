@@ -735,12 +735,19 @@ module VolumeIntegrals
          minSensor =  huge(1.0_RP)/10.0_RP
          maxSensor = -huge(1.0_RP)/10.0_RP
 
-!$omp parallel do schedule(static) private(ielem)
-         do ielem = 1, mesh % no_of_elements
-            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+!$omp parallel shared(maxSensor, minSensor, mesh) default(private)
+!$omp do reduction(max:maxSensor) schedule(runtime)
+         DO ielem = 1, mesh % no_of_elements
             maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
-         end do
-!$omp end parallel do
+         END DO
+!$omp end do
+   
+!$omp do reduction(min:minSensor) schedule(runtime)
+         DO ielem = 1, mesh % no_of_elements
+            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+         END DO
+!$omp end do
+!$omp end parallel
 
 #ifdef _HAS_MPI_
          call MPI_MinMax(minSensor, maxSensor)
