@@ -6088,11 +6088,11 @@ if (present(angle))theta=angle
   
 
       do l=1, size(arr2) 
-            self%faces(self%elements(arr2(l))%faceIDs(mortararr2(l,2)))%IsMortar=3
-            self%faces(self%elements(arr2(l))%faceIDs(mortararr2(l,2)))%facetype=1
+            self%faces(self%elements(arr2(l))%faceIDs( self%mortararr2(l,2)))%IsMortar=3
+            self%faces(self%elements(arr2(l))%faceIDs( self%mortararr2(l,2)))%facetype=1
 
-            self%faces(self%elements(arr1(l))%faceIDs(mortararr1(l,2)))%IsMortar=3
-            self%faces(self%elements(arr1(l))%faceIDs(mortararr1(l,2)))%facetype=1
+            self%faces(self%elements(arr1(l))%faceIDs( self%mortararr1(l,2)))%IsMortar=3
+            self%faces(self%elements(arr1(l))%faceIDs( self%mortararr1(l,2)))%facetype=1
       end do 
       do l=1, size(self%faces)
          if (self % faces(l) % faceType==-1) then 
