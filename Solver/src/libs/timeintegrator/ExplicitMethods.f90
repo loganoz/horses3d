@@ -235,7 +235,7 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
       real(kind=RP) :: center(2)
       real(kind=RP) :: rad 
-
+   integer :: numBFacePoints=7
 
       INTEGER :: i, j, k, id
 
@@ -248,7 +248,7 @@ MODULE ExplicitMethods
                center(1)=0.0_RP
                center(2)=0.0_RP
                rad=1.01_RP
-               CALL MESH % RotateMesh(rad=rad, center=center, numBFacePoints=7, nodes=mesh%nodeType, mpi=.FALSE. )
+               CALL MESH % RotateMesh(rad=rad, center=center, numBFacePoints=numBFacePoints, nodes=mesh%nodeType, mpi=.FALSE. )
             end if 
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
