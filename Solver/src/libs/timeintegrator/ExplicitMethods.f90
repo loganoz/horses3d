@@ -214,11 +214,11 @@ MODULE ExplicitMethods
       !     -----------------
       !
             type(HexMesh)      :: mesh
-      #ifdef FLOW
+#ifdef FLOW
             type(Particles_t)  :: particles
-      #else
+#else
             logical            :: particles
-      #endif
+#endif
             REAL(KIND=RP)   :: t, deltaT, tk
             real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
             procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
@@ -259,19 +259,19 @@ MODULE ExplicitMethods
                      if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
                   end if
        
-      !$omp parallel do schedule(runtime)
+!$omp parallel do schedule(runtime)
                   do id = 1, SIZE( mesh % elements )
-      #ifdef FLOW
+#ifdef FLOW
                         mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
                         mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
-      #endif
+#endif
        
-      #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                         mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
                         mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
-      #endif
+#endif
                   end do ! id
-      !$omp end parallel do
+!$omp end parallel do
        
                end do ! k
        
@@ -291,19 +291,19 @@ MODULE ExplicitMethods
                      if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
                   end if
        
-      !$omp parallel do schedule(runtime)
+!$omp parallel do schedule(runtime)
                   do id = 1, SIZE( mesh % elements )
-      #ifdef FLOW
+#ifdef FLOW
                         mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
                         mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
-      #endif
+#endif
        
-      #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
                         mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
                         mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
-      #endif
+#endif
                   end do ! id
-      !$omp end parallel do
+!$omp end parallel do
        
                end do ! k
        
