@@ -1054,7 +1054,7 @@ MODULE Read_SpecMesh
             center(1)=0.0_RP
             center(2)=0.0_RP
             rad=1.01_RP
-            call self % RotateMesh(rad, center, dir2D, numBFacePoints, nodes, mpi)
+            call self % RotateMesh(rad, center, numBFacePoints, nodes, mpi)
 
          end if 
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_
