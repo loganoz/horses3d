@@ -85,6 +85,20 @@ MODULE HexMeshClass
          logical                                   :: nonconforming= .FALSE. 
          logical                                   :: sliding= .FALSE.
          real(kind=RP)                             :: omega 
+         !!!!!
+         integer :: numBFacePoints
+         integer :: n_sliding
+         integer :: n_slidingnewnodes 
+         integer, allocatable       :: arr1(:)
+         integer, allocatable       :: arr2(:)
+         integer, allocatable       :: arr3(:)
+         integer, allocatable       :: mortararr1(:,:)
+         integer, allocatable       :: mortararr2(:,:)
+         integer, allocatable       ::face_nodes(:,:)
+         integer, allocatable       ::face_othernodes(:,:)
+         integer, allocatable       :: Mat(:,:)
+         integer, allocatable       :: Connect(:,:,:)
+         integer, allocatable       :: rotmortars(:)
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -5915,7 +5929,7 @@ call elementMPIList % destruct
 
    end subroutine HexMesh_UpdateHOArrays
 
-   subroutine HexMesh_RotateMesh(self, rad, center, numBFacePoints, nodes, mpi )
+   subroutine HexMesh_RotateMesh(self, rad, center, numBFacePoints, nodes, mpi, angle )
       USE Physics
       use PartitionedMeshClass
       use MPI_Process_Info
@@ -5927,6 +5941,7 @@ call elementMPIList % destruct
       integer, intent(inout)       :: numBFacePoints
       integer                          :: nodes
       logical, intent(in)          :: mpi 
+      real(kind=RP), intent(in), optional :: angle
 
       integer :: n_sliding
       integer :: n_slidingnewnodes 
@@ -5956,8 +5971,8 @@ call elementMPIList % destruct
 
       call self % MarkRadius(rad, center, n_sliding, n_slidingnewnodes)
 
-      write(*,*) 'n_sliding',n_sliding
-      write(*,*) 'n_sliding',n_slidingnewnodes
+      !write(*,*) 'n_sliding',n_sliding
+      !write(*,*) 'n_sliding',n_slidingnewnodes
 
       !reconstruct the nodes 
       if (.NOT. self%sliding) then 
@@ -5998,23 +6013,47 @@ call elementMPIList % destruct
       allocate(s(4))
       PI=4.0_RP*DATAN(1.0_RP)
       theta=PI/2000.0_RP
+      if (.not.allocated(self%arr1) ) allocate (self%arr1(n_slidingnewnodes))
+      if (.not.allocated(self%arr2))  allocate (self%arr2(n_slidingnewnodes))
+      if (.not.allocated(self%mortararr1))  allocate (self%mortararr1(n_slidingnewnodes,2))
+      if (.not.allocated(self%mortararr2) ) allocate (self%mortararr2(n_slidingnewnodes,2))
+      if (.not.allocated(self%arr3))  allocate (self%arr3(n_sliding))
+      if (.not.allocated(self%Mat))  allocate (self%Mat(n_slidingnewnodes,12))
+      if (.not.allocated(self%face_nodes))  allocate (self%face_nodes(n_slidingnewnodes,4))
+      if (.not.allocated(self%face_othernodes))  allocate (self%face_othernodes(n_slidingnewnodes,4))
+      if (.not.allocated(self%Connect))  allocate (self%Connect(n_slidingnewnodes, 9, 6))
+      if (.not.allocated(self%rotmortars))  allocate (self%rotmortars(2*n_slidingnewnodes))
 
+if (present(angle))theta=angle
       call self % Modifymesh(nodes,n_slidingnewnodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th, numberOfNodes,numBFacePoints,oldnode, theta)
-
+      if (.not.self%sliding) then 
+         self%arr1=arr1
+         self%arr2=arr2 
+         self%arr3=arr3
+         self%Mat=Mat 
+         self%mortararr1=mortararr1 
+         self%mortararr2=mortararr2
+         self%face_nodes=face_nodes
+         self%face_othernodes=face_othernodes
+         self%connect=connect 
+         self%rotmortars=rotmortars
+         self%n_slidingnewnodes=n_slidingnewnodes
+         self%n_sliding=n_sliding
+      end if 
       do l=1, size(arr2)
          do j=1,6
             if (self%elements(arr2(l))%MortarFaces(j)==1) then 
-               mortararr2(l,1)=arr2(l)
-               mortararr2(l,1)=Mat(l,1)
-               mortararr2(l,2)=Mat(l,4)
-               self%elements(arr2(l))%MortarFaces=0
+               self%mortararr2(l,1)=self%arr2(l)
+               self%mortararr2(l,1)=self%Mat(l,1)
+               self%mortararr2(l,2)=self%Mat(l,4)
+               self%elements(self%arr2(l))%MortarFaces=0
             end if 
-            if (self%elements(arr1(l))%MortarFaces(j)==1) then 
-               mortararr1(l,1)=arr1(l)
-               mortararr1(l,1)=Mat(l,3)
-               mortararr1(l,2)=j
-               mortararr1(l,2)=Mat(l,6)
-               self%elements(arr1(l))%MortarFaces=0
+            if (self%elements(self%arr1(l))%MortarFaces(j)==1) then 
+               self%mortararr1(l,1)=self%arr1(l)
+               self%mortararr1(l,1)=self%Mat(l,3)
+               self%mortararr1(l,2)=j
+               self%mortararr1(l,2)=self%Mat(l,6)
+               self%elements(self%arr1(l))%MortarFaces=0
             end if 
          end do 
       end do 
@@ -6069,7 +6108,7 @@ call elementMPIList % destruct
 
      if ( th .EQ. 0.0_RP ) confor=.TRUE. 
      write(*,*) 'confor is', confor 
-      call self % ConstructMortars(nodes, n_slidingnewnodes, arr1, arr2,Mat,o, s, mortararr2,rotmortars, th, confor)
+      call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
 
     ! if (th .EQ. PI/20_RP) then 
     !  write(*,*) 'sliding conforming'
@@ -7090,11 +7129,16 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    o=0.0_RP
    s=0.0_RP
   
-   call self % MarkSlidingElementsRadius(1.01_RP,nelm, center, arr3, arr2, arr1, Mat, Connect, new_nFaces, face_nodes,face_othernodes, rotmortars)
+   if (.not.self%sliding) then 
+      call self % MarkSlidingElementsRadius(1.01_RP,nelm, center, arr3, arr2, arr1, Mat, Connect, new_nFaces, face_nodes,face_othernodes, rotmortars)
+   end if 
    new_nNodes=SIZE(self % nodes) 
 
-   call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode)
-
+   if (.not.self%sliding) then 
+    call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode)
+   else 
+      call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, self%arr1, self%arr2, self%arr3, self%Connect, o, s, self%face_nodes,self%face_othernodes, numBFacePoints,oldnnode)
+   end if 
    if (.not. self%sliding) then 
       do i=1, size(self % Nodes)
       self % nodes(i) % X =new_nodes(i) % X
