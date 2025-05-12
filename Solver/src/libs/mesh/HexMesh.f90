@@ -6042,13 +6042,13 @@ if (present(angle))theta=angle
       end if 
       do l=1, size(arr2)
          do j=1,6
-            if (self%elements(arr2(l))%MortarFaces(j)==1) then 
+            if (self%elements(self%arr2(l))%MortarFaces(j)==1) then 
                self%mortararr2(l,1)=self%arr2(l)
                self%mortararr2(l,1)=self%Mat(l,1)
                self%mortararr2(l,2)=self%Mat(l,4)
                self%elements(self%arr2(l))%MortarFaces=0
             end if 
-            if (self%elements(self%arr1(l))%MortarFaces(j)==1) then 
+            if (self%elements(self%self%arr1(l))%MortarFaces(j)==1) then 
                self%mortararr1(l,1)=self%arr1(l)
                self%mortararr1(l,1)=self%Mat(l,3)
                self%mortararr1(l,2)=j
@@ -6088,11 +6088,11 @@ if (present(angle))theta=angle
   
 
       do l=1, size(arr2) 
-            self%faces(self%elements(arr2(l))%faceIDs( self%mortararr2(l,2)))%IsMortar=3
-            self%faces(self%elements(arr2(l))%faceIDs( self%mortararr2(l,2)))%facetype=1
+            self%faces(self%elements(self%arr2(l))%faceIDs( self%mortararr2(l,2)))%IsMortar=3
+            self%faces(self%elements(self%arr2(l))%faceIDs( self%mortararr2(l,2)))%facetype=1
 
-            self%faces(self%elements(arr1(l))%faceIDs( self%mortararr1(l,2)))%IsMortar=3
-            self%faces(self%elements(arr1(l))%faceIDs( self%mortararr1(l,2)))%facetype=1
+            self%faces(self%elements(self%arr1(l))%faceIDs( self%mortararr1(l,2)))%IsMortar=3
+            self%faces(self%elements(self%arr1(l))%faceIDs( self%mortararr1(l,2)))%facetype=1
       end do 
       do l=1, size(self%faces)
          if (self % faces(l) % faceType==-1) then 
@@ -6940,7 +6940,7 @@ if (present(angle))theta=angle
     write(*,*)'offset o:',o
     write(*,*)'scale s',s
     !rotate_f ace_patchs 
-    allocate (Xpatch(3,numBFacePoints,numBFacePoints))
+    allocate (Xpatch(3,self%numBFacePoints,self%numBFacePoints))
     z=1
     do i=1, self % no_of_elements 
       if (self%elements(i)%sliding) then 
@@ -7181,6 +7181,7 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
               self % mortar_faces(l) % boundaryName = ""
      end do 
    end if 
+   deallocate(new_nodes)
 end subroutine HexMesh_Modifymesh
 
 !*********************************************************************************************************
