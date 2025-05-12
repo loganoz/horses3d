@@ -388,7 +388,7 @@ MODULE Read_SpecMesh
              center(1)=0.0_RP
              center(2)=0.0_RP
              rad=1.01_RP
-             call self % RotateMesh(rad, center, dir2D, numBFacePoints, nodes, .FALSE.)
+             call self % RotateMesh(rad, center, numBFacePoints, nodes, .FALSE.)
 
           end if 
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
@@ -433,7 +433,7 @@ MODULE Read_SpecMesh
          logical :: sliding 
          !----------------------------------------------------------------------------------------
          sliding=.true. 
-         sliding=.false.
+         !sliding=.false.
 !
 !        ***************
 !        Initializations
@@ -602,14 +602,14 @@ MODULE Read_SpecMesh
 
          call self % ExportBoundaryMesh (trim(fileName))
 
-         !if (Sliding) then 
+         if (Sliding) then 
  
-          !  center(1)=0.0_RP
-          !  center(2)=0.0_RP
-            !rad=1.01_RP
-          !!  call self % RotateMesh(rad, center, dir2D, numBFacePoints, nodes, .FALSE.)
+            center(1)=0.0_RP
+            center(2)=0.0_RP
+            rad=1.01_RP
+            call self % RotateMesh(rad, center, dir2D, numBFacePoints, nodes, .FALSE.)
 
-         !end if 
+         end if 
 
       END SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_
 !
@@ -1047,7 +1047,7 @@ MODULE Read_SpecMesh
          deallocate(globalToLocalNodeID)
          deallocate(globalToLocalElementID)
 
-         Sliding=.false.
+         Sliding=.true.
          mpi=.false.
          if (Sliding) then 
  

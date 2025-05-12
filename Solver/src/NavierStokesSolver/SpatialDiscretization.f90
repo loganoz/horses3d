@@ -1422,6 +1422,8 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: SlidingMeshFlux           ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         integer :: i,j,k
 
 !
 !        *************************************
@@ -1431,6 +1433,11 @@ module SpatialDiscretization
 !        Compute inviscid contravariant flux
 !        -----------------------------------
          call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
+         if (mesh%sliding) then 
+         call SlidingMeshFluxCalculation(e, SlidingMeshFlux)
+            ! print*, SlidingMeshFlux/inviscidContravariantFlux 
+            inviscidContravariantFlux = inviscidContravariantFlux - SlidingMeshFlux
+         end if 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -1876,4 +1883,89 @@ module SpatialDiscretization
       call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
       end subroutine computeBoundaryFlux
+      subroutine contravariantSMFlux(e, contravariantFlux)
+         implicit none
+         type(element), intent(in)  :: e
+         real(kind=RP), intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)              :: omega(IX:IZ)
+         integer :: i,j,k,eq      
+             omega(IX) = 0.0_RP
+             omega(IY) = 0.0_RP
+             omega(IZ) = 0.0_RP / refValues%V
+            do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1); do eq = 1,5
+   
+                   contravariantFlux(eq,i,j,k,IX) = (e % storage % Q(eq,i,j,k)) * &
+                   ((((omega(IY) * e % geom % x(IZ,i,j,k)) - (omega(IZ) * e % geom % x(IY,i,j,k))) * e % geom % jGradXi(IX,i,j,k)) &
+                   +(((omega(IZ) * e % geom % x(IX,i,j,k)) - (omega(IX) * e % geom % x(IZ,i,j,k))) * e % geom % jGradXi(IY,i,j,k)) &
+                   +(((omega(IX) * e % geom % x(IY,i,j,k)) - (omega(IY) * e % geom % x(IX,i,j,k))) * e % geom % jGradXi(IZ,i,j,k))) 
+   
+                   contravariantFlux(eq,i,j,k,IY) = (e % storage % Q(eq,i,j,k)) * &
+                   ((((omega(IY) * e % geom % x(IZ,i,j,k)) - (omega(IZ) * e % geom % x(IY,i,j,k))) * e % geom % jGradEta(IX,i,j,k)) &
+                   +(((omega(IZ) * e % geom % x(IX,i,j,k)) - (omega(IX) * e % geom % x(IZ,i,j,k))) * e % geom % jGradEta(IY,i,j,k)) &
+                   +(((omega(IX) * e % geom % x(IY,i,j,k)) - (omega(IY) * e % geom % x(IX,i,j,k))) * e % geom % jGradEta(IZ,i,j,k)))
+   
+                   contravariantFlux(eq,i,j,k,IZ) = (e % storage % Q(eq,i,j,k)) * &
+                   ((((omega(IY) * e % geom % x(IZ,i,j,k)) - (omega(IZ) * e % geom % x(IY,i,j,k))) * e % geom % jGradZeta(IX,i,j,k)) &
+                   +(((omega(IZ) * e % geom % x(IX,i,j,k)) - (omega(IX) * e % geom % x(IZ,i,j,k))) * e % geom % jGradZeta(IY,i,j,k)) &
+                   +(((omega(IX) * e % geom % x(IY,i,j,k)) - (omega(IY) * e % geom % x(IX,i,j,k))) * e % geom % jGradZeta(IZ,i,j,k)))
+                  
+            end do               ; end do                ; end do;           end do
+        end subroutine contravariantSMFlux
+        subroutine SlidingMeshFluxCalculation(e,  contravariantFlux)
+         type(element), intent(in)  :: e
+         real(kind=RP), intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)              :: u_g, v_g, w_g, omega(3), F(NCONS,NDIM)
+         integer :: i,j,k
+         ! define angular velocity
+         omega(1) = 0.0_RP
+         omega(2) = -4.0_RP*DATAN(1.0_RP)/20.0_RP 
+         omega(3) = 0.0_RP
+         ! loop inside the element 
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+         ! compute the velocity of the grid (adimensional)
+            u_g = (e % geom % x(IZ,i,j,k)*omega(2)-omega(3)*e % geom % x(IY,i,j,k))!/refValues%V
+            v_g = (e % geom % x(IX,i,j,k)*omega(3)-omega(1)*e % geom % x(IZ,i,j,k))!/refValues%V
+            w_g = (e % geom % x(IY,i,j,k)*omega(1)-omega(2)*e % geom % x(IX,i,j,k))!/refValues%V
+         ! compute cartesian fluxes due to mesh movement
+         ! print*, i,j,k,e % geom % x(:,i,j,k) , omega , u_g,v_g,w_g
+         !  X-Flux
+         !  ------   
+            F(IRHO , IX) = e % storage % Q(IRHO,i,j,k)  * u_g
+            F(IRHOU, IX) = e % storage % Q(IRHOU,i,j,k) * u_g 
+            F(IRHOV, IX) = e % storage % Q(IRHOV,i,j,k) * u_g
+            F(IRHOW, IX) = e % storage % Q(IRHOW,i,j,k) * u_g
+            F(IRHOE, IX) = e % storage % Q(IRHOE,i,j,k) * u_g
+         
+         !  Y-Flux
+         !  ------
+            F(IRHO , IY) = e % storage % Q(IRHO,i,j,k)  * v_g
+            F(IRHOU, IY) = e % storage % Q(IRHOU,i,j,k) * v_g
+            F(IRHOV, IY) = e % storage % Q(IRHOV,i,j,k) * v_g
+            F(IRHOW, IY) = e % storage % Q(IRHOW,i,j,k) * v_g
+            F(IRHOE, IY) = e % storage % Q(IRHOE,i,j,k) * v_g
+         
+         !  Z-Flux
+         !  ------
+            F(IRHO , IZ) = e % storage % Q(IRHO,i,j,k)  * w_g
+            F(IRHOU, IZ) = e % storage % Q(IRHOU,i,j,k) * w_g
+            F(IRHOV, IZ) = e % storage % Q(IRHOV,i,j,k) * w_g
+            F(IRHOW, IZ) = e % storage % Q(IRHOW,i,j,k) * w_g
+            F(IRHOE, IZ) = e % storage % Q(IRHOE,i,j,k) * w_g
+   !        
+         !  Contravariant flux computation 
+   
+            contravariantFlux(:,i,j,k,IX) =    F(:,IX) * e % geom % jGradXi(IX,i,j,k)   &
+                                             + F(:,IY) * e % geom % jGradXi(IY,i,j,k)   &
+                                             + F(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+   
+            contravariantFlux(:,i,j,k,IY) =    F(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                             + F(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                             + F(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+   
+            contravariantFlux(:,i,j,k,IZ) =    F(:,IX) * e % geom % jGradZeta(IX,i,j,k) &
+                                             + F(:,IY) * e % geom % jGradZeta(IY,i,j,k) &
+                                             + F(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+   
+      enddo;enddo;enddo
+      end subroutine SlidingMeshFluxCalculation
 end module SpatialDiscretization

@@ -233,6 +233,8 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
+      real(kind=RP) :: center(2)
+      real(kind=RP) :: rad 
 
 
       INTEGER :: i, j, k, id
@@ -242,6 +244,12 @@ MODULE ExplicitMethods
          do k = 1,3
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if (k==3 .AND. mesh%sliding) then 
+               center(1)=0.0_RP
+               center(2)=0.0_RP
+               rad=1.01_RP
+               CALL MESH % RotateMesh(rad=rad, center=center, numBFacePoints=7, nodes=mesh%nodeType, mpi=.FALSE. )
+            end if 
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
