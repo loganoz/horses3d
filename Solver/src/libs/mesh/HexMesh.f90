@@ -6048,7 +6048,7 @@ if (present(angle))theta=angle
                self%mortararr2(l,2)=self%Mat(l,4)
                self%elements(self%arr2(l))%MortarFaces=0
             end if 
-            if (self%elements(self%self%arr1(l))%MortarFaces(j)==1) then 
+            if (self%elements(self%arr1(l))%MortarFaces(j)==1) then 
                self%mortararr1(l,1)=self%arr1(l)
                self%mortararr1(l,1)=self%Mat(l,3)
                self%mortararr1(l,2)=j
