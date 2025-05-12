@@ -6026,6 +6026,7 @@ call elementMPIList % destruct
 
 if (present(angle))theta=angle
       call self % Modifymesh(nodes,n_slidingnewnodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th, numberOfNodes,numBFacePoints,oldnode, theta)
+      write(*,*) 'mesh has been modifyed'
       if (.not.self%sliding) then 
          self%arr1=arr1
          self%arr2=arr2 
@@ -6852,7 +6853,7 @@ if (present(angle))theta=angle
     real(KIND=RP) :: XYZ(8,3)
     real(KIND=RP) :: XR(3)
     real(KIND=RP) :: Xflat(3,2,2)
-    real(KIND=RP), allocatable :: Xpatch(:,:,:)
+    real(KIND=RP) :: Xpatch(3,numBFacePoints,numBFacePoints)
     integer :: i, l, eID, eID2, nm, j, k, kk, z , ll , lll, kkk, zz
     real(kind=RP) :: ss(2), oo(2), x, lb, ls, lss
     logical :: offset 
@@ -6940,7 +6941,7 @@ if (present(angle))theta=angle
     write(*,*)'offset o:',o
     write(*,*)'scale s',s
     !rotate_f ace_patchs 
-    allocate (Xpatch(3,self%numBFacePoints,self%numBFacePoints))
+   !allocate (Xpatch(3,self%numBFacePoints,self%numBFacePoints))
     z=1
     do i=1, self % no_of_elements 
       if (self%elements(i)%sliding) then 
@@ -6964,12 +6965,13 @@ if (present(angle))theta=angle
                      self % elements(i) % SurfInfo % facePatches(j) % points=Xflat
                   end if 
                else 
-                  allocate(uNodes(size(self % elements(i) % SurfInfo % facePatches(j) % uKnots)))
-                  allocate(vNodes(size(self % elements(i) % SurfInfo % facePatches(j) % vKnots)))
+                  write(*,*) "allocating unodes ans vonodes"
+                  if (.not.allocated(uNodes)) allocate(uNodes(size(self % elements(i) % SurfInfo % facePatches(j) % uKnots)))
+                  if (.not.allocated(vNodes)) allocate(vNodes(size(self % elements(i) % SurfInfo % facePatches(j) % vKnots)))
 
                   uNodes=self % elements(i) % SurfInfo % facePatches(j) %uKnots
                   vNodes=self % elements(i) % SurfInfo % facePatches(j) %vKnots
-                  allocate(points2(3,size(uNodes), size(vNodes)))
+                  if (.not.allocated(points2))  allocate(points2(3,size(uNodes), size(vNodes)))
                   points2= self % elements(i) % SurfInfo % facePatches(j) % points
                      if (self % elements(i) % sliding) then
                      !rotate face patch curved
@@ -6978,13 +6980,13 @@ if (present(angle))theta=angle
                                Xpatch(:,kk,k)= MATMUL(ROT, points2(:,kk,k) )
                            end do 
                         end do 
+                        write(*,*) 'line 6984 mamul done'
                         call self % elements(i) % SurfInfo % facePatches(j) % destruct
                         call self % elements(i) % SurfInfo % facePatches(j) % construct(uNodes, vNodes, Xpatch)
                         
                      end if 
-                     deallocate(points2)
-                     deallocate(uNodes)
-                     deallocate(vNodes)
+                     write(*,*) "about to deallocate unodes and vnodes"
+                   
                end if 
             z=z+1
             end if 
@@ -6992,9 +6994,11 @@ if (present(angle))theta=angle
          end if 
       end if !self%elements(i)%sliding
     end do !i
-
-    deallocate(Xpatch)
-
+    deallocate(points2)
+    deallocate(uNodes)
+    deallocate(vNodes)
+    !deallocate(Xpatch)
+    write(*,*) "deallocating Xpatch"
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     l=oldnnode+1
@@ -7070,7 +7074,7 @@ if (present(angle))theta=angle
          end if 
       end do 
    end do 
-
+write(*,*)'end rotating nodes'
 end subroutine HexMesh_RotateNodes
 
 
@@ -7135,6 +7139,7 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    new_nNodes=SIZE(self % nodes) 
 
    if (.not.self%sliding) then 
+      write(*,*) 'before rotateNodes, mesh is not sliding'
     call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode)
    else 
       call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, self%arr1, self%arr2, self%arr3, self%Connect, o, s, self%face_nodes,self%face_othernodes, numBFacePoints,oldnnode)
