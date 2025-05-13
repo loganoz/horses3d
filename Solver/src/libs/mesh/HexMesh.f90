@@ -3259,7 +3259,10 @@ if (.not.self % nonconforming) then
 !
 !        Generate a local copy of SurfInfo
 !        ---------------------------------
+         !write(*,*) 'allocating surInfo line 3262'
          allocate ( SurfInfo(self % no_of_elements) )
+         !write(*,*) 'allocated surInfo line 3262'
+
          do ii=1, num_of_elements
             if ( present(elementList) ) then
                eID = elementList(ii)
@@ -6040,6 +6043,7 @@ if (present(angle))theta=angle
          self%rotmortars=rotmortars
          self%n_slidingnewnodes=n_slidingnewnodes
          self%n_sliding=n_sliding
+         self%numBFacePoints=numBFacePoints
       end if 
       do l=1, size(arr2)
          do j=1,6
@@ -6060,19 +6064,22 @@ if (present(angle))theta=angle
       end do 
 
       oldnfaces=size(self%faces)
-      do i=1,size(self%faces)
-         call self%faces(i)%Destruct
-      end do 
+      if (.not. self%sliding) then 
+         do i=1,size(self%faces)
+            call self%faces(i)%Destruct
+         end do 
+      end if 
       if (.not. self%sliding) then 
          safedeallocate (self%faces)
          allocate(self%faces(oldnfaces + n_slidingnewnodes))
       end if 
-      CALL ConstructFaces( self, success )
-      if (allocated(self % zones) ) then 
-         deallocate(self % zones)
+      if (.not. self%sliding) CALL ConstructFaces( self, success )
+      if (.not.self%sliding) then 
+         if (allocated(self % zones) ) then 
+            deallocate(self % zones)
+         end if 
+         call self % ConstructZones()
       end if 
-      call self % ConstructZones()
-
       CALL getElementsFaceIDs(self)
       call self % DefineAsBoundaryFaces()
       i=0
@@ -6101,7 +6108,7 @@ if (present(angle))theta=angle
          end if 
       end do
 
-     call self % SetConnectivitiesAndLinkFaces(nodes) 
+      if (.not. self%sliding) call self % SetConnectivitiesAndLinkFaces(nodes) 
 
      call self % ConstructGeometry()
 
@@ -6860,11 +6867,11 @@ if (present(angle))theta=angle
     integer :: inter(8)
     REAL(KIND=RP)           :: corners(3,8)
     REAL(KIND=RP)           :: points1(3,2,2)
-    REAL(KIND=RP),allocatable   :: points2(:,:,:)
+    REAL(KIND=RP)   :: points2(3,numBFacePoints,numBFacePoints)
     real(kind=RP) ::  xxx(3, 0:1, 0:1)
     real(kind=RP) :: NODES(128,3)
-    REAL(KIND=RP),allocatable   :: uNodes(:)
-    REAL(KIND=RP),allocatable   :: vNodes(:)
+    REAL(KIND=RP)   :: uNodes(numBFacePoints)
+    REAL(KIND=RP)   :: vNodes(numBFacePoints)
     s=0.0_RP
     o=0.0_RP
     oo=0.0_RP
@@ -6965,13 +6972,13 @@ if (present(angle))theta=angle
                      self % elements(i) % SurfInfo % facePatches(j) % points=Xflat
                   end if 
                else 
-                  write(*,*) "allocating unodes ans vonodes"
-                  if (.not.allocated(uNodes)) allocate(uNodes(size(self % elements(i) % SurfInfo % facePatches(j) % uKnots)))
-                  if (.not.allocated(vNodes)) allocate(vNodes(size(self % elements(i) % SurfInfo % facePatches(j) % vKnots)))
-
+                  !if (.not.allocated(uNodes)) allocate(uNodes(size(self % elements(i) % SurfInfo % facePatches(j) % uKnots)))
+                  !if (.not.allocated(vNodes)) allocate(vNodes(size(self % elements(i) % SurfInfo % facePatches(j) % vKnots)))
+                  !write(*,*) 'sizeUnodes',size(uNodes)
+                  !write(*,*) 'size self % elements(i) % SurfInfo % facePatches(j) %uKnots', size(self % elements(i) % SurfInfo % facePatches(j) %uKnots)
                   uNodes=self % elements(i) % SurfInfo % facePatches(j) %uKnots
                   vNodes=self % elements(i) % SurfInfo % facePatches(j) %vKnots
-                  if (.not.allocated(points2))  allocate(points2(3,size(uNodes), size(vNodes)))
+                  !if (.not.allocated(points2))  allocate(points2(3,size(uNodes), size(vNodes)))
                   points2= self % elements(i) % SurfInfo % facePatches(j) % points
                      if (self % elements(i) % sliding) then
                      !rotate face patch curved
@@ -6980,12 +6987,11 @@ if (present(angle))theta=angle
                                Xpatch(:,kk,k)= MATMUL(ROT, points2(:,kk,k) )
                            end do 
                         end do 
-                        write(*,*) 'line 6984 mamul done'
-                        call self % elements(i) % SurfInfo % facePatches(j) % destruct
+
+                        if (.not. self%sliding) call self % elements(i) % SurfInfo % facePatches(j) % destruct
                         call self % elements(i) % SurfInfo % facePatches(j) % construct(uNodes, vNodes, Xpatch)
                         
                      end if 
-                     write(*,*) "about to deallocate unodes and vnodes"
                    
                end if 
             z=z+1
@@ -6994,11 +7000,10 @@ if (present(angle))theta=angle
          end if 
       end if !self%elements(i)%sliding
     end do !i
-    deallocate(points2)
-    deallocate(uNodes)
-    deallocate(vNodes)
+    !deallocate(points2)
+    !deallocate(uNodes)
+    !deallocate(vNodes)
     !deallocate(Xpatch)
-    write(*,*) "deallocating Xpatch"
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     l=oldnnode+1
@@ -7139,7 +7144,6 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    new_nNodes=SIZE(self % nodes) 
 
    if (.not.self%sliding) then 
-      write(*,*) 'before rotateNodes, mesh is not sliding'
     call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode)
    else 
       call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, self%arr1, self%arr2, self%arr3, self%Connect, o, s, self%face_nodes,self%face_othernodes, numBFacePoints,oldnnode)
