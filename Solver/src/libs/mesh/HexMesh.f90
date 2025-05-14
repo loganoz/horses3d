@@ -4106,32 +4106,34 @@ slavecoord:             DO l = 1, 4
             endif
 
             if( .not. self% IBM% active ) then
-               !$acc data copyin(self % elements(eID))
-               !$acc data copyin(self % elements(eID) % geom)
-               !$acc data copyin(self % elements(eID) % geom % x)
-               !$acc data create(self % elements(eID) % geom % dWall)
-               do k = 0, self % elements(eID) % Nxyz(3)
-                  !$acc parallel loop gang collapse(2) private(xP)  vector_length(512) async(k)
-                  do j = 0, self % elements(eID) % Nxyz(2)
-                     do i = 0, self % elements(eID) % Nxyz(1)
-                        xP = self % elements(eID) % geom % x(:, i, j, k)
-                        minimumDistance = HUGE(1.0_RP)
-                        !$acc loop gang vector reduction(min:minimumDistance) private(currentDistance, minimumDistance)
-                        do fID = 1, no_of_wallDOFS
-                           currentDistance = sum(POW2(xP - Xwall(:, fID)))
-                           minimumDistance = min(minimumDistance, currentDistance)
+               if (no_of_wallDOFS .ne. 0) then                 
+                  !$acc data copyin(self % elements(eID))
+                  !$acc data copyin(self % elements(eID) % geom)
+                  !$acc data copyin(self % elements(eID) % geom % x)
+                  !$acc data create(self % elements(eID) % geom % dWall)
+                  do k = 0, self % elements(eID) % Nxyz(3)
+                     !$acc parallel loop gang collapse(2) private(xP)  vector_length(512) async(k)
+                     do j = 0, self % elements(eID) % Nxyz(2)
+                        do i = 0, self % elements(eID) % Nxyz(1)
+                           xP = self % elements(eID) % geom % x(:, i, j, k)
+                           minimumDistance = HUGE(1.0_RP)
+                           !$acc loop gang vector reduction(min:minimumDistance) private(currentDistance, minimumDistance)
+                           do fID = 1, no_of_wallDOFS
+                              currentDistance = sum(POW2(xP - Xwall(:, fID)))
+                              minimumDistance = min(minimumDistance, currentDistance)
+                           end do
+                           self % elements(eID) % geom % dWall(i, j, k) = sqrt(minimumDistance)
                         end do
-                        self % elements(eID) % geom % dWall(i, j, k) = sqrt(minimumDistance)
                      end do
+                     !$acc end parallel loop
+                     !$acc update self(self % elements(eID) % geom % dWall(:, :, k)) async(k)
                   end do
-                  !$acc end parallel loop
-                  !$acc update self(self % elements(eID) % geom % dWall(:, :, k)) async(k)
-               end do
-               !$acc wait
-               !$acc end data
-               !$acc end data
-               !$acc end data
-               !$acc end data
+                  !$acc wait
+                  !$acc end data
+                  !$acc end data
+                  !$acc end data
+                  !$acc end data
+               endif
             end if
             end associate
          end do
@@ -4157,32 +4159,33 @@ slavecoord:             DO l = 1, 4
             endif
             
             if( .not. self% IBM% active ) then
-               !$acc data copyin(self % faces(eID))
-               !$acc data copyin(self % faces(eID) % geom)
-               !$acc data copyin(self % faces(eID) % geom % x)
-               !$acc data create(self % faces(eID) % geom % dWall)
-               do j = 0, self % faces(eID) % Nf(2)
-                  !$acc parallel loop gang private(xP) vector_length(512) async(j)
-                  do i = 0, self % faces(eID) % Nf(1)
-                     xP = self % faces(eID) % geom % x(:, i, j)
-                     minimumDistance = HUGE(1.0_RP)
-                     !$acc loop vector reduction(min:minimumDistance) private(currentDistance, minimumDistance)
-                     do fID = 1, no_of_wallDOFS
-                        currentDistance = sum(POW2(xP - Xwall(:, fID)))
-                        minimumDistance = min(minimumDistance, currentDistance)
+               if (no_of_wallDOFS .ne. 0 ) then
+                  !$acc data copyin(self % faces(eID))
+                  !$acc data copyin(self % faces(eID) % geom)
+                  !$acc data copyin(self % faces(eID) % geom % x)
+                  !$acc data create(self % faces(eID) % geom % dWall)
+                  do j = 0, self % faces(eID) % Nf(2)
+                     !$acc parallel loop gang private(xP) vector_length(512) async(j)
+                     do i = 0, self % faces(eID) % Nf(1)
+                        xP = self % faces(eID) % geom % x(:, i, j)
+                        minimumDistance = HUGE(1.0_RP)
+                        !$acc loop vector reduction(min:minimumDistance) private(currentDistance, minimumDistance)
+                        do fID = 1, no_of_wallDOFS
+                           currentDistance = sum(POW2(xP - Xwall(:, fID)))
+                           minimumDistance = min(minimumDistance, currentDistance)
+                        end do
+                        self % faces(eID) % geom % dWall(i, j) = sqrt(minimumDistance)
                      end do
-               
-                     self % faces(eID) % geom % dWall(i, j) = sqrt(minimumDistance)
+                     !$acc end parallel loop
+                     !$acc update self(self % faces(eID) % geom % dWall(:j)) async(j)
                   end do
-                  !$acc end parallel loop
-                  !$acc update self(self % faces(eID) % geom % dWall(:j)) async(j)
-               end do
-               !$acc wait
-               !$acc end data
-               !$acc end data 
-               !$acc end data
-               !$acc end data
-            end if
+                  !$acc wait
+                  !$acc end data
+                  !$acc end data 
+                  !$acc end data
+                  !$acc end data
+               endif 
+            endif
             end associate
          end do
          !$acc end data
