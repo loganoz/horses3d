@@ -66,6 +66,7 @@ module RiemannSolvers_NS
    public SetRiemannSolver, DescribeRiemannSolver
    public AveragedStates, TwoPointFlux, RiemannSolver_dFdQ, TwoPointFlux_Selector
    public CentralRiemannSolver_acc, RiemannSolver_Selector
+   public KennedyGruber_TwoPointFlux, TwoPointFluxFCN, EntropyConserving_TwoPointFlux, Pirozzoli_TwoPointFlux, Ducros_TwoPointFlux, Morinishi_TwoPointFlux, StandardDG_TwoPointFlux, chandrasekar_twopointflux
 
    abstract interface
       !subroutine RiemannSolverFCN(Nx, Ny, QLeft, QRight, nHat, t1, t2, flux)
