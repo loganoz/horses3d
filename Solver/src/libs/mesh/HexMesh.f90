@@ -3260,6 +3260,8 @@ if (.not.self % nonconforming) then
 !        Generate a local copy of SurfInfo
 !        ---------------------------------
          !write(*,*) 'allocating surInfo line 3262'
+         if (allocated (SurfInfo)) write(*,*) 'its already allocated'
+         !write(*,*) 'self % no_of_elements',self % no_of_elements
          allocate ( SurfInfo(self % no_of_elements) )
          !write(*,*) 'allocated surInfo line 3262'
 
@@ -3439,6 +3441,7 @@ if (.not.self % nonconforming) then
                  ! if (f%IsMortar==3) write(*,*)'line 3414 HexMesh mortar is 3'
                   eIDLeft  = f % elementIDs(1)
                   SideIDL  = f % elementSide(1)
+                  !write(*,*) 'wre at line 3444 eIDLeft', eIDLeft
                   NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
    
                   if     (SurfInfo(eIDLeft) % IsHex8 .or. all(NSurfL == 1)) cycle
@@ -5960,8 +5963,8 @@ call elementMPIList % destruct
       integer, allocatable       :: rotmortars(:)
       type(node), allocatable   :: tmp_nodes(:)
       integer ::  inter 
-      real(kind=RP), allocatable :: o(:)
-      real(kind=RP), allocatable :: s(:)
+      real(kind=RP) :: o(4)
+      real(kind=RP) :: s(4)
       real(kind=RP):: th
       integer :: oldnode
       integer :: numberOfNodes
@@ -5972,7 +5975,7 @@ call elementMPIList % destruct
       real(kind=rp) :: theta
       logical :: confor=.FALSE.
 
-      call self % MarkRadius(rad, center, n_sliding, n_slidingnewnodes)
+      if (.not. self%sliding) call self % MarkRadius(rad, center, n_sliding, n_slidingnewnodes)
 
       !write(*,*) 'n_sliding',n_sliding
       !write(*,*) 'n_sliding',n_slidingnewnodes
@@ -5994,26 +5997,32 @@ call elementMPIList % destruct
             CALL ConstructNode( self%nodes(i), tmp_nodes(i)%x, tmp_nodes(i)%globID )
          end do 
          safedeallocate (tmp_nodes)
+      else 
+         numberOfNodes=size(self%nodes)
+         oldnode=numberOfNodes-2*self%n_slidingnewnodes
       end if 
-      allocate(arr1(n_slidingnewnodes))
-      allocate(arr2(n_slidingnewnodes))
-      allocate(mortararr1(n_slidingnewnodes,2))
-      allocate(mortararr2(n_slidingnewnodes,2))
-      allocate(arr3(n_sliding))
-      allocate(Mat(n_slidingnewnodes,12))
-      allocate(face_nodes(n_slidingnewnodes,4))
-      allocate(face_othernodes(n_slidingnewnodes,4))
-      allocate(Connect(n_slidingnewnodes, 9, 6))
-      allocate(rotmortars(2*n_slidingnewnodes))
-      arr1=0
-      arr2=0
-      arr3=0
-      Mat=0
-      Connect=0
-      face_nodes=0
-      face_othernodes=0
-      allocate(o(4))
-      allocate(s(4))
+      !if (.not. self%sliding) then 
+      !   allocate(arr1(n_slidingnewnodes))
+      !   allocate(arr2(n_slidingnewnodes))
+      !   allocate(mortararr1(n_slidingnewnodes,2))
+      !   allocate(mortararr2(n_slidingnewnodes,2))
+      !   allocate(arr3(n_sliding))
+      !   allocate(Mat(n_slidingnewnodes,12))
+      !   allocate(face_nodes(n_slidingnewnodes,4))
+      !   allocate(face_othernodes(n_slidingnewnodes,4))
+      !   allocate(Connect(n_slidingnewnodes, 9, 6))
+      !   allocate(rotmortars(2*n_slidingnewnodes))
+      !   arr1=0
+      !   arr2=0
+      !   arr3=0
+      !   Mat=0
+      !   Connect=0
+      !   face_nodes=0
+      !   face_othernodes=0
+      !end if 
+
+      !allocate(o(4))
+      !allocate(s(4))
       PI=4.0_RP*DATAN(1.0_RP)
       theta=PI/2000.0_RP
       if (.not.allocated(self%arr1) ) allocate (self%arr1(n_slidingnewnodes))
@@ -6026,26 +6035,66 @@ call elementMPIList % destruct
       if (.not.allocated(self%face_othernodes))  allocate (self%face_othernodes(n_slidingnewnodes,4))
       if (.not.allocated(self%Connect))  allocate (self%Connect(n_slidingnewnodes, 9, 6))
       if (.not.allocated(self%rotmortars))  allocate (self%rotmortars(2*n_slidingnewnodes))
-
-if (present(angle))theta=angle
-      call self % Modifymesh(nodes,n_slidingnewnodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th, numberOfNodes,numBFacePoints,oldnode, theta)
-      write(*,*) 'mesh has been modifyed'
-      if (.not.self%sliding) then 
-         self%arr1=arr1
-         self%arr2=arr2 
-         self%arr3=arr3
-         self%Mat=Mat 
-         self%mortararr1=mortararr1 
-         self%mortararr2=mortararr2
-         self%face_nodes=face_nodes
-         self%face_othernodes=face_othernodes
-         self%connect=connect 
-         self%rotmortars=rotmortars
+      if (.not. self%sliding) then 
+         self%arr1=0
+         self%arr2=0
+         self%arr3=0
+         self%Mat=0
+         self%Connect=0
+         self%face_nodes=0
+         self%face_othernodes=0
          self%n_slidingnewnodes=n_slidingnewnodes
          self%n_sliding=n_sliding
          self%numBFacePoints=numBFacePoints
       end if 
-      do l=1, size(arr2)
+
+if (present(angle))theta=angle
+if (present(angle)) write(*,*) 'angle', angle 
+      !if (.not. self%sliding) then 
+       !   call self % Modifymesh(nodes,n_slidingnewnodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th, numberOfNodes,numBFacePoints,oldnode, theta)
+      !else 
+!write(*,*) 'self%arr1', self%arr1
+!write(*,*) 'self%arr1', self%arr2 
+!write(*,*) 'self%arr3', self%arr3
+!write(*,*) 'self%Mat', self%Mat 
+
+
+
+         call self % Modifymesh(nodes,self%n_slidingnewnodes, self%arr1, self%arr2, self%arr3,self%Mat,center, o, s, self%face_nodes,self%face_othernodes, self%rotmortars, th, &
+         numberOfNodes,self%numBFacePoints,oldnode, theta)
+      !end if 
+        ! write(*,*) 'after modifying'
+        ! write(*,*) 'self%arr1', self%arr1
+!write(*,*) 'self%arr1', self%arr2 
+!write(*,*) 'self%arr3', self%arr3
+!write(*,*) 'self%Mat', self%Mat 
+      !write(*,*) 'mesh has been modifyed'
+      !if (.not.self%sliding) then 
+      !   self%arr1=arr1
+      !   self%arr2=arr2 
+      !   self%arr3=arr3
+      !   self%Mat=Mat 
+      !   self%mortararr1=mortararr1 
+      !   self%mortararr2=mortararr2
+      !   self%face_nodes=face_nodes
+      !   self%face_othernodes=face_othernodes
+      !   self%connect=connect 
+      !   self%rotmortars=rotmortars
+      !   self%n_slidingnewnodes=n_slidingnewnodes
+      !   self%n_sliding=n_sliding
+      !   self%numBFacePoints=numBFacePoints
+      !   deallocate(arr1)
+      !   deallocate(arr2)
+      !   deallocate(arr3)
+      !   deallocate(Mat)
+      !   deallocate(mortararr1)
+      !   deallocate(mortararr2)
+      !   deallocate(face_nodes)
+      !   deallocate(face_othernodes)
+      !   deallocate(Connect)
+      !end if 
+  
+      do l=1, size(self%arr2)
          do j=1,6
             if (self%elements(self%arr2(l))%MortarFaces(j)==1) then 
                self%mortararr2(l,1)=self%arr2(l)
@@ -6095,7 +6144,7 @@ if (present(angle))theta=angle
 
   
 
-      do l=1, size(arr2) 
+      do l=1, size(self%arr2) 
             self%faces(self%elements(self%arr2(l))%faceIDs( self%mortararr2(l,2)))%IsMortar=3
             self%faces(self%elements(self%arr2(l))%faceIDs( self%mortararr2(l,2)))%facetype=1
 
@@ -6115,7 +6164,7 @@ if (present(angle))theta=angle
      PI=4.0_RP*DATAN(1.0_RP)
 
      if ( th .EQ. 0.0_RP ) confor=.TRUE. 
-     write(*,*) 'confor is', confor 
+     !write(*,*) 'confor is', confor 
       call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
 
     ! if (th .EQ. PI/20_RP) then 
@@ -6124,18 +6173,10 @@ if (present(angle))theta=angle
     ! end if 
      self%sliding=.true.
      self%omega=self%omega+th
-     deallocate(arr1)
-     deallocate(arr2)
-     deallocate(arr3)
-     deallocate(Mat)
-     deallocate(o)
-     deallocate(s)
-     deallocate(mortararr1)
-     deallocate(mortararr2)
-     deallocate(face_nodes)
-     deallocate(face_othernodes)
-     deallocate(Connect)
-     deallocate(rotmortars)
+
+     !deallocate(o)
+     !deallocate(s)
+
    end subroutine HexMesh_RotateMesh
 
 
@@ -6872,6 +6913,7 @@ if (present(angle))theta=angle
     real(kind=RP) :: NODES(128,3)
     REAL(KIND=RP)   :: uNodes(numBFacePoints)
     REAL(KIND=RP)   :: vNodes(numBFacePoints)
+    !write(*,*) "numBFacePoints", numBFacePoints
     s=0.0_RP
     o=0.0_RP
     oo=0.0_RP
@@ -6886,7 +6928,7 @@ if (present(angle))theta=angle
 
     x=1.0_RP-nm*(2.0_RP/n)
     x=(-40.0_RP/(4.0_RP*DATAN(1.0_RP)))*theta + 1.0_RP
-    write(*,*)'x=', x
+    !write(*,*)'x=', x
     do i=1, oldnnode
         new_nodes(i) % X =self % nodes(i) % X 
         new_nodes(i) % globID =self % nodes(i) % globID 
@@ -6945,8 +6987,8 @@ if (present(angle))theta=angle
     s(2)=1.0_rp-o(2)
     s(3)=1.0_rp-o(3)
     s(4)=o(4)+1.0_rp 
-    write(*,*)'offset o:',o
-    write(*,*)'scale s',s
+    !write(*,*)'offset o:',o
+    !write(*,*)'scale s',s
     !rotate_f ace_patchs 
    !allocate (Xpatch(3,self%numBFacePoints,self%numBFacePoints))
     z=1
@@ -6976,6 +7018,9 @@ if (present(angle))theta=angle
                   !if (.not.allocated(vNodes)) allocate(vNodes(size(self % elements(i) % SurfInfo % facePatches(j) % vKnots)))
                   !write(*,*) 'sizeUnodes',size(uNodes)
                   !write(*,*) 'size self % elements(i) % SurfInfo % facePatches(j) %uKnots', size(self % elements(i) % SurfInfo % facePatches(j) %uKnots)
+                  if (size(uNodes) .NE. size(self % elements(i) % SurfInfo % facePatches(j) %uKnots)) write(*,*) 'unodes not same size ',size(uNodes)
+                  if (size(vNodes) .NE. size(self % elements(i) % SurfInfo % facePatches(j) %vKnots)) write(*,*) 'vnodes not same size', size(vNodes)
+
                   uNodes=self % elements(i) % SurfInfo % facePatches(j) %uKnots
                   vNodes=self % elements(i) % SurfInfo % facePatches(j) %vKnots
                   !if (.not.allocated(points2))  allocate(points2(3,size(uNodes), size(vNodes)))
@@ -7006,6 +7051,7 @@ if (present(angle))theta=angle
     !deallocate(Xpatch)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (.not.  self%sliding) then 
     l=oldnnode+1
     do i=1, size(arr2)
       if (.not. (self % elements(arr2(i)) % sliding)) write(*,*) "problem elem arr2"
@@ -7028,7 +7074,7 @@ if (present(angle))theta=angle
       new_nodes(self % elements (arr2(i))% nodeIDs(face_othernodes(i,4))) % rotated=.true.
       inter=0
      ! do j=5, 8
-      if (.not.  self%sliding) then 
+      
       do j=1,4
          if (self % elements(arr2(i)) % nodeIDs(face_nodes(i,j)) .LE. oldnnode) then 
                if (self % elements(arr2(i)) % nodeIDs(face_nodes(i,j)) .GT. oldnnode) then 
@@ -7063,11 +7109,30 @@ if (present(angle))theta=angle
                self % elements (arr2(i)) % nodeIDs(face_nodes(i,j))=inter(face_nodes(i,j))
             end if 
          end do  !j
-      end if 
    end do 
+   end if 
   
+   if (self%sliding) then 
+      do i=1, size(arr2)
+         !write(*,*) 'arr2(i)', arr2(i)
+        ! write(*,*) 'self%arr2(i)', self%arr2(i)
+
+         if (arr2(i)==0) write(*,*) 'arr2(i)', arr2(i)
+         if (.not. (self % elements(arr2(i)) % sliding)) write(*,*) "problem elem arr2"
+         do j=1, 8
+               XR= self % nodes (self % elements(arr2(i)) % nodeIDs(j)) % X 
+               XYZ(j,:)= MATMUL(ROT, XR)
+         end do 
+         do j=1,8
+            if (.not.new_nodes(self % elements (arr2(i))% nodeIDs(j)) % rotated ) then 
+         new_nodes(self % elements (arr2(i))% nodeIDs(j)) % X=XYZ(j,:)
+         new_nodes(self % elements (arr2(i))% nodeIDs(j)) % rotated =.true.
+            end if 
+         end do 
+      end do 
+   end if 
    do i=1, size(arr3)
-      if (.not. (self % elements(arr3(i)) % sliding)) write(*,*) "problem elem arr2"
+      if (.not. (self % elements(arr3(i)) % sliding)) write(*,*) "problem elem arr3"
       do j=1, 8
             XR= self % nodes (self % elements(arr3(i)) % nodeIDs(j)) % X 
             XYZ(j,:)= MATMUL(ROT, XR)
@@ -7079,7 +7144,7 @@ if (present(angle))theta=angle
          end if 
       end do 
    end do 
-write(*,*)'end rotating nodes'
+!write(*,*)'end rotating nodes'
 end subroutine HexMesh_RotateNodes
 
 
@@ -7114,8 +7179,8 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    integer :: dealloc_status, sn, eID, fID
 
    allocate (new_nodes(newnNodes))
-   arr1=0
-   arr2=0
+   !arr1=0
+   !arr2=0
    new_nNodes=0
    new_nFaces=0
    !PI=4.0_RP*DATAN(1.0_RP)
@@ -7139,39 +7204,46 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    s=0.0_RP
   
    if (.not.self%sliding) then 
-      call self % MarkSlidingElementsRadius(1.01_RP,nelm, center, arr3, arr2, arr1, Mat, Connect, new_nFaces, face_nodes,face_othernodes, rotmortars)
+      call self % MarkSlidingElementsRadius(1.01_RP,nelm, center, arr3, arr2, arr1, Mat, Connect, new_nFaces, &
+      face_nodes,face_othernodes, rotmortars)
    end if 
    new_nNodes=SIZE(self % nodes) 
 
-   if (.not.self%sliding) then 
+   !if (self%sliding) then 
+     ! do i=1,size(self%arr2)
+     !    write(*,*) 'seld%arr2 in modify line 7212', self%arr2(i)
+    !  end do 
+   !end if 
     call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode)
-   else 
-      call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, self%arr1, self%arr2, self%arr3, self%Connect, o, s, self%face_nodes,self%face_othernodes, numBFacePoints,oldnnode)
-   end if 
-   if (.not. self%sliding) then 
+   !else 
+   !   write(*,*) 'mesh is not sliding, about to rotate'
+      !call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, self%arr1, self%arr2, self%arr3, self%Connect, o, s, self%face_nodes,self%face_othernodes, numBFacePoints,oldnnode)
+   !end if 
+   !if (.not. self%sliding) then 
       do i=1, size(self % Nodes)
       self % nodes(i) % X =new_nodes(i) % X
       self % nodes(i) % GlobID=new_nodes(i) % GlobID
       end do 
-   end if 
+   !end if 
 
-
-   do l=1, SIZE(self%faces)
-       !call self % faces(l) % Destruct
-            self % faces(l) % ID = -1
-            self % faces(l) % FaceType = HMESH_NONE
-            self % faces(l) % rotation = 0
-            self % faces(l) % NelLeft = -1
-            self % faces(l) % NelRight = -1       
-            self % faces(l) % NfLeft = -1       
-            self % faces(l) % NfRight = -1       
-            self % faces(l) % Nf = -1         
-            self % faces(l) % nodeIDs = -1             
-            self % faces(l) % elementIDs = -1
-            self % faces(l) % elementSide = -1
-            self % faces(l) % projectionType = -1
-            self % faces(l) % boundaryName = ""
-   end do 
+      if (.not. self%sliding) then 
+         do l=1, SIZE(self%faces)
+            !call self % faces(l) % Destruct
+                  self % faces(l) % ID = -1
+                  self % faces(l) % FaceType = HMESH_NONE
+                  self % faces(l) % rotation = 0
+                  self % faces(l) % NelLeft = -1
+                  self % faces(l) % NelRight = -1       
+                  self % faces(l) % NfLeft = -1       
+                  self % faces(l) % NfRight = -1       
+                  self % faces(l) % Nf = -1         
+                  self % faces(l) % nodeIDs = -1             
+                  self % faces(l) % elementIDs = -1
+                  self % faces(l) % elementSide = -1
+                  self % faces(l) % projectionType = -1
+                  self % faces(l) % boundaryName = ""
+         end do 
+      end if 
    if (allocated(self%mortar_faces)) then 
       do l=1, SIZE(self%mortar_faces)
          !call self % faces(l) % Destruct
