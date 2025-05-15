@@ -383,6 +383,11 @@ end module ProblemFileFunctions
                associate(e => mesh % elements(eID) % storage)
                call random_number(e % c) 
                e % c = 2.0_RP * (e % c - 0.5_RP)
+#ifdef MULTIPHASE
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+               end do;        end do;        end do
+#endif
                end associate
                end associate
             end do

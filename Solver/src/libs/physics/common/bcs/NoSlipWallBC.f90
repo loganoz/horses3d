@@ -374,7 +374,7 @@ module NoSlipWallBCClass
          !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int, e_int, invRho )            
+            !$acc loop vector collapse(2) private(Q, Q_aux, u_star, u_int, e_int, invRho)            
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
                
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
@@ -385,7 +385,7 @@ module NoSlipWallBCClass
                e_int = invRho*(Q(IRHOE) - 0.5_RP*invRho*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW))))
       
                Q_aux(IRHO) = Q(IRHO)
-               Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
+               Q_aux(IRHOU:IRHOW) = Q(IRHO) * self % vWall
                Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
 #if defined (SPALARTALMARAS)
                Q_aux(IRHOTHETA) = 0.0_RP
@@ -568,6 +568,9 @@ module NoSlipWallBCClass
 
                mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
 
+               mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
+
             enddo ; enddo
          enddo
          !$acc end parallel loop
@@ -588,7 +591,6 @@ module NoSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID) 
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
@@ -598,7 +600,6 @@ module NoSlipWallBCClass
                Q = mesh % faces(fID) % storage(1) % Q(:,i,j)
 
                call mGradientVariables(NCONS, NGRAD, Q, u_int, mesh % faces(fID) % storage(1) % rho(i,j))
-
 
                u_star(IMC) = u_int(IMC)
                u_star(IMSQRHOU:IMSQRHOW) = self % vWall
@@ -632,7 +633,6 @@ module NoSlipWallBCClass
          integer       :: fID
          integer       :: zonefID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)

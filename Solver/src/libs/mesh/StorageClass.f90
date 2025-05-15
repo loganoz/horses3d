@@ -74,10 +74,10 @@ module StorageClass
       real(kind=RP),           allocatable :: contravariantFlux(:,:,:,:,:)       ! NSE State vector
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
-      real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
-      real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
-      real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
-      real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
+      real(kind=RP),           allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
+      real(kind=RP),           allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
+      real(kind=RP),           allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
+      real(kind=RP),           allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliary storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
@@ -856,9 +856,9 @@ module StorageClass
          allocate(self % mu_x(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          allocate(self % mu_y(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          allocate(self % mu_z(NCOMP, 0:Nx, 0:Ny, 0:Nz))
-         ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
+         allocate(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % Q_grad_CH(1:NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % Q_grad_CH(NCOMP, 0:Nx, 0:Ny, 0:Nz))
 #endif
 
 #ifdef MULTIPHASE
@@ -918,7 +918,12 @@ module StorageClass
          self % mu_z  = 0.0_RP
          self % G_CH  = 0.0_RP
          self % v     = 0.0_RP
+         self % Q_grad_CH   = 0.0_RP
 #endif
+#ifdef MULTIPHASE
+         self % Q_grad_mu   = 0.0_RP
+#endif
+
 
          self % first_sensed = huge(1)
          self % prev_sensor = 1.0_RP
@@ -1190,7 +1195,7 @@ module StorageClass
          do k = 1, size(self % prevQ)
             self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % QNS
          end do
-
+         
       end subroutine ElementStorage_SetStorageToNS
 #endif
 #ifdef CAHNHILLIARD
@@ -1224,7 +1229,6 @@ module StorageClass
             self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
          end do
 
-
       end subroutine ElementStorage_SetStorageToCH_c
 
       pure subroutine ElementStorage_SetStorageToCH_mu(self)
@@ -1255,7 +1259,7 @@ module StorageClass
          do k = 1, size(self % prevQ)
             self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
          end do
-
+         
       end subroutine ElementStorage_SetStorageToCH_mu
 #endif
 !
@@ -1620,11 +1624,6 @@ module StorageClass
          self % U_y(1:,0:,0:) => self % c_y
          self % U_z(1:,0:,0:) => self % c_z
 
-         self % fStar(1:NCOMP,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
-         self % unStar(1:NCOMP, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
-
-         self % genericInterfaceFluxMemory = 0.0_RP
-
       end subroutine FaceStorage_SetStorageToCH_c
 
       pure subroutine FaceStorage_SetStorageToCH_mu(self)
@@ -1637,11 +1636,6 @@ module StorageClass
          self % U_x(1:,0:,0:) => self % mu_x
          self % U_y(1:,0:,0:) => self % mu_y
          self % U_z(1:,0:,0:) => self % mu_z
-
-         self % fStar(1:NCOMP,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
-         self % unStar(1:NCOMP, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
-
-         self % genericInterfaceFluxMemory = 0.0_RP
 
       end subroutine FaceStorage_SetStorageToCH_mu
 #endif

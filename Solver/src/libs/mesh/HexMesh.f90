@@ -136,7 +136,7 @@ MODULE HexMeshClass
             procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
-            procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
+            procedure :: SetStorageToEqn               => HexMesh_SetStorageToEqn
 #if defined(INCNS) && defined(CAHNHILLIARD)
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
@@ -974,7 +974,7 @@ slavecoord:             DO l = 1, 4
          case(1) !Gauss
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self) async(1)
+!$acc parallel loop gang collapse(2) present(self) num_gangs(size(self % elements)) vector_length(32) 
          do eID = 1, size(self % elements)
             do fID = 1, 6
             call HexElement_ProlongSolToFaces(self % elements(eID), nEqn, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
@@ -985,7 +985,7 @@ slavecoord:             DO l = 1, 4
          case(2) !Gauss-Lobatto
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32)  present(self) async(1)
+!$acc parallel loop gang collapse(2) present(self) num_gangs(size(self % elements)) vector_length(32)  
          do eID = 1, size(self % elements)
             do fID = 1, 6
             call HexElement_ProlongSolToFaces_GL(self % elements(eID), nEqn, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
@@ -1015,21 +1015,21 @@ slavecoord:             DO l = 1, 4
          select case ( self %nodeType )
          case(1) !Gauss
 
-!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs) async(1)
+!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs)
 !$omp do schedule(runtime) private(eID)
          do iEl = 1, size_element_list
             do fid = 1,6
                eID = element_list(iEl)
                fIDs = self % elements(eID) % faceIDs
-               call HexElement_ProlongGradientsToFaces(self % elements(eID), NGRAD, &
+               call HexElement_ProlongGradientsToFaces(self % elements(eID), nGradEqn, &
                                                        self % faces(fIDs(fid)), &
                                                        self % elements(eID) % storage % U_x,fid, 1)
 
-               call HexElement_ProlongGradientsToFaces(self % elements(eID), NGRAD, &
+               call HexElement_ProlongGradientsToFaces(self % elements(eID), nGradEqn, &
                                                        self % faces(fIDs(fid)), &
                                                        self % elements(eID) % storage % U_y,fid, 2)
 
-               call HexElement_ProlongGradientsToFaces(self % elements(eID), NGRAD, &
+               call HexElement_ProlongGradientsToFaces(self % elements(eID), nGradEqn, &
                                                        self % faces(fIDs(fid)), &
                                                        self % elements(eID) % storage % U_z,fid, 3)
          end do ; enddo 
@@ -1039,31 +1039,37 @@ slavecoord:             DO l = 1, 4
          case(2) !Gauss-Lobatto
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) 
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
-               call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), NGRAD, self % faces(self % elements(eID) % faceIDs(fID)), self % elements(eID) % storage % U_x, fID,1)                        
+               call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), nGradEqn, &
+                                                          self % faces(self % elements(eID) % faceIDs(fID)), &
+                                                          self % elements(eID) % storage % U_x, fID,1)                        
          end do ; end do
 !$acc end parallel loop
 !$omp end do
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) 
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
-            call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), NGRAD, self % faces(self % elements(eID) % faceIDs(fID)), self % elements(eID) % storage % U_y, fID,2)                        
+               call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), nGradEqn, &
+                                                          self % faces(self % elements(eID) % faceIDs(fID)), &
+                                                          self % elements(eID) % storage % U_y, fID,2)                        
          end do ; end do
 !$acc end parallel loop
 !$omp end do
          
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) 
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
-            call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), NGRAD, self % faces(self % elements(eID) % faceIDs(fID)), self % elements(eID) % storage % U_z, fID,3)                        
+               call HexElement_ProlongGradientsToFaces_GL(self % elements(eID), nGradEqn, &
+                                                          self % faces(self % elements(eID) % faceIDs(fID)), &
+                                                          self % elements(eID) % storage % U_z, fID,3)                        
          end do ; end do
 !$acc end parallel loop
 !$omp end do
@@ -4400,17 +4406,45 @@ slavecoord:             DO l = 1, 4
             !$acc enter data copyin(self % elements(eID) % storage % stats)
             !$acc enter data copyin(self % elements(eID) % storage % stats % data)
          end if
+
+         !!!!$acc enter data copyin(self % elements(eID) % storage % QDotNS)
+         !!!$acc enter data create(self % elements(eID) % storage % QDot)
+         !!!$acc enter data attach(self % elements(eID) % storage % QDot)
+         !!call acc_attach(self % elements(eID) % storage % QDot)
+
+         !!$acc enter data copyin(self % elements(eID) % storage % QNS)
+         !!$acc enter data create(self % elements(eID) % storage % Q)
+         !!$acc enter data attach(self % elements(eID) % storage % Q)
+         !call acc_attach(self % elements(eID) % storage % Q)
+
+         !!$acc enter data copyin(self % elements(eID) % storage % U_xNS)
+         !!$acc enter data create(self % elements(eID) % storage % U_x)
+         !!$acc enter data attach(self % elements(eID) % storage % U_x)
+         !call acc_attach(self % elements(eID) % storage % U_x)
+
+         !!$acc enter data copyin(self % elements(eID) % storage % U_yNS)
+         !!$acc enter data create(self % elements(eID) % storage % U_y)
+         !!$acc enter data attach(self % elements(eID) % storage % U_y)
+         !call acc_attach(self % elements(eID) % storage % U_y)
+
+         !!$acc enter data copyin(self % elements(eID) % storage % U_zNS)
+         !!$acc enter data create(self % elements(eID) % storage % U_z)
+         !!$acc enter data attach(self % elements(eID) % storage % U_z)
+         !call acc_attach(self % elements(eID) % storage % U_z)
+
          !$acc enter data copyin(self % elements(eID) % storage % Q)
-         !$acc enter data copyin(self % elements(eID) % storage % rho)
          !$acc enter data copyin(self % elements(eID) % storage % QDot)
+         !$acc enter data copyin(self % elements(eID) % storage % U_x)
+         !$acc enter data copyin(self % elements(eID) % storage % U_y)
+         !$acc enter data copyin(self % elements(eID) % storage % U_z)
+
+         !$acc enter data copyin(self % elements(eID) % storage % rho)
          !$acc enter data copyin(self % elements(eID) % storage % G_NS)
          !$acc enter data copyin(self % elements(eID) % storage % FluxF)
          !$acc enter data copyin(self % elements(eID) % storage % FluxG)
          !$acc enter data copyin(self % elements(eID) % storage % FluxH)
          !$acc enter data copyin(self % elements(eID) % storage % contravariantFlux)
-         !$acc enter data copyin(self % elements(eID) % storage % U_x)
-         !$acc enter data copyin(self % elements(eID) % storage % U_y)
-         !$acc enter data copyin(self % elements(eID) % storage % U_z)
+
          !$acc enter data copyin(self % elements(eID) % storage % S_NS)
          !$acc enter data copyin(self % elements(eID) % storage % mu_ns)
          !$acc enter data copyin(self % elements(eID) % storage % mu_turb_NS)
@@ -4461,24 +4495,69 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % rotation)
          !$acc enter data copyin(self % faces(iFace) % projectionType)
          !$acc enter data copyin(self % faces(iFace) % storage)
+
          !$acc enter data copyin(self % faces(iFace) % storage(1) % Q)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % Q)
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % U_x)
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % U_x)
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % U_y)
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % U_y)
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % U_z)
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % U_z)
+
+
+         !!$acc enter data copyin(self % faces(iFace) % storage(1) % QNS)
+         !!$acc enter data create(self % faces(iFace) % storage(1) % Q)
+         !!$acc enter data attach(self % faces(iFace) % storage(1) % Q)
+         !call acc_attach(self % faces(iFace) % storage(1) % Q)
+         !!$acc enter data copyin(self % faces(iFace) % storage(2) % QNS)
+         !!$acc enter data create(self % faces(iFace) % storage(2) % Q)
+         !!$acc enter data attach(self % faces(iFace) % storage(2) % Q)
+         !call acc_attach(self % faces(iFace) % storage(2) % Q)
+
          !$acc enter data copyin(self % faces(iFace) % storage(1) % Q_aux)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % Q_aux)
-         !$acc enter data copyin(self % faces(iFace) % storage(1) % U_x)
-         !$acc enter data copyin(self % faces(iFace) % storage(1) % U_y)
-         !$acc enter data copyin(self % faces(iFace) % storage(1) % U_z)
-         !$acc enter data copyin(self % faces(iFace) % storage(2) % U_x)
-         !$acc enter data copyin(self % faces(iFace) % storage(2) % U_y)
-         !$acc enter data copyin(self % faces(iFace) % storage(2) % U_z)
+        
+         !!$acc enter data copyin(self % faces(iFace) % storage(1) % U_xNS)
+         !!$acc enter data create(self % faces(iFace) % storage(1) % U_x)
+         !!$acc enter data attach(self % faces(iFace) % storage(1) % U_x)
+         !call acc_attach(self % faces(iFace) % storage(1) % U_x)
+         !!$acc enter data copyin(self % faces(iFace) % storage(2) % U_xNS)
+         !!$acc enter data create(self % faces(iFace) % storage(2) % U_x)
+         !!$acc enter data attach(self % faces(iFace) % storage(2) % U_x)
+         !call acc_attach(self % faces(iFace) % storage(2) % U_x)
+
+         !!$acc enter data copyin(self % faces(iFace) % storage(1) % U_yNS)
+         !!$acc enter data create(self % faces(iFace) % storage(1) % U_y)
+         !!$acc enter data attach(self % faces(iFace) % storage(1) % U_y)
+         !call acc_attach(self % faces(iFace) % storage(1) % U_y)
+
+         !!$acc enter data copyin(self % faces(iFace) % storage(2) % U_yNS)
+         !!$acc enter data create(self % faces(iFace) % storage(2) % U_y)
+         !!$acc enter data attach(self % faces(iFace) % storage(2) % U_y)
+         !call acc_attach(self % faces(iFace) % storage(2) % U_y)
+
+         !!$acc enter data copyin(self % faces(iFace) % storage(1) % U_zNS)
+         !!$acc enter data create(self % faces(iFace) % storage(1) % U_z)
+         !!$acc enter data attach(self % faces(iFace) % storage(1) % U_z)
+         !call acc_attach(self % faces(iFace) % storage(1) % U_z)
+
+         !!$acc enter data copyin(self % faces(iFace) % storage(2) % U_zNS)
+         !!$acc enter data create(self % faces(iFace) % storage(2) % U_z)
+         !!$acc enter data attach(self % faces(iFace) % storage(2) % U_z)
+         !call acc_attach(self % faces(iFace) % storage(2) % U_z)
+
          !$acc enter data copyin(self % faces(iFace) % storage(1) % mu_NS)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_NS)
          !$acc enter data copyin(self % faces(iFace) % storage(1) % fStar)
          !$acc enter data copyin(self % faces(iFace) % storage(1) % unStar)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % fStar)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % unStar)
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % rho)
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % rho)
          !$acc enter data copyin(self % faces(iFace) % geom)
          !$acc enter data copyin(self % faces(iFace) % geom % x)
+         !$acc enter data copyin(self % faces(iFace) % geom % h)
          !$acc enter data copyin(self % faces(iFace) % geom % normal)
          !$acc enter data copyin(self % faces(iFace) % geom % t1)
          !$acc enter data copyin(self % faces(iFace) % geom % t2)
@@ -4487,15 +4566,24 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % geom % Surface)
          
 #ifdef CAHNHILLIARD
-         !$acc enter data copyin(self % faces(iFace) % storage % c)     ! CHE concentration
-         !$acc enter data copyin(self % faces(iFace) % storage % c_x)   ! CHE concentration x-gradient
-         !$acc enter data copyin(self % faces(iFace) % storage % c_y)   ! CHE concentration y-gradient
-         !$acc enter data copyin(self % faces(iFace) % storage % c_z)   ! CHE concentration z-gradient
-         !$acc enter data copyin(self % faces(iFace) % storage % mu)    ! CHE chemical potential
-         !$acc enter data copyin(self % faces(iFace) % storage % mu_x)  ! CHE chemical potential x-gradient
-         !$acc enter data copyin(self % faces(iFace) % storage % mu_y)  ! CHE chemical potential y-gradient
-         !$acc enter data copyin(self % faces(iFace) % storage % mu_z)  ! CHE chemical potential z-gradient
-         !$acc enter data copyin(self % faces(iFace) % storage % v)     ! CHE flow field velocity
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % c)     ! CHE concentration
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % c)     ! CHE concentration
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % c_x)   ! CHE concentration x-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % c_x)   ! CHE concentration x-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % c_y)   ! CHE concentration y-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % c_y)   ! CHE concentration y-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % c_z)   ! CHE concentration z-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % c_z)   ! CHE concentration z-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % mu)    ! CHE chemical potential
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % mu)    ! CHE chemical potential
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % mu_x)  ! CHE chemical potential x-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_x)  ! CHE chemical potential x-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % mu_y)  ! CHE chemical potential y-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_y)  ! CHE chemical potential y-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % mu_z)  ! CHE chemical potential z-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_z)  ! CHE chemical potential z-gradient
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % v)     ! CHE flow field velocity
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % v)     ! CHE flow field velocity
 #endif
       enddo
       
@@ -4569,7 +4657,26 @@ slavecoord:             DO l = 1, 4
          !$acc exit data delete(self % elements(eID) % faceSide)
          !$acc exit data delete(self % elements(eID) % storage)
          !$acc exit data delete(self % elements(eID) % geom)
+#ifdef CAHNHILLIARD
+         !$acc exit data delete(self % elements(eID) % storage % c)     ! CHE concentration
+         !$acc exit data delete(self % elements(eID) % storage % cDot)  ! CHE concentration time derivative
+         !$acc exit data delete(self % elements(eID) % storage % c_x)   ! CHE concentration x-gradient
+         !$acc exit data delete(self % elements(eID) % storage % c_y)   ! CHE concentration y-gradient
+         !$acc exit data delete(self % elements(eID) % storage % c_z)   ! CHE concentration z-gradient
+         !$acc exit data delete(self % elements(eID) % storage % mu)    ! CHE chemical potential
+         !$acc exit data delete(self % elements(eID) % storage % mu_x)  ! CHE chemical potential x-gradient
+         !$acc exit data delete(self % elements(eID) % storage % mu_y)  ! CHE chemical potential y-gradient
+         !$acc exit data delete(self % elements(eID) % storage % mu_z)  ! CHE chemical potential z-gradient
+         !$acc exit data delete(self % elements(eID) % storage % v)     ! CHE flow field velocity
+         !$acc exit data delete(self % elements(eID) % storage % G_CH)  ! CHE auxiliary storage
+         !$acc exit data delete(self % elements(eID) % storage % Q_grad_CH) !CH state to calculate the gradient
+#endif
+#ifdef MULTIPHASE
+         !$acc exit data delete(self % elements(eID) % storage % Q_grad_mu) !Multiphase state to calculate the gradient
+#endif
+
          !$acc exit data delete(self % elements(eID))
+
       ENDDO
 
       do iFace = 1, size(self % faces)
@@ -4601,6 +4708,26 @@ slavecoord:             DO l = 1, 4
          !$acc exit data delete(self % faces(iFace) % geom % dWall)
          !$acc exit data delete(self % faces(iFace) % geom % Surface)
          !$acc exit data delete(self % faces(iFace) % geom)
+#ifdef CAHNHILLIARD
+         !$acc exit data delete(self % faces(iFace) % storage(1) % c)     ! CHE concentration
+         !$acc exit data delete(self % faces(iFace) % storage(2) % c)     ! CHE concentration
+         !$acc exit data delete(self % faces(iFace) % storage(1) % c_x)   ! CHE concentration x-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(2) % c_x)   ! CHE concentration x-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(1) % c_y)   ! CHE concentration y-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(2) % c_y)   ! CHE concentration y-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(1) % c_z)   ! CHE concentration z-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(2) % c_z)   ! CHE concentration z-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(1) % mu)    ! CHE chemical potential
+         !$acc exit data delete(self % faces(iFace) % storage(2) % mu)    ! CHE chemical potential
+         !$acc exit data delete(self % faces(iFace) % storage(1) % mu_x)  ! CHE chemical potential x-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(2) % mu_x)  ! CHE chemical potential x-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(1) % mu_y)  ! CHE chemical potential y-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(2) % mu_y)  ! CHE chemical potential y-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(1) % mu_z)  ! CHE chemical potential z-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(2) % mu_z)  ! CHE chemical potential z-gradient
+         !$acc exit data delete(self % faces(iFace) % storage(1) % v)     ! CHE flow field velocity
+         !$acc exit data delete(self % faces(iFace) % storage(2) % v)     ! CHE flow field velocity
+#endif
          !$acc exit data delete(self % faces(iFace))
       enddo
       
@@ -4657,12 +4784,12 @@ slavecoord:             DO l = 1, 4
       !$acc wait
 
       do eID = 1, SIZE(self % elements)
-         !$acc update self(self % elements(eID) % storage % Q)
-         !$acc update self(self % elements(eID) % storage % U_x)
-         !$acc update self(self % elements(eID) % storage % U_y)
-         !$acc update self(self % elements(eID) % storage % U_z)
-         !$acc update self(self % elements(eID) % storage % mu_ns)
-         !$acc update self(self % elements(eID) % storage % mu_turb_NS)
+      !   !$acc update self(self % elements(eID) % storage % Q)
+      !   !$acc update self(self % elements(eID) % storage % U_x)
+      !   !$acc update self(self % elements(eID) % storage % U_y)
+      !   !$acc update self(self % elements(eID) % storage % U_z)
+      !   !$acc update self(self % elements(eID) % storage % mu_ns)
+      !   !$acc update self(self % elements(eID) % storage % mu_turb_NS)
       enddo
       
       !$acc wait
@@ -4715,8 +4842,7 @@ slavecoord:             DO l = 1, 4
          do fID = 1, size(self % faces)
             call self % faces(fID) % storage(1) % SetStorageToNS
             call self % faces(fID) % storage(2) % SetStorageToNS
-         end do
-
+         end do  
 #endif
 
       elseif ( which .eq. c ) then
@@ -5469,7 +5595,7 @@ call elementMPIList % destruct
 !$omp do schedule(runtime)
       !$acc parallel loop gang vector_length(128) present(self, self % elements)
          do eID = 1 , size(self % elements)
-            call HexElement_ComputeLocalGradient(self % elements(eID), self % elements(eID) % storage % Q)
+            call HexElement_ComputeLocalGradient(self % elements(eID), NCONS, NGRAD, self % elements(eID) % storage % Q)
          end do
       !$acc end parallel loop
 !$omp end do nowait
@@ -5486,16 +5612,19 @@ call elementMPIList % destruct
 
       !--------------------------------------------------
 !$omp do schedule(runtime)
-      !$acc parallel loop gang vector_length(128) present(self, self % elements)
+      !$acc parallel loop gang vector_length(128) present(self) copyin(set_mu)
       do eID = 1 , size(self % elements)
 
          !$acc loop vector collapse(3) 
          do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
-            call chGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_CH(:,i,j,k))
-            if ( set_mu ) self % elements(eID) % storage % Q_grad_CH(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
+            call chGradientVariables(NCOMP, NCOMP, self % elements(eID) % storage % Q(IMC,i,j,k), self % elements(eID) % storage % Q_grad_CH(IMC,i,j,k))
+            !if ( set_mu ) self % elements(eID) % storage % Q_grad_CH(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
+            !if (self % elements(eid) % eid == 95) then
+            !   print *, "CH sol: ",i,j,k, self % elements(eID) % storage % Q(1,i,j,k), self % elements(eID) % storage % Q_grad_CH(1,i,j,k)
+            !end if
          end do         ; end do         ; end do
 
-         call HexElement_ComputeLocalGradient(self % elements(eID), self % elements(eID) % storage % Q_grad_CH)
+         call HexElement_ComputeLocalGradient(self % elements(eID), NCOMP, NCOMP, self % elements(eID) % storage % Q_grad_CH)
       end do
    !$acc end parallel loop
 !$omp end do nowait
@@ -5503,25 +5632,28 @@ call elementMPIList % destruct
    end subroutine HexMesh_ComputeLocalGradientCH
 
    subroutine HexMesh_ComputeLocalGradientMU(self, set_mu)
+      use VariableConversion
       implicit none
       !-arguments-----------------------------------------
       type(HexMesh), intent(inout)   :: self
-      logical, intent(in)             :: set_mu
+      logical, intent(in)            :: set_mu
       !-local-variables-----------------------------------
       integer :: eID, i, j, k
 
       !--------------------------------------------------
 !$omp do schedule(runtime)
-      !$acc parallel loop gang vector_length(128) present(self, self % elements)
+      !$acc parallel loop gang vector_length(128) present(self) copyin(set_mu)
       do eID = 1 , size(self % elements)
 
          !$acc loop vector collapse(3) 
          do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
             call mGradientVariables(NCONS, NGRAD, self % elements(eID) % storage % Q(:,i,j,k), self % elements(eID) % storage % Q_grad_mu(:,i,j,k), self % elements(eID) % storage % rho(i,j,k))
-            if ( set_mu ) self % elements(eID) % storage % Q_grad_mu(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
+            !if ( set_mu == .true.) then ! This is not working - weird - above it works
+                  self % elements(eID) % storage % Q_grad_mu(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
+            !end if
          end do         ; end do         ; end do
 
-         call HexElement_ComputeLocalGradient(self % elements(eID), self % elements(eID) % storage % Q_grad_mu)
+         call HexElement_ComputeLocalGradient(self % elements(eID), NCONS, NGRAD, self % elements(eID) % storage % Q_grad_mu)
       end do
    !$acc end parallel loop
 !$omp end do nowait

@@ -58,6 +58,7 @@ module EllipticDiscretizationClass
    enum, bind(C)
       enumerator :: ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS
    end enum
+   !$acc declare copyin(ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS)
 !
 !  ========
    contains

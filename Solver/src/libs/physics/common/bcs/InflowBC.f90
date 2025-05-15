@@ -751,6 +751,9 @@ module InflowBCClass
                       Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                       mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+
+                      mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
                     enddo ; enddo
                  enddo
                 !$acc end parallel loop
@@ -775,6 +778,9 @@ module InflowBCClass
                       Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                       mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+
+                      mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
                     enddo ; enddo
                 enddo
                 !$acc end parallel loop
@@ -799,13 +805,15 @@ module InflowBCClass
                       Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                       mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+
+                      mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
                    enddo ; enddo
                 enddo
                 !$acc end parallel loop
             end if direction_cond
 
          else
-            !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
             !$acc parallel loop gang present(mesh, self, zone) private(fID)
             do zonefID = 1, zone % no_of_faces
                fID = zone % faces(zonefID)
@@ -826,6 +834,9 @@ module InflowBCClass
                   Q(IMP) = mesh % faces(fID) % storage(1) % Q(IMP,i,j)
 
                   mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+
+                  mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
                enddo ; enddo
             enddo
             !$acc end parallel loop

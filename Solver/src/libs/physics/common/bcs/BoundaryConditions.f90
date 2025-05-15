@@ -120,7 +120,6 @@ module BoundaryConditions
 
          !$acc enter data copyin(BCs)
          do zID = 1, no_of_zones
-            !!$acc enter data copyin(BCs(zID) % bc)
             call BCs(zID) % bc % CreateDeviceData()
          end do
 

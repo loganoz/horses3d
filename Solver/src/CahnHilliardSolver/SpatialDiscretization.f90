@@ -866,7 +866,8 @@ error stop
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
 
-         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , chGradientVariables)
+         ! This is chGradientVariables in master but it is not used here - dummy input
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , mGradientVariables)
 
       end subroutine DGSpatial_ComputeGradient
 !

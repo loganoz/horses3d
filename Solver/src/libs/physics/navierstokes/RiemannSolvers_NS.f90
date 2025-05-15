@@ -407,7 +407,7 @@ module RiemannSolvers_NS
          real(kind=RP), intent(in)       :: QLeft(1:NCONS, 0:Nx, 0:Ny)
          real(kind=RP), intent(in)       :: QRight(1:NCONS, 0:Nx, 0:Ny)
          real(kind=RP), intent(in)       :: nHat(1:NDIM, 0:Nx, 0:Ny), t1(NDIM, 0:Nx, 0:Ny), t2(NDIM, 0:Nx, 0:Ny)
-         real(kind=RP), intent(inout)      :: flux(1:NCONS, 0:Nx, 0:Ny)
+         real(kind=RP), intent(inout)    :: flux(1:NCONS, 0:Nx, 0:Ny)
 
          select case (whichRiemannSolver)
          case (RIEMANN_ROE)

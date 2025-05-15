@@ -22,6 +22,10 @@
 #ifdef _HAS_MPI_
       use mpi
 #endif
+#ifdef _OPENACC
+      use cudafor
+      use openacc
+#endif
       
       IMPLICIT NONE
       TYPE( FTValueDictionary)            :: controlVariables
@@ -114,9 +118,15 @@
 !     -----------------
 !     Integrate in time
 !     -----------------
+#ifdef _OPENACC
+      call cudaProfilerStart() !Set up the profiling here to avoid memory transfers
+#endif
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
+#ifdef _OPENACC
+      call cudaProfilerStop() ! Stop the collection of statistics for OpenACC
+#endif
 !     ----------------------------------
 !     Export particles to VTK (temporal)
 !     ----------------------------------

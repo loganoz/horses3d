@@ -366,7 +366,7 @@
                      Qlocal(eq)  = Qlocal(eq)  + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(j,BACK)
                   enddo
                end do
-               f_side  % storage(self % faceSide(EBACK))  % Q_aux(:,i,k) = Qlocal
+               f_side  % storage(self % faceSide(EBACK))  % Q_aux(1:nEqn,i,k) = Qlocal
             end do ; end do
             call Face_AdaptSolToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(EBACK)) % Q_aux, self % faceSide(EBACK))
          
@@ -381,7 +381,7 @@
                      Qlocal(eq) = Qlocal(eq)  + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,BOTTOM)
                   enddo
                end do
-               f_side % storage(self % faceSide(EBOTTOM)) % Q_aux(:,i,j) = Qlocal
+               f_side % storage(self % faceSide(EBOTTOM)) % Q_aux(1:nEqn,i,j) = Qlocal
             end do ; end do
             call Face_AdaptSolToFace(f_side,nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(EBOTTOM)) % Q_aux, self % faceSide(EBOTTOM))
 
@@ -396,7 +396,7 @@
                      Qlocal(eq) = Qlocal(eq) + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,RIGHT)
                   enddo
                end do
-               f_side % storage(self % faceSide(ERIGHT)) % Q_aux(:,j,k) = Qlocal
+               f_side % storage(self % faceSide(ERIGHT)) % Q_aux(1:nEqn,j,k) = Qlocal
             end do ; end do
              call Face_AdaptSolToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ERIGHT)) % Q_aux, self % faceSide(ERIGHT))
 
@@ -410,7 +410,7 @@
                      Qlocal(eq) = Qlocal(eq) + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,TOP)
                   enddo
                end do
-               f_side  % storage(self % faceSide(ETOP)) % Q_aux(:,i,j) = Qlocal
+               f_side  % storage(self % faceSide(ETOP)) % Q_aux(1:nEqn,i,j) = Qlocal
             end do ; end do
           call Face_AdaptSolToFace(f_side,   nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ETOP)) % Q_aux, self % faceSide(ETOP))
 
@@ -425,7 +425,7 @@
                      Qlocal(eq) = Qlocal(eq)  + self % storage % Q(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,LEFT)
                   enddo
                end do
-               f_side  % storage(self % faceSide(ELEFT))  % Q_aux(:,j,k) = Qlocal
+               f_side  % storage(self % faceSide(ELEFT))  % Q_aux(1:nEqn,j,k) = Qlocal
             end do ; end do
             call Face_AdaptSolToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ELEFT)) % Q_aux, self % faceSide(ELEFT))
 
@@ -460,7 +460,7 @@
                f_side % storage(self % faceSide(EFRONT)) % Q_aux(eq,i,k) = self % storage % Q(eq,i,0,k)
             enddo
           end do ; end do
-          call Face_AdaptSolToFace(f_side, nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(EFRONT))  % Q_aux, self % faceSide(EFRONT))
+          call Face_AdaptSolToFace(f_side, nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(EFRONT)) % Q_aux, self % faceSide(EFRONT))
          case(2)
          !$acc loop vector collapse(3) 
             do k = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
@@ -468,7 +468,7 @@
                   f_side  % storage(self % faceSide(EBACK))  % Q_aux(eq,i,k) = self % storage % Q(eq,i,self % Nxyz(2),k)
                enddo
              end do ; end do
-             call Face_AdaptSolToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(EBACK))   % Q_aux, self % faceSide(EBACK))
+             call Face_AdaptSolToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(EBACK)) % Q_aux, self % faceSide(EBACK))
          case(3)
          !$acc loop vector collapse(3) 
             do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
@@ -494,7 +494,7 @@
                f_side  % storage(self % faceSide(ETOP))  % Q_aux(eq,i,j)  = self % storage % Q(eq,i,j,self % Nxyz(3))
             enddo
           end do ; end do
-          call Face_AdaptSolToFace(f_side,   nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ETOP))    % Q_aux, self % faceSide(ETOP))
+          call Face_AdaptSolToFace(f_side,   nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ETOP)) % Q_aux, self % faceSide(ETOP))
 
          case(6)
          !$acc loop vector collapse(3)
@@ -518,13 +518,13 @@
          type(Face),       intent(inout)  :: f_side
          integer,          intent(in)     :: side
          integer,          intent(in)     :: dir
-         real(kind=RP),    intent(in), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3)) :: U_xyz
+         real(kind=RP),    intent(in), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3)) :: U_xyz
 !
 !        ---------------
 !        Local variables
 !        ---------------
          integer  :: i, j, k, l, eq
-         real(kind=RP), dimension(1:NCONS) :: Q_grad
+         real(kind=RP), dimension(1:nEqn) :: Q_grad
 !
 !        *************************
 !        Prolong solution to faces
@@ -537,12 +537,12 @@
             Q_grad= U_xyz(:,i,0,k)* NodalStorage(self % Nxyz(1)) % v(0,FRONT)
             !$acc loop seq
             do j = 1, self % Nxyz(3)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(j,FRONT)
                enddo
             end do
             !$acc loop seq
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                f_side % storage(self % faceSide(EFRONT)) % Q_aux(eq,i,k) = Q_grad(eq)
             enddo
           end do ; end do
@@ -554,16 +554,16 @@
                Q_grad = U_xyz(:,i,0,k)* NodalStorage(self % Nxyz(1)) % v(0,BACK)
                !$acc loop seq
                do j = 1, self % Nxyz(3)
-                  do eq = 1, NCONS
-                     Q_grad(eq)  = Q_grad(eq)  + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(j,BACK)
+                  do eq = 1, nEqn
+                     Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(j,BACK)
                   enddo
                end do
                !$acc loop seq
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side  % storage(self % faceSide(EBACK)) % Q_aux(eq,i,k) = Q_grad(eq)
                enddo
              end do ; end do
-             call Face_AdaptGradientsToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side  % storage(self % faceSide(EBACK))  % Q_aux, self % faceSide(EBACK), dir)
+             call Face_AdaptGradientsToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side  % storage(self % faceSide(EBACK)) % Q_aux, self % faceSide(EBACK), dir)
          
             case(3)
             !$acc loop vector collapse(2) private(Q_grad)
@@ -571,12 +571,12 @@
                Q_grad= U_xyz(:,i,j,0)* NodalStorage(self % Nxyz(1)) % v(0,BOTTOM)
                !$acc loop seq
                do k = 1, self % Nxyz(3)
-                  do eq = 1, NCONS
+                  do eq = 1, nEqn
                      Q_grad(eq) = Q_grad(eq)  + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,BOTTOM)
                   enddo
                end do
                !$acc loop seq
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(EBOTTOM)) % Q_aux(eq,i,j) = Q_grad(eq)
                enddo
             end do ; end do
@@ -588,12 +588,12 @@
                Q_grad= U_xyz(:,0,j,k)* NodalStorage(self % Nxyz(1)) % v(0,RIGHT)
                !$acc loop seq
                do i = 1, self % Nxyz(1)
-                  do eq = 1, NCONS
+                  do eq = 1, nEqn
                      Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,RIGHT)
                   enddo
                end do
                !$acc loop seq
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(ERIGHT)) % Q_aux(eq,j,k) = Q_grad(eq)
                enddo
              end do ; end do
@@ -605,16 +605,16 @@
             Q_grad = U_xyz(:,i,j,0)* NodalStorage(self % Nxyz(1)) % v(0,TOP)
             !$acc loop seq
             do k = 1, self % Nxyz(3)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(k,TOP)
                enddo
             end do
             !$acc loop seq
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                f_side  % storage(self % faceSide(ETOP))  % Q_aux(eq,i,j) = Q_grad(eq)
             enddo
           end do ; end do
-          call Face_AdaptGradientsToFace(f_side, nEqn, self % Nxyz(2), self % Nxyz(3), f_side  % storage(self % faceSide(ETOP))  % Q_aux, self % faceSide(ETOP), dir)
+          call Face_AdaptGradientsToFace(f_side, nEqn, self % Nxyz(2), self % Nxyz(3), f_side  % storage(self % faceSide(ETOP)) % Q_aux, self % faceSide(ETOP), dir)
 
          case(6)
          !$acc loop vector collapse(2) private(Q_grad)
@@ -622,16 +622,16 @@
             Q_grad = U_xyz(:,0,j,k)* NodalStorage(self % Nxyz(1)) % v(0,LEFT)
             !$acc loop seq
             do i = 1, self % Nxyz(1)
-               do eq = 1, NCONS
-                  Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k)* NodalStorage(self % Nxyz(1)) % v(i,LEFT)
+               do eq = 1, nEqn
+                  Q_grad(eq) = Q_grad(eq) + U_xyz(eq,i,j,k) * NodalStorage(self % Nxyz(1)) % v(i,LEFT)
                enddo
             end do
             !$acc loop seq
-            do eq = 1, NCONS
-               f_side  % storage(self % faceSide(ELEFT))  % Q_aux(eq,j,k) = Q_grad(eq)
+            do eq = 1, nEqn
+               f_side  % storage(self % faceSide(ELEFT)) % Q_aux(eq,j,k) = Q_grad(eq)
             enddo
           end do ; end do
-          call Face_AdaptGradientsToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ELEFT))  % Q_aux, self % faceSide(ELEFT), dir)
+          call Face_AdaptGradientsToFace(f_side,  nEqn, self % Nxyz(2), self % Nxyz(3), f_side % storage(self % faceSide(ELEFT)) % Q_aux, self % faceSide(ELEFT), dir)
 
          end select
 
@@ -646,7 +646,7 @@
          type(Face),       intent(inout)  :: f_side
          integer,          intent(in)     :: side
          integer,          intent(in)     :: dir
-         real(kind=RP),    intent(in), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3)) :: U_xyz
+         real(kind=RP),    intent(in), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3)) :: U_xyz
 !
 !        ---------------
 !        Local variables
@@ -661,7 +661,7 @@
          case(1)
             !$acc loop vector collapse(3) 
             do k = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(EFRONT)) % Q_aux(eq,i,k) = U_xyz(eq,i,0,k)
                enddo
             end do ; end do
@@ -669,7 +669,7 @@
          case(2)
             !$acc loop vector collapse(3) 
             do k = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side  % storage(self % faceSide(EBACK))  % Q_aux(eq,i,k) = U_xyz(eq,i,self % Nxyz(2),k)
                enddo
              end do ; end do
@@ -678,7 +678,7 @@
          case(3)
             !$acc loop vector collapse(3) 
             do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(EBOTTOM)) % Q_aux(eq,i,j) = U_xyz(eq,i,j,0)
                enddo
              end do ; end do
@@ -687,7 +687,7 @@
          case(4)
             !$acc loop vector collapse(3) 
             do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side % storage(self % faceSide(ERIGHT)) % Q_aux(eq,j,k) = U_xyz(eq,self % Nxyz(1),j,k)
                enddo
              end do ; end do
@@ -696,7 +696,7 @@
          case(5)
             !$acc loop vector collapse(3) 
             do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side  % storage(self % faceSide(ETOP)) % Q_aux(eq,i,j)  = U_xyz(eq,i,j,self % Nxyz(3))
                enddo
             end do ; end do
@@ -705,7 +705,7 @@
          case(6)
             !$acc loop vector collapse(3)
             do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2)
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   f_side  % storage(self % faceSide(ELEFT))  % Q_aux(eq,j,k) = U_xyz(eq,0,j,k)
                enddo
             end do ; end do
@@ -769,7 +769,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ComputeLocalGradient(self, U_gradsol)
+      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, U_gradsol)
          !$acc routine vector
 !
 !        ****************************************************************
@@ -780,44 +780,21 @@
 !        ****************************************************************
 !
          implicit none
-         type(Element),   intent(in)      :: self
-         real(kind=RP),   intent(in)      :: U_gradsol(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-!         integer,          intent(in)     :: nEqn
-!         integer,          intent(in)     :: nGradEqn
+         type(Element),   intent(inout)     :: self
+         integer,         intent(in)        :: nEqn
+         integer,         intent(in)        :: nGradEqn
+         real(kind=RP),   intent(in)        :: U_gradsol(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer  :: i, j, k, l, eq
-         real(kind=RP)  :: U_xi(1:NGRAD)
-         real(kind=RP)  :: U_eta(1:NGRAD)
-         real(kind=RP)  :: U_zeta(1:NGRAD)
+         real(kind=RP)  :: U_xi(NCONS)
+         real(kind=RP)  :: U_eta(NCONS)
+         real(kind=RP)  :: U_zeta(NCONS)
          real(kind=RP)  :: inv_jac
 
-!
-!        **********************
-!        Get gradient variables
-!        **********************
-!
-! #ifdef MULTIPHASE
-!          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-!             call GetGradientValues(NCONS, NGRAD, self % storage % Q(:,i,j,k), U_gradsol(:,i,j,k), self % storage % rho(i,j,k) )
-!          end do         ; end do         ; end do
-! #else
-!          !!$acc loop vector collapse(3)
-!          !do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
-!          !  call NSGradientVariables_STATE(NCONS, NGRAD, self % storage % Q(:,i,j,k), U_gradsol(:,i,j,k))
-!          !end do         ; end do         ; end do
-! #endif
-
-! #ifdef MULTIPHASE
-! !
-! !        The multiphase solver needs the Chemical potential as first entropy variable
-! !        ----------------------------------------------------------------------------
-!          if ( set_mu ) U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
-! #endif
-!
          !$acc loop vector collapse(3) private(U_xi, U_eta, U_zeta)
          do k = 0, self % Nxyz(3) ; do j = 0, self % Nxyz(2) ; do i = 0, self % Nxyz(1)
             
@@ -826,44 +803,44 @@
             !***
 
             ! U_xi =  self % storage % Q(:,0,j,k) * NodalStorage(self % Nxyz(1)) % D(i,0)
-            U_xi =  U_gradsol(:,0,j,k) * NodalStorage(self % Nxyz(1)) % D(i,0)
+            U_xi(1:nGradEqn) =  U_gradsol(:,0,j,k) * NodalStorage(self % Nxyz(1)) % D(i,0)
             !$acc loop seq
             do l = 1, self % Nxyz(1)
                ! U_xi = U_xi + self % storage % Q(:,l,j,k) * NodalStorage(self % Nxyz(1)) % D(i,l)
-               U_xi = U_xi + U_gradsol(:,l,j,k) * NodalStorage(self % Nxyz(1)) % D(i,l)
+               U_xi(1:nGradEqn) = U_xi(1:nGradEqn) + U_gradsol(:,l,j,k) * NodalStorage(self % Nxyz(1)) % D(i,l)
             enddo
             
             ! U_eta = self % storage % Q(:,i,0,k) * NodalStorage(self % Nxyz(2)) % D(j,0)
-            U_eta = U_gradsol(:,i,0,k) * NodalStorage(self % Nxyz(2)) % D(j,0)
+            U_eta(1:nGradEqn) = U_gradsol(:,i,0,k) * NodalStorage(self % Nxyz(2)) % D(j,0)
             !$acc loop seq
             do l = 1, self % Nxyz(2)
                ! U_eta = U_eta + self % storage % Q(:,i,l,k) * NodalStorage(self % Nxyz(2)) % D(j,l)
-               U_eta = U_eta + U_gradsol(:,i,l,k) * NodalStorage(self % Nxyz(2)) % D(j,l)
+               U_eta(1:nGradEqn) = U_eta(1:nGradEqn) + U_gradsol(:,i,l,k) * NodalStorage(self % Nxyz(2)) % D(j,l)
             end do  
 
             ! U_zeta = self % storage % Q(:,i,j,0) * NodalStorage(self % Nxyz(3)) % D(k,0)
-            U_zeta = U_gradsol(:,i,j,0) * NodalStorage(self % Nxyz(3)) % D(k,0)
+            U_zeta(1:nGradEqn) = U_gradsol(:,i,j,0) * NodalStorage(self % Nxyz(3)) % D(k,0)
             !$acc loop seq
             do l = 1, self % Nxyz(3)
                ! U_zeta = U_zeta + self % storage % Q(:,i,j,l) * NodalStorage(self % Nxyz(3)) % D(k,l)
-               U_zeta = U_zeta + U_gradsol(:,i,j,l) * NodalStorage(self % Nxyz(3)) % D(k,l)
+               U_zeta(1:nGradEqn) = U_zeta(1:nGradEqn) + U_gradsol(:,i,j,l) * NodalStorage(self % Nxyz(3)) % D(k,l)
             end do
 
             inv_jac = self % geom % InvJacobian(i,j,k)
 
             !$acc loop seq
-            do eq = 1, NCONS
-            self % storage % U_x(eq,i,j,k) = (   U_xi(eq)  * self % geom % jGradXi(1,i,j,k) &
+            do eq = 1, nGradEqn
+            self % storage % U_x(eq,i,j,k) = (  U_xi(eq)   * self % geom % jGradXi(1,i,j,k) &
                                               + U_eta(eq)  * self % geom % jGradEta(1,i,j,k) &
                                               + U_zeta(eq) * self % geom % jGradZeta(1,i,j,k))&
                                               * inv_jac
 
-            self % storage % U_y(eq,i,j,k) = (   U_xi(eq)  * self % geom % jGradXi(2,i,j,k) &
+            self % storage % U_y(eq,i,j,k) = (  U_xi(eq)   * self % geom % jGradXi(2,i,j,k) &
                                               + U_eta(eq)  * self % geom % jGradEta(2,i,j,k) &
                                               + U_zeta(eq) * self % geom % jGradZeta(2,i,j,k))&
                                               * inv_jac
 
-            self % storage % U_z(eq,i,j,k) = (   U_xi(eq)  * self % geom % jGradXi(3,i,j,k) &
+            self % storage % U_z(eq,i,j,k) = (  U_xi(eq)   * self % geom % jGradXi(3,i,j,k) &
                                               + U_eta(eq)  * self % geom % jGradEta(3,i,j,k) &
                                               + U_zeta(eq) * self % geom % jGradZeta(3,i,j,k))&
                                               * inv_jac

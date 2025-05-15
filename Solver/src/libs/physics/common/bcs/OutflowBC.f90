@@ -489,6 +489,9 @@ module OutflowBCClass
                end if
 
                mesh % faces(fID) % storage(2) % Q(:,i,j) = Q 
+
+               mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
             enddo ; enddo
          enddo
          !$acc end parallel loop

@@ -332,10 +332,10 @@
       use MappedGeometryClass
       implicit none
       type(Face),   intent(inout)              :: self
-      integer,       intent(in)                 :: nEqn
-      integer,       intent(in)                 :: Nelx, Nely
-      real(kind=RP), intent(in)                 :: Qe(1:nEqn, 0:Nelx, 0:Nely)
-      integer,       intent(in)                 :: side
+      integer,       intent(in)                :: nEqn
+      integer,       intent(in)                :: Nelx, Nely
+      real(kind=RP), intent(in)                :: Qe(1:NCONS, 0:Nelx, 0:Nely)
+      integer,       intent(in)                :: side
 !
 !     ---------------
 !     Local variables
@@ -348,7 +348,7 @@
             !$acc loop vector collapse(2)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                !$acc loop seq
-               do eq = 1, NCONS
+               do eq = 1, nEqn
                   self % storage(1) % Q(eq,i,j) = Qe(eq,i,j)
                enddo
             enddo ; enddo
@@ -357,7 +357,7 @@
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             !$acc loop seq
-            do eq = 1, NCONS
+            do eq = 1, nEqn
                self % storage(2) % Q(eq,i,j) = Qe(eq,ii,jj)
             enddo 
          enddo ; enddo 
@@ -375,7 +375,7 @@
       type(Face),   intent(inout)  :: self
       integer,       intent(in)     :: nEqn 
       integer,       intent(in)     :: Nelx, Nely
-      real(kind=RP), intent(in)     :: Uxe(nEqn, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uxe(1:NCONS, 0:Nelx, 0:Nely)
       integer,       intent(in)     :: side
       integer,       intent(in)     :: dir
 
@@ -389,7 +389,7 @@
       select case (side)
       case(1)
             !$acc loop vector collapse(3)
-            do j=0,Nely ; do i=0,Nelx ; do eq = 1, NCONS
+            do j=0,Nely ; do i=0,Nelx ; do eq = 1, nEqn
                select case (dir)
                case (1)
                      self % storage(1) % U_x(eq,i,j) = Uxe(eq,i,j)
@@ -401,7 +401,7 @@
             end do ; end do ; end do
       case(2)
          !$acc loop vector collapse(3)
-         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1) ; do eq = 1, NCONS
+         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1) ; do eq = 1, nEqn
             call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             select case (dir)
             case (1)
@@ -507,7 +507,7 @@
       implicit none
       type(Face),    intent(inout)  :: self
       integer,       intent(in)  :: nEqn
-      real(kind=RP), intent(in)  :: flux(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+      real(kind=RP), intent(in)  :: flux(1:NCONS, 0:self % Nf(1), 0:self % Nf(2))
       integer,       intent(in)  :: side
 
 !
@@ -533,7 +533,7 @@
 !           *********
 !      
             !$acc loop vector collapse(3)
-            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1) ; do eq = 1, NCONS
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1) ; do eq = 1, nEqn
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                   self % storage(2) % Fstar(eq,ii,jj) = -flux(eq,i,j) 
             end do ; end do ; end do
@@ -716,7 +716,7 @@
       implicit none
       type(Face)                 :: self
       integer,       intent(in)  :: nEqn
-      real(kind=RP), intent(in)  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
+      real(kind=RP), intent(in)  :: Hflux(NCONS, NDIM, 0:self % Nf(1), 0:self % Nf(2))
       integer,       intent(in)  :: side
       integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
 !

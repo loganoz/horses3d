@@ -64,8 +64,8 @@ module DGIntegrals
          implicit none
          integer,             intent(in)  :: Nxyz(3)
          integer,             intent(in)  :: NEQ
-         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3), 1:NDIM)
-         real(kind=RP),    intent(inout)  :: volInt(1:NEQ, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
+         real(kind=RP),       intent(in)  :: F     (1:NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3), 1:NDIM)
+         real(kind=RP),    intent(inout)  :: volInt(1:NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -219,18 +219,19 @@ module DGIntegrals
 !
 !///////////////////////////////////////////////////////////////
 !
-      subroutine ScalarWeakIntegrals_StdFace(NEQ, Nxyz, F_FR, F_BK, F_BOT, F_R, F_T, F_L, intFace)
+      subroutine ScalarWeakIntegrals_StdFace(NEQ, Nxyz, F_FR, F_BK, F_BOT, F_R, F_T, F_L, sign, intFace)
          !$acc routine vector
          implicit none
          integer,             intent(in)     :: NEQ
          integer,             intent(in)     :: Nxyz(3)
-         real(kind=RP),       intent(in)     :: F_FR(1:NEQ,0:Nxyz(1),0:Nxyz(3))
-         real(kind=RP),       intent(in)     :: F_BK(1:NEQ,0:Nxyz(1),0:Nxyz(3))
-         real(kind=RP),       intent(in)     :: F_BOT(1:NEQ,0:Nxyz(1),0:Nxyz(2))
-         real(kind=RP),       intent(in)     :: F_R(1:NEQ,0:Nxyz(2),0:Nxyz(3))
-         real(kind=RP),       intent(in)     :: F_T(1:NEQ,0:Nxyz(1),0:Nxyz(2))
-         real(kind=RP),       intent(in)     :: F_L(1:NEQ,0:Nxyz(2),0:Nxyz(3))
-         real(kind=RP),      intent(inout)   :: intFace(1:NEQ, 0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_FR(1:NCONS,0:Nxyz(1),0:Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_BK(1:NCONS,0:Nxyz(1),0:Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_BOT(1:NCONS,0:Nxyz(1),0:Nxyz(2))
+         real(kind=RP),       intent(in)     :: F_R(1:NCONS,0:Nxyz(2),0:Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_T(1:NCONS,0:Nxyz(1),0:Nxyz(2))
+         real(kind=RP),       intent(in)     :: F_L(1:NCONS,0:Nxyz(2),0:Nxyz(3))
+         integer,             intent(in)     :: sign
+         real(kind=RP),      intent(inout)   :: intFace(1:NCONS, 0:Nxyz(1),0:Nxyz(2),0:Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -242,8 +243,8 @@ module DGIntegrals
          do iZeta = 0, Nxyz(3) 
             do iEta = 0, Nxyz(2) 
                do iXi = 0, Nxyz(1)
-                  do eq = 1, NCONS
-                     intFace(eq,iXi,iEta,iZeta) = intFace(eq,iXi,iEta,iZeta) - ( &
+                  do eq = 1, NEQ
+                     intFace(eq,iXi,iEta,iZeta) = intFace(eq,iXi,iEta,iZeta) + sign * ( &
                                                 + F_L(eq, iEta, iZeta) * NodalStorage(Nxyz(1)) % b(iXi, LEFT)    &
                                                 + F_R(eq, iEta, iZeta) * NodalStorage(Nxyz(1)) % b(iXi, RIGHT)   &
                                                 + F_FR(eq, iXi, iZeta) * NodalStorage(Nxyz(2)) % b(iEta, LEFT)   &
@@ -353,17 +354,17 @@ module DGIntegrals
          use Physics
          use PhysicsStorage
          implicit none
-         type(Element), intent(in)  :: e
+         type(Element),  intent(in)  :: e
          integer,        intent(in)  :: NEQ
-         real(kind=RP),  intent(in)  :: HF  (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HBK (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HBO (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
-         real(kind=RP),  intent(in)  :: HR  (NEQ,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HT  (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
-         real(kind=RP),  intent(in)  :: HL  (NEQ,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP),  intent(inout) :: faceInt_x(NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),  intent(inout) :: faceInt_y(NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),  intent(inout) :: faceInt_z(NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(in)  :: HF  (1:NCONS,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBK (1:NCONS,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBO (1:NCONS,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HR  (1:NCONS,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HT  (1:NCONS,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HL  (1:NCONS,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(inout) :: faceInt_x(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(inout) :: faceInt_y(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(inout) :: faceInt_z(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -376,7 +377,7 @@ module DGIntegrals
          real(kind=RP)  :: inv_jac
 
          !$acc loop vector collapse(4)
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1) ; do eq = 1, NCONS           
+         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)  ; do eq = 1, NEQ           
             
             b_iXi_left = NodalStorage(e % Nxyz(1)) % b(iXi, LEFT)
             b_iXi_Right = NodalStorage(e % Nxyz(1)) % b(iXi, RIGHT)
@@ -413,7 +414,7 @@ module DGIntegrals
                                              + HT(eq, IZ, iXi, iEta)   * b_iZeta_Right) &
                                              * inv_jac
             
-         enddo ; end do ; end do ; end do
+      enddo  ;  end do ; end do ; end do
 !
       end subroutine VectorWeakIntegrals_StdFace
 !

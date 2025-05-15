@@ -63,8 +63,10 @@ module FreeSlipWallBCClass
 #endif
 #ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => FreeSlipWallBC_PhaseFieldState
+         procedure         :: PhaseFieldGradVars=> FreeSlipWallBC_PhaseFieldGradVars
          procedure         :: PhaseFieldNeumann => FreeSlipWallBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => FreeSlipWallBC_ChemPotState
+         procedure         :: ChemPotGradVars   => FreeSlipWallBC_ChemPotGradVars
          procedure         :: ChemPotNeumann    => FreeSlipWallBC_ChemPotNeumann
 #endif
    end type FreeSlipWallBC_t
@@ -256,6 +258,7 @@ module FreeSlipWallBCClass
          class(FreeSlipWallBC_t), intent(in)    :: self
 
          !$acc enter data copyin(self)
+         !$acc update device(self % thetaw)
 
       end subroutine FreeSlipWallBC_CreateDeviceData
 
@@ -545,7 +548,6 @@ module FreeSlipWallBCClass
          real(kind=RP) :: vn
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
-         !!$acc parallel loop gang present(mesh, self, zone) async(1)
          !$acc parallel loop gang present(mesh, self, zone)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
@@ -569,6 +571,9 @@ module FreeSlipWallBCClass
                Q(IMP)            = Q(IMP)
 
                mesh % faces(fID) % storage(2) % Q(:,i,j) = Q
+
+               mesh % faces(fID) % storage(2) % mu(1,i,j) = mesh % faces(fID) % storage(1) % mu(1,i,j)
+
             enddo ; enddo
          enddo
          !$acc end parallel loop
@@ -596,7 +601,6 @@ module FreeSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
@@ -702,8 +706,7 @@ module FreeSlipWallBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -733,9 +736,6 @@ module FreeSlipWallBCClass
          real(kind=RP)              :: prod, Q(NCOMP)
          integer                    :: i,j,zonefID,fID
          
-
-
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
@@ -771,7 +771,7 @@ module FreeSlipWallBCClass
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self, zone) async(1)
+         !$acc parallel loop gang present(mesh, self, zone)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
@@ -798,7 +798,6 @@ module FreeSlipWallBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
@@ -824,7 +823,6 @@ module FreeSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          !$acc parallel loop gang present(mesh, self, zone) private(fID)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)

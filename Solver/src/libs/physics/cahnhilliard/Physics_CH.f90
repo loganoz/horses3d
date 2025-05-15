@@ -34,10 +34,10 @@ module Physics_CH
          !$acc routine seq
          implicit none
          integer,       intent(in)  :: nEqn, nGradEqn
-         real(kind=RP), intent(in)  :: Q   (nEqn)
-         real(kind=RP), intent(in)  :: U_x (nGradEqn)
-         real(kind=RP), intent(in)  :: U_y (nGradEqn)
-         real(kind=RP), intent(in)  :: U_z (nGradEqn)
+         real(kind=RP), intent(in)  :: Q   (NCOMP)
+         real(kind=RP), intent(in)  :: U_x (NCOMP)
+         real(kind=RP), intent(in)  :: U_y (NCOMP)
+         real(kind=RP), intent(in)  :: U_z (NCOMP)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa

@@ -72,7 +72,7 @@
 
 #define boundary back
    type = NoSlipWall
-#end
+end
 
 #define volume monitor 1
    name = area

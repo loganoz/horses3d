@@ -231,7 +231,6 @@ module GenericBoundaryConditionClass
          class(GenericBC_t),  intent(in)     :: self
          type(HexMesh),       intent(inout)  :: mesh
          type(Zone_t), intent(in)            :: zone
-!         integer,             intent(in)     :: zoneID 
          
       end subroutine GenericBC_FlowState
 
@@ -296,34 +295,6 @@ module GenericBoundaryConditionClass
          enddo
          !$acc end parallel loop
       end subroutine GenericBC_FlowGradVars
-
-!      subroutine GenericBC_FlowGradVars(self, mesh, zoneID)
-!         implicit none
-!         class(GenericBC_t),  intent(in)    :: self
-!         type(HexMesh),       intent(in)    :: mesh
-!         integer,             intent(in)    :: zoneID 
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-!         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD), rho
-!         Q_aux = Q
-!         U_aux = U
-!         call self % FlowState(x,t,nHat,Q_aux)
-!#ifdef MULTIPHASE
-!
-!        Set the chemical potential to the interior
-!        ------------------------------------------
-!         rho = dimensionless % rho(1) * Q_aux(IMC) + dimensionless % rho(2) * (1.0_RP-Q_aux(IMC))
-!         rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
-!         call GetGradients(NCONS,NGRAD,Q_aux, U_aux, rho)
-!         U_aux(IGMU) = U(IGMU)
-!#else
-!         call GetGradients(NCONS,NGRAD,Q_aux, U_aux)
-!#endif
-!         U = 0.5_RP * (U_aux + U)
-!      end subroutine GenericBC_FlowGradVars
 
       subroutine GenericBC_FlowNeumann(self, mesh, zone)
          implicit none

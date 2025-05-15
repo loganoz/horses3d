@@ -477,21 +477,21 @@ contains
     ! print *, "turbineOfElement: ", turbineOfElement
 
     print*, "I allocate the AL device data"
-!$acc update device(elementsActuated)
-!$acc update device(turbineOfElement)
-!$acc enter data copyin(self)
-!$acc enter data copyin(self%turbine_t)
-    do k=1, self % num_turbines
-        !$acc enter data copyin(self%turbine_t(k)%blade_t)
-        do j=1, self % turbine_t(k) % num_blades
-            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%chord)
-            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%azimuth_angle)
-            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%point_xyz_loc)
-            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%gauss_epsil_delta)
-            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%local_thrust)
-            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%local_rotor_force)
-        end do
-    end do
+!!$acc update device(elementsActuated)
+!!$acc update device(turbineOfElement)
+!!$acc enter data copyin(self)
+!!$acc enter data copyin(self%turbine_t)
+!    do k=1, self % num_turbines
+!        !$acc enter data copyin(self%turbine_t(k)%blade_t)
+!        do j=1, self % turbine_t(k) % num_blades
+!            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%chord)
+!            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%azimuth_angle)
+!            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%point_xyz_loc)
+!            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%gauss_epsil_delta)
+!            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%local_thrust)
+!            !$acc enter data copyin(self%turbine_t(k)%blade_t(j)%local_rotor_force)
+!        end do
+!    end do
 
 !
 !   Create output files

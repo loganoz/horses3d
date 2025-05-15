@@ -281,7 +281,6 @@ MODULE ExplicitMethods
                do k = 0, mesh % elements(id) % Nxyz(3) 
                    do j = 0, mesh % elements(id) % Nxyz(2) 
                       do i = 0, mesh % elements(id) % Nxyz(1)
-                        
 #ifdef FLOW
                         !$acc loop seq
                         do m = 1, NCONS
@@ -291,8 +290,8 @@ MODULE ExplicitMethods
 #endif
 
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-                  mesh % elements(id) % storage % G_CH = a(l)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
-                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(l)*deltaT* mesh % elements(id) % storage % G_CH
+                        mesh % elements(id) % storage % G_CH = a(l)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                        mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(l)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
                      end do              
                   end do                

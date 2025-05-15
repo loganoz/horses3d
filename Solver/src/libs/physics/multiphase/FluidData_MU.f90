@@ -111,10 +111,11 @@ module FluidData_MU
          dimensionless % Ma2         = dimensionless_ % Ma2
          dimensionless % invMa2      = dimensionless_ % invMa2
 
-         !$acc update device(dimensionless, dimensionless % rho, dimensionless % mu, dimensionless % Re)
+         !$acc update device(dimensionless, dimensionless % rho(1), dimensionless % rho(2), dimensionless % mu, dimensionless % Re)
          !$acc update device(dimensionless % Fr, dimensionless % invFr2, dimensionless % gravity_dir)
          !$acc update device(dimensionless % vel_dir, dimensionless % rho_max, dimensionless % rho_min)
-         !$acc update device(dimensionless % Ma2, dimensionless % invMa2)
-         
+         !$acc update device(dimensionless % Ma2(1), dimensionless % invMa2(1))
+         !$acc update device(dimensionless % Ma2(2), dimensionless % invMa2(2))
+
       end subroutine SetDimensionless
 end module FluidData_MU

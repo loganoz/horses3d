@@ -21,9 +21,11 @@ module EllipticDiscretizations
 
 #ifdef FLOW
    class(EllipticDiscretization_t), allocatable  :: ViscousDiscretization
+   !$acc declare create(ViscousDiscretization)
 #endif
 #if defined(CAHNHILLIARD)
    class(EllipticDiscretization_t), allocatable  :: CHDiscretization
+   !$acc declare create(CHDiscretization)
 #endif
       
 end module EllipticDiscretizations

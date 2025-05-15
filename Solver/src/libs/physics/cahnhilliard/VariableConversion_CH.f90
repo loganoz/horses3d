@@ -15,19 +15,18 @@ module VariableConversion_CH
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine chGradientVariables( nEqn, nGrad, Q, U, rho_ )
+      subroutine chGradientVariables( nEqn, nGrad, Q, U)
          !$acc routine seq
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
          real(kind=RP), intent(out) :: U(nGrad)
-         real(kind=RP), intent(in), optional :: rho_
 
-         U = Q
+         U(1:nEqn) = Q(1:nEqn)
 
       end subroutine chGradientVariables
 
-      pure subroutine GetCHViscosity(phi, mu)
+      subroutine GetCHViscosity(phi, mu)
          !$acc routine seq
          implicit none
          real(kind=RP), intent(in)  :: phi
