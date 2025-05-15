@@ -84,7 +84,7 @@ MODULE HexMeshClass
          integer,                     allocatable  :: HO_ElementsSequential(:) !List of sequential elements with polynomial order greater than 1
          logical                                   :: nonconforming= .FALSE. 
          logical                                   :: sliding= .FALSE.
-         real(kind=RP)                             :: omega 
+         real(kind=RP)                             :: omega=0
          !!!!!
          integer :: numBFacePoints
          integer :: n_sliding
@@ -6049,7 +6049,7 @@ call elementMPIList % destruct
       end if 
 
 if (present(angle))theta=angle
-if (present(angle)) write(*,*) 'angle', angle 
+!if (present(angle)) write(*,*) 'angle', angle 
       !if (.not. self%sliding) then 
        !   call self % Modifymesh(nodes,n_slidingnewnodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th, numberOfNodes,numBFacePoints,oldnode, theta)
       !else 
@@ -6059,9 +6059,15 @@ if (present(angle)) write(*,*) 'angle', angle
 !write(*,*) 'self%Mat', self%Mat 
 
 
-
+      !self%omega=self%omega+PI/2000.0_RP
+      !theta=PI/2000.0_RP     
+      !write(*,*) 'element 34 node 1 befor rotation:', self%nodes(self%elements(34)%nodeIDs(1))%X 
+      !write(*,*) 'element 34 points facepatch(1) befor rotation:', self % elements(34) % SurfInfo % facePatches(1) % points
+      
          call self % Modifymesh(nodes,self%n_slidingnewnodes, self%arr1, self%arr2, self%arr3,self%Mat,center, o, s, self%face_nodes,self%face_othernodes, self%rotmortars, th, &
          numberOfNodes,self%numBFacePoints,oldnode, theta)
+       !  write(*,*) 'element 34 node 1 befor afte:', self%nodes(self%elements(34)%nodeIDs(1))%X 
+      !write(*,*) 'element 34 points facepatch(1) after rotation:', self % elements(34) % SurfInfo % facePatches(1) % points
       !end if 
         ! write(*,*) 'after modifying'
         ! write(*,*) 'self%arr1', self%arr1
@@ -6172,7 +6178,7 @@ if (present(angle)) write(*,*) 'angle', angle
     !  call self % ConstructSlidingMortarsConforming(nodes, n_slidingnewnodes, arr1, arr2,Mat, o, s, mortararr2,rotmortars)
     ! end if 
      self%sliding=.true.
-     self%omega=self%omega+th
+     !self%omega=self%omega+th
 
      !deallocate(o)
      !deallocate(s)
@@ -6939,6 +6945,7 @@ if (present(angle)) write(*,*) 'angle', angle
       if (self%elements(i)%sliding) then 
          do j=1,8
             new_nodes(self%elements(i)%nodeIDs(j))%tbrotated=.true.
+            new_nodes(self%elements(i)%nodeIDs(j))%rotated=.false.
          end do 
       end if 
     end do 
@@ -7032,8 +7039,12 @@ if (present(angle)) write(*,*) 'angle', angle
                                Xpatch(:,kk,k)= MATMUL(ROT, points2(:,kk,k) )
                            end do 
                         end do 
-
-                        if (.not. self%sliding) call self % elements(i) % SurfInfo % facePatches(j) % destruct
+                     !if (self%sliding) then 
+                        !write(*,*) 'points2 before rotation',points2 
+                        !write(*,*) 'Xpatch afeyr', Xpatch
+                     !end if 
+                        !if (.not. self%sliding)!
+                      call self % elements(i) % SurfInfo % facePatches(j) % destruct
                         call self % elements(i) % SurfInfo % facePatches(j) % construct(uNodes, vNodes, Xpatch)
                         
                      end if 
@@ -7123,6 +7134,9 @@ if (present(angle)) write(*,*) 'angle', angle
                XR= self % nodes (self % elements(arr2(i)) % nodeIDs(j)) % X 
                XYZ(j,:)= MATMUL(ROT, XR)
          end do 
+           
+        ! write(*,*) 'XR before rotation',XR 
+        ! write(*,*) 'XYZ afeyr', XYZ
          do j=1,8
             if (.not.new_nodes(self % elements (arr2(i))% nodeIDs(j)) % rotated ) then 
          new_nodes(self % elements (arr2(i))% nodeIDs(j)) % X=XYZ(j,:)
@@ -7221,8 +7235,11 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    !end if 
    !if (.not. self%sliding) then 
       do i=1, size(self % Nodes)
+     !    write(*,*) 'node',i,'before rotation ',self % nodes(i) % X
       self % nodes(i) % X =new_nodes(i) % X
       self % nodes(i) % GlobID=new_nodes(i) % GlobID
+     ! write(*,*) 'node',i,'after rotation ',self % nodes(i) % X
+
       end do 
    !end if 
 
