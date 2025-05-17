@@ -24,6 +24,7 @@ MODULE HexMeshClass
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
       use PartitionedMeshClass            , only: mpi_partition
       use IBMClass
+      use InterpolationMatrices           , only: Tset, TsetM
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -6182,6 +6183,7 @@ if (present(angle))theta=angle
 
      !deallocate(o)
      !deallocate(s)
+     call self % Export(fileName='rotated')
 
    end subroutine HexMesh_RotateMesh
 
@@ -7262,6 +7264,7 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
          end do 
       end if 
    if (allocated(self%mortar_faces)) then 
+      call TsetM%destruct
       do l=1, SIZE(self%mortar_faces)
          !call self % faces(l) % Destruct
               self % mortar_faces(l) % ID = -1
