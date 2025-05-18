@@ -265,7 +265,7 @@ MODULE WallFunctionBC
 
    END FUNCTION u_tau_f_ABL
 
-   SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM( N, Q, dWall, nHat, xsb, nodes, u_tau0, visc_fluxsb )   
+   SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM( N, Q, dWall, nHat, xsb, nodes, u_tau0, L, dL, visc_fluxsb )   
       use PolynomialInterpAndDerivsModule
       use VariableConversion
       IMPLICIT NONE 
@@ -273,7 +273,7 @@ MODULE WallFunctionBC
       real(kind=RP), intent(in)    :: Q(NCONS,0:N)
       integer,       intent(in)    :: N 
       real(kind=RP), intent(in)    :: dWall(0:N), xsb, nodes(0:N)
-      real(kind=RP), intent(in)    :: nHat(NDIM)
+      real(kind=RP), intent(in)    :: nHat(NDIM), L, dL 
       real(kind=RP), intent(inout) :: visc_fluxsb(NCONS), u_tau0
 
       real(kind=RP) :: u_parallel(NDIM), x_II(NDIM), u_II, U(NDIM,0:N), Un(0:N), tg(NDIM)
@@ -309,7 +309,7 @@ MODULE WallFunctionBC
 
       do i = 0, N
          lj(i)    = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
-         tau_w(i) = mu(i) * du(i) 
+         tau_w(i) = mu(i) * du(i) * 2.0_RP/(L+dL)
       end do 
 
       call wall_shear(u_II, dWall(1), Q(IRHO,1), mu(1), tau_w(0), u_tau0)

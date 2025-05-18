@@ -1350,62 +1350,6 @@
 #endif
       end subroutine stencil_ComputeState
 
-      subroutine AddComputeWallFunction( nEqn, Q_ref, dWall_ref, nHat, Q, dWall, utau0 )
-         use FluidData
-         use PhysicsStorage
-         use VariableConversion
-#if defined(NAVIERSTOKES)
-         use WallFunctionDefinitions
-         use WallFunctionBC
-#endif
-         implicit none
-
-         integer,       intent(in)    :: nEqn
-         real(kind=RP), intent(in)    :: Q_ref(nEqn)
-         real(kind=RP), intent(in)    :: dWall_ref, dWall, nHat(NDIM)
-         real(kind=RP), intent(inout) :: Q(nEqn), utau0
-
-         real(kind=RP) :: u_parallel(NDIM), x_II(NDIM), u_II, v_II, U_ref(NDIM), U(NDIM)
-         real(kind=RP) :: nu, mu, kappa_ref, nu_ref, mu_ref, u_tau, y_plus, theta
-#if defined (SPALARTALMARAS)
-          real(kind=RP), parameter :: A = 17.0_RP 
-          real(kind=RP)            :: DD, D2 
-#endif  
-#if defined(NAVIERSTOKES)
-        ! tau_w = wall_shear(u_II, y, rho, mu, tau_w, u_tau)
-
-
-         ! use point N to get t_w 
-         U_ref      = Q_ref(IRHOU:IRHOW)/Q_ref(IRHO)
-         u_parallel = U_ref - dot_product(U_ref, nHat) * nHat
-         x_II       = u_parallel / norm2(u_parallel)
-         u_II       = dot_product(U_ref, x_II)
-         
-         call get_laminar_mu_kappa(Q_ref, mu_ref, kappa_ref)
-         nu_ref = mu_ref/Q_ref(IRHO)
-         
-         u_tau = u_tau_f(u_II, dWall_ref, nu_ref, utau0)
-         utau0 = u_tau  
-         ! compute the velocity on node 1
-         call get_laminar_mu_kappa(Q, mu, kappa_ref) 
-         nu = mu/Q(IRHO)
-
-         y_plus = y_plus_f(dWall, u_tau, nu)
-         v_II   = u_plus_f(y_plus) * u_tau
-         ! Who is u the normal velocity?  
-
-         U = Q(IRHOU:IRHOW)/Q(IRHO)
-         U = dot_product(U,nHat) * nHat + v_II * x_II 
-         Q(IRHOU:IRHOW) = Q(IRHO) * U 
-#if defined (SPALARTALMARAS)
-         DD    = (1.0_RP - exp(-y_plus/A))
-         D2    = DD*DD 
-         theta = kappa * u_tau * dWall * D2
-         Q(IRHOTHETA) = Q(IRHO) * theta  
-#endif 
-#endif 
-      end subroutine AddComputeWallFunction
-
       subroutine stencil_destroy( this )
 
          implicit none

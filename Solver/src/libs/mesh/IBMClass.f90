@@ -119,6 +119,8 @@ module IBMClass
 
    public :: expCoeff, EXPONENTIAL, GetPointState, GetPointGrads
 
+   public :: Compute_uTau_IBM
+
    real(kind=RP)      :: expCoeff
    integer, parameter :: EXPONENTIAL = 1, IDW = 2
 
@@ -1661,7 +1663,7 @@ module IBMClass
       type(face), optional, intent(inout) :: faces(:)
       !-local-variables--------------------------------
       real(kind=RP) :: Point(NDIM), normal(NDIM), dist, s, t, s_, t_ 
-      real(kind=RP) :: IntersectionPoint(NDIM), P(NDIM), xP(NDIM)
+      real(kind=RP) :: IntersectionPoint(NDIM), P(NDIM), xP(NDIM),    IP(NDIM)
       integer       :: domain, domains, i, j, k, n, fID, eID, index
 #ifdef _HAS_MPI_
       integer       :: ierr
@@ -1721,7 +1723,7 @@ module IBMClass
                call MinimumPointTriDistance( Point, this% stl(STLNum)% ObjectsList(i)% vertices(1) % coords, &
                                                     this% stl(STLNum)% ObjectsList(i)% vertices(2) % coords, &
                                                     this% stl(STLNum)% ObjectsList(i)% vertices(3) % coords, &
-                                                    dist, IntersectionPoint , s, t                           )
+                                                    dist, IntersectionPoint                                  )
                if( Dist .lt. this% IBMmask(domains)% dist(n) ) then
                   this% IBMmask(domains)% dist(n) = dist
                   normal = (Point - IntersectionPoint)/norm2( (Point - IntersectionPoint) )
@@ -1730,10 +1732,16 @@ module IBMClass
             end do
             this% IBMmask(domains)% normal(n,:) = normal 
             ! if(  Point(IX) .gt. 0.0136_RP .and. Point(IX) .lt. 0.0138_RP .and. Point(IY) .gt. 0.0154_RP .and. Point(IY) .lt. 0.0156_RP ) then 
+          !  if( this% IBMmask(domains)% dist(n) .gt. 0.9 ) then 
+           !    this% IBMmask(domains)% dist(n) = 0.1e-2;
+               ! 1360
             !    write(*,*) 'coords =', Point 
             !    write(*,*) 'dot product =',sign(1.0_RP,dot_product(normal, this% stl(STLNum)% ObjectsList(index)% normal))
+            !    write(*,*) 'dist =',this% IBMmask(domains)% dist(n)
+            !   write(*,*) 'n =', n
+            !   write(*,*) '===================='
             !    this% IBMmask(domains)% dist(n)     = -this% IBMmask(domains)% dist(n)
-            ! end if
+            !end if
             !GENERAL
             if( this% zoneMask(STLNum) ) then 
                 if( sign(1.0_RP,dot_product(normal, this% stl(STLNum)% ObjectsList(index)% normal)) .gt. 0.0_RP ) then 
@@ -1808,8 +1816,8 @@ module IBMClass
             call spA_s% construct(GAUSS, M) 
 
             eID = f% elementIDs(maxloc(f% elementIDs, dim=1))
-            h   = hGeom(150._RP) 
-            L   = hgeom(10._RP)
+            h   = hGeom(15._RP) 
+            L   = hgeom(15._RP)
 
             do i = 0, f% Nf(1); do j = 0, f% Nf(2)
                
@@ -1839,15 +1847,16 @@ module IBMClass
 
       real(kind=RP), intent(in) :: y_plus
 
-      real(kind=RP) :: Cf, Tau_w, u_star
+      real(kind=RP) :: Cf, Tau_w, u_star, nu
 #if defined(NAVIERSTOKES)
       associate( Re => Dimensionless% Re ) 
  
       Cf     = (2.0_RP * log10(Re) - 0.65_RP)**(-2.3_RP)
       Tau_w  = 0.5_RP * Cf * refValues% V**2
-      u_star = sqrt(Tau_w)
-
-      hGeom = y_plus * refValues% mu/(refValues% rho * u_star)
+      u_star = sqrt(Tau_w/refValues% rho)
+      nu     = refValues% mu/refValues% rho
+      
+      hGeom = y_plus * nu/u_star
       
       end associate
 #else 
@@ -2635,7 +2644,7 @@ module IBMClass
 ! for more ditails see https://www.geometrictools.com/Documentation/DistancePoint3Triangle3.pdf
 !  ------------------------------------------------
    subroutine MinimumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
-                                       TriangleVertex3, dist, IntersectionPoint,s, t )
+                                       TriangleVertex3, dist, IntersectionPoint )
       use MappedGeometryClass
       implicit none
       !-arguments--------------------------------------------------------------------
@@ -2643,11 +2652,11 @@ module IBMClass
                                     TriangleVertex2(:),        &
                                     TriangleVertex3(:)
       real(kind=rp), intent(out) :: IntersectionPoint(NDIM)
-      real(kind=rp), intent(out) :: dist, s, t
+      real(kind=rp), intent(out) :: dist
       !-local-variables--------------------------------------------------------------
       real(kind=rp) :: bb(NDIM), E0(NDIM), E1(NDIM), dd(NDIM), &
-                       a, b, c, d, e, f, det, &! s, t,    &
-                       tmp1, tmp0, numer, denom
+                       a, b, c, d, e, f, det, s, t,    &
+                       tmp1, tmp0, numer, denom, invDet
       integer       :: region
 
       bb = TriangleVertex1
@@ -2666,7 +2675,7 @@ module IBMClass
       s   = b*e - c*d
       t   = b*d - a*e
 
-      if( (s + t) <= det ) then
+     if( (s + t) <= det ) then
          if( s < 0.0_RP ) then
             if( t < 0.0_RP ) then
                region = 4
@@ -2681,7 +2690,7 @@ module IBMClass
       else
          if( s < 0.0_RP ) then
             region = 2
-         elseif( t < 0.0_RP ) then
+        elseif( t < 0.0_RP ) then
             region = 6
          else
             region = 1
@@ -2751,7 +2760,7 @@ module IBMClass
             elseif( -e >= c ) then
                t = 1.0_RP
             else
-               t = -e/c
+              t = -e/c
             end if
          end if
       case( 5 )
@@ -3209,5 +3218,158 @@ module IBMClass
       end do
 
    end subroutine TECtriangle_3points
+
+   subroutine Compute_uTau_IBM( umean, Q, dWall, nHat, u_tau0, delta_tau, u_tau, Re_tau, Re ) 
+#if defined(NAVIERSTOKES)
+      use WallFunctionBC
+#endif
+      use VariableConversion
+      implicit none 
+
+      real(kind=RP), intent(in)  :: umean(NDIM), nHat(NDIM)
+      real(kind=RP), intent(in)  :: Q(:)
+      real(kind=RP), intent(in)  :: dWall, u_tau0
+      real(kind=RP), intent(out) :: delta_tau, u_tau , Re_tau, Re
+
+      real(kind=RP) :: u_parallel(NDIM), x_II(NDIM), u_II, rho, mu, kappa_ref, ut0, tau_w, nu, L 
+
+      tau_w = 0.0_RP; u_tau = 0.0_RP
+      Re_tau = 0.0_RP; Re = 0.0_RP
+#if defined(NAVIERSTOKES)
+      call get_laminar_mu_kappa(Q,mu,kappa_ref)
+
+      u_parallel = umean - dot_product(umean, nHat) * nHat
+      x_II       = u_parallel / norm2(u_parallel)
+      u_II       = dot_product(umean, x_II)
+
+      rho = Q(IRHO)
+      nu  = mu/rho 
+      L   = 0.5_RP 
+
+      ut0 = u_tau0
+      call wall_shear(u_II, dWall, rho, mu, tau_w, ut0 )
+
+
+      u_tau     = sqrt(tau_w/rho)
+      delta_tau = u_tau/nu 
+      Re_tau    = (0.5_RP*L) * rho * delta_tau 
+      Re        = L * umean(IX)/nu 
+#endif 
+
+   end subroutine Compute_uTau_IBM
+
+! plots wall quantities for turbulent flows  
+   subroutine PlotBoundary_HOIBM( IBM, elements, faces )
+      use VariableConversion
+      use Physics
+      use PolynomialInterpAndDerivsModule
+      implicit none 
+
+      type(IBM_type), intent(inout) :: IBM
+      type(element),  intent(inout) :: elements(:)
+      type(face),     intent(inout) :: faces(:)
+#if defined(NAVIERSTOKES) 
+	  real(kind=RP)              :: Qb(NCONS), Ub_x(NGRAD), Ub_y(NGRAD), Ub_z(NGRAD)
+      real(kind=RP)              :: rho, mu, nu, kappa_ref, tau_w, u_tau, Re_tau, delta_nu, lambda
+      real(kind=RP)              :: u, v, w, P, viscStress(NDIM), lj, tau(NDIM,NDIM)
+      integer                    :: NumOfObjs, NumOfObjsF, n, fID, funit, i ,j, k, index, Sidearray(2), HOSIDE
+      character(len=LINE_LENGTH) :: FileName, title
+      
+      call IBM% HO_IBMstencilState( NCONS, elements, faces )
+      call IBM% HO_IBMstencilGradient( NGRAD, elements, faces )
+
+      Sidearray = (/2,1/)
+
+      open( unit=funit, file='RESULTS/HO_IBMBoundaryWF.tec', status='unknown' )
+      write(funit,"(a)") 'TITLE = Surface_TurbulentHOIBM'
+         
+      write(funit,"(a)") 'VARIABLES = "x","y","z","u_tau","tau_w","Re_tau","delta_nu","lambda"'
+
+      do fID = 1, size(faces)
+         associate(f => faces(fID))
+
+         if( f% HO_IBM ) then 
+            write(funit,"(a16,i6,a4,i2,a3,i2,a14)") 'ZONE T= "Element', fID,'",I=', f% Nf(1)+1, ",J=",f% Nf(2)+1,",K= 1, F=POINT"    
+
+            do j = 0, f% Nf(2); do i = 0, f% Nf(1)
+               u_tau  = f% stencil(i,j)% u_tau0
+               HOSIDE = Sidearray(f% HOSIDE)
+
+			      f% stencil(i,j)% Q(:,0)   = f% storage(HOSIDE)% Q(:,i,j)
+               
+               Qb   = 0.0_RP  
+               do k = 0, f% stencil(i,j)% N 
+                  lj   = LagrangeInterpolatingPolynomial( k, f% stencil(i,j)% nodes(0), f% stencil(i,j)% N, f% stencil(i,j)% nodesB )
+                  Qb   = Qb + lj * f% stencil(i,j)% Q(:,k)
+               end do 
+        
+               rho   = Qb(IRHO)
+               tau_w = POW2(u_tau) * rho
+               call get_laminar_mu_kappa(Qb, mu, kappa_ref)
+  
+               nu       = mu/rho
+               Re_tau   = u_tau/nu
+               delta_nu = nu/u_tau
+               lambda   = 8.0_RP * tau_w/rho
+               write(funit,'(8E13.5)') f% geom% x(IX,i,j), f% geom% x(IY,i,j), f% geom% x(IZ,i,j), u_tau, tau_w, Re_tau, delta_nu, lambda
+            end do; end do     
+         end if 
+
+         end associate       
+      end do 
+         
+      close( unit=funit )
+
+      open( unit=funit, file='RESULTS/HO_IBMBoundary.tec', status='unknown' )
+      write(funit,"(a)") 'TITLE = Surface_HOIBM'
+         
+      write(funit,"(a)") 'VARIABLES = "x","y","z","P","u","v","w","viscous stress"'
+
+      do fID = 1, size(faces)
+         associate(f => faces(fID))
+
+         if( f% HO_IBM ) then 
+            write(funit,"(a16,i6,a4,i2,a3,i2,a14)") 'ZONE T= "Element', fID,'",I=', f% Nf(1)+1, ",J=",f% Nf(2)+1,",K= 1, F=POINT"    
+
+            do j = 0, f% Nf(2); do i = 0, f% Nf(1)
+               HOSIDE = Sidearray(f% HOSIDE)
+
+			      f% stencil(i,j)% Q(:,0)   = f% storage(HOSIDE)% Q(:,i,j)
+               f% stencil(i,j)% U_x(:,0) = f% storage(HOSIDE)% U_x(:,i,j)
+               f% stencil(i,j)% U_y(:,0) = f% storage(HOSIDE)% U_y(:,i,j)
+               f% stencil(i,j)% U_z(:,0) = f% storage(HOSIDE)% U_z(:,i,j)
+               
+               Qb   = 0.0_RP  
+               Ub_x = 0.0_RP  
+               Ub_y = 0.0_RP  
+               Ub_z = 0.0_RP  
+               do k = 0, f% stencil(i,j)% N 
+                  lj   = LagrangeInterpolatingPolynomial( k, f% stencil(i,j)% nodes(0), f% stencil(i,j)% N, f% stencil(i,j)% nodesB )
+                  Qb   = Qb + lj * f% stencil(i,j)% Q(:,k)
+                  Ub_x = Ub_x + lj * f% stencil(i,j)% U_x(:,k) 
+                  Ub_y = Ub_y + lj * f% stencil(i,j)% U_y(:,k) 
+                  Ub_z = Ub_z + lj * f% stencil(i,j)% U_z(:,k) 
+               end do 
+   			   u = Qb(IRHOU)/Qb(IRHO)
+   			   v = Qb(IRHOV)/Qb(IRHO)
+   			   w = Qb(IRHOW)/Qb(IRHO)
+              
+   			   P = Pressure(Qb)
+   			   
+   			   call getStressTensor(Qb, Ub_x, Ub_y, Ub_z, tau)
+               
+               viscStress = matmul(tau,f% stencil(i,j)% normal)
+
+               write(funit,'(8E13.5)') f% geom% x(IX,i,j), f% geom% x(IY,i,j), f% geom% x(IZ,i,j), P, u, v, w, norm2(viscStress)
+            end do; end do     
+         end if 
+
+         end associate       
+      end do 
+         
+      close( unit=funit )
+#endif
+   end subroutine PlotBoundary_HOIBM
+
 
 end module IBMClass

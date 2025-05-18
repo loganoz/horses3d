@@ -1370,7 +1370,9 @@ module SpatialDiscretization
                      if( f % stencil(i,j)% wallfunction ) call WallFunctionBC_FlowNeumann_HOIBM( f % stencil(i,j)% N, f % stencil(i,j)% Q,          &
                                                                                                  f % stencil(i,j)% dWall, f % stencil(i,j)% normal, &
                                                                                                  f % stencil(i,j)% xsb, f % stencil(i,j)% nodes,    &
-                                                                                                 f % stencil(i,j)% u_tau0, visc_flux(:,i,j)         ) 
+                                                                                                 f % stencil(i,j)% u_tau0, f % stencil(i,j)% L,     &
+                                                                                                 f % stencil(i,j)% dL,  visc_flux(:,i,j)            ) 
+
 
                      call BCsIBM(f% STLNum)% bc% FlowNeumann_HOIBM( f % storage(Sidearray(f % HOSIDE)) % Q(:,i,j),     &
                                                                     f % storage(Sidearray(f % HOSIDE)) % U_x(:,i,j),   &
@@ -1503,7 +1505,8 @@ module SpatialDiscretization
                      if( f % stencil(i,j)% wallfunction ) call WallFunctionBC_FlowNeumann_HOIBM( f % stencil(i,j)% N, f % stencil(i,j)% Q,          &
                                                                                                  f % stencil(i,j)% dWall, f % stencil(i,j)% normal, &
                                                                                                  f % stencil(i,j)% xsb, f % stencil(i,j)% nodes,    &
-                                                                                                 f % stencil(i,j)% u_tau0, visc_flux(:,i,j)         )  
+                                                                                                 f % stencil(i,j)% u_tau0, f % stencil(i,j)% L,     &
+                                                                                                 f % stencil(i,j)% dL,  visc_flux(:,i,j)            )  
 
                      call BCsIBM(f% STLNum)% bc% FlowNeumann_HOIBM( f % storage(Sidearray(f % HOSIDE)) % Q(:,i,j),     &
                                                                     f % storage(Sidearray(f % HOSIDE)) % U_x(:,i,j),   &
@@ -1653,7 +1656,9 @@ module SpatialDiscretization
                   if( f % stencil(i,j)% wallfunction ) call WallFunctionBC_FlowNeumann_HOIBM( f % stencil(i,j)% N, f % stencil(i,j)% Q,          &
                                                                                               f % stencil(i,j)% dWall, f % stencil(i,j)% normal, &
                                                                                               f % stencil(i,j)% xsb, f % stencil(i,j)% nodes,    &
-                                                                                              f % stencil(i,j)% u_tau0, visc_flux(:,i,j)         ) 
+                                                                                              f % stencil(i,j)% u_tau0, f % stencil(i,j)% L,     &
+                                                                                              f % stencil(i,j)% dL,  visc_flux(:,i,j)            ) 
+                  
                   call BCsIBM(f% STLNum)% bc% FlowNeumann_HOIBM( f % storage(Sidearray(f % HOSIDE)) % Q(:,i,j),     &
                                                                  f % storage(Sidearray(f % HOSIDE)) % U_x(:,i,j),   &
                                                                  f % storage(Sidearray(f % HOSIDE)) % U_y(:,i,j),   &
