@@ -27,7 +27,7 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients
+      LOGICAL                             :: success, saveGradients, saveSource
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
@@ -156,7 +156,8 @@
       IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
+         saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSource)
       END IF
       call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
 !

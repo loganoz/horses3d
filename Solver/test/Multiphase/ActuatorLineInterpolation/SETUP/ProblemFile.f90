@@ -76,36 +76,53 @@ module ProblemFileFunctions
       end subroutine UserDefinedInitialCondition_f
 #ifdef FLOW
       subroutine UserDefinedState_f(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
-!
-!           -------------------------------------------------
-!           Used to define an user defined boundary condition
-!           -------------------------------------------------
-!
          use SMConstants
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP), intent(in)     :: x(NDIM)
-         real(kind=RP), intent(in)     :: t
-         real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: Q(NCONS)
-         type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-         type(Dimensionless_t),     intent(in)  :: dimensionless_
-         type(RefValues_t),         intent(in)  :: refValues_
+         real(kind=RP)  :: x(NDIM)
+         real(kind=RP)  :: t
+         real(kind=RP)  :: nHat(NDIM)
+         real(kind=RP)  :: Q(NCONS)
+         type(Thermodynamics_t), intent(in)  :: thermodynamics_
+         type(Dimensionless_t),  intent(in)  :: dimensionless_
+         type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedNeumann_f(x, t, nHat, U_x, U_y, U_z)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP), intent(in)     :: x(NDIM)
-         real(kind=RP), intent(in)     :: t
-         real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: U_x(NGRAD)
-         real(kind=RP), intent(inout)  :: U_y(NGRAD)
-         real(kind=RP), intent(inout)  :: U_z(NGRAD)
+         real(kind=RP), intent(in)          :: x(NDIM)
+         real(kind=RP), intent(in)          :: t
+         real(kind=RP), intent(in)          :: nHat(NDIM)
+         real(kind=RP), intent(in)          :: Q(NCONS)
+         real(kind=RP), intent(inout)       :: U(NGRAD)
+         type(Thermodynamics_t), intent(in) :: thermodynamics_
+         type(Dimensionless_t),  intent(in) :: dimensionless_
+         type(RefValues_t),      intent(in) :: refValues_
+      end subroutine UserDefinedGradVars_f
+
+
+      subroutine UserDefinedNeumann_f(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
+         use SMConstants
+         use PhysicsStorage
+         use FluidData
+         implicit none
+         real(kind=RP), intent(in)    :: x(NDIM)
+         real(kind=RP), intent(in)    :: t
+         real(kind=RP), intent(in)    :: nHat(NDIM)
+         real(kind=RP), intent(in)    :: Q(NCONS)
+         real(kind=RP), intent(in)    :: U_x(NGRAD)
+         real(kind=RP), intent(in)    :: U_y(NGRAD)
+         real(kind=RP), intent(in)    :: U_z(NGRAD)
+         real(kind=RP), intent(inout) :: flux(NCONS)
+         type(Thermodynamics_t), intent(in) :: thermodynamics_
+         type(Dimensionless_t),  intent(in) :: dimensionless_
+         type(RefValues_t),      intent(in) :: refValues_
       end subroutine UserDefinedNeumann_f
+
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -124,7 +141,7 @@ module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_&
+      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 ,multiphase_ &
 #endif
@@ -142,25 +159,9 @@ module ProblemFileFunctions
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
 #ifdef CAHNHILLIARD
-         type(Multiphase_t),  intent(in)  :: multiphase_
+         type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
       end subroutine UserDefinedSourceTermNS_f
-#endif
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-#ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
-         use SMConstants
-         use FluidData
-         use PhysicsStorage
-         IMPLICIT NONE
-         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),           intent(in)    :: t, dt
-         real(kind=RP),           intent(in)    :: cL, cD 
-         type(RefValues_t),       intent(in)    :: refValues_
-         logical,                 intent(in)    :: GetVelocity, UpdatePosition
-      end subroutine UserDefinedIBMKinematicsNS_f
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -213,7 +214,6 @@ end module ProblemFileFunctions
 !        --------------------------------
 !
             IMPLICIT NONE  
-
          END SUBROUTINE UserDefinedStartup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -247,7 +247,6 @@ end module ProblemFileFunctions
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
-
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -289,7 +288,8 @@ end module ProblemFileFunctions
 !           ---------------
 !
             integer        :: eid, i, j, k
-            real(kind=RP)  :: c, u, v, w, p, x, z, r, rho
+            integer        :: Nx,Ny,Nz
+            real(kind=RP)  :: qq, u, v, w, p, c
 #if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
@@ -299,47 +299,107 @@ end module ProblemFileFunctions
 !           Navier-Stokes default initial condition
 !           ---------------------------------------
 !
-
-#if defined(MULTIPHASE)
+#if defined(NAVIERSTOKES)
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refvalues_ % AOAtheta*(pi/180.0_RP)
+            phi   = refvalues_ % AOAphi*(pi/180.0_RP)
+      
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  x = mesh % elements(eID) % geom % x(IX,i,j,k) - 0.5_RP
-                  z = mesh % elements(eID) % geom % x(IZ,i,j,k) - 0.5_RP
-                  r = sqrt(x*x + z*z)
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*cos(phi)
+                  v  = qq*sin(theta)*cos(phi)
+                  w  = qq*sin(phi)
+      
+                  q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  q(2) = q(1)*u
+                  q(3) = q(1)*v
+                  q(4) = q(1)*w
+                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
 
-!                  if ( r .le. 0.25_RP ) then
-!                     c = 0.0_RP
-!         
-!                  else 
-!                     c = 1.0_RP
+                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
+               end do;        end do;        end do
+               end associate
+            end do
+
+            end associate
+#endif
 !
-!                  end if
-
-                  c  = 1.0_RP - 0.5_RP * (tanh(-2.0_RP*(r-0.25_RP)/multiphase_ % eps) + 1.0_RP)
-
-
-                  u  = 0.0_RP
-                  v  = 0.0_RP
-                  w  = 0.0_RP
-                  p  = 1.0_RP*0.98_RP*(2.0_RP-(x+0.5_RP))
-
-                  mesh % elements(eID) % storage % q(:,i,j,k) = [c,u,v,w,p]
+!           ------------------------------------------------------
+!           Incompressible Navier-Stokes default initial condition
+!           ------------------------------------------------------
+!
+#if defined(INCNS)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
                end do;        end do;        end do
                end associate
             end do
 #endif
 
+!
+!           ---------------------------------------
+!           Cahn-Hilliard default initial condition
+!           ---------------------------------------
+!
+#ifdef CAHNHILLIARD
+            call random_seed()
+         
+            do eid = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eid) % Nxyz(1), &
+                          Ny => mesh % elements(eid) % Nxyz(2), &
+                          Nz => mesh % elements(eid) % Nxyz(3) )
+               associate(e => mesh % elements(eID) % storage)
+               call random_number(e % c) 
+               e % c = 2.0_RP * (e % c - 0.5_RP)
+               end associate
+               end associate
+            end do
+#endif
+
+#if defined(MULTIPHASE)
+
+            
+            DO eID = 1, SIZE(mesh % elements)
+               Nx = mesh % elements(eID) % Nxyz(1)
+               Ny = mesh % elements(eID) % Nxyz(2)
+               Nz = mesh % elements(eID) % Nxyz(3)
+
+               DO k = 0, Nz
+                  DO j = 0, Ny
+                     DO i = 0, Nx 
+                         
+                         ! c  = 1.0 - 0.5*(1.0+tanh(2.0*(( mesh % elements(eID) % geom % x(IX,i,j,k) + 0.0))/multiphase_ % eps))
+                         ! single fluid
+                         c  = 0.0_RP
+                         !rho= dimensionless_ % rho(1)*c + dimensionless_ % rho(2)*(1-c)
+                                       
+                         mesh % elements(eID) % storage % Q(1,i,j,k) = c
+                         mesh % elements(eID) % storage % Q(2,i,j,k) = 1.0_RP
+                         mesh % elements(eID) % storage % Q(3,i,j,k) = 0.0_RP
+                         mesh % elements(eID) % storage % Q(4,i,j,k) = 0.0_RP
+                         mesh % elements(eID) % storage % Q(5,i,j,k) = 0.0_RP
+
+                     END DO
+                  END DO
+               END DO 
+               
+            END DO 
+
+#endif
+
          end subroutine UserDefinedInitialCondition
 #ifdef FLOW
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
-!
-!           -------------------------------------------------
-!           Used to define an user defined boundary condition
-!           -------------------------------------------------
-!
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -352,8 +412,27 @@ end module ProblemFileFunctions
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
 
-            Q(4) = -Q(4)
+            real(kind=RP)  :: c, u, v, w, p, rho, sqrtRho
+#ifdef MULTIPHASE
 
+            ! single fluid
+            c  = 0.0_RP
+
+            rho = dimensionless_ % rho(1)*c + dimensionless_ % rho(2)*(1.0_RP - c)
+
+            sqrtRho = sqrt(rho)
+
+            u = 1.0_RP * c
+            v = 0.0_RP
+            w = 0.0_RP
+
+            ! w = Vmax1 * c + Vmax2 * (1.0_RP - c)
+
+            p = 0.0_RP
+
+            Q = [c,sqrtRho*u, sqrtRho*v, sqrtRho*w, p]
+
+#endif
          end subroutine UserDefinedState1
 
          subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
@@ -380,18 +459,13 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)    :: t
             real(kind=RP), intent(in)    :: nHat(NDIM)
             real(kind=RP), intent(in)    :: Q(NCONS)
-            real(kind=RP), intent(inout)    :: U_x(NGRAD)
-            real(kind=RP), intent(inout)    :: U_y(NGRAD)
-            real(kind=RP), intent(inout)    :: U_z(NGRAD)
+            real(kind=RP), intent(in)    :: U_x(NGRAD)
+            real(kind=RP), intent(in)    :: U_y(NGRAD)
+            real(kind=RP), intent(in)    :: U_z(NGRAD)
             real(kind=RP), intent(inout) :: flux(NCONS)
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
-
-            U_z(1) = -U_z(1)
-            U_z(2) = -U_z(2)
-            U_x(4) = 0.0_RP
-
          end subroutine UserDefinedNeumann1
 #endif
 !
@@ -418,7 +492,7 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_&
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 , multiphase_ &
 #endif
@@ -448,30 +522,13 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-
-         end subroutine UserDefinedSourceTermNS
-#endif
+            integer  :: i, j, k, eID
 !
-!//////////////////////////////////////////////////////////////////////// 
-! 
-#ifdef FLOW
-      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
-         use SMConstants
-         use FluidData
-         use PhysicsStorage
-         IMPLICIT NONE
-         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
-         real(kind=RP),           intent(in)    :: t, dt
-         real(kind=RP),           intent(in)    :: cL, cD 
-         type(RefValues_t),       intent(in)    :: refValues_
-         logical,                 intent(in)    :: GetVelocity, UpdatePosition
-
-         if( UpdatePosition ) then
-         end if 
-         if( GetVelocity ) then 
-         end if 
-
-      end subroutine UserDefinedIBMKinematicsNS
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
+   
+         end subroutine UserDefinedSourceTermNS
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -495,11 +552,11 @@ end module ProblemFileFunctions
 !           --------------------------------------------------------
 !
             use SMConstants
+            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
             use MonitorsClass
-            use FTAssertions
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -516,76 +573,95 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
-            real(kind=RP)  :: x, y, z, c, locErr(5), phi, u, v, w, p, rho, rho0
-            real(kind=RP)  :: error(5)
-            integer        :: i, j,k, eID 
-
-            CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Rising Bubble Vreman"
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CHARACTER(LEN=29)                  :: testName           = "Actuator Line"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter           :: area_saved = 2.0280805425949214E-01_RP
-            real(kind=RP), parameter           :: xcog_saved = 1.014044175764861E-01_RP
-            real(kind=RP), parameter           :: risevel_saved =  3.840682144321292E-04_RP
-            real(kind=RP), parameter           :: residuals_saved(5) = [7.2798703362831130E-01_RP, &
-                                                                        4.1415375876201672E+00_RP, &
-                                                                        9.7885082257257918E-14_RP, &
-                                                                        3.2583693013291191E+00_RP, &
-                                                                        1.5785032659456590E+02_RP]
-            real(kind=RP), parameter           :: entropyRate_saved = -6.5422250365241488E-03_RP
+!
+!           --------------------------------------------------
+!           Expected Solutions: Volume integral of source term
+!           --------------------------------------------------
+!
+#if defined(MULTIPHASE)
+  
+            real(kind=RP), parameter :: residuals(5) = [ 0.0000000000000000E+00_RP,&
+                                                         6.6814255992417415E+01_RP,&
+                                                         2.7001087612424890E-01_RP,&
+                                                         2.9121154361911261E-01_RP,&
+                                                         2.2437631252185120E+03_RP]
 
+            real(kind=RP), parameter :: source(5) =    [ 0.0000000000000000E+00_RP,&
+                                                        -5.9825590522814762E-03_RP,&
+                                                         1.9265667284469030E-05_RP,&
+                                                        -1.9887356284781115E-05_RP,&
+                                                         0.0000000000000000E+00_RP]
+!
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
-            
-                        CALL FTAssertEqual(expectedValue = area_saved+1.0_RP, &
+
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-10, &
+                               msg           = "Energy residual")
+
+            CALL FTAssertEqual(expectedValue = source(1)+1.0_RP, &
                                actualValue   = monitors % volumeMonitors(1) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Bubble Area")
+                               tol           = 1.0e-11_RP, &
+                               msg           = "Continuity source")
 
-            CALL FTAssertEqual(expectedValue = xcog_saved+1.0_RP, &
-                               actualValue   = monitors % volumeMonitors(2) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Bubble XCoG")
+            CALL FTAssertEqual(expectedValue = source(2)+1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(1) % values(2,1)+1.0_RP, &
+                               tol           = 1.0e-11_RP, &
+                               msg           = "X-Momentum source")
 
-            CALL FTAssertEqual(expectedValue = risevel_saved+1.0_RP, &
-                               actualValue   = monitors % volumeMonitors(3) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Bubble RiseVel")
+            CALL FTAssertEqual(expectedValue = source(3)+1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(1) % values(3,1)+1.0_RP, &
+                               tol           = 1.0e-11_RP, &
+                               msg           = "Y-Momentum source")
 
-            CALL FTAssertEqual(expectedValue = entropyRate_saved+1.0_RP, &
-                               actualValue   = monitors % volumeMonitors(4) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Entropy-Rate")
+            CALL FTAssertEqual(expectedValue = source(4)+1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(1) % values(4,1)+1.0_RP, &
+                               tol           = 1.0e-11_RP, &
+                               msg           = "Z-Momentum source")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1)+100.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Continuity Residual")
+            CALL FTAssertEqual(expectedValue = source(5)+1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(1) % values(5,1)+1.0_RP, &
+                               tol           = 1.0e-11_RP, &
+                               msg           = "Pressure source")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(2)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(2,1)+100.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "X-Momentum Residual")
-
-            CALL FTAssertEqual(expectedValue = residuals_saved(3)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1)+100.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Y-Momentum Residual")
-
-            CALL FTAssertEqual(expectedValue = residuals_saved(4)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(4,1)+100.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Z-Momentum Residual")
-
-            CALL FTAssertEqual(expectedValue = residuals_saved(5)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(5,1)+100.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Energy Residual")
-                               
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 50 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
@@ -596,7 +672,7 @@ end module ProblemFileFunctions
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
-
+#endif
 
 
          END SUBROUTINE UserDefinedFinalize

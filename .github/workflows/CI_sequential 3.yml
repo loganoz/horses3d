@@ -76,7 +76,7 @@ jobs:
       # UNCOMMENT TO USE CACHED IFORT
       #  if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
       #  run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
-        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran-2023.2.0 intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic-2023.2.0 intel-oneapi-mpi-2021.14 intel-oneapi-mpi-devel-2021.14 intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -272,21 +272,21 @@ jobs:
 # -------------------------------
 
       - name: Build Mu-AL
-        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage/SETUP
+        working-directory: ./Solver/test/Multiphase/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
       - name: Run Mu-AL
-        working-directory: ./Solver/test/Multiphase/ActuatorLineAverage
+        working-directory: ./Solver/test/Multiphase/ActuatorLineInterpolation
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu Actuator.control
         if: '!cancelled()'
 
 #
-# 7) Multiphase monopole with acoustics, sponge and Reinforcement Learning p-adaptation
+# 7) Multiphase monopole with acoustics, sponge, and Reinforcement Learning p-adaptation
 # --------------------------------------------
       - name: Build Multiphase_Monopole_pAdaptationRL
         working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL/SETUP
@@ -301,6 +301,23 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu monopole_pAdaptationRL.control
         if: '!cancelled()'
+
+#
+# 8) Snell
+# ----------------------------
+      - name: Build MultiphaseSnell
+        working-directory: ./Solver/test/Multiphase/Snell/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: ('!cancelled()')
+
+      - name: Run MultiphaseSnell
+        working-directory: ./Solver/test/Multiphase/Snell
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu snell_N80.control
+        if: ('!cancelled()')
 
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
@@ -435,14 +452,14 @@ jobs:
 # -------------------------------
 
       - name: Build iNS-AL
-        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineAverage/SETUP
+        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineInterpolation/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
       - name: Run iNS-AL
-        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineAverage
+        working-directory: ./Solver/test/IncompressibleNS/ActuatorLineInterpolation
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins Actuator.control

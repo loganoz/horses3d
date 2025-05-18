@@ -3061,7 +3061,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_, saveSource_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -3072,6 +3072,7 @@ slavecoord:             DO l = 1, 4
          logical,             intent(in)        :: saveGradients
          logical, optional,   intent(in)        :: saveSensor_
          logical, optional,   intent(in)        :: saveLES_
+         logical, optional,   intent(in)        :: saveSource_
 !
 !        ---------------
 !        Local variables
@@ -3081,7 +3082,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor, saveLES
+         logical                          :: saveSensor, saveLES, saveSource
 #if (!defined(NAVIERSTOKES) || !defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
@@ -3125,6 +3126,11 @@ slavecoord:             DO l = 1, 4
          else
             saveLES = .false.
          end if
+         if (present(saveSource_)) then
+            saveSource = saveSource_
+         else
+            saveSource = .false.
+         end if
 
          if (saveGradients .and. computeGradients) then
             if (saveSensor) then
@@ -3147,6 +3153,7 @@ slavecoord:             DO l = 1, 4
          end if
 
          if (saveLES) padding = padding + 2
+         if (saveSource) padding = padding + NCONS
 !
 !        Write arrays
 !        ------------
@@ -3215,6 +3222,15 @@ slavecoord:             DO l = 1, 4
                deallocate(Q)
 #endif
           end if
+
+#ifdef FLOW
+          if (saveSource) then
+               allocate(Q(1:NCONS,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q = e % storage % S_NS
+               write(fid) Q
+               deallocate(Q)
+          end if 
+#endif
 
             end associate
          end do
@@ -3530,7 +3546,8 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          INTEGER                        :: fID, eID, fileType, no_of_elements, flag, nodetype
-         integer                        :: padding, pos
+         integer                        :: padding
+         integer(kind=AddrInt)          :: pos
          integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank, expectedNoEqs
          real(kind=RP), allocatable     :: Q(:,:,:,:)
          character(len=SOLFILE_STR_LEN) :: rstName
@@ -3637,7 +3654,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInReadDataMode(trim(fileName))
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO*SIZEOF_RP
             if (has_sensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             read(fID, pos=pos) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
@@ -4261,7 +4278,7 @@ slavecoord:             DO l = 1, 4
 #ifdef FLOW
          self % storage % Q => self % storage % QNS
          self % storage % QDot => self % storage % QDotNS
-         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
+         self % storage % PrevQ => self % storage % PrevQNS
 
          do eID = 1, self % no_of_elements
             call self % elements(eID) % storage % SetStorageToNS

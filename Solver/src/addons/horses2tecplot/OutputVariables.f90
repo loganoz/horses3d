@@ -51,7 +51,8 @@ module OutputVariables
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
       enumerator :: Vfvec_Vrms, Uf_Vrms, Vf_Vrms, Wf_Vrms
       enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, Cf_V, MUTMINF
-      enumerator :: MU_sgs_V, SENSOR_V
+      enumerator :: MU_sgs_V, Source_V, RHO_S_V, RHOU_S_V, RHOV_S_V
+      enumerator :: RHOW_S_V, RHOE_S_V, C_S_V, SENSOR_V
       enumerator :: LASTVARIABLE
    end enum
 
@@ -139,6 +140,13 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: cfKey         = "Cf"
    character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
    character(len=STR_VAR_LEN), parameter  :: muSGSKey      = "mu_sgs"
+   character(len=STR_VAR_LEN), parameter  :: sourceKey     = "source"
+   character(len=STR_VAR_LEN), parameter  :: RhoSKey       = "rho_source"
+   character(len=STR_VAR_LEN), parameter  :: RhoUSKey      = "rhou_source"
+   character(len=STR_VAR_LEN), parameter  :: RhoVSKey      = "rhov_source"
+   character(len=STR_VAR_LEN), parameter  :: RhoWSKey      = "rhow_source"
+   character(len=STR_VAR_LEN), parameter  :: RhoESKey      = "rhoe_source"
+   character(len=STR_VAR_LEN), parameter  :: CSKey         = "c_source"
    character(len=STR_VAR_LEN), parameter  :: sensorKey     = "sensor"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
@@ -157,7 +165,8 @@ module OutputVariables
                                                                             ReSTxxKey, ReSTxyKey, ReSTxzKey, ReSTyyKey, ReSTyzKey, ReSTzzKey, &
                                                                             VfvecRmsKey, UfRmsKey, VfRmsKey, WfRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
-                                                                            cfKey, mutminfKey, muSGSKey, sensorKey /)
+                                                                            cfKey, mutminfKey, muSGSKey, sourceKey, RhoSKey, &
+                                                                            RhoUSKey, RhoVSKey, RhoWSKey, RhoESKey, CSKey, sensorKey /)
                                                                         
                                                                         
                                                                
@@ -195,7 +204,7 @@ module OutputVariables
 !           Default: export Q
 !           -------
             preliminarNoOfVariables = 1
-			if (.not. allocated(preliminarVariables)) allocate( preliminarVariables(preliminarNoOfVariables) )
+            if (.not. allocated(preliminarVariables)) allocate( preliminarVariables(preliminarNoOfVariables) )
             preliminarVariables(1) = Q_V
 
          else
@@ -278,7 +287,7 @@ module OutputVariables
          use StatisticsMonitor
          implicit none
          integer, intent(in)          :: noOutput
-		 integer, intent(in)		  :: outputVarNames(1:noOutput)
+         integer, intent(in)          :: outputVarNames(1:noOutput)
          integer, intent(in)          :: N(3)
          class(Element_t), intent(in) :: e
          real(kind=RP), intent(out)   :: output(1:noOutput,0:N(1),0:N(2),0:N(3))
@@ -295,7 +304,7 @@ module OutputVariables
          real(kind=RP) :: Sym, Asym
          logical       :: hasAdditionalVariables
 
-         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor .or. hasMu_sgs
+         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor .or. hasMu_sgs .or. hasSource
 
          do var = 1, noOutput
             if ( hasAdditionalVariables .or. (outputVarNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
@@ -305,9 +314,10 @@ module OutputVariables
                            U_y => e % U_yout, &
                            U_z => e % U_zout, &
                            mu_NS => e % mu_NSout, &
-                           wallY => e % wallY, &
-                           u_tau=> e % ut_NS, &
+                           wallY => e % wallYout, &
+                           u_tau=> e % ut_NSout, &
                            mu_sgs => e % mu_sgsout, &
+                           source => e % sourceout, &
                            stats => e % statsout)
 
                select case (outputVarNames(var))
@@ -342,24 +352,24 @@ module OutputVariables
                                        ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
-				  
-			   case(P0_V)
+
+              case(P0_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = ( (Q(IRHOU,i,j,k)**2) + (Q(IRHOV,i,j,k)**2) + (Q(IRHOW,i,j,k)**2)) &
                                                              /(Q(IRHO,i,j,k)**2)     ! Vabs**2
                      output(var,i,j,k) =  output(var,i,j,k) / ( refs(GAMMA_REF)*  &
                                         (refs(GAMMA_REF)-1.0_RP)*(Q(IRHOE,i,j,k) /Q(IRHO,i,j,k)-0.5_RP * &
                                             output(var,i,j,k)) )  ! Mach Number**2
-					 output(var,i,j,k) = (1+((refs(GAMMA_REF)-1.0_RP)*0.5_RP)*output(var,i,j,k))** &
-										(refs(GAMMA_REF)/(refs(GAMMA_REF)-1.0_RP))
-											
+                     output(var,i,j,k) = (1+((refs(GAMMA_REF)-1.0_RP)*0.5_RP)*output(var,i,j,k))** &
+                                        (refs(GAMMA_REF)/(refs(GAMMA_REF)-1.0_RP))
+
                      output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP)*(Q(IRHOE,i,j,k) - 0.5_RP*&
                                        ( (Q(IRHOU,i,j,k)**2) + (Q(IRHOV,i,j,k)**2) + (Q(IRHOW,i,j,k)**2)) /Q(IRHO,i,j,k)) &
-									    * output(var,i,j,k)
+                                       * output(var,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,i,j,k) = refs(RHO_REF) * (refs(V_REF)**2) &
                                     * output(var,i,j,k)
-									
+
                case(RHODOT_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = QDot(IRHO,i,j,k)
@@ -388,6 +398,36 @@ module OutputVariables
                case(CDOT_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = QDot(6,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHO_S_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = source(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOU_S_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = source(IRHOU,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOV_S_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = source(IRHOV,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOW_S_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = source(IRHOW,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOE_S_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = source(IRHOE,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(C_S_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = source(6,i,j,k)
                   end do         ; end do         ; end do
 
                case(T_V)
@@ -855,6 +895,9 @@ module OutputVariables
          case(Vfvec_Vrms)
             outputVariablesForVariable = 3
 
+         case(Source_V)
+            outputVariablesForVariable = NVARS
+
          case default
             outputVariablesForVariable = 1
 
@@ -891,6 +934,19 @@ module OutputVariables
 
             elseif ( NVARS .eq. 1 ) then
                output = (/CDOT_V/)
+
+            end if
+
+         case(Source_V)
+
+            if ( NVARS .eq. 5 ) then
+               output = (/RHO_S_V, RHOU_S_V, RHOV_S_V, RHOW_S_V, RHOE_S_V/)
+
+            elseif ( NVARS .eq. 6 ) then
+               output = (/RHO_S_V, RHOU_S_V, RHOV_S_V, RHOW_S_V, RHOE_S_V, C_S_V/)
+
+            elseif ( NVARS .eq. 1 ) then
+               output = (/C_S_V/)
 
             end if
 

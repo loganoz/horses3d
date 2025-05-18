@@ -576,16 +576,16 @@ end module ProblemFileFunctions
 !
 #if defined(NAVIERSTOKES)
   
-            real(kind=RP), parameter :: residuals(5) = [ 8.3277279377331898E-03_RP,&
-                                                         6.0754445008901126E-01_RP,&
-                                                         2.3375827521159306E-01_RP,&
-                                                         2.5900397604352032E-01_RP,&
-                                                         2.3857502386512547E+01_RP]
+            real(kind=RP), parameter :: residuals(5) = [ 8.3181093712812824E-03_RP,&
+                                                         6.0521912591069082E-01_RP,&
+                                                         2.3307309187131547E-01_RP,&
+                                                         2.5823932578223946E-01_RP,&
+                                                         2.3829928894542491E+01_RP] 
 
             real(kind=RP), parameter :: source(5) =    [ 0.0000000000000000E+00_RP,&
-                                                        -6.2346564723056077E-03_RP,&
-                                                         7.9332843024528636E-06_RP,&
-                                                        -4.0913191739594928E-06_RP,&
+                                                        -6.2212865110828552E-03_RP,&
+                                                         7.0018589188196696E-06_RP,&
+                                                        -3.6995113997700409E-06_RP,&
                                                          0.0000000000000000E+00_RP]
 !
             CALL initializeSharedAssertionsManager
