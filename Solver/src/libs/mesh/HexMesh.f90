@@ -6064,9 +6064,9 @@ if (present(angle))theta=angle
       !theta=PI/2000.0_RP     
       !write(*,*) 'element 34 node 1 befor rotation:', self%nodes(self%elements(34)%nodeIDs(1))%X 
       !write(*,*) 'element 34 points facepatch(1) befor rotation:', self % elements(34) % SurfInfo % facePatches(1) % points
-      
+self%omega=self%omega+theta 
          call self % Modifymesh(nodes,self%n_slidingnewnodes, self%arr1, self%arr2, self%arr3,self%Mat,center, o, s, self%face_nodes,self%face_othernodes, self%rotmortars, th, &
-         numberOfNodes,self%numBFacePoints,oldnode, theta)
+         numberOfNodes,self%numBFacePoints,oldnode, theta, self%omega)
        !  write(*,*) 'element 34 node 1 befor afte:', self%nodes(self%elements(34)%nodeIDs(1))%X 
       !write(*,*) 'element 34 points facepatch(1) after rotation:', self % elements(34) % SurfInfo % facePatches(1) % points
       !end if 
@@ -6172,8 +6172,11 @@ if (present(angle))theta=angle
 
      if ( th .EQ. 0.0_RP ) confor=.TRUE. 
      !write(*,*) 'confor is', confor 
+     !self%omega=self%omega
+     !write(*,*) 'offset:', o
+     !write(*,*) 'scale:', s
       call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
-
+      !write(*,*) 'self%mortar_faces(1)%geom%x',self%mortar_faces(1)%geom%x
     ! if (th .EQ. PI/20_RP) then 
     !  write(*,*) 'sliding conforming'
     !  call self % ConstructSlidingMortarsConforming(nodes, n_slidingnewnodes, arr1, arr2,Mat, o, s, mortararr2,rotmortars)
@@ -6183,7 +6186,7 @@ if (present(angle))theta=angle
 
      !deallocate(o)
      !deallocate(s)
-     call self % Export(fileName='rotated')
+     !call self % Export(fileName='rotated')
 
    end subroutine HexMesh_RotateMesh
 
@@ -6885,7 +6888,7 @@ if (present(angle))theta=angle
    end do 
   end subroutine HexMesh_MarkSlidingElementsRadius
 
-  subroutine HexMesh_RotateNodes(self, theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s , face_nodes,face_othernodes, numBFacePoints, oldnnode)
+  subroutine HexMesh_RotateNodes(self, theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s , face_nodes,face_othernodes, numBFacePoints, oldnnode, omeg)
    IMPLICIT NONE
    class(HexMesh), intent(inout)  :: self
     real(KIND=RP), intent(in)     :: theta
@@ -6904,6 +6907,7 @@ if (present(angle))theta=angle
     integer, intent(inout) :: face_othernodes(nelm,4)
     integer, intent(inout) :: numBFacePoints
     integer, intent(inout) :: oldnnode
+    real(KIND=RP), intent(in)     :: omeg
 
     real(KIND=RP) :: ROT(3,3)
     real(KIND=RP) :: XYZ(8,3)
@@ -6935,7 +6939,7 @@ if (present(angle))theta=angle
     points1=0.0_RP
 
     x=1.0_RP-nm*(2.0_RP/n)
-    x=(-40.0_RP/(4.0_RP*DATAN(1.0_RP)))*theta + 1.0_RP
+    x=(-40.0_RP/(4.0_RP*DATAN(1.0_RP)))*omeg + 1.0_RP
     !write(*,*)'x=', x
     do i=1, oldnnode
         new_nodes(i) % X =self % nodes(i) % X 
@@ -7164,7 +7168,7 @@ if (present(angle))theta=angle
 end subroutine HexMesh_RotateNodes
 
 
-subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o, s, face_nodes, face_othernodes,rotmortars, th,newnNodes,numBFacePoints,oldnnode, theta)
+subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o, s, face_nodes, face_othernodes,rotmortars, th,newnNodes,numBFacePoints,oldnnode, theta, omeg)
    IMPLICIT NONE 
    Class(HexMesh), intent(inout)    :: self 
    integer         , intent(in)    :: nodes
@@ -7184,6 +7188,8 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
    integer,intent(inout) :: numBFacePoints
    integer,intent(inout) :: oldnnode
    real(kind=RP), intent(inout)   :: theta 
+   real(kind=RP), intent(inout)   :: omeg 
+
 
    type(Node), allocatable      :: new_nodes(:)
    !type(Node), allocatable  :: tmpNodes(:)
@@ -7230,7 +7236,7 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
      !    write(*,*) 'seld%arr2 in modify line 7212', self%arr2(i)
     !  end do 
    !end if 
-    call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode)
+    call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, arr1, arr2, arr3, Connect, o, s, face_nodes,face_othernodes, numBFacePoints,oldnnode, omeg)
    !else 
    !   write(*,*) 'mesh is not sliding, about to rotate'
       !call self % RotateNodes(theta,nelm, n, m , new_nNodes, new_nodes, self%arr1, self%arr2, self%arr3, self%Connect, o, s, self%face_nodes,self%face_othernodes, numBFacePoints,oldnnode)
