@@ -506,7 +506,7 @@ end module ProblemFileFunctions
             if( GetVelocity ) then 
             end if 
 
-         end subroutine UserDefinedIBMKinematicsN
+         end subroutine UserDefinedIBMKinematicsNS
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
