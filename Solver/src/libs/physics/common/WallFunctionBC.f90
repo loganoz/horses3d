@@ -21,7 +21,7 @@ MODULE WallFunctionBC
 !  Public definitions
 !  ******************
 !
-   PUBLIC WallViscousFlux, wall_shear, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f 
+   PUBLIC WallViscousFlux, wall_shear, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f, WallFUnctionBC_FlowNeumann_HOIBM
 !
 
    CONTAINS 
@@ -126,7 +126,6 @@ MODULE WallFunctionBC
 !------------------------------------------------------------------------------------------------------------------------
 !
    FUNCTION u_tau_f (u_II,y,nu, u_tau0)
-
       USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter
       ! USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter, u_tau0
       IMPLICIT NONE
@@ -157,7 +156,7 @@ MODULE WallFunctionBC
       ! Iterate in Newton's method until convergence criteria is met
 
       DO i = 1, newtonMaxIter
-
+         
          ! Evaluate auxiliary function at u_tau
          Aux_x0  =   Aux_f ( u_tau      , u_II, y, nu )
 
@@ -190,7 +189,7 @@ MODULE WallFunctionBC
          u_tau = u_tau_next
 
       END DO
-
+       
       error stop "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
 
    END FUNCTION 
@@ -265,9 +264,63 @@ MODULE WallFunctionBC
       u_tau_f_ABL = kappa * u_II / log( (y-d) / y0 )
 
    END FUNCTION u_tau_f_ABL
-!   
-!------------------------------------------------------------------------------------------------------------------------
-!
+
+   SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM( N, Q, dWall, nHat, xsb, nodes, u_tau0, L, dL, visc_fluxsb )   
+      use PolynomialInterpAndDerivsModule
+      use VariableConversion
+      IMPLICIT NONE 
+
+      real(kind=RP), intent(in)    :: Q(NCONS,0:N)
+      integer,       intent(in)    :: N 
+      real(kind=RP), intent(in)    :: dWall(0:N), xsb, nodes(0:N)
+      real(kind=RP), intent(in)    :: nHat(NDIM), L, dL 
+      real(kind=RP), intent(inout) :: visc_fluxsb(NCONS), u_tau0
+
+      real(kind=RP) :: u_parallel(NDIM), x_II(NDIM), u_II, U(NDIM,0:N), Un(0:N), tg(NDIM)
+      real(kind=RP) :: lj(0:N), dlj(0:N), tau_wsb, tau_w(0:N), Ut(0:N)
+      real(kind=RP) :: kappa_ref, mu(0:N), du(0:N)
+      integer       :: i, j 
+
+      tau_wsb  = 0.0_RP
+#if defined(NAVIERSTOKES)
+      do i = 0, N
+         U(:,i) = Q(IRHOU:IRHOW,i)/Q(IRHO,i)
+         call get_laminar_mu_kappa(Q(:,i),mu(i),kappa_ref)
+      end do 
+      
+      u_parallel = U(:,1) - dot_product(U(:,1), nHat) * nHat
+      x_II       = u_parallel / norm2(u_parallel)
+      u_II       = dot_product(U(:,1), x_II)
+      
+      !GEt the tangent component 
+      do i = 0, N 
+         Ut(i) = dot_product(U(:,i),x_II)
+      end do 
+
+      Ut(0) = 0.0_RP 
+   
+      du = 0.0_RP 
+      do i = 0, N 
+         call PolyDerivativeVector( nodes(i), N, nodes, dlj )
+         do j = 0, N 
+            du(i) = du(i) + dlj(j) * Ut(j)
+         end do 
+      end do  
+
+      do i = 0, N
+         lj(i)    = LagrangeInterpolatingPolynomial( i, xsb, N, nodes )
+         tau_w(i) = mu(i) * du(i) * 2.0_RP/(L+dL)
+      end do 
+
+      call wall_shear(u_II, dWall(1), Q(IRHO,1), mu(1), tau_w(0), u_tau0)
+
+      do i = 0, N
+         tau_wsb = tau_wsb + tau_w(i) * lj(i) 
+      end do 
+#endif 
+      visc_fluxsb(IRHOU:IRHOW) = -tau_wsb * x_II
+
+   END SUBROUTINE WallFunctionBC_FlowNeumann_HOIBM
 
 END MODULE 
 #endif

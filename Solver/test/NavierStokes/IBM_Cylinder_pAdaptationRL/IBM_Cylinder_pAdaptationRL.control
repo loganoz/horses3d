@@ -3,7 +3,7 @@ Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/IBMCylinder.msh"
 
 !--STL
-stl file name         = "cylinder"
+stl file name         = "MESH/cylinder.stl"
 
 Polynomial order      = 3
 Number of time steps  = 50
@@ -29,12 +29,8 @@ dcfl                  = 0.05d0
 
 
 #define IBM
-  name = Cylinder
   active = .true.
-  describe = .true.
-  number of objects = 3
   number of interpolation points = 15
-  plot mask = .false.
 #end
 
 !-Adaptation-----------------------------------
@@ -73,6 +69,6 @@ dcfl                  = 0.05d0
   type = FreeSlipWall
 #end
 
-#define boundary cylinder
+#define stl cylinder
   type = NoSlipWall
 #end

@@ -13,6 +13,8 @@ MODULE NodalStorageClass
    public NodalStorage, NodalStorage_Gauss, NodalStorage_GaussLobatto      ! Nodal storage variables
    public InitializeNodalStorage, DestructGlobalNodalStorage, CurrentNodes ! Main nodal storage used in the simulation
 
+   public :: spA_s 
+   
    integer, parameter      :: GAUSS = 1
    integer, parameter      :: GAUSSLOBATTO = 2
 
@@ -41,7 +43,7 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: Fwd                       ! Projection matrix from Lagrange to Legendre
       real(kind=RP), dimension(:,:), allocatable :: Bwd                       ! Projection matrix from Legendre to Lagrange
       real(kind=RP), dimension(:)  , allocatable :: Lw                        ! Norm of the Legendre polynomials, ||L_i||^2
-      real(kind=RP), dimension(:)  , allocatable :: xCGL, wbCGL
+      real(kind=RP), dimension(:)  , allocatable :: xCGL, wbCGL, xGL, wGL
       real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss
       contains
          procedure :: construct => ConstructNodalStorage
@@ -61,6 +63,8 @@ MODULE NodalStorageClass
 
    type(NodalStorage_t), pointer :: NodalStorage(:)   ! Default nodal storage
    integer  :: CurrentNodes
+
+   type(NodalStorage_t) :: spA_s
 
    interface InitializeNodalStorage
       module procedure InitializeNodalStorage_controlVars, InitializeNodalStorage_nodeType
@@ -203,6 +207,9 @@ MODULE NodalStorageClass
       ALLOCATE( this % wbCGL (0:N) )
       ALLOCATE( this % DCGL  (0:N,0:N) )
       ALLOCATE( this % TCheb2Gauss (0:N,0:N) )
+
+      ALLOCATE( this % xGL (0:N) )
+      ALLOCATE( this % wGL(0:N) )
 !
 !     -----------------
 !     Nodes and weights
@@ -227,6 +234,9 @@ MODULE NodalStorageClass
             errorMessage(STD_OUT)
             error stop
       end select
+
+      
+      CALL LegendreLobattoNodesAndWeights(N, this% xGL, this % wGL )
 !
 !     -----------------
 !     Derivative Matrix

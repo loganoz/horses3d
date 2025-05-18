@@ -166,6 +166,22 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#ifdef FLOW
+      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
+      end subroutine UserDefinedIBMKinematicsNS_f
+#endif
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
       SUBROUTINE UserDefinedFinalize_f(mesh, time, iter, maxResidual &
 #ifdef FLOW
                                                  , thermodynamics_ &
@@ -479,6 +495,28 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#ifdef FLOW
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
+
+         if( UpdatePosition ) then
+         end if 
+         if( GetVelocity ) then 
+         end if 
+
+      end subroutine UserDefinedIBMKinematicsNS
+#endif
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
 #ifdef FLOW
                                                     , thermodynamics_ &
@@ -594,7 +632,6 @@ end module ProblemFileFunctions
             CALL FTAssertEqual(expectedValue = iterations(N), &
                                actualValue   = iter, &
                                msg           = "Number of time steps to tolerance")
-
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
