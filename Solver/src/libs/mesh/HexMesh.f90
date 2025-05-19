@@ -5936,7 +5936,7 @@ call elementMPIList % destruct
 
    end subroutine HexMesh_UpdateHOArrays
 
-   subroutine HexMesh_RotateMesh(self, rad, center, numBFacePoints, nodes, mpi, angle )
+   subroutine HexMesh_RotateMesh(self, rad, center, numBFacePoints, nodes, mpi, angle,allmesh )
       USE Physics
       use PartitionedMeshClass
       use MPI_Process_Info
@@ -5949,6 +5949,7 @@ call elementMPIList % destruct
       integer                          :: nodes
       logical, intent(in)          :: mpi 
       real(kind=RP), intent(in), optional :: angle
+      logical, optional, intent(in)       :: allmesh
 
       integer :: n_sliding
       integer :: n_slidingnewnodes 
@@ -5977,11 +5978,7 @@ call elementMPIList % destruct
       logical :: confor=.FALSE.
 
       if (.not. self%sliding) call self % MarkRadius(rad, center, n_sliding, n_slidingnewnodes)
-
-      !write(*,*) 'n_sliding',n_sliding
-      !write(*,*) 'n_sliding',n_slidingnewnodes
-
-      !reconstruct the nodes 
+      if (present(allmesh) .AND. (.not. self%sliding)) self%sliding=.TRUE.
       if (.NOT. self%sliding) then 
          oldnode=size(self%nodes)
          allocate(tmp_nodes(oldnode))
@@ -6002,30 +5999,9 @@ call elementMPIList % destruct
          numberOfNodes=size(self%nodes)
          oldnode=numberOfNodes-2*self%n_slidingnewnodes
       end if 
-      !if (.not. self%sliding) then 
-      !   allocate(arr1(n_slidingnewnodes))
-      !   allocate(arr2(n_slidingnewnodes))
-      !   allocate(mortararr1(n_slidingnewnodes,2))
-      !   allocate(mortararr2(n_slidingnewnodes,2))
-      !   allocate(arr3(n_sliding))
-      !   allocate(Mat(n_slidingnewnodes,12))
-      !   allocate(face_nodes(n_slidingnewnodes,4))
-      !   allocate(face_othernodes(n_slidingnewnodes,4))
-      !   allocate(Connect(n_slidingnewnodes, 9, 6))
-      !   allocate(rotmortars(2*n_slidingnewnodes))
-      !   arr1=0
-      !   arr2=0
-      !   arr3=0
-      !   Mat=0
-      !   Connect=0
-      !   face_nodes=0
-      !   face_othernodes=0
-      !end if 
-
-      !allocate(o(4))
-      !allocate(s(4))
+  
       PI=4.0_RP*DATAN(1.0_RP)
-      theta=PI/2000.0_RP
+      theta=PI/20000.0_RP
       if (.not.allocated(self%arr1) ) allocate (self%arr1(n_slidingnewnodes))
       if (.not.allocated(self%arr2))  allocate (self%arr2(n_slidingnewnodes))
       if (.not.allocated(self%mortararr1))  allocate (self%mortararr1(n_slidingnewnodes,2))
@@ -6049,58 +6025,11 @@ call elementMPIList % destruct
          self%numBFacePoints=numBFacePoints
       end if 
 
-if (present(angle))theta=angle
-!if (present(angle)) write(*,*) 'angle', angle 
-      !if (.not. self%sliding) then 
-       !   call self % Modifymesh(nodes,n_slidingnewnodes, arr1, arr2, arr3,Mat,center, o, s, face_nodes,face_othernodes, rotmortars, th, numberOfNodes,numBFacePoints,oldnode, theta)
-      !else 
-!write(*,*) 'self%arr1', self%arr1
-!write(*,*) 'self%arr1', self%arr2 
-!write(*,*) 'self%arr3', self%arr3
-!write(*,*) 'self%Mat', self%Mat 
-
-
-      !self%omega=self%omega+PI/2000.0_RP
-      !theta=PI/2000.0_RP     
-      !write(*,*) 'element 34 node 1 befor rotation:', self%nodes(self%elements(34)%nodeIDs(1))%X 
-      !write(*,*) 'element 34 points facepatch(1) befor rotation:', self % elements(34) % SurfInfo % facePatches(1) % points
-self%omega=self%omega+theta 
+   if (present(angle))theta=angle
+   self%omega=self%omega+theta 
          call self % Modifymesh(nodes,self%n_slidingnewnodes, self%arr1, self%arr2, self%arr3,self%Mat,center, o, s, self%face_nodes,self%face_othernodes, self%rotmortars, th, &
          numberOfNodes,self%numBFacePoints,oldnode, theta, self%omega)
-       !  write(*,*) 'element 34 node 1 befor afte:', self%nodes(self%elements(34)%nodeIDs(1))%X 
-      !write(*,*) 'element 34 points facepatch(1) after rotation:', self % elements(34) % SurfInfo % facePatches(1) % points
-      !end if 
-        ! write(*,*) 'after modifying'
-        ! write(*,*) 'self%arr1', self%arr1
-!write(*,*) 'self%arr1', self%arr2 
-!write(*,*) 'self%arr3', self%arr3
-!write(*,*) 'self%Mat', self%Mat 
-      !write(*,*) 'mesh has been modifyed'
-      !if (.not.self%sliding) then 
-      !   self%arr1=arr1
-      !   self%arr2=arr2 
-      !   self%arr3=arr3
-      !   self%Mat=Mat 
-      !   self%mortararr1=mortararr1 
-      !   self%mortararr2=mortararr2
-      !   self%face_nodes=face_nodes
-      !   self%face_othernodes=face_othernodes
-      !   self%connect=connect 
-      !   self%rotmortars=rotmortars
-      !   self%n_slidingnewnodes=n_slidingnewnodes
-      !   self%n_sliding=n_sliding
-      !   self%numBFacePoints=numBFacePoints
-      !   deallocate(arr1)
-      !   deallocate(arr2)
-      !   deallocate(arr3)
-      !   deallocate(Mat)
-      !   deallocate(mortararr1)
-      !   deallocate(mortararr2)
-      !   deallocate(face_nodes)
-      !   deallocate(face_othernodes)
-      !   deallocate(Connect)
-      !end if 
-  
+   if (.not. present(allmesh)) then 
       do l=1, size(self%arr2)
          do j=1,6
             if (self%elements(self%arr2(l))%MortarFaces(j)==1) then 
@@ -6118,7 +6047,7 @@ self%omega=self%omega+theta
             end if 
          end do 
       end do 
-
+   end if 
       oldnfaces=size(self%faces)
       if (.not. self%sliding) then 
          do i=1,size(self%faces)
@@ -6148,9 +6077,7 @@ self%omega=self%omega+theta
       !   call SetMappingsToCrossProduct
        !  call self % CorrectOrderFor2DMesh(dir2D)
       !end if
-
-  
-
+   if (.not.present(allmesh)) then 
       do l=1, size(self%arr2) 
             self%faces(self%elements(self%arr2(l))%faceIDs( self%mortararr2(l,2)))%IsMortar=3
             self%faces(self%elements(self%arr2(l))%faceIDs( self%mortararr2(l,2)))%facetype=1
@@ -6163,31 +6090,17 @@ self%omega=self%omega+theta
             self % faces(l) % faceType=1
          end if 
       end do
-
+   end if 
       if (.not. self%sliding) call self % SetConnectivitiesAndLinkFaces(nodes) 
 
      call self % ConstructGeometry()
-
-     PI=4.0_RP*DATAN(1.0_RP)
-
-     if ( th .EQ. 0.0_RP ) confor=.TRUE. 
-     !write(*,*) 'confor is', confor 
-     !self%omega=self%omega
-     !write(*,*) 'offset:', o
-     !write(*,*) 'scale:', s
-      call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
-      !write(*,*) 'self%mortar_faces(1)%geom%x',self%mortar_faces(1)%geom%x
-    ! if (th .EQ. PI/20_RP) then 
-    !  write(*,*) 'sliding conforming'
-    !  call self % ConstructSlidingMortarsConforming(nodes, n_slidingnewnodes, arr1, arr2,Mat, o, s, mortararr2,rotmortars)
-    ! end if 
+     
+     !if ( th .EQ. 0.0_RP ) confor=.TRUE. 
+     self%omega=self%omega
+ 
+    if (.NOT.present(allmesh))  call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
+     
      self%sliding=.true.
-     !self%omega=self%omega+th
-
-     !deallocate(o)
-     !deallocate(s)
-     !call self % Export(fileName='rotated')
-
    end subroutine HexMesh_RotateMesh
 
 
