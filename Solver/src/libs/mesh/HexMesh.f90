@@ -5619,9 +5619,6 @@ call elementMPIList % destruct
          do k = 0, self % elements(eID) % Nxyz(3) ; do j = 0, self % elements(eID) % Nxyz(2) ; do i = 0, self % elements(eID) % Nxyz(1)
             call chGradientVariables(NCOMP, NCOMP, self % elements(eID) % storage % Q(IMC,i,j,k), self % elements(eID) % storage % Q_grad_CH(IMC,i,j,k))
             !if ( set_mu ) self % elements(eID) % storage % Q_grad_CH(IGMU,i,j,k) = self % elements(eID) % storage % mu(1,i,j,k)
-            !if (self % elements(eid) % eid == 95) then
-            !   print *, "CH sol: ",i,j,k, self % elements(eID) % storage % Q(1,i,j,k), self % elements(eID) % storage % Q_grad_CH(1,i,j,k)
-            !end if
          end do         ; end do         ; end do
 
          call HexElement_ComputeLocalGradient(self % elements(eID), NCOMP, NCOMP, self % elements(eID) % storage % Q_grad_CH)

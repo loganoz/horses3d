@@ -27,7 +27,7 @@
                  interface tension (N/m) = 0.0424
 
 !------------------------- Discretization:-
-                        Polynomial order = 1
+                        Polynomial order = 6
                     Discretization nodes = Gauss-Lobatto
                           Riemann solver = exact
                   Viscous discretization = BR1 
@@ -37,9 +37,9 @@
 !----------------------- Time integration:-
                         Time integration = Explicit
   Compute time derivative after timestep = .true.
-                                      dt = 1.0e-05
-                    Number of time steps = 1
-                         Output interval = 1
+                                      dt = 1.0e-08
+                    Number of time steps = 10
+                         Output interval = 5
                          Simulation type = time-accurate
                  Convergence tolerance = 1.0d-10
                               Final time = 10000.0

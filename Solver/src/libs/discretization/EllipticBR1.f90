@@ -295,14 +295,13 @@ module EllipticBR1
 !        ---------------
 !
          real(kind=RP) :: UL(NCONS), UR(NCONS)
-         real(kind=RP) :: uStar
+         real(kind=RP) :: uStar, jacobian
 
          integer       :: i,j,eq
 
          !$acc loop vector collapse(2) private(UL, UR)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
-
             select case (self % eqName)
                case (ELLIPTIC_MU)
                   call mGradientVariables(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL(1:nGradEqn), f % storage(1) % rho(i,j))
@@ -323,9 +322,11 @@ module EllipticBR1
             call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR(1:nGradEqn))
 #endif
 
+            jacobian = f % geom % jacobian(i,j)
+
             !$acc loop seq
             do eq =1, nEqn
-               uStar = 0.5_RP * (UR(eq) - UL(eq)) * f % geom % jacobian(i,j)
+               uStar = 0.5_RP * (UR(eq) - UL(eq)) * jacobian
                
                f % storage(1) % unStar(eq,IX,i,j) = uStar * f % geom % normal(IX,i,j)
                f % storage(1) % unStar(eq,IY,i,j) = uStar * f % geom % normal(IY,i,j)
