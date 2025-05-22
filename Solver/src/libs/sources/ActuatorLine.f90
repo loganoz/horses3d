@@ -728,7 +728,7 @@ contains
 #endif
 
     if (.not. self % active) return
-    print *, "start ForcesFarm"
+    ! print *, "start ForcesFarm"
 
     Non_dimensional = POW2(refValues % V) * refValues % rho / Lref
     t = time * Lref / refValues % V
@@ -839,7 +839,7 @@ contains
          ! print *, "s: ", mesh % elements(eID) % storage % S_NS
 
     endif
-    print *, "finish ForcesFarm"
+    ! print *, "finish ForcesFarm"
 
    end subroutine  ForcesFarm
 !
