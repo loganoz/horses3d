@@ -608,7 +608,7 @@ module LESModels
          
       end subroutine Vreman_Describe
 
-      function get_rho(Q, dimensionless_) result(rho)
+      pure function get_rho(Q, dimensionless_) result(rho)
       !$acc routine seq
          implicit none
          real(kind=RP), intent(in) :: Q(:)              
