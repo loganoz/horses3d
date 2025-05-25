@@ -776,13 +776,13 @@ module KDClass
       this% index  = BoxIndex
 
       if( this% level .lt. depth .and. this% NumOfObjs .ge. this% Min_n_of_Objs ) then
-         
+
          if( this% which_KDtree .eq. TRIANGLES_KDTREE_SAH ) then
             call this% EvaluateCostSAH( Events )
          else
             call this% EvaluateCostMEDIAN( Events )
          end if
-         
+
          if( this% split ) then 
 
             allocate(this% child_L,this% child_R)
@@ -983,19 +983,19 @@ module KDClass
             do while( Events(k,i)% plane .eq. P .and. Events(k,i)% eType .eq. END_ )
                pminus = pminus + 1
                i      = i + 1
-               if( i .gt. this% NumOfEvents(k) ) exit
+               if( i .ge. this% NumOfEvents(k) ) exit
             end do
             
             do while( Events(k,i)% plane .eq. P .and. Events(k,i)% eType .eq. PLANAR_ )
                pvert = pvert + 1
                i     = i + 1
-               if( i .gt. this% NumOfEvents(k) ) exit
+               if( i .ge. this% NumOfEvents(k) ) exit
             end do
             
             do while( Events(k,i)% plane .eq. P .and. Events(k,i)% eType .eq. START_ )
                pplus = pplus + 1
                i     = i + 1
-               if( i .gt. this% NumOfEvents(k) ) exit
+               if( i .ge. this% NumOfEvents(k) ) exit
             end do 
             N_R(k) = N_R(k) - pminus - pvert
             N_P(k) = pvert
@@ -1016,7 +1016,6 @@ module KDClass
             end if 
             N_L(k) = N_L(k) + pvert + pplus
             N_P(k) = 0
-            
             if( i .ge. this% NumOfEvents(k) ) exit
          end do 
       end do
