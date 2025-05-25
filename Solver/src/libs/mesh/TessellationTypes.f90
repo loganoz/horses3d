@@ -5,13 +5,15 @@ module TessellationTypes
    use Utilities
    use IntegerDataLinkedList
    use ParamfileRegions                , only: readValueInRegion
+   use PhysicsStorage
 
    implicit none
 
    public :: DescribeSTLPartitions
 
-   integer, parameter :: FORCING_POINT = 1, NOT_FORCING_POINT = 0
-   integer, parameter :: POINT_ON_PLANE = 0, POINT_IN_FRONT_PLANE = 1, POINT_BEHIND_PLANE = 2, NumOfVertices = 3
+   integer, parameter :: FORCING_POINT = 1, NOT_FORCING_POINT = 0, ROTATION = 1, LINEAR = 2
+   integer, parameter :: POINT_ON_PLANE = 0, POINT_IN_FRONT_PLANE = 1, POINT_BEHIND_PLANE = 2
+   integer, parameter :: NumOfVertices = 3, NumOfIntegrationVertices = 3
 
 !
 !  **************************************************
@@ -39,15 +41,16 @@ module TessellationTypes
       class(point_type), pointer :: next => null(), prev => null()
       
       real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi, VectorValue
-      real(kind=rp)                  :: theta, dist, Rank, ScalarValue
-      integer                        :: index, element_index, NumOfIntersections, &
+      real(kind=rp)                  :: theta, dist, Rank, ScalarValue, xiB, xiI
+      integer                        :: index, element_index, NumOfIntersections = 0, &
                                         Translate = 0, partition, objIndex, isForcingPoint, &
-                                        STLNum, element_in, faceID 
+                                        STLNum, element_in, faceID, domain = 0, N
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
-                                        forcingPoint = .false., isInsideBox = .false.
-      real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:), Q(:,:)
-      integer,       allocatable     :: nearestPoints(:) 
+                                        forcingPoint = .false., isInsideBox = .false., state = .false.
+      real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:), lj(:)
+      real(kind=RP)                  :: Q(NCONS), U_x(NCONS), U_y(NCONS), U_z(NCONS)
+      integer,       allocatable     :: domains(:), indeces(:)  !interPoint, index, domain
 
       contains
          procedure :: copy => point_type_copy
@@ -77,7 +80,7 @@ module TessellationTypes
 
       class(Object_type), pointer :: next => null(), prev => null()
       
-      type(point_type), dimension(:),   allocatable :: vertices
+      type(point_type), dimension(:),   allocatable :: vertices, IntegrationVertices
       real(kind=rp),    dimension(NDIM)             :: normal, tangent, coords
       integer                                       :: index, NumOfVertices
       integer,          dimension(2)                :: partition
@@ -95,35 +98,39 @@ module TessellationTypes
 !  **************************************************
    type STLfile
 
-      type(Object_type), dimension(:), allocatable :: ObjectsList
+      type(Object_type), dimension(:), allocatable :: ObjectsList, ObjectsListInitial
       integer                                      :: NumOfObjs, partition,      &
                                                       motionAxis, body,          &
-                                                      NumOfObjs_OLD
+                                                      NumOfObjs_OLD, motionType, &
+                                                      MaxAxis, bcType
       real(kind=RP)                                :: angularVelocity, ds,       &
                                                       Velocity,                  & 
                                                       rotationMatrix(NDIM,NDIM), &
-                                                      rotationCenter(NDIM)
-      logical                                      :: move, show, construct = .false. 
-      character(len=LINE_LENGTH)                   :: filename, motionType
-   
+                                                      rotationCenter(NDIM),      &
+                                                      A = 0.0_RP 
+      logical                                      :: move, show, construct = .false.,    &
+                                                      read = .false., HOInterp = .false., &
+                                                      BFcorrection = .false.
+      character(len=LINE_LENGTH)                   :: filename, maskName, NoExtfilename
+      
        contains
-          procedure :: ReadTessellation
-          procedure :: getRotationaMatrix    => STLfile_getRotationaMatrix
-          procedure :: getDisplacement       => STLfile_getDisplacement
-          procedure :: Clip                  => STL_Clip
-          procedure :: updateNormals         => STL_updateNormals
-          procedure :: SetIntegration        => STL_SetIntegration
-          procedure :: ComputeVectorIntegral => STL_ComputeVectorIntegral
-          procedure :: ComputeScalarIntegral => STL_ComputeScalarIntegral
-          procedure :: destroy               => STLfile_destroy
-          procedure :: Describe              => Describe_STLfile
-          procedure :: Copy                  => STLfile_copy
-          procedure :: plot                  => STLfile_plot
-          procedure :: SetIntegrationPoints  => STL_SetIntegrationPoints
-
+         procedure :: ReadTessellation
+         procedure :: Clip                        => STL_Clip
+         procedure :: updateNormals               => STL_updateNormals
+         procedure :: SetIntegration              => STL_SetIntegration
+         procedure :: ComputeVectorIntegral       => STL_ComputeVectorIntegral
+         procedure :: ComputeScalarIntegral       => STL_ComputeScalarIntegral
+         procedure :: destroy                     => STLfile_destroy
+         procedure :: Describe                    => Describe_STLfile
+         procedure :: Copy                        => STLfile_copy
+         procedure :: plot                        => STLfile_plot
+         procedure :: SetIntegrationPoints        => STL_SetIntegrationPoints
+         procedure :: ResetIntegrationPoints      => STL_ResetIntegrationPoints
+         procedure :: StoreInitialPosition        => STL_StoreInitialPosition
+         procedure :: ResetInitialPosition        => STL_ResetInitialPosition
+         procedure :: GetInterpolationCoefficient => STL_GetInterpolationCoefficient
+         procedure :: ComputeArea                 => STL_ComputeArea
    end type
-   
-   
    
    type ObjsDataLinkedList_t
       type(ObjData_t), pointer     :: head => null()
@@ -134,41 +141,33 @@ module TessellationTypes
          procedure   :: Destruct => ObjsDataLinkedList_Destruct
     end type ObjsDataLinkedList_t
    
-    type ObjData_t
+   type ObjData_t
       integer                   :: value 
       type(ObjData_t), pointer  :: next 
-    end type ObjData_t
+   end type ObjData_t
 
 
-    type ObjsRealDataLinkedList_t
+   type ObjsRealDataLinkedList_t
       class(ObjRealData_t), pointer :: head => NULL()
       integer                       :: no_of_entries = 0
       contains
          procedure   :: Add      => ObjsRealDataLinkedList_Add
          procedure   :: check    => CheckReal
          procedure   :: Destruct => ObjsRealDataLinkedList_Destruct
-    end type ObjsRealDataLinkedList_t
+   end type ObjsRealDataLinkedList_t
    
    type ObjRealData_t
       real(kind=RP)                 :: value
       class(ObjRealData_t), pointer :: next 
-    end type ObjRealData_t
+   end type ObjRealData_t
 
-
-
-    interface ObjsDataLinkedList_t
+   interface ObjsDataLinkedList_t
       module procedure  ConstructObjsDataLinkedList
-    end interface 
+   end interface 
     
-    interface ObjsRealDataLinkedList_t
-      module procedure  ConstructObjsRealDataLinkedList
-    end interface 
-   
-   
-   
-   
-   
-   
+   interface ObjsRealDataLinkedList_t
+     module procedure  ConstructObjsRealDataLinkedList
+   end interface 
    
    interface PointLinkedList
       module procedure :: PointLinkedList_Construct
@@ -177,9 +176,6 @@ module TessellationTypes
    interface ObjectLinkedList
       module procedure :: ObjectLinkedList_Construct
    end interface
-   
-   character(len=8) :: ROTATION = "rotation"
-   character(len=6) :: LINEAR = "linear"
 
    contains   
 
@@ -482,6 +478,7 @@ module TessellationTypes
       end do
       
       this% NumOfPoints = 0
+      nullify(current, next)
       
    end subroutine PointLinkedList_Destruct
 !
@@ -727,6 +724,7 @@ module TessellationTypes
       use Headers
       use MPI_Process_Info
       use PhysicsStorage
+      use BoundaryConditions 
       implicit none
       !-arguments-----------------------------------
       class(STLfile),   intent(inout) :: this
@@ -738,20 +736,14 @@ module TessellationTypes
          call Section_Header("Reading stl file")
          write(STD_OUT,'(/)')
          call SubSection_Header('Stl file "' // trim(fileName) // '"')
-      
+
          write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
-         if( this% move ) then
-            write(STD_OUT,'(30X,A,A35,A10)') "->" , "Motion: " , this% motionType
-            if( this% motionType .eq. ROTATION ) then 
-               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Angular Velocity: " , this% angularVelocity, " rad/s."
-               write(STD_OUT,'(30X,A,A35,F10.3,A,F10.3,A,F10.3,A)') "->" , "Center of rotation: [" , this% rotationCenter(1), ',', & 
-                                                                                                     this% rotationCenter(2), ',', & 
-                                                                                                     this% rotationCenter(3), ']'
-            elseif( this% motionType .eq. LINEAR ) then
-               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity, " m/s."
-            end if
-            write(STD_OUT,'(30X,A,A35,I10)') "->" , "Axis of motion: " , this% motionAxis
-         end if
+         write(STD_OUT,'(30X,A,A35,L10)') "->" , "Moving: " , this% move
+         if( .not. this% move ) write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
+         write(STD_OUT,'(30X,A,A35,L10)') "->" , "BF correction: " , this% BFcorrection
+         if( this% read ) then 
+            write(STD_OUT,'(30X,A,A35,A)') "->" , "Mask file: " , this% maskName
+         end if 
          
       end if
    
@@ -793,36 +785,47 @@ module TessellationTypes
 !  -----------------------------------------------
    subroutine  ReadTessellation( this, filename )
       use PhysicsStorage
+      use FileReadingUtilities, only: getFileExtension
+      use,intrinsic :: iso_c_binding
       implicit none
       !-arguments---------------------------------------
       class(STLfile),             intent(inout) :: this
       character(len=*),           intent(in)    :: filename
       !-local-variables---------------------------------
-      integer              :: i, j, funit, NumOfTri,   &
-                              fileStat, NumOfVertices
+      integer*4              :: i, j, funit, NumOfTri,      &
+                              fileStat, NumOfVertices, ios
       integer*2            :: padding
       real*4, dimension(3) :: norm, vertex
       character(len=80)    :: header
+      real(kind=RP)        :: max_x, max_y, max_z
+      real(kind=RP)        :: min_x, min_y, min_z
+
+      character(len=7)  :: cCAD , stlAutoCAD = "AutoCAD"
+      character(len=21) :: cGMSH, stlGMSH    = "solid Created by Gmsh"
+      logical                    :: formatted = .false.
 
       NumOfVertices = 3 
       
       this% partition = 1
+
+      max_x = -huge(1.0_RP); max_y = -huge(1.0_RP); max_z = -huge(1.0_RP)
+      min_x =  huge(1.0_RP); min_y =  huge(1.0_RP); min_z =  huge(1.0_RP)
       
       funit = UnusedUnit()
-      open(unit=funit,file='MESH/'//trim(filename)//'.stl',status='old',access='stream',form='unformatted', iostat=fileStat)
-      
+      open(unit=funit, file=trim(this% filename), status='old', form='unformatted', action='read', access='stream', iostat=fileStat)
+
       if( fileStat .ne. 0 ) then
-         print *, "Read Tessellation: file '",trim(filename),"' not found"
+         print *, "Read Tessellation: file '",trim(this% filename),"' not found"
          error stop
       end if
-      
-      this% filename = filename
+
+      open(unit=funit, file=trim(this% filename), status='old', form='unformatted', action='read', access='stream', iostat=fileStat) 
 
       read(funit) header
       read(funit) NumOfTri
-      
-      this% NumOfObjs = NumOfTri
 
+      this% NumOfObjs = NumOfTri 
+      
       allocate(this% ObjectsList(NumOfTri))
 
       associate( Objs => this% ObjectsList )
@@ -833,79 +836,171 @@ module TessellationTypes
          allocate(Objs(i)% vertices(NumOfVertices))
          do j = 1, NumOfVertices
             read(funit) vertex(1), vertex(2), vertex(3)
-            Objs(i)% vertices(j)% coords = vertex  !/Lref -> always 1           
+            max_x = max(max_x, vertex(1))
+            max_y = max(max_y, vertex(2))
+            max_z = max(max_z, vertex(3))
+            min_x = min(min_x, vertex(1))
+            min_y = min(min_y, vertex(2))
+            min_z = min(min_z, vertex(3))
+            Objs(i)% vertices(j)% coords = vertex !/Lref -> always 1                                     
          end do
          read(funit) padding
          Objs(i)% index = i
          Objs(i)% NumOfVertices = NumOfVertices
          Objs(i)% partition = 1
       end do
-        
-      end associate   
-       
+      
+      end associate  
+      
+      this% MaxAxis = maxloc((/abs(max_x-min_x),abs(max_y-min_y),abs(max_z-min_z)/),dim=1)
+
       close(unit=funit)
 
-   end subroutine  ReadTessellation
+   end subroutine ReadTessellation
 
+   real(kind=RP) function STL_ComputeArea( this )
+      use MappedGeometryClass
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+
+      real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), Area
+      integer       :: i 
+
+      Area = 0.0_RP 
+
+      do i = 1, this% NumOfObjs
+         AB = this% ObjectsList(i)% vertices(2)% coords - this% ObjectsList(i)% vertices(1)% coords 
+         AC = this% ObjectsList(i)% vertices(3)% coords - this% ObjectsList(i)% vertices(1)% coords 
+   
+         call vcross(AB,AC,S)
+      
+         Area = Area + 0.5_RP * norm2(S)
+
+      end do
+
+      STL_ComputeArea = Area 
+
+   end function STL_ComputeArea 
+
+   subroutine STL_StoreInitialPosition( this )
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+
+      integer :: i, j 
+
+      allocate( this% ObjectsListInitial(this% NumOfObjs) )
+
+      do i = 1, this% NumOfObjs 
+         associate( obj => this% ObjectsListInitial(i) )
+         allocate( obj% vertices(NumOfVertices) )
+         obj% normal = this% ObjectsList(i)% normal
+         do j = 1, NumOfVertices
+            obj% vertices(j)% coords = this% ObjectsList(i)% vertices(j)% coords 
+         end do
+         obj% index = this% ObjectsList(i)% index  
+         end associate 
+      end do
+
+   end subroutine STL_StoreInitialPosition 
+
+   subroutine STL_ResetInitialPosition( this )
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+
+      integer :: i, j 
+
+      do i = 1, this% NumOfObjs 
+         associate( obj => this% ObjectsList(i) )
+         !obj% normal = this% ObjectsListInitial(i)% normal
+         do j = 1, NumOfVertices
+            obj% vertices(j)% coords = this% ObjectsListInitial(i)% vertices(j)% coords 
+         end do
+         obj% index = this% ObjectsListInitial(i)% index  
+         end associate 
+      end do
+
+   end subroutine STL_ResetInitialPosition 
+ 
    subroutine STL_SetIntegrationPoints( this )
 
       implicit none
 
       class(STLfile), intent(inout) :: this 
 
-      real(kind=RP) :: tmp(NDIM,NumOfVertices)
-      integer       :: i, j, indeces(3)
-
-      do i = 1, this% NumOfObjs
-         associate( obj => this% ObjectsList(i) )
+      integer       :: i, j, m,                &
+                      indecesL(NumOfVertices), &
+                      indecesR(NumOfVertices)
+!          * 2
+!         / \
+!      4 *   * 5 
+!       /  *   \
+!      /   7    \
+!   1 *----*-----* 3
+!          6
+      do i = 1, this% NumOfObjs 
+         associate(obj => this% ObjectsList(i))
+         if( .not. allocated(obj% IntegrationVertices) ) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
          do j = 1, NumOfVertices
-            tmp(:,j) = obj% vertices(j)% coords
+            obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
          end do 
-         deallocate(obj% vertices)
-         allocate(obj% vertices(NumOfVertices+4))
-         obj% vertices(NumOfVertices+4)% coords = 0.0_RP
-         indeces =(/ 2, 3, 1 /)
-         do j = 1, NumOfVertices
-            obj% vertices(j)% coords = tmp(:,j)
-            obj% vertices(NumOfVertices+j)% coords = 0.5_RP*(tmp(:,j) + tmp(:,indeces(j)))
-            obj% vertices(NumOfVertices+4)% coords = obj% vertices(NumOfVertices+4)% coords + &
-                                                     tmp(:,j)
-         end do
-         obj% vertices(NumOfVertices+4)% coords = obj% vertices(NumOfVertices+4)% coords/3.0_RP
-         end associate
+         end associate 
       end do
 
-   end subroutine STL_SetIntegrationPoints  
-
+   end subroutine STL_SetIntegrationPoints
 
    subroutine STLfile_plot( this, iter )
       use MPI_Process_Info
       use PhysicsStorage
+      use FileReadingUtilities, only :getFileName
       implicit none
       !-arguments----------------------------------------------
-      class(STLfile), intent(inout) :: this
-      integer,        intent(in)    :: iter
+      class(STLfile),    intent(inout) :: this
+      integer,           intent(in)    :: iter
       !-local-variables----------------------------------------
-      character(len=LINE_LENGTH)     :: filename
-      integer                        :: i, j, funit
+      character(len=LINE_LENGTH)     :: filename, myString, name 
+      integer                        :: i, j, funit, index_, lastIndex_
       integer*2                      :: padding = 0
       real*4, dimension(3)           :: norm, vertex
-      character(len=80)              :: header = repeat(' ',80)
+      character(len=80)              :: header = repeat(' ',80), rank 
             
+      if( .not. MPI_Process% isRoot ) return 
+
       funit = UnusedUnit()
-      
-      write(filename,'(A,A,I10.10)') trim(this% filename),'_', iter
-      
-      open(funit,file='MESH/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
+     
+      name = getFileName(this% filename)
+
+      myString = trim(name)
+      index_   = INDEX(myString, '_') 
+      lastIndex_ = 0
+      do while (index_ /= 0)
+         lastIndex_ = index_
+         index_     = INDEX(myString(lastIndex_+1:), '_')
+         if (index_ /= 0) then
+            index_ = index_ + lastIndex_
+         end if
+      end do
+
+      if( lastIndex_ .ne. 0 ) then 
+         write(filename,'(A,A,I10.10)') trim(name(1:lastIndex_-1)),'_', iter
+      else 
+         write(filename,'(A,A,I10.10)') trim(name),'_', iter
+      end if 
+
+      open(funit,file=trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
  
       write(funit) header, this% NumOfObjs 
       
       do i = 1, this% NumOfObjs
-         norm = this% ObjectsList(i)% normal
-         write(funit) norm(1), norm(2), norm(3)
+         norm = this% ObjectsList(i)% normal 
+         write(funit) norm(IX), norm(IY), norm(IZ)
          do j = 1, NumOfVertices      
-            vertex = this% ObjectsList(i)% vertices(j)% coords * Lref
-            write(funit) vertex(1), vertex(2), vertex(3)
+            vertex = this% ObjectsList(i)% vertices(j)% coords * Lref 
+            write(funit) vertex(IX), vertex(IY), vertex(IZ)
          end do
          write(funit) padding      
       end do
@@ -923,12 +1018,12 @@ module TessellationTypes
 
       integer :: NumOfObjs, i, j
 
-      NumOfObjs = STL% NumOfObjs
+      this% filename = trim(STL% filename)
+      NumOfObjs      = STL% NumOfObjs
 
       this% NumOfObjs = NumOfObjs
 
       allocate( this% ObjectsList(NumOfObjs) )
-
 !$omp parallel
 !$omp do schedule(runtime) private(j)
       do i = 1, NumOfObjs
@@ -945,199 +1040,155 @@ module TessellationTypes
 !$omp end parallel
    end subroutine STLfile_copy
   
-   subroutine STLfile_GetMotionInfo( this, STLfilename, NumOfSTL )
+   subroutine STLfile_GetInfo( this, STLfilename )
       use FileReadingUtilities
       use FTValueDictionaryClass
       use PhysicsStorage
+      use FileReaders
+      use BoundaryConditions
+      use GenericBoundaryConditionClass, only: CheckIfStlNameIsContained, CheckIfBoundaryNameIsContained
       implicit none
       !-arguments-------------------------------------------------------
-      type(STLfile),           intent(inout) :: this
-      character(len=*),        intent(in)    :: STLfilename
-      integer,                 intent(in)    :: NumOfSTL
+      type(STLfile),    intent(inout) :: this
+      character(len=*), intent(inout) :: STLfilename
       !-local-arguments-------------------------------------------------
-      integer                    :: i
-      integer,       allocatable :: motionAxis_STL
-      real(kind=RP), allocatable :: angularVelocity_STL, Velocity_STL, &
-                                    RC_x_STL, RC_y_STL, RC_z_STL
-      character(len=LINE_LENGTH) :: in_label, paramFile,  &
-                                    motion_STL, STL_name 
+      integer                    :: fid, i, bctype, io, GetZoneType
+      logical                    :: inside, logval
+      character(len=LINE_LENGTH) :: currentLine, loweredBname
+      character(len=LINE_LENGTH) :: keyword, keyval
+      type(FTValueDIctionary)    :: bcdict
+      character(LINE_LENGTH)     :: ext, stlname, stlNoPath
 
-      this% move = .false.
+      ext = getFileExtension(trim(this% filename))
 
-      do i = 1, NumOfSTL
+      if ( trim(ext) .ne. 'stl') then
+         print *, "Read Tessellation: extension .",trim(ext),"' not supported"
+         error stop
+      end if
+
+      stlNoPath = RemovePath( trim(this% filename) )   
+      stlname   = getFileName( trim(stlNoPath) )
+
+      STLfilename = trim(stlname)
       
-         write(in_label , '(A,I0)') "#define stl motion ", i
+      this% NoExtfilename = STLfilename
+      
+      loweredbName = trim(adjustl(STLfilename))
+      call toLower(loweredbName)
 
-         call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "stl name"          , STL_name           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "type"              , motion_STL         , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "angular velocity"  , angularVelocity_STL, in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "velocity"          , Velocity_STL       , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "motion axis"       , motionAxis_STL     , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "rotation center x" , RC_x_STL           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "rotation center y" , RC_y_STL           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "rotation center z" , RC_z_STL           , in_label, "#end" ) 
+      call bcdict % initWithSize(16) 
 
-         if( trim(STLfilename) .ne. trim(STL_name) ) cycle
+      open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
-         this% move = .true.
+      inside = .false.
+      do 
+         read(fid, '(A)', iostat=io) currentLine
 
-         select case( trim(motion_STL) )
-           case( "rotation" )
-               this% motionType = ROTATION
-            case( "linear" )
-               this% motionType = LINEAR
-            case default
-               print *, "STLfile_GetMotionInfo: motion not recognized. Available motions are ", ROTATION," or ",LINEAR,"."
-               error stop
-         end select
-         
-         if( allocated(angularVelocity_STL) ) then
-            this% angularVelocity = angularVelocity_STL
-         elseif( this% motionType .eq. ROTATION ) then
-            print *, "STLfile_GetMotionInfo: 'angular velocity' must be specified for ", ROTATION, " motion."
-            error stop            
-         end if
-         
-         if( allocated(Velocity_STL) ) then
-            this% Velocity = Velocity_STL
-         elseif( this% motionType .eq. LINEAR ) then
-            print *, "STLfile_GetMotionInfo: 'velocity' must be specified for ", LINEAR, " motion."
-            error stop            
-         end if
-         
-         if( allocated(motionAxis_STL) ) then
-            this% motionAxis = motionAxis_STL
-            if( this% motionAxis .gt. 3 .or. this% motionAxis .lt. 1 ) then
-               print *, "STLfile_GetMotionInfo: 'motion axis' =", this% motionAxis, " not valid:"
-               print *, "select 1 for x-axis, 2 for y-axis or 3 for z-axis."
-               error stop                
-            end if
-         elseif( this% move ) then
-            print *, "STLfile_GetMotionInfo: 'motion axis' must be specified."
-            error stop            
+         if( io .ne. 0 ) exit
+
+         call PreprocessInputLine(currentLine)
+         call toLower(currentLine)
+
+         if ( index(trim(currentLine),"#define stl") .ne. 0 ) then
+            inside = CheckIfStlNameIsContained(trim(currentLine), trim(loweredbname)) 
          end if
 
-         if( this% motionType .eq. ROTATION ) then 
-            if( .not. allocated(RC_x_STL) ) then 
-               print *, "STLfile_GetMotionInfo: 'rotation center' must be specified."
-               error stop 
-            end if 
-            this% rotationCenter(1) = RC_x_STL
-            this% rotationCenter(2) = RC_y_STL
-            this% rotationCenter(3) = RC_z_STL
-         end if 
-         
-         return
+!
+!           Get all keywords inside the zone
+!           --------------------------------
+         if ( inside ) then
+            if ( trim(currentLine) .eq. "#end" ) exit
+
+            keyword  = ADJUSTL(GetKeyword(currentLine))
+            keyval   = ADJUSTL(GetValueAsString(currentLine))
+            call ToLower(keyword)
+   
+            call bcdict % AddValueForKey(keyval, trim(keyword))
+         end if
 
       end do
- 
-   end subroutine STLfile_GetMotionInfo
-   
-   subroutine STLfile_getRotationaMatrix( this, t, angle )
-      use PhysicsStorage
-      use FluidData
-      implicit none
-      !-arguments-----------------------------
-      class(STLfile),           intent(inout):: this
-      real(kind=RP),            intent(in)   :: t
-      real(kind=RP),  optional, intent(in)   :: angle 
-      !-local-variables-----------------------
-      real(kind=RP) :: time, theta
 
-      if( present(angle) ) then 
+      if ( .not. bcdict % ContainsKey("type") ) then
+         bctype = 3
+      end if
 
-         this% rotationMatrix = 0.0_RP
-         theta = PI/180.0_RP*angle 
+      keyval = bcdict % StringValueForKey("type", LINE_LENGTH)
+      call tolower(keyval)
+      
+      GetZoneType = -1
+      do bctype = 1, size(implementedBCnames)
+         if ( trim(keyval) .eq. trim(implementedBCnames(bctype)) ) then
+            GetZoneType = bctype
+         end if
+      end do
+      
+      if ( GetZoneType .eq. -1 ) then
+         GetZoneType = 3 
+      end if
 
-         select case( this% motionAxis )
-            case( IX )
-               this% rotationMatrix(1,1) = 1.0_RP
-               this% rotationMatrix(2,2) = cos(theta)
-               this% rotationMatrix(2,3) = -sin(theta)
-               this% rotationMatrix(3,2) = sin(theta)
-               this% rotationMatrix(3,3) = cos(theta)
-            case( IY ) 
-               this% rotationMatrix(2,2) = 1.0_RP
-               this% rotationMatrix(1,1) = cos(theta)
-               this% rotationMatrix(1,3) = sin(theta)
-               this% rotationMatrix(3,1) = -sin(theta)
-               this% rotationMatrix(3,3) = cos(theta)
-            case( IZ )
-               this% rotationMatrix(3,3) = 1.0_RP
-               this% rotationMatrix(1,1) = cos(theta)
-               this% rotationMatrix(1,2) = -sin(theta)
-               this% rotationMatrix(2,1) = sin(theta)
-               this% rotationMatrix(2,2) = cos(theta)
-         end select
-         return
-      end if     
-#if defined(NAVIERSTOKES)
-      time = t * Lref/refValues% V
-   
-      theta = this% angularVelocity * time
-   
-      this% rotationMatrix = 0.0_RP
-   
-      select case( this% motionAxis )
-         case( IX )
-            this% rotationMatrix(1,1) = 1.0_RP
-            this% rotationMatrix(2,2) = cos(theta)
-            this% rotationMatrix(2,3) = -sin(theta)
-            this% rotationMatrix(3,2) = sin(theta)
-            this% rotationMatrix(3,3) = cos(theta)
-         case( IY ) 
-            this% rotationMatrix(2,2) = 1.0_RP
-            this% rotationMatrix(1,1) = cos(theta)
-            this% rotationMatrix(1,3) = sin(theta)
-            this% rotationMatrix(3,1) = -sin(theta)
-            this% rotationMatrix(3,3) = cos(theta)
-         case( IZ )
-            this% rotationMatrix(3,3) = 1.0_RP
-            this% rotationMatrix(1,1) = cos(theta)
-            this% rotationMatrix(1,2) = -sin(theta)
-            this% rotationMatrix(2,1) = sin(theta)
-            this% rotationMatrix(2,2) = cos(theta)
-      end select
-#endif       
-   end subroutine STLfile_getRotationaMatrix
-   
-   subroutine STLfile_getDisplacement( this, t )
-      use FluidData
-      use PhysicsStorage
-      implicit none
-      !-arguments-----------------------------
-      class(STLfile), intent(inout):: this
-      real(kind=RP),  intent(in)   :: t
+      if ( .not. bcdict % ContainsKey("moving") ) then
+         logval = .false. 
+      else 
+         logval = bcdict % logicalValueForKey("moving")
+      end if 
 
-      real(kind=RP) :: time 
-#if defined(NAVIERSTOKES)
-      time = t * Lref/refValues% V
-   
-      this% ds = this% Velocity * time
+      this% bctype = GetZoneType
+      this% move   = logval
 
-      this% ds = this% ds/Lref
-#endif
-   end subroutine STLfile_getDisplacement
+      call bcdict % Destruct
+      close(fid)
 
-   subroutine STL_updateNormals( this )
+      ! check if stl is BF correctd
+
+      open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
+
+      inside = .false.
+      do 
+         read(fid, '(A)', iostat=io) currentLine
+
+         if( io .ne. 0 ) exit
+
+         call PreprocessInputLine(currentLine)
+         call toLower(currentLine)
+
+         if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+            inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(loweredbname)) 
+         end if
+
+!
+!           Get all keywords inside the zone
+!           --------------------------------
+         if ( inside ) then
+            if ( trim(currentLine) .eq. "#end" ) exit
+
+            keyword  = ADJUSTL(GetKeyword(currentLine))
+            keyval   = ADJUSTL(GetValueAsString(currentLine))
+            call ToLower(keyword)
+            
+            this% BFcorrection = .true. 
+         end if
+
+      end do
+
+      close(fid)
+
+   end subroutine STLfile_GetInfo
+
+   subroutine STL_updateNormals( this, obj )
       use MappedGeometryClass
       implicit none
       !-arguments------------------------------------
-      class(STLfile), intent(inout):: this
+      class(STLfile),    intent(inout) :: this
+      type(Object_type), intent(inout) :: obj
       !-local-variables------------------------------
       real(kind=rp) :: du(NDIM), dv(NDIM), dw(NDIM)
       integer       :: i 
-!$omp parallel
-!$omp do schedule(runtime) private(du,dv,dw)
-      do i = 1, this% NumOfObjs
-         du = this% ObjectsList(i)% vertices(2)% coords - this% ObjectsList(i)% vertices(1)% coords
-         dw = this% ObjectsList(i)% vertices(3)% coords - this% ObjectsList(i)% vertices(1)% coords
-         call vcross(du,dw,dv)
-         this% ObjectsList(i)% normal = dv/norm2(dv)      
-      end do
-!$omp end do
-!$omp end parallel 
+
+      du = obj% vertices(2)% coords - obj% vertices(1)% coords
+      dw = obj% vertices(3)% coords - obj% vertices(1)% coords
+      call vcross(du,dw,dv)
+      obj% normal = dv/norm2(dv)      
+ 
    end subroutine STL_updateNormals
    
    subroutine STLfile_destroy( this )
@@ -1146,10 +1197,19 @@ module TessellationTypes
       !-arguments------------------------------
       class(STLfile), intent(inout) :: this
       !-local-variables------------------------
-      integer :: i
+      integer :: i, j
       
       do i = 1, this% NumOfObjs
          deallocate(this% ObjectsList(i)% vertices)
+         if( allocated(this% ObjectsList(i)% IntegrationVertices) ) then 
+            do j = 1, NumOfIntegrationVertices
+               deallocate( this% ObjectsList(i)% IntegrationVertices(j)% domains, &
+                           this% ObjectsList(i)% IntegrationVertices(j)% indeces, & 
+                           this% ObjectsList(i)% IntegrationVertices(j)% invPhi,  &
+                           this% ObjectsList(i)% IntegrationVertices(j)% b        )
+            end do 
+            deallocate(this% ObjectsList(i)% IntegrationVertices)
+         end if 
       end do
       
       deallocate(this% ObjectsList)  
@@ -1171,12 +1231,11 @@ module TessellationTypes
       integer,        intent(in)    :: axis
       logical,        intent(in)    :: describe
       !-local-variables--------------------------------------------------------------
-      type(ObjectLinkedList)     :: ObjectsLinkedList, ObjectsLinkedListFinal
-      type(object_type), pointer :: obj 
-      real(kind=RP)              :: minplane_point(NDIM), maxplane_point(NDIM),   & 
-                                    minplane_normal(NDIM), maxplane_normal(NDIM), &
-                                    Objmax, Objmin, vertices(NDIM,3)
-      integer                    :: i, j
+      real(kind=RP)                  :: minplane_point(NDIM), maxplane_point(NDIM),   & 
+                                        minplane_normal(NDIM), maxplane_normal(NDIM), &
+                                        Points(NDIM,4)
+      integer                        :: i, j, NumOfObjs, index, NumOfObjsFinal, nPoints
+      type(object_type), allocatable :: tempobjs(:), tempobjsFinal(:)
 
       minplane_point  = 0.0_RP
       maxplane_point  = 0.0_RP
@@ -1187,45 +1246,96 @@ module TessellationTypes
       maxplane_point(axis)  = maxplane
       minplane_normal(axis) = -1.0_RP
       maxplane_normal(axis) =  1.0_RP
- 
-      ObjectsLinkedList      = ObjectLinkedList_Construct()
-      ObjectsLinkedListFinal = ObjectLinkedList_Construct()
+
+      allocate( tempobjs(2*this% NumOfObjs) )
+      NumOfObjs = 0; index = 0 
 
       do i = 1, this% NumOfObjs
-          call ClipPloy( this% ObjectsList(i), maxplane_normal, maxplane_point, ObjectsLinkedList )
+         call ClipPoly( this% ObjectsList(i), maxplane_normal, maxplane_point, Points, nPoints ) 
+         if( nPoints .eq. 3 ) then
+            index = index + 1
+            allocate(tempobjs(index)% vertices(NumOfVertices))
+            do j = 1, nPoints 
+               tempobjs(index)% vertices(j)% coords = Points(:,j)
+            end do 
+            tempobjs(index)% normal = this% ObjectsList(i)% normal 
+         elseif( nPoints .eq. 4 ) then
+            index = index + 1
+            allocate(tempobjs(index)% vertices(NumOfVertices))
+            do j = 1, nPoints-1
+               tempobjs(index)% vertices(j)% coords = Points(:,j)
+            end do
+            tempobjs(index)% normal = this% ObjectsList(i)% normal
+
+            index = index + 1 
+            allocate(tempobjs(index)% vertices(NumOfVertices))
+            tempobjs(index)% vertices(1)% coords = Points(:,nPoints-1)
+            tempobjs(index)% vertices(2)% coords = Points(:,nPoints)
+            tempobjs(index)% vertices(3)% coords = Points(:,1)
+            tempobjs(index)% normal = this% ObjectsList(i)% normal
+         end if  
       end do
 
-      obj => ObjectsLinkedList% head 
-
-      do i = 1, ObjectsLinkedList% NumOfObjs
-         call ClipPloy( obj, minplane_normal, minplane_point, ObjectsLinkedListFinal )
-         obj => obj% next 
-      end do  
-      
-      call ObjectsLinkedList% destruct()       
-
+      NumOfObjs = index 
       call this% destroy()
 
-      this% partition = 1
-      this% NumOfObjs = ObjectsLinkedListFinal% NumOfObjs
-  
-      allocate(this% ObjectsList(this% NumOfObjs))
- 
-      obj => ObjectsLinkedListFinal% head 
+      allocate(tempobjsFinal(2*NumOfObjs))
+      NumOfObjsFinal = 0; index = 0
+      do i = 1, NumOfObjs        
+         call ClipPoly( tempobjs(i), minplane_normal, minplane_point, Points, nPoints)
+         if( nPoints .eq. 3 ) then
+            index = index + 1
+            allocate(tempobjsFinal(index)% vertices(NumOfVertices))
+            do j = 1, nPoints 
+               tempobjsFinal(index)% vertices(j)% coords = Points(:,j)
+            end do 
+            tempobjsFinal(index)% normal = tempobjs(i)% normal 
+         elseif( nPoints .eq. 4 ) then
+            index = index + 1
+            allocate(tempobjsFinal(index)% vertices(NumOfVertices))
+            do j = 1, nPoints-1
+               tempobjsFinal(index)% vertices(j)% coords = Points(:,j)
+            end do
+            tempobjsFinal(index)% normal = tempobjs(i)% normal
 
-      do i = 1, this% NumOfObjs
-         allocate(this% ObjectsList(i)% vertices(obj% NumOfVertices))
-         do j = 1, obj% NumOfVertices
-            this% ObjectsList(i)% vertices(j)% coords = obj% vertices(j)% coords
-         end do
-         this% ObjectsList(i)% normal        = obj% normal
-         this% ObjectsList(i)% index         = i
-         this% ObjectsList(i)% NumOfVertices = obj% NumOfVertices
-         this% ObjectsList(i)% partition     = 1
-         obj => obj% next 
+            index = index + 1 
+            allocate(tempobjsFinal(index)% vertices(NumOfVertices))
+            tempobjsFinal(index)% vertices(1)% coords = Points(:,nPoints-1)
+            tempobjsFinal(index)% vertices(2)% coords = Points(:,nPoints)
+            tempobjsFinal(index)% vertices(3)% coords = Points(:,1)
+            tempobjsFinal(index)% normal = tempobjs(i)% normal
+         end if  
+      end do  
+      NumOfObjsFinal = index       
+      
+      do i = 1, NumOfObjs
+         deallocate(tempobjs(i)% vertices)
       end do 
 
-      call ObjectsLinkedListFinal% destruct()
+      deallocate(tempobjs)
+
+      this% partition = 1
+      this% NumOfObjs = NumOfObjsFinal
+  
+      allocate(this% ObjectsList(this% NumOfObjs))
+
+      do i = 1, this% NumOfObjs
+         allocate(this% ObjectsList(i)% vertices(NumOfVertices))
+         do j = 1, NumOfVertices
+            this% ObjectsList(i)% vertices(j)% coords = tempobjsFinal(i)% vertices(j)% coords
+         end do
+
+         this% ObjectsList(i)% normal        = tempobjsFinal(i)% normal
+         this% ObjectsList(i)% index         = i
+         this% ObjectsList(i)% NumOfVertices = NumOfVertices
+         this% ObjectsList(i)% partition     = 1
+      end do 
+
+      do i = 1, NumOfObjsFinal
+         deallocate(tempobjsFinal(i)% vertices)
+      end do 
+
+      deallocate(tempobjsFinal)
 
       if( describe ) call this% describe(this% filename)
 
@@ -1233,26 +1343,27 @@ module TessellationTypes
 
    end subroutine STL_Clip
 
-   subroutine ClipPloy( obj, plane_normal, plane_point, ObjectsLinkedList )
+   subroutine ClipPoly( obj, plane_normal, plane_point, Points, nPoints )
       use MappedGeometryClass
       implicit none
       !-arguments--------------------------------------------------------------------
-      type(object_type),      intent(in)    :: obj
-      real(kind=rp),          intent(in)    :: plane_normal(:), plane_point(:)
-      type(ObjectLinkedList), intent(inout) :: ObjectsLinkedList
+      type(object_type), intent(in)  :: obj
+      real(kind=rp),     intent(in)  :: plane_normal(:), plane_point(:)
+      real(kind=RP),     intent(out) :: Points(:,:)
+      integer,           intent(out) :: nPoints
       !-local-variables--------------------------------------------------------------
       real(kind=RP)     :: PointFront(NDIM,4), PointBack(NDIM,4)
-      type(object_type) :: objBack
-      real(kind=RP)     :: PointA(NDIM), PointB(NDIM), Point_inters(NDIM), v(NDIM),u(NDIM),W(NDIM)
+      real(kind=RP)     :: PointA(NDIM), PointB(NDIM), Point_inters(NDIM)
       integer           :: PointA_Is, PointB_Is, n_front, n_back, i 
 
       n_front = 0; n_back = 0
-      
-      pointA = obj% vertices(obj% NumOfVertices)% coords
+      PointBack  = 0.0_RP 
+
+      pointA = obj% vertices(NumOfVertices)% coords
       
       PointA_Is = Point_wrt_Plane( plane_normal, plane_point, pointA )
    
-      do i = 1, obj% NumOfVertices
+      do i = 1, NumOfVertices
          PointB    = obj% vertices(i)% coords
          PointB_Is = Point_wrt_Plane( plane_normal, plane_point, pointB )
          if( PointB_Is .eq. POINT_IN_FRONT_PLANE ) then
@@ -1289,26 +1400,11 @@ module TessellationTypes
          PointA    = PointB
          PointA_Is = PointB_Is 
       end do
-      
-      ! take only back elements !! 
-      if( n_back .eq. 3 ) then
-         call objBack% build( PointBack(:,1:n_back), obj% normal, obj% NumOfVertices, obj% index )
-         call ObjectsLinkedList% add(objBack)
-         call objBack% destruct()
-      elseif( n_back .eq. 4 ) then
-         call objBack% build( PointBack(:,1:n_back-1), obj% normal, obj% NumOfVertices, obj% index )
-         call ObjectsLinkedList% add(objBack)
-         call objBack% destruct()
-         call objBack% build( PointBack(:,(/n_back-1,n_back,1/)), obj% normal, obj% NumOfVertices, obj% index )
-         call ObjectsLinkedList% add(objBack)
-         call objBack% destruct()
-      elseif( n_back .eq. 0 ) then 
-      else
-         print *, "ClipPloy:: wrong number of vertices: ", n_back
-         error stop
-      end if 
+
+      Points  = PointBack
+      nPoints = n_back 
    
-   end subroutine ClipPloy
+   end subroutine ClipPoly
 
    subroutine STL_SetIntegration( this, NumOfInterPoints )
       use MPI_Process_Info
@@ -1318,18 +1414,46 @@ module TessellationTypes
       integer,        intent(in)    :: NumOfInterPoints
 
       integer :: i, j
-
-      if( .not. MPI_Process% isRoot ) return 
- 
+      
       do i = 1, this% NumOfObjs
-         do j = 1, NumOfVertices + 4
-            allocate( this% ObjectsList(i)% vertices(j)% nearestPoints(NumOfInterPoints),           &
-                      this% ObjectsList(i)% vertices(j)% invPhi(NumOfInterPoints,NumOfInterPoints), &
-                      this% ObjectsList(i)% vertices(j)% b(NumOfInterPoints)                        )
+         do j = 1, NumOfIntegrationVertices
+            allocate( this% ObjectsList(i)% IntegrationVertices(j)% domains(NumOfInterPoints),                 &
+                      this% ObjectsList(i)% IntegrationVertices(j)% indeces(NumOfInterPoints),                 &
+                      this% ObjectsList(i)% IntegrationVertices(j)% invPhi(NumOfInterPoints,NumOfInterPoints), &
+                      this% ObjectsList(i)% IntegrationVertices(j)% b(NumOfInterPoints)                        )
          end do 
       end do 
  
    end subroutine STL_SetIntegration
+
+   subroutine STL_GetInterpolationCoefficient( this, N, L )
+      use PolynomialInterpAndDerivsModule, only : LagrangeInterpolatingPolynomial
+      use NodalStorageClass
+      implicit none 
+
+      class(STLfile), intent(inout) :: this
+      real(kind=RP),  intent(in)    :: L  
+      integer,        intent(in)    :: N 
+
+      integer                       :: i, j, k
+      type(NodalStorage_t), pointer :: spA
+      real(kind=RP)                 :: nodes(0:N)
+
+      spA => NodalStorage(N)
+      do i = 0, N 
+         nodes(i) = 0.5_RP * (1.0_RP + spA% x(i)) * L
+      end do 
+      
+      do i = 1, this% NumOfObjs; do j = 1, NumOfVertices
+         allocate( this% ObjectsList(i)% IntegrationVertices(j)% lj(0:N) )
+         do k = 0, N 
+            this% ObjectsList(i)% IntegrationVertices(j)% lj(k) = LagrangeInterpolatingPolynomial( k, -1.0_RP, N, nodes )
+         end do
+      end do; end do 
+
+      this% HOInterp = .true. 
+
+   end subroutine STL_GetInterpolationCoefficient 
 
    function STL_ComputeScalarIntegral( this )
 
@@ -1338,15 +1462,15 @@ module TessellationTypes
       class(STLfile), intent(inout) :: this 
       real(kind=RP)                 :: STL_ComputeScalarIntegral
 
-      real(kind=RP) :: ScalarVar(NumOfVertices+4)
+      real(kind=RP) :: ScalarVar(NumOfIntegrationVertices)
       integer       :: i, j
 
       STL_ComputeScalarIntegral = 0.0_RP
 
       do i = 1, this% NumOfObjs
          associate( obj => this% ObjectsList(i) )
-         do j = 1, NumOfVertices+4
-            ScalarVar(j) = obj% vertices(j)% ScalarValue
+         do j = 1, NumOfIntegrationVertices
+            ScalarVar(j) = obj% IntegrationVertices(j)% ScalarValue
          end do
          STL_ComputeScalarIntegral = STL_ComputeScalarIntegral + TriangleScalarIntegral( obj, ScalarVar )
          end associate
@@ -1361,15 +1485,15 @@ module TessellationTypes
       class(STLfile), intent(inout) :: this 
       real(kind=RP)                 :: STL_ComputeVectorIntegral(NDIM)
 
-      real(kind=RP) :: VectorVar(NDIM,NumOfVertices+4)
+      real(kind=RP) :: VectorVar(NDIM,NumOfIntegrationVertices)
       integer       :: i, j
 
       STL_ComputeVectorIntegral = 0.0_RP
 
       do i = 1, this% NumOfObjs
          associate( obj => this% ObjectsList(i) )
-         do j = 1, NumOfVertices+4
-            VectorVar(:,j) = obj% vertices(j)% VectorValue
+         do j = 1, NumOfIntegrationVertices
+            VectorVar(:,j) = obj% IntegrationVertices(j)% VectorValue
          end do
          STL_ComputeVectorIntegral = STL_ComputeVectorIntegral + TriangleVectorIntegral( obj, VectorVar )
          end associate
@@ -1382,21 +1506,19 @@ module TessellationTypes
       implicit none 
 
       type(object_type), intent(in) :: obj 
-      real(kind=RP),     intent(in) :: ScalarVar(NumOfVertices+4)
+      real(kind=RP),     intent(in) :: ScalarVar(NumOfIntegrationVertices)
       real(kind=RP)                 :: Val
 
       real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
 
-      AB = obj% vertices(2)% coords - obj% vertices(1)% coords 
-      AC = obj% vertices(3)% coords - obj% vertices(1)% coords 
+      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
+      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
 
       call vcross(AB,AC,S)
-
+   
       A = 0.5_RP * norm2(S)
 
-      Val = A/60.0_RP * ( 27.0_RP * ScalarVar(NumOfVertices+4) +                    &
-                           3.0_RP * sum(ScalarVar(1:NumOfVertices)) +               &
-                           8.0_RP * sum(ScalarVar(NumOfVertices+1:NumOfVertices+3)) )
+      Val = A * (ScalarVar(1) + ScalarVar(2) + ScalarVar(3))/3.0_RP
 
    end function TriangleScalarIntegral
 
@@ -1405,23 +1527,42 @@ module TessellationTypes
       implicit none 
 
       type(object_type), intent(in) :: obj 
-      real(kind=RP),     intent(in) :: VectorVar(NDIM,NumOfVertices+4)
+      real(kind=RP),     intent(in) :: VectorVar(NDIM,NumOfIntegrationVertices)
       real(kind=RP)                 :: Val(NDIM)
-
+ 
       real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
+      real(kind=RP) :: normal(NDIM)
 
-      AB = obj% vertices(2)% coords - obj% vertices(1)% coords 
-      AC = obj% vertices(3)% coords - obj% vertices(1)% coords 
+      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
+      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
 
       call vcross(AB,AC,S)
 
       A = 0.5_RP * norm2(S)
 
-      Val = A/60.0_RP * ( 27.0_RP * VectorVar(:,NumOfVertices+4) +                    &
-                           3.0_RP * sum(VectorVar(:,1:NumOfVertices)) +               &
-                           8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfVertices+3)) )
+      Val = A * (VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3))/3.0_RP
+     ! Val =  (VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3))/3.0_RP
 
    end function TriangleVectorIntegral
+
+   subroutine STL_ResetIntegrationPoints( this )
+   
+      implicit none 
+   
+      class(STLfile), intent(inout) :: this
+
+      integer :: i, j 
+      
+      do i = 1, this% NumOfObjs
+         do j = 1, NumOfIntegrationVertices
+            this% ObjectsList(i)% IntegrationVertices(j)% Q   = 0.0_RP
+            this% ObjectsList(i)% IntegrationVertices(j)% U_x = 0.0_RP
+            this% ObjectsList(i)% IntegrationVertices(j)% U_y = 0.0_RP
+            this% ObjectsList(i)% IntegrationVertices(j)% U_z = 0.0_RP
+         end do 
+      end do
+   
+   end subroutine STL_ResetIntegrationPoints
    
    integer function Point_wrt_Plane( plane_normal, plane_point, point ) result( PointIs )
       use MappedGeometryClass
@@ -1464,149 +1605,78 @@ module TessellationTypes
    end function EdgePlaneIntersection
 !//////////////////////////////////////////////
    
-   subroutine TecFileHeader( FileName, Title, I, J, K, funit, DATAPACKING, ZONETYPE )
+   subroutine TecFileHeader( FileName, Title, NumOfObjs, funit )
    
       implicit none
       !-arguments------------------------------------------------------
-      character(len=*), intent(in)  :: FileName, Title, DATAPACKING
-      integer,          intent(in)  :: I, J, K
-      character(len=*), optional    :: ZONETYPE
+      character(len=*), intent(in)  :: FileName
+      integer,          intent(in)  :: NumOfObjs
+      character(len=*), intent(in)  :: Title
       integer,          intent(out) :: funit
    
+      character(LINE_LENGTH) :: itoa 
+
       funit = UnusedUnit()
    
       open(funit,file=trim(FileName)//'.tec', status='unknown')
+
+      write(itoa, '(I0)') NumOfObjs
       
       write(funit,"(A9,A,A)") 'TITLE = "',trim(Title),'"'
       write(funit,"(A23)") 'VARIABLES = "x","y","z"'
-      if( present(ZONETYPE) ) then
-         write(funit,"(A7,I0,A3,I0,A3,I0,A14,A,A11,A)") 'ZONE I=',I,',J=',J,',K=',K,', DATAPACKING=',trim(DATAPACKING),', ZONETYPE=',trim(ZONETYPE)
-      else
-         write(funit,"(A7,I0,A3,I0,A3,I0,A14,A)") 'ZONE I=',I,',J=',J,',K=',K,', DATAPACKING=',trim(DATAPACKING)
-      end if
+      write(funit, '(A)') 'ZONE T="Points", I=1, J=1, K=' // trim(adjustl(itoa)) // ', F=POINT'
       
    end subroutine TecFileHeader
 
-   subroutine PolynomialVector( x, y, z, v )
+   subroutine ReadTecFileHeader( FileName, NumOfObjs, funit )
    
-      implicit none 
-
-      real(kind=rp), intent(in)    :: x, y, z 
-      real(kind=rp), intent(inout) :: v(:)
-
-      integer :: n_of_points 
-
-      n_of_points = size(v)
-
-      select case( n_of_points )  
-         case( 3 )                    !1st order
-            v(1) = 1.0_RP 
-            v(2) = x 
-            v(3) = y 
-            !v(4) = z 
-         case( 6 )                    !2nd order
-            v(1)  = 1.0_RP 
-            v(2)  = x 
-            v(3)  = y 
-            !v(4)  = z
-            v(4)  = POW2(x) 
-            v(5)  = POW2(y) 
-            !v(7)  = POW2(z)
-            v(6)  = x*y          
-            !v(9)  = x*z          
-            !v(10) = z*y 
-         case( 10 )                    !3rd order
-            v(1)  = 1.0_RP 
-            v(2)  = x 
-            v(3)  = y 
-            !v(4)  = z
-            v(4)  = POW2(x) 
-            v(5)  = POW2(y) 
-            !v(7)  = POW2(z)
-            v(6)  = x*y          
-            !v(9)  = x*z          
-            !v(10) = z*y 
-            v(7) = POW3(x) 
-            v(8) = POW3(y) 
-            !v(13) = POW3(z)
-            v(9) = POW2(x)*y          
-            !v(15) = POW2(x)*z          
-            v(10) = POW2(y)*x         
-            !v(17) = POW2(y)*z         
-            !v(18) = POW2(z)*x         
-            !v(19) = POW2(z)*y         
-            !v(20) = x*y*z         
-         case( 17 )                    !4th order
-            v(1)  = 1.0_RP 
-            v(2)  = x 
-            v(3)  = y 
-            !v(4)  = z
-            v(4)  = POW2(x) 
-            v(5)  = POW2(y) 
-            !v(7)  = POW2(z)
-            v(6)  = x*y          
-            !v(9)  = x*z          
-            !v(10) = z*y 
-            v(7) = POW3(x) 
-            v(8) = POW3(y) 
-            !v(13) = POW3(z)
-            v(9) = POW2(x)*y          
-            !v(15) = POW2(x)*z          
-            v(10) = POW2(y)*x         
-            !v(17) = POW2(y)*z         
-            v(11) = POW2(z)*x         
-            v(12) = POW2(z)*y         
-            !v(20) = x*y*z
-            v(13) = POW2(x)*POW2(x)         
-            v(14) = POW2(y)*POW2(y)         
-            !v(23) = POW2(z)*POW2(z)
-            v(15) = POW3(x)*y         
-            !v(25) = POW3(x)*z
-            v(16) = POW3(y)*x         
-            !v(27) = POW3(y)*z
-            !v(28) = POW3(z)*x         
-            !v(29) = POW3(z)*y               
-            !v(30) = POW2(x)*y*z          
-            !v(31) = POW2(y)*x*z          
-            !v(32) = POW2(z)*x*y 
-            v(17) = POW2(x)*POW2(y) 
-            !v(34) = POW2(x)*POW2(z)          
-            !v(35) = POW2(y)*POW2(z)            
-      end select 
-
-   end subroutine PolynomialVector
-
-   subroutine buildMatrixPolySpline( Phi, P, P_T, V )
-
-      implicit none 
-
-      real(kind=rp), intent(in)    :: Phi(:,:), P(:,:), P_T(:,:)
-      real(kind=rp), intent(inout) :: V(:,:)
-
-      integer :: start, final 
-
-      V = 0.0_RP 
-      
-      V(1:size(Phi,1),1:size(Phi,2)) = Phi 
-      start = size(Phi,2)+1; final = start + size(P,2)-1
-      V(1:size(Phi,1),start:final) = P 
-      start = size(Phi,1)+1; final = start + size(P_T,1)-1
-      V(start:final,1:size(Phi,2)) = P_T  
-
-   end subroutine buildMatrixPolySpline
-
-   real(kind=rp) function EvaluateInterp( coeff, x, y, z ) result( value )
-
       implicit none
+      !-arguments------------------------------------------------------
+      character(len=*), intent(in)  :: FileName
+      integer,          intent(out) :: NumOfObjs
+      integer,          intent(out) :: funit 
+   
+      integer                    :: ios
+      character(len=LINE_LENGTH) :: line, zoneinfo
       
-      real(kind=rp), intent(in) :: coeff(:), x, y, z
+      funit = UnusedUnit()
       
-      real(kind=rp) :: v(size(coeff))
+      open(funit,file='IBM/'//trim(FileName)//'.tec', status='old', action='read')
 
-      call PolynomialVector( x, y, z, v )
+      read(funit, '(A)', iostat=ios) line
+      if (ios /= 0) stop 'Error reading title line'
 
-      value = dot_product(coeff,v)
+      read(funit, '(A)', iostat=ios) line
+      if (ios /= 0) stop 'Error reading variables line'
 
-   end function EvaluateInterp
+      read(funit, '(A)', iostat=ios) zoneinfo
+      if (ios /= 0) stop 'Error reading zone line'
+
+      ! Extract the number of points (NumOfObjs) from the zoneinfo line
+      call get_num_of_objs(trim(zoneinfo), NumOfObjs)
+      
+   end subroutine ReadTecFileHeader
+
+   subroutine get_num_of_objs(zoneinfo, NumOfObjs)
+
+      implicit none 
+
+      character(len=*), intent(in) :: zoneinfo
+      integer,          intent(out) :: NumOfObjs
+
+      character(len=LINE_LENGTH) :: temp
+      integer                    :: pos, ios
+
+      pos = index(zoneinfo, 'K=')
+      if (pos > 0) then
+          !read(zoneinfo(pos+2:), '(I)', iostat=ios) NumOfObjs
+          read(zoneinfo(pos+2:), *, iostat=ios) NumOfObjs
+          if (ios /= 0) stop 'Error reading number of objects'
+      else
+          stop 'Error: number of objects not found in zone info'
+      end if
+
+  end subroutine get_num_of_objs
+
 
 end module TessellationTypes

@@ -146,6 +146,19 @@ module ProblemFileFunctions
          type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedSourceTermNS_f
 #endif
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      subroutine UserDefinedIBMKinematicsNS_f( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
+      end subroutine UserDefinedIBMKinematicsNS_f
+#endif
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -410,6 +423,25 @@ end module ProblemFileFunctions
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
          end subroutine UserDefinedSourceTermNS
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
+
+         if( UpdatePosition ) then
+         end if 
+         if( GetVelocity ) then 
+         end if 
+
+      end subroutine UserDefinedIBMKinematicsNS
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 

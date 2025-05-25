@@ -17,6 +17,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey          = "output interval"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey    = "convergence tolerance"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey      = "number of boundaries"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartTimeNameKey         = "restart time"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(12) :: mainKeywords =  [ meshFileNameKey,           &
                                                                           inviscidDiscretizationKey,  &
                                                                           splitFormkey,               &

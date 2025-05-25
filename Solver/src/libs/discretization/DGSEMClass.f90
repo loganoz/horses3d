@@ -100,7 +100,11 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
-      use SurfaceMesh, only: surfacesMesh
+      use SurfaceMesh,      only: surfacesMesh
+      use MPI_IBMUtilities, only: fixingmpifaces
+      use BoundaryConditions, only: ConstructIBMBoundaryConditions
+
+      use FaceClass
 
       IMPLICIT NONE
 !
@@ -120,7 +124,7 @@ Module DGSEMClass
 !     Local variables
 !     ---------------
 !
-      INTEGER                     :: i,j,k,el,bcset                     ! Counters
+      INTEGER                     :: i,j,k,el,bcset, STLNum             ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       integer                     :: NelL(2), NelR(2)
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
@@ -235,7 +239,6 @@ Module DGSEMClass
          MeshInnerCurves = .true.
       end if
 
-
       useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
       useWeightsPartition = controlVariables % getValueOrDefault("partitioning with weights", .true.)
 !
@@ -329,20 +332,32 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
-!
+! 
       if( self% mesh% IBM% active ) then
-         if( .not. self % mesh % child ) then
-            call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
-            call self% mesh% IBM% construct( controlVariables )
-         end if
+
+         call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
+         self% mesh% IBM% N = maxval((/self% mesh% Nx, self% mesh% Ny, self% mesh% Nz/))
+         call self% mesh% IBM% construct( controlVariables )
+
+         allocate( self% mesh% IBM% penalization(size(self% mesh% elements)) )
+         self% mesh% IBM% penalization = self% mesh% IBM% eta
+
+         call ConstructIBMBoundaryConditions( self% mesh% IBM% NumOfSTL, self% mesh% IBM% bcType, self% mesh% IBM% STLfilename)
 !
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
 !
-         call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
-      end if
+         do STLNum = 1, self% mesh% IBM% NumOfSTL
+            call self% mesh% IBM% build( self% mesh% elements, self% mesh% faces, self% mesh% MPIfaces, self% mesh% NDOF, STLNum, self% mesh% child, .false., 0 )
+         end do 
+  
+         if( self% mesh% IBM% HO_IBM ) then 
+            self% mesh% HO_IBM = .true.
+            call self% mesh% IBM% buildHOfaces( self% mesh% elements, self% mesh% faces )
+         end if 
 
+      end if
 !
 !     ------------------------
 !     Allocate and zero memory
@@ -535,7 +550,7 @@ Module DGSEMClass
                !TDG: ADD PARTICLES WRITE WITH IFDEF
             END IF 
          END IF
-
+         
          IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN
             write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
             call self % mesh % Export( trim(solutionName) )
@@ -543,6 +558,12 @@ Module DGSEMClass
             call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
          END IF 
 
+         IF ( controlVariables % logicalValueForKey(restartKey) ) THEN
+            IF( controlVariables % stringValueForKey(restartTimeNameKey,LINE_LENGTH) /= "" ) THEN  
+               initial_time = controlVariables % realValueForKey(restartTimeNameKey)
+            END IF 
+         END IF 
+         
       end subroutine DGSEM_SetInitialCondition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -427,7 +427,7 @@ module EllipticIP
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
-         integer       :: i,j
+         integer       :: i,j, Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
@@ -444,12 +444,21 @@ module EllipticIP
             UL(IGMU) = f % storage(1) % mu(1,i,j)
             UR(IGMU) = f % storage(2) % mu(1,i,j)
 #endif
-
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+            end if 
 
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
+
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+            
          end do               ; end do
 
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
@@ -477,8 +486,8 @@ module EllipticIP
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-         integer       :: i,j, thisSide
-         
+         integer       :: i,j, thisSide, Sidearray(2)
+
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
@@ -494,12 +503,20 @@ module EllipticIP
             UL(IGMU) = f % storage(1) % mu(1,i,j)
             UR(IGMU) = f % storage(2) % mu(1,i,j)
 #endif
-
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+            end if 
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
@@ -521,7 +538,7 @@ module EllipticIP
 !        Local variables
 !        ---------------
 !
-         integer       :: i, j
+         integer       :: i, j, Sidearray(2)
          real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: bvExt(nEqn)
 
@@ -556,7 +573,14 @@ module EllipticIP
             UL(IGMU) = f % storage(1) % mu(1,i,j)
             UR(IGMU) = f % storage(1) % mu(1,i,j)
 #endif
-
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+            end if 
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             

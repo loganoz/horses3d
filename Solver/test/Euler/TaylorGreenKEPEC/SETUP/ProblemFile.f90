@@ -279,6 +279,28 @@
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
+!
+#if defined(NAVIERSTOKES)
+      subroutine UserDefinedIBMKinematicsNS( x, V, cL, cD, t, dt, refValues_, UpdatePosition, GetVelocity )
+         use SMConstants
+         use FluidData
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),           intent(inout) :: x(NDIM), V(NDIM)
+         real(kind=RP),           intent(in)    :: t, dt
+         real(kind=RP),           intent(in)    :: cL, cD 
+         type(RefValues_t),       intent(in)    :: refValues_
+         logical,                 intent(in)    :: GetVelocity, UpdatePosition
+
+         if( UpdatePosition ) then
+         end if 
+         if( GetVelocity ) then 
+         end if  
+
+      end subroutine UserDefinedIBMKinematicsNS
+#endif
+!
+!//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
 #if defined(NAVIERSTOKES)

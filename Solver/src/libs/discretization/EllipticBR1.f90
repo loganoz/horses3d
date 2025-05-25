@@ -420,12 +420,21 @@ module EllipticBR1
                UR(IGMU) = f % storage(2) % mu(1,i,j)
             end select
 #endif
+            uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j) 
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+               uStar = (UR - UL) * f % geom % jacobian(i,j) 
+            end if 
 
-   
-            uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
             uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
+
          end do               ; end do
          
          Sidearray = (/1,2/)
@@ -477,12 +486,22 @@ module EllipticBR1
                UR(IGMU) = f % storage(2) % mu(1,i,j)
             end select
 #endif
-
-   
             uStar = 0.5_RP * (UR - UL) * f % geom % jacobian(i,j)
+            
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+               uStar = (UR - UL) * f % geom % jacobian(i,j)
+            end if 
+
             uStar_n(:,IX,i,j) = uStar * f % geom % normal(IX,i,j)
             uStar_n(:,IY,i,j) = uStar * f % geom % normal(IY,i,j)
-            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
+            uStar_n(:,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)  
+
          end do               ; end do
 
          Sidearray = (/maxloc(f % elementIDs, dim = 1), HMESH_NONE/)
@@ -504,8 +523,8 @@ module EllipticBR1
 !        Local variables
 !        ---------------
 !
-         integer       :: i, j, bcID
-         real(kind=RP) :: u_int(nGradEqn), u_star(nGradEqn)
+         integer       :: i, j, bcID, Sidearray(2)
+         real(kind=RP) :: u_int(nGradEqn), u_star(nGradEqn), UR(nGradEqn), UL(nGradEqn)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
@@ -532,11 +551,27 @@ module EllipticBR1
                                 time               ,       &
                                 f % geom % normal(:,i,j),  &
                                 f % storage(1) % Q(:,i,j), &
-                                u_star, GetGradients           )
+                                u_star, GetGradients        )
+            
+            if( f% HO_IBM ) then 
+               Sidearray = (/2,1/)
+#if defined(NAVIERSTOKES)
+               call GetGradients(NCONS, NGRAD, f % storage(Sidearray(f% HOSIDE)) % Q(:,i,j), u_int)
+#endif 
+               UL = u_int 
+               UR = u_int 
+               call f% HO_IBM_grad( NCONS, NGRAD,                               & 
+                                    f% stencil(i,j),                            &
+                                    f% storage(Sidearray(f% HOSIDE))% Q(:,i,j), &
+                                    f% geom% normal(:,i,j),                     &
+                                    f% STLNum, UR, UL, GetGradients             )
+               u_star = (UR - UL)
+               u_int  = 0.0_RP 
+            end if 
 
             f % storage(1) % unStar(:,1,i,j) = (u_star-u_int) * f % geom % normal(1,i,j) * f % geom % jacobian(i,j)
-            f % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)    
-            f % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * f % geom % normal(3,i,j) * f % geom % jacobian(i,j)
+            f % storage(1) % unStar(:,2,i,j) = (u_star-u_int) * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)   
+            f % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * f % geom % normal(3,i,j) * f % geom % jacobian(i,j) 
 
          end do ; end do   
 

@@ -74,6 +74,7 @@ MODULE HexMeshClass
          integer                                   :: dir2D_ctrl  = 0               ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
+         logical                                   :: HO_IBM = .FALSE.
          integer,                     allocatable  :: HO_Elements(:)           !List of elements with polynomial order greater than 1
          integer,                     allocatable  :: LO_Elements(:)           !List of elements with polynomial order less or equal than 1
          integer,                     allocatable  :: HO_FacesInterior(:)      !List of interior faces with polynomial order greater than 1
@@ -223,7 +224,7 @@ MODULE HexMeshClass
                call self% IBM% destruct( .false. )
             end if
          end if
-         
+
       END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
@@ -2545,7 +2546,7 @@ slavecoord:             DO l = 1, 4
                   end if
                end select
 
-               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?      
+               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
@@ -2590,16 +2591,16 @@ slavecoord:             DO l = 1, 4
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
                if (self % elements(eID) % faceSide(side) == LEFT) then
-                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has  
-                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.  
+                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
                else
-                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has  
-                  CLN(2) = f % NfRight(2)  ! not been accounted yet.  
+                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
                end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
-                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct? 
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
                      if (CLN(1) /= CLN(2)) then
                         buffer = CLN(1)
                         CLN(1) = CLN(2)
@@ -3220,7 +3221,7 @@ slavecoord:             DO l = 1, 4
                write(fid) Q
                deallocate(Q)
 #endif
-          end if 
+          end if
 
 #ifdef FLOW
           if (saveSource) then
@@ -3258,7 +3259,7 @@ slavecoord:             DO l = 1, 4
          integer                          :: fid, eID
          integer                          :: no_stat_s
          integer(kind=AddrInt)            :: pos
-         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
 !
 !        Gather reference quantities
@@ -3485,7 +3486,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
-               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF             
+               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF
                end associate
             end do
 
@@ -3560,7 +3561,7 @@ slavecoord:             DO l = 1, 4
              NS_from_NSSA = loadFromNSSA
          else
              NS_from_NSSA = .FALSE.
-         end if 
+         end if
          expectedNoEqs = NCONS
 !
 !        Get the file title
@@ -4014,7 +4015,7 @@ slavecoord:             DO l = 1, 4
 
                end do                  ; end do                ; end do
             end if
-            
+
             end associate
          end do
 !
@@ -4037,7 +4038,7 @@ slavecoord:             DO l = 1, 4
             if( self% IBM% active ) then
                fe % geom % dWall = huge(1.0_RP)
             endif
-            
+
             if( .not. self% IBM% active ) then
                do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
                   xP = fe % geom % x(:,i,j)
@@ -4052,7 +4053,7 @@ slavecoord:             DO l = 1, 4
 
                 end do                ; end do
             end if
-            
+
             end associate
          end do
 
@@ -4228,10 +4229,10 @@ slavecoord:             DO l = 1, 4
       ! This is a fix to prevent a seg fault in debug mode
       ! implemented by g.rubio@upm.es 09/2023
       if ( trim(time_int) == "explicit" ) then
-         bdf_order = 1  
-         RKSteps_num = 0   
-      endif  
-#endif 
+         bdf_order = 1
+         RKSteps_num = 0
+      endif
+#endif
 !     Construct global and elements' storage
 !     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
@@ -4467,15 +4468,6 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    FaceComputeQdot = controlVariables % containsKey("acoustic analogy")
    analyticalJac  = self % storage % anJacobian
 
-!     ************************
-!     Clean IBM Mask
-!     ************************
-   if (self % IBM% active) then
-      do STLNum = 1, self% IBM% NumOfSTL
-         call self% IBM% CleanMask( self % elements, self % no_of_elements, STLNum )
-      end do
-   end if
-
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
@@ -4555,18 +4547,16 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
 !     ************************
    if (self % IBM% active) then
 !$omp parallel do schedule(runtime) private(e)
-      do eID=1, self % no_of_elements
-         e => self % elements(eID) 
+       do eID=1, self % no_of_elements
+         e => self % elements(eID)  
          if (allocated(e% isInsideBody)) deallocate(e% isInsideBody)
          if (allocated(e% isForcingPoint)) deallocate(e% isForcingPoint)
          if (allocated(e% STL)) deallocate(e% STL)
-
-         call e % ConstructIBM(e% Nxyz(1), e% Nxyz(2), e% Nxyz(3), self% IBM% NumOfSTL)
-      end do
+         e% IBMConstruct   = .false.
+       end do
 !$omp end parallel do 
-
       do STLNum = 1, self% IBM% NumOfSTL
-         call self% IBM% build(self % elements, self % no_of_elements, self % NDOF, .false.)
+         call self% IBM% build( self% elements, self% faces, self% MPIfaces, self% NDOF, STLNum, self% child, .false., 0 )
       end do
    end if
 
