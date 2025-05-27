@@ -243,7 +243,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, nZones, zoneID, eID
+         INTEGER :: k, nZones, zoneID, eID, i, j
          logical :: HOElements, set_mu
 
          if (present(HO_Elements)) then
@@ -260,9 +260,6 @@ module SpatialDiscretization
 !
 !$omp parallel shared(mesh, time)
          call HexMesh_ProlongSolToFaces(mesh, NCONS)
-
-         ! call mesh % ProlongSolutionToFaces(NCONS, HO_Elements) need to fix for HO elements
-
 !        ----------------
 !        Update MPI Faces
 !        ----------------
@@ -1321,6 +1318,13 @@ module SpatialDiscretization
                
                do eq =1, NCONS
 
+               if (eid .eq. 1841) then
+                  if (eq .eq. 2) then
+                     print *, i,j,k, inviscidFlux(eq,1), inviscidFlux(eq,2), inviscidFlux(eq,3), viscousFlux(eq,1), viscousFlux(eq,2), viscousFlux(eq,3)
+                     print *, mesh % elements(eID) % storage % U_x(eq,i,j,k), mesh % elements(eID) % storage % U_y(eq,i,j,k), mesh % elements(eID) % storage % U_z(eq,i,j,k), mesh % elements(eID) % storage % Q(eq,i,j,k)
+                  end if
+               end if 
+
                inviscidFlux(eq,:) = inviscidFlux(eq,:) - viscousFlux(eq,:)
                   
                mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = &
@@ -1458,7 +1462,7 @@ module SpatialDiscretization
                       mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % fStar, &
                       mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % fStar, &
                       mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % fStar, &
-                      e % storage % QDot )
+                      -1, e % storage % QDot )
 
          !$acc loop vector collapse(3)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)

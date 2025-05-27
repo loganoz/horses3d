@@ -26,6 +26,7 @@ module SurfaceIntegrals
    integer, parameter   :: FLOW_RATE = 6
    integer, parameter   :: PRESSURE_DISTRIBUTION = 7
    integer, parameter   :: USER_DEFINED = 99
+   !$acc declare copyin(SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW_RATE, PRESSURE_DISTRIBUTION, USER_DEFINED)
 !
 !  ========
    contains
@@ -60,42 +61,10 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, fIDs(6), ierr
-         class(Element), pointer    :: elements(:)
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
-!
-!        Loop the zone to get faces and elements
-!        ---------------------------------------
-         elements => mesh % elements
-!$omp parallel private(fID, eID, fIDs) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
-!$omp&                                          computeGradients)
-!$omp single
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
-
-            eID = mesh % faces(fID) % elementIDs(1)
-            fIDs = mesh % elements(eID) % faceIDs
-
-!$omp task depend(inout:elements(eID))
-            call elements(eID) % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
-                                            mesh % faces(fIDs(2)),&
-                                            mesh % faces(fIDs(3)),&
-                                            mesh % faces(fIDs(4)),&
-                                            mesh % faces(fIDs(5)),&
-                                            mesh % faces(fIDs(6)) )
-            if ( computeGradients ) then
-            !   call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
-            !                                    mesh % faces(fIDs(2)),&
-            !                                    mesh % faces(fIDs(3)),&
-            !                                    mesh % faces(fIDs(4)),&
-            !                                    mesh % faces(fIDs(5)),&
-            !                                    mesh % faces(fIDs(6)) )
-            end if
-!$omp end task
-         end do
-!$omp end single
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
@@ -276,185 +245,222 @@ module SurfaceIntegrals
          use mpi
 #endif
          implicit none
-         class(HexMesh),      intent(inout), target  :: mesh 
+         type(HexMesh),       intent(inout) :: mesh 
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType, iter
          real(kind=RP)                      :: val(NDIM)
-         real(kind=RP)                      :: localVal(NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: zonefID, fID, eID, fIDs(6), ierr
-         class(Element), pointer  :: elements(:)
+         integer  :: zonefID, fID, eID, i, j, ierr
+         real(kind=RP) :: localval(NDIM)
+         real(kind=RP)  :: valx, valy, valz
+         real(kind=RP)  :: localx, localy, localz
+         real(kind=RP)  :: p, tau(1:NDIM, 1:NDIM)
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
-!
-!        *************************
-!        Perform the interpolation
-!        *************************
-!
-         elements => mesh % elements
-!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,computeGradients)
-!$omp single
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-            fID = mesh % zones(zoneID) % faces(zonefID)
+         valx = 0.0_RP
+         valy = 0.0_RP
+         valz = 0.0_RP
 
-            eID = mesh % faces(fID) % elementIDs(1)
-            fIDs = mesh % elements(eID) % faceIDs
-
-!$omp task depend(inout:elements(eID))
-            call elements(eID) % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
-                                            mesh % faces(fIDs(2)),&
-                                            mesh % faces(fIDs(3)),&
-                                            mesh % faces(fIDs(4)),&
-                                            mesh % faces(fIDs(5)),&
-                                            mesh % faces(fIDs(6)) )
-            if ( computeGradients ) then
-               !call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
-               !                                 mesh % faces(fIDs(2)),&
-               !                                 mesh % faces(fIDs(3)),&
-               !                                 mesh % faces(fIDs(4)),&
-               !                                 mesh % faces(fIDs(5)),&
-               !                                 mesh % faces(fIDs(6)) )
-            end if
-!$omp end task
-         end do
-!$omp end single
+         !$acc wait 
+         call HexMesh_ProlongSolToFaces(mesh, NCONS)
+         if ( computeGradients ) then
+            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
+         end if
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$acc parallel loop gang reduction(+:val) present(mesh) private(localVal)
-!$omp do private(fID,localVal) reduction(+:val) schedule(runtime)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
-!
-!           Face global ID
-!           --------------
-            fID = mesh % zones(zoneID) % faces(zonefID)
-!
-!           Compute the integral
-!           --------------------
-            localVal = VectorSurfaceIntegral_Face(mesh % faces(fID), integralType)
-            val(1) = val(1) + localVal(1)
-            val(2) = val(2) + localVal(2)
-            val(3) = val(3) + localVal(3)
+         !$acc wait
+         select case ( integralType )
+         case ( SURFACE )
 
+!$acc parallel loop gang present(mesh) num_gangs(mesh % zones(zoneID) % no_of_faces) reduction(+:valx, valy, valz)
+!$omp do private(fID,localVal, valx, valy, valz) reduction(+:valx, valy, valz) schedule(runtime)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            !
+            !           Face global ID
+            !           --------------
+                        fID = mesh % zones(zoneID) % faces(zonefID)
+            
+                        localx = 0.0_RP
+                        localy = 0.0_RP
+                        localz = 0.0_RP
+            !
+            !           **********************************
+            !           Computes the surface integral
+            !              val = \int \vec{n} dS
+            !           **********************************
+            !
+                        !$acc loop vector collapse(2) reduction(+:localx, localy, localz) private(val)
+                        do j = 0, mesh % faces(fid) % Nf(2) ;    do i = 0, mesh % faces(fid) % Nf(1)
+                           val = NodalStorage(mesh % faces(fid) % Nf(1)) % w(i) * NodalStorage(mesh % faces(fid) % Nf(2)) % w(j) &
+                                     * mesh % faces(fid) % geom % jacobian(i,j) * mesh % faces(fid) % geom % normal(:,i,j)
+            
+                           localx = localx + val(1)
+                           localy = localy + val(2)
+                           localz = localz + val(3)
+               
+                        end do          ;    end do
+            
+                        valx = valx + localx
+                        valy = valy + localy
+                        valz = valz + localz
+            
+                     end do
+!$omp end do
+!$omp end parallel
+!$acc end parallel loop
+                     
+         case ( TOTAL_FORCE )
+
+!$acc parallel loop gang present(mesh) num_gangs(mesh % zones(zoneID) % no_of_faces) reduction(+:valx, valy, valz)
+!$omp do private(fID,localVal, valx, valy, valz) reduction(+:valx, valy, valz) schedule(runtime)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            !
+            !           Face global ID
+            !           --------------
+                        fID = mesh % zones(zoneID) % faces(zonefID)
+            
+                        localx = 0.0_RP
+                        localy = 0.0_RP
+                        localz = 0.0_RP
+            !
+            !           ************************************************
+            !           Computes the total force experienced by the zone
+            !              F = \int p \vec{n}ds - \int tau'·\vec{n}ds
+            !           ************************************************
+            !
+                        !$acc loop vector collapse(2) reduction(+:localx, localy, localz) private(tau, val)
+                        do j = 0, mesh % faces(fid) % Nf(2) ;    do i = 0, mesh % faces(fid) % Nf(1)
+            !
+            !              Compute the integral
+            !              --------------------
+                           p = Pressure(mesh % faces(fid) % storage(1) % Q(:,i,j))
+                           call getStressTensor(mesh % faces(fid) % storage(1) % Q(:,i,j),  mesh % faces(fid) % storage(1) % U_x(:,i,j),&
+                                                mesh % faces(fid) % storage(1) % U_y(:,i,j),mesh % faces(fid) % storage(1) % U_z(:,i,j), tau)
+            
+                           val = ( p * mesh % faces(fid) % geom % normal(:,i,j) - matmul(tau,mesh % faces(fid) % geom % normal(:,i,j)) ) &
+                                     * mesh % faces(fid) % geom % jacobian(i,j) &
+                                     * NodalStorage(mesh % faces(fid) % Nf(1)) % w(i) * NodalStorage(mesh % faces(fid) % Nf(2)) % w(j)
+                           
+                           localx = localx + val(1)
+                           localy = localy + val(2)
+                           localz = localz + val(3)
+                        end do          ;    end do
+                        
+                        valx = valx + localx
+                        valy = valy + localy
+                        valz = valz + localz
+            
          end do
 !$omp end do
 !$omp end parallel
+!$acc end parallel loop
+         
+         case ( PRESSURE_FORCE )
 
+!$acc parallel loop gang present(mesh) num_gangs(mesh % zones(zoneID) % no_of_faces) reduction(+:valx, valy, valz) 
+!$omp do private(fID,localVal, valx, valy, valz) reduction(+:valx, valy, valz) schedule(runtime)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            !
+            !           Face global ID
+            !           --------------
+                        fID = mesh % zones(zoneID) % faces(zonefID)
+            
+                        localx = 0.0_RP
+                        localy = 0.0_RP
+                        localz = 0.0_RP
+            !
+            !           ****************************************************
+            !           Computes the pressure forces experienced by the zone
+            !              F = \int p \vec{n}ds
+            !           ****************************************************
+            !           
+                        !$acc loop vector collapse(2) reduction(+:localx, localy, localz) private(val)
+                        do j = 0, mesh % faces(fid) % Nf(2) ;    do i = 0, mesh % faces(fid) % Nf(1)
+            !
+            !              Compute the integral
+            !              --------------------
+                           p = Pressure(mesh % faces(fid) % storage(1) % Q(:,i,j))
+            
+                           val = ( p * mesh % faces(fid) % geom % normal(:,i,j) ) * mesh % faces(fid) % geom % jacobian(i,j) &
+                                     * NodalStorage(mesh % faces(fid) % Nf(1)) % w(i) &
+                                     * NodalStorage(mesh % faces(fid) % Nf(2)) % w(j)
+            
+                           localx = localx + val(1)
+                           localy = localy + val(2)
+                           localz = localz + val(3)
+                        end do          ;    end do
+                        
+                        valx = valx + localx
+                        valy = valy + localy
+                        valz = valz + localz
+            
+         end do
+!$omp end do
+!$omp end parallel
+!$acc end parallel loop
+
+         case ( VISCOUS_FORCE )
+
+!$acc parallel loop gang present(mesh) num_gangs(mesh % zones(zoneID) % no_of_faces) reduction(+:valx, valy, valz)
+!$omp do private(fID,localVal, valx, valy, valz) reduction(+:valx, valy, valz) schedule(runtime)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            !
+            !           Face global ID
+            !           --------------
+                        fID = mesh % zones(zoneID) % faces(zonefID)
+            
+                        localx = 0.0_RP
+                        localy = 0.0_RP
+                        localz = 0.0_RP
+            !
+            !           ************************************************
+            !           Computes the total force experienced by the zone
+            !              F =  - \int tau'·\vec{n}ds
+            !           ************************************************
+            !
+                        !$acc loop vector collapse(2) reduction(+:localx, localy, localz) private(tau, val)
+                        do j = 0, mesh % faces(fid) % Nf(2) ;    do i = 0, mesh % faces(fid) % Nf(1)
+            !
+            !              Compute the integral
+            !              --------------------
+                           call getStressTensor(mesh % faces(fid) % storage(1) % Q(:,i,j),  mesh % faces(fid) % storage(1) % U_x(:,i,j),&
+                                                mesh % faces(fid) % storage(1) % U_y(:,i,j),mesh % faces(fid) % storage(1) % U_z(:,i,j), tau)
+                           
+                           val = - matmul(tau,mesh % faces(fid) % geom % normal(:,i,j)) * mesh % faces(fid) % geom % jacobian(i,j) &
+                                       * NodalStorage(mesh % faces(fid) % Nf(1)) % w(i) &
+                                       * NodalStorage(mesh % faces(fid) % Nf(2)) % w(j)
+            
+                           localx = localx + val(1)
+                           localy = localy + val(2)
+                           localz = localz + val(3)
+                        end do          ;    end do
+            
+                        valx = valx + localx
+                        valy = valy + localy
+                        valz = valz + localz
+            
+         end do
+!$omp end do
+!$omp end parallel
+!$acc end parallel loop
+           
+         end select
+            
+         val(1:3) = [valx, valy, valz]
+         
 #ifdef _HAS_MPI_
          localVal = val
          call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
 
       end function VectorSurfaceIntegral
-
-      function VectorSurfaceIntegral_Face(f, integralType) result(val)
-         !$acc routine vector
-         implicit none
-         class(Face),                 intent(in)     :: f
-         integer,                     intent(in)     :: integralType
-         real(kind=RP)                               :: val(NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer                       :: i, j      ! Face indices
-         real(kind=RP)                 :: p, tau(NDIM,NDIM)
-!
-!        Initialization
-!        --------------
-         val = 0.0_RP
-!
-!        Perform the numerical integration
-!        ---------------------------------
-         select case ( integralType )
-         case ( SURFACE )
-!
-!           **********************************
-!           Computes the surface integral
-!              val = \int \vec{n} dS
-!           **********************************
-!
-            !$acc loop vector collapse(2) reduction(+:val)
-            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + NodalStorage(f % Nf(1)) % w(i) * NodalStorage(f % Nf(2)) % w(j) &
-                         * f % geom % jacobian(i,j) * f % geom % normal(:,i,j)
-            end do          ;    end do
-
-         case ( TOTAL_FORCE )
-!
-!           ************************************************
-!           Computes the total force experienced by the zone
-!              F = \int p \vec{n}ds - \int tau'·\vec{n}ds
-!           ************************************************
-!
-            !$acc loop vector collapse(2) reduction(+:val) private(tau)
-            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-!
-!              Compute the integral
-!              --------------------
-               p = Pressure(f % storage(1) % Q(:,i,j))
-               call getStressTensor(f % storage(1) % Q(:,i,j),  f % storage(1) % U_x(:,i,j),&
-                                    f % storage(1) % U_y(:,i,j),f % storage(1) % U_z(:,i,j), tau)
-
-               val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
-                           * f % geom % jacobian(i,j) &
-                           * NodalStorage(f % Nf(1)) % w(i) * NodalStorage(f % Nf(2)) % w(j)
-
-            end do          ;    end do
-
-         case ( PRESSURE_FORCE )
-!
-!           ****************************************************
-!           Computes the pressure forces experienced by the zone
-!              F = \int p \vec{n}ds
-!           ****************************************************
-!           
-            !$acc loop vector collapse(2) reduction(+:val)
-            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-!
-!              Compute the integral
-!              --------------------
-               p = Pressure(f % storage(1) % Q(:,i,j))
-
-               val = val + ( p * f % geom % normal(:,i,j) ) * f % geom % jacobian(i,j) &
-                         * NodalStorage(f % Nf(1)) % w(i) &
-                         * NodalStorage(f % Nf(2)) % w(j)
-
-            end do          ;    end do
-
-         case ( VISCOUS_FORCE )
-!
-!           ************************************************
-!           Computes the total force experienced by the zone
-!              F =  - \int tau'·\vec{n}ds
-!           ************************************************
-!
-            !$acc loop vector collapse(2) reduction(+:val) private(tau)
-            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-!
-!              Compute the integral
-!              --------------------
-               call getStressTensor(f % storage(1) % Q(:,i,j),  f % storage(1) % U_x(:,i,j),&
-                                    f % storage(1) % U_y(:,i,j),f % storage(1) % U_z(:,i,j), tau)
-               
-               val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % jacobian(i,j) &
-                           * NodalStorage(f % Nf(1)) % w(i) &
-                           * NodalStorage(f % Nf(2)) % w(j)
-
-            end do          ;    end do
-
-         case ( USER_DEFINED )   ! TODO
-
-         end select
-      end function VectorSurfaceIntegral_Face
-
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !

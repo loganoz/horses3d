@@ -162,11 +162,10 @@ module GenericBoundaryConditionClass
          implicit none
          class(GenericBC_t),  intent(in)     :: self
          type(HexMesh),       intent(inout)  :: mesh
-         type(Zone_t), intent(in)            :: zone
+         type(Zone_t),        intent(in)     :: zone
 
 #ifndef CAHNHILLIARD
          call self % FlowGradVars(mesh, zone)
-
 #else
          select case(self % currentEqn)
 #ifdef FLOW
@@ -244,8 +243,6 @@ module GenericBoundaryConditionClass
          class(GenericBC_t),  intent(in)    :: self
          type(HexMesh), intent(inout)       :: mesh
          type(Zone_t), intent(in)           :: zone
-
-!         integer,                 intent(in)    :: zoneID 
 !
 !        ---------------
 !        Local variables
@@ -291,9 +288,9 @@ module GenericBoundaryConditionClass
                mesh % faces(fID) % storage(1) % unStar(:,3,i,j) = (u_star-u_int) * mesh % faces(fID) % geom % normal(3,i,j) * mesh % faces(fID) % geom % jacobian(i,j)
 
             enddo ; enddo
-
          enddo
          !$acc end parallel loop
+
       end subroutine GenericBC_FlowGradVars
 
       subroutine GenericBC_FlowNeumann(self, mesh, zone)

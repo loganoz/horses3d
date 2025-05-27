@@ -459,8 +459,7 @@ module OutflowBCClass
          integer       :: fID
          integer       :: zonefID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, nHat)  
@@ -509,8 +508,7 @@ module OutflowBCClass
          integer       :: fID
          integer       :: zonefID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(flux)  
@@ -576,8 +574,7 @@ module OutflowBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -603,8 +600,7 @@ module OutflowBCClass
          !local variables
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent 
@@ -659,8 +655,7 @@ module OutflowBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -686,8 +681,7 @@ module OutflowBCClass
          !local variables
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent 

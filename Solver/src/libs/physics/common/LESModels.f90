@@ -413,11 +413,12 @@ module LESModels
          real(kind=RP)  :: S(NDIM, NDIM)
          real(kind=RP)  :: gradV2(NDIM, NDIM), gradV(NDIM,NDIM)
          real(kind=RP)  :: Sd(NDIM, NDIM)
-         real(kind=RP)  :: normS, normSd, divV2, kappa, LS
+         real(kind=RP)  :: normS, normSd, divV2, kappa, LS, rho
          real(kind=RP)  :: U_x(NDIM)
          real(kind=RP)  :: U_y(NDIM)
          real(kind=RP)  :: U_z(NDIM)
          integer        :: i,j
+         integer        :: k   ! The third index
          !-------------------------------------------------------
          
          !call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
@@ -426,14 +427,17 @@ module LESModels
          gradV(1,:) = U_x(1:3)
          gradV(2,:) = U_y(1:3)
          gradV(3,:) = U_z(1:3)
- 
          do i = 1, 3 
             do j = 1, 3 
                S(i,j)      = 0.5_RP*(gradV(i,j)+gradV(j,i))
-               gradV2(i,j) = 0.5_RP*(gradV(i,j)*gradV(j,i))
+
+               gradV2(i,j) = 0
+               do k = 1,3
+                  gradV2(i,j) = gradV2(i,j) + gradV(i,k)*gradV(k,j) 
+               end do
+
             end do  
          end do  
-         
          divV2 = gradV2(1,1) + gradV2(2,2) + gradV2(3,3)
 
          normS =  sum(S*S)
@@ -448,10 +452,25 @@ module LESModels
          Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * divV2
          Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * divV2
 
+!//////////////////////////////////////////////////////////////////////////////////////
+!        These are the code after expanding the do loop, these codes equal to the above, but hard.
+   !   Sd(1,1) = 2.0_RP/3.0*gradV(1,1)**2 + 1.0_RP/3.0*gradV(1,2)*gradV(2,1) + 1.0_RP/3.0*gradV(1,3)*gradV(3,1) - 1.0_RP/3.0*gradV(2,2)**2 - 2.0_RP/3.0*gradV(2,3)*gradV(3,2) - 1.0_RP/3.0*gradV(3,3)**2  
+   !   Sd(1,2) = 0.5_RP*gradV(1,1)*gradV(1,2) + 0.5_RP*gradV(1,1)*gradV(2,1) + 0.5_RP*gradV(1,2)*gradV(2,2) + 0.5_RP*gradV(1,3)*gradV(3,2) + 0.5_RP*gradV(2,1)*gradV(2,2) + 0.5_RP*gradV(2,3)*gradV(3,1)  
+   !   Sd(1,3) = 0.5_RP*gradV(1,1)*gradV(1,3) + 0.5_RP*gradV(1,1)*gradV(3,1) + 0.5_RP*gradV(1,2)*gradV(2,3) + 0.5_RP*gradV(1,3)*gradV(3,3) + 0.5_RP*gradV(2,1)*gradV(3,2) + 0.5_RP*gradV(3,1)*gradV(3,3)  
+   !   Sd(2,1) = 0.5_RP*gradV(1,1)*gradV(1,2) + 0.5_RP*gradV(1,1)*gradV(2,1) + 0.5_RP*gradV(1,2)*gradV(2,2) + 0.5_RP*gradV(1,3)*gradV(3,2) + 0.5_RP*gradV(2,1)*gradV(2,2) + 0.5_RP*gradV(2,3)*gradV(3,1)  
+   !   Sd(2,2) = -1.0_RP/3.0*gradV(1,1)**2 + 1.0_RP/3.0*gradV(1,2)*gradV(2,1) - 2.0_RP/3.0*gradV(1,3)*gradV(3,1) + 2.0_RP/3.0*gradV(2,2)**2 + 1.0_RP/3.0*gradV(2,3)*gradV(3,2) - 1.0_RP/3.0*gradV(3,3)**2 
+   !   Sd(2,3) = 0.5_RP*gradV(1,2)*gradV(3,1) + 0.5_RP*gradV(1,3)*gradV(2,1) + 0.5_RP*gradV(2,2)*gradV(2,3) + 0.5_RP*gradV(2,2)*gradV(3,2) + 0.5_RP*gradV(2,3)*gradV(3,3) + 0.5_RP*gradV(3,2)*gradV(3,3)  
+   !   Sd(3,1) = 0.5_RP*gradV(1,1)*gradV(1,3) + 0.5_RP*gradV(1,1)*gradV(3,1) + 0.5_RP*gradV(1,2)*gradV(2,3) + 0.5_RP*gradV(1,3)*gradV(3,3) + 0.5_RP*gradV(2,1)*gradV(3,2) + 0.5_RP*gradV(3,1)*gradV(3,3)  
+   !   Sd(3,2) = 0.5_RP*gradV(1,2)*gradV(3,1) + 0.5_RP*gradV(1,3)*gradV(2,1) + 0.5_RP*gradV(2,2)*gradV(2,3) + 0.5_RP*gradV(2,2)*gradV(3,2) + 0.5_RP*gradV(2,3)*gradV(3,3) + 0.5_RP*gradV(3,2)*gradV(3,3)  
+   !   Sd(3,3) = -1.0_RP/3.0*gradV(1,1)**2 - 2.0_RP/3.0*gradV(1,2)*gradV(2,1) + 1.0_RP/3.0*gradV(1,3)*gradV(3,1) - 1.0_RP/3.0*gradV(2,2)**2 + 1.0_RP/3.0*gradV(2,3)*gradV(3,2) + 2.0_RP/3.0*gradV(3,3)**2
+!//////////////////////////////////////////////////////////////////////////////////////
+
          normSd =  sum(Sd*Sd)
          LS = C * delta
-         
-         mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
+
+         rho = get_rho(Q, dimensionless)
+
+         mu = rho * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
 
          if (normS<1.0e-8_RP .and. normSd<1.0e-8_RP) mu=0.0_RP
          
@@ -588,4 +607,25 @@ module LESModels
          end select
          
       end subroutine Vreman_Describe
+
+      function get_rho(Q, dimensionless_) result(rho)
+      !$acc routine seq
+         implicit none
+         real(kind=RP), intent(in) :: Q(:)              
+         type(dimensionless_t),intent(in) :: dimensionless_ 
+      
+         real(kind=RP) :: rho                          
+    
+#if defined (NAVIERSTOKES) 
+         rho = Q(IRHO)
+#elif defined (INCNS)
+         rho = Q(INSRHO)
+#elif defined (MULTIPHASE)
+         rho = dimensionless_%rho(1) * Q(IMC) + dimensionless_%rho(2) * (1.0 - Q(IMC))
+! #else
+!          print *, "Error: rho computation not valid for physics "
+!          stop
+#endif
+      end function get_rho
+
 end module LESModels

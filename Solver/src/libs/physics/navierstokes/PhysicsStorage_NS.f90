@@ -114,6 +114,7 @@
      end enum
      integer, protected :: grad_vars = GRADVARS_STATE
      !$acc declare copyin(grad_vars)
+     !$acc declare copyin(GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY)
 
 !
 !    ------------------------------

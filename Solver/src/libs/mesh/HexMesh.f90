@@ -43,8 +43,10 @@ MODULE HexMeshClass
       public      no_of_stats_variables, HexMesh_ProlongSolToFaces, HexMesh_ProlongGradientsToFaces
       public      HexMesh_UpdateMPIFacesSolution, HexMesh_UpdateMPIFacesGradients
       public      HexMesh_GatherMPIFacesSolution, HexMesh_GatherMPIFacesGradients
-      public      HexMesh_ComputeLocalGradientNS, HexMesh_ComputeLocalGradientCH, HexMesh_ComputeLocalGradientMU
-
+      public      HexMesh_ComputeLocalGradientNS
+#if defined(CAHNHILLIARD)
+      public      HexMesh_ComputeLocalGradientCH, HexMesh_ComputeLocalGradientMU
+#endif
 !
 !     ---------------
 !     Mesh definition
@@ -974,7 +976,7 @@ slavecoord:             DO l = 1, 4
          case(1) !Gauss
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) present(self) num_gangs(size(self % elements)) vector_length(32) 
+!$acc parallel loop gang collapse(2) present(self) num_gangs(size(self % elements)) vector_length(32) async(1)
          do eID = 1, size(self % elements)
             do fID = 1, 6
             call HexElement_ProlongSolToFaces(self % elements(eID), nEqn, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
@@ -985,7 +987,7 @@ slavecoord:             DO l = 1, 4
          case(2) !Gauss-Lobatto
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) present(self) num_gangs(size(self % elements)) vector_length(32)  
+!$acc parallel loop gang collapse(2) present(self) num_gangs(size(self % elements)) vector_length(32) async(1)  
          do eID = 1, size(self % elements)
             do fID = 1, 6
             call HexElement_ProlongSolToFaces_GL(self % elements(eID), nEqn, self % faces(self % elements(eID) % faceIDs(fID)), fID)                        
@@ -1015,7 +1017,7 @@ slavecoord:             DO l = 1, 4
          select case ( self %nodeType )
          case(1) !Gauss
 
-!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs)
+!$acc parallel loop gang num_gangs(size_element_list) collapse(2) present(self, element_list) private(fIDs) async(1)
 !$omp do schedule(runtime) private(eID)
          do iEl = 1, size_element_list
             do fid = 1,6
@@ -1039,7 +1041,7 @@ slavecoord:             DO l = 1, 4
          case(2) !Gauss-Lobatto
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) 
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1)
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
@@ -1051,7 +1053,7 @@ slavecoord:             DO l = 1, 4
 !$omp end do
 
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) 
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1) 
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
@@ -1063,7 +1065,7 @@ slavecoord:             DO l = 1, 4
 !$omp end do
          
 !$omp do schedule(runtime)
-!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) 
+!$acc parallel loop gang collapse(2) num_gangs(size(self % elements)) vector_length(32) present(self,element_list) async(1) 
          do iEl = 1, size_element_list
             do fID = 1, 6
                eID = element_list(iEl)
@@ -4407,31 +4409,6 @@ slavecoord:             DO l = 1, 4
             !$acc enter data copyin(self % elements(eID) % storage % stats % data)
          end if
 
-         !!!!$acc enter data copyin(self % elements(eID) % storage % QDotNS)
-         !!!$acc enter data create(self % elements(eID) % storage % QDot)
-         !!!$acc enter data attach(self % elements(eID) % storage % QDot)
-         !!call acc_attach(self % elements(eID) % storage % QDot)
-
-         !!$acc enter data copyin(self % elements(eID) % storage % QNS)
-         !!$acc enter data create(self % elements(eID) % storage % Q)
-         !!$acc enter data attach(self % elements(eID) % storage % Q)
-         !call acc_attach(self % elements(eID) % storage % Q)
-
-         !!$acc enter data copyin(self % elements(eID) % storage % U_xNS)
-         !!$acc enter data create(self % elements(eID) % storage % U_x)
-         !!$acc enter data attach(self % elements(eID) % storage % U_x)
-         !call acc_attach(self % elements(eID) % storage % U_x)
-
-         !!$acc enter data copyin(self % elements(eID) % storage % U_yNS)
-         !!$acc enter data create(self % elements(eID) % storage % U_y)
-         !!$acc enter data attach(self % elements(eID) % storage % U_y)
-         !call acc_attach(self % elements(eID) % storage % U_y)
-
-         !!$acc enter data copyin(self % elements(eID) % storage % U_zNS)
-         !!$acc enter data create(self % elements(eID) % storage % U_z)
-         !!$acc enter data attach(self % elements(eID) % storage % U_z)
-         !call acc_attach(self % elements(eID) % storage % U_z)
-
          !$acc enter data copyin(self % elements(eID) % storage % Q)
          !$acc enter data copyin(self % elements(eID) % storage % QDot)
          !$acc enter data copyin(self % elements(eID) % storage % U_x)
@@ -4506,46 +4483,9 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % storage(2) % U_z)
 
 
-         !!$acc enter data copyin(self % faces(iFace) % storage(1) % QNS)
-         !!$acc enter data create(self % faces(iFace) % storage(1) % Q)
-         !!$acc enter data attach(self % faces(iFace) % storage(1) % Q)
-         !call acc_attach(self % faces(iFace) % storage(1) % Q)
-         !!$acc enter data copyin(self % faces(iFace) % storage(2) % QNS)
-         !!$acc enter data create(self % faces(iFace) % storage(2) % Q)
-         !!$acc enter data attach(self % faces(iFace) % storage(2) % Q)
-         !call acc_attach(self % faces(iFace) % storage(2) % Q)
-
          !$acc enter data copyin(self % faces(iFace) % storage(1) % Q_aux)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % Q_aux)
         
-         !!$acc enter data copyin(self % faces(iFace) % storage(1) % U_xNS)
-         !!$acc enter data create(self % faces(iFace) % storage(1) % U_x)
-         !!$acc enter data attach(self % faces(iFace) % storage(1) % U_x)
-         !call acc_attach(self % faces(iFace) % storage(1) % U_x)
-         !!$acc enter data copyin(self % faces(iFace) % storage(2) % U_xNS)
-         !!$acc enter data create(self % faces(iFace) % storage(2) % U_x)
-         !!$acc enter data attach(self % faces(iFace) % storage(2) % U_x)
-         !call acc_attach(self % faces(iFace) % storage(2) % U_x)
-
-         !!$acc enter data copyin(self % faces(iFace) % storage(1) % U_yNS)
-         !!$acc enter data create(self % faces(iFace) % storage(1) % U_y)
-         !!$acc enter data attach(self % faces(iFace) % storage(1) % U_y)
-         !call acc_attach(self % faces(iFace) % storage(1) % U_y)
-
-         !!$acc enter data copyin(self % faces(iFace) % storage(2) % U_yNS)
-         !!$acc enter data create(self % faces(iFace) % storage(2) % U_y)
-         !!$acc enter data attach(self % faces(iFace) % storage(2) % U_y)
-         !call acc_attach(self % faces(iFace) % storage(2) % U_y)
-
-         !!$acc enter data copyin(self % faces(iFace) % storage(1) % U_zNS)
-         !!$acc enter data create(self % faces(iFace) % storage(1) % U_z)
-         !!$acc enter data attach(self % faces(iFace) % storage(1) % U_z)
-         !call acc_attach(self % faces(iFace) % storage(1) % U_z)
-
-         !!$acc enter data copyin(self % faces(iFace) % storage(2) % U_zNS)
-         !!$acc enter data create(self % faces(iFace) % storage(2) % U_z)
-         !!$acc enter data attach(self % faces(iFace) % storage(2) % U_z)
-         !call acc_attach(self % faces(iFace) % storage(2) % U_z)
 
          !$acc enter data copyin(self % faces(iFace) % storage(1) % mu_NS)
          !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_NS)
@@ -4608,6 +4548,8 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(NodalStorage(i) % D)
          !$acc enter data copyin(NodalStorage(i) % b)
          !$acc enter data copyin(NodalStorage(i) % v)
+         !$acc enter data copyin(NodalStorage(i) % w)
+         !$acc enter data copyin(NodalStorage(i) % x)
       END DO
 
 #ifdef _HAS_MPI_
@@ -5593,7 +5535,7 @@ call elementMPIList % destruct
 
       !--------------------------------------------------
 !$omp do schedule(runtime)
-      !$acc parallel loop gang vector_length(128) present(self, self % elements)
+      !$acc parallel loop gang vector_length(128) present(self) async(1)
          do eID = 1 , size(self % elements)
             call HexElement_ComputeLocalGradient(self % elements(eID), NCONS, NGRAD, self % elements(eID) % storage % Q)
          end do
@@ -5602,6 +5544,7 @@ call elementMPIList % destruct
 
    end subroutine HexMesh_ComputeLocalGradientNS
 
+#ifdef CAHNHILLIARD
    subroutine HexMesh_ComputeLocalGradientCH(self, set_mu)
       implicit none
       !-arguments-----------------------------------------
@@ -5612,7 +5555,7 @@ call elementMPIList % destruct
 
       !--------------------------------------------------
 !$omp do schedule(runtime)
-      !$acc parallel loop gang vector_length(128) present(self) copyin(set_mu)
+      !$acc parallel loop gang vector_length(128) present(self) copyin(set_mu) async(1)
       do eID = 1 , size(self % elements)
 
          !$acc loop vector collapse(3) 
@@ -5639,7 +5582,7 @@ call elementMPIList % destruct
 
       !--------------------------------------------------
 !$omp do schedule(runtime)
-      !$acc parallel loop gang vector_length(128) present(self) copyin(set_mu)
+      !$acc parallel loop gang vector_length(128) present(self) copyin(set_mu) async(1)
       do eID = 1 , size(self % elements)
 
          !$acc loop vector collapse(3) 
@@ -5654,7 +5597,7 @@ call elementMPIList % destruct
       end do
    !$acc end parallel loop
 !$omp end do nowait
-
    end subroutine HexMesh_ComputeLocalGradientMU
+#endif
 
 END MODULE HexMeshClass

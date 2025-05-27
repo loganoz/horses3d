@@ -258,8 +258,9 @@ module FreeSlipWallBCClass
          class(FreeSlipWallBC_t), intent(in)    :: self
 
          !$acc enter data copyin(self)
+#if defined(CAHNHILLIARD)
          !$acc update device(self % thetaw)
-
+#endif
       end subroutine FreeSlipWallBC_CreateDeviceData
 
       subroutine FreeSlipWallBC_ExitDeviceData(self)
@@ -548,7 +549,7 @@ module FreeSlipWallBCClass
          real(kind=RP) :: vn
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
-         !$acc parallel loop gang present(mesh, self, zone)
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
@@ -601,7 +602,7 @@ module FreeSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, u_int)            
@@ -640,7 +641,7 @@ module FreeSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q,flux)  
@@ -706,7 +707,7 @@ module FreeSlipWallBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !$acc parallel loop gang present(mesh, self, zone)
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -736,7 +737,7 @@ module FreeSlipWallBCClass
          real(kind=RP)              :: prod, Q(NCOMP)
          integer                    :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q, prod)
@@ -771,7 +772,7 @@ module FreeSlipWallBCClass
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self, zone)
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
@@ -798,7 +799,7 @@ module FreeSlipWallBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -823,7 +824,7 @@ module FreeSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q,flux)  

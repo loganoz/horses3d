@@ -120,6 +120,7 @@ module MonitorsClass
 !        Initialize the Monitors class in the GPU
 !        ----------------------------------------
          !$acc enter data copyin(Monitors)
+
 !        Pro tip: This is necessary to avoid the compiler doing behind the scenes copies of the class.
 !        Pro tip(cont): Its not really necessary for the class itself, but for the arrays inside the class.
 !

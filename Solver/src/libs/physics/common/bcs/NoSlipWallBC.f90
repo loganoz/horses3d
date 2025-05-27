@@ -555,8 +555,7 @@ module NoSlipWallBCClass
          integer       :: fID
          integer       :: zonefID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
@@ -591,7 +590,7 @@ module NoSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID) 
+         !$acc parallel loop gang present(mesh, self, zone) private(fID)  async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, u_star, u_int)            
@@ -633,7 +632,7 @@ module NoSlipWallBCClass
          integer       :: fID
          integer       :: zonefID
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent 
@@ -699,8 +698,7 @@ module NoSlipWallBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -730,8 +728,7 @@ module NoSlipWallBCClass
          real(kind=RP)              :: prod, Q(NCOMP)
          integer                    :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q, prod)
@@ -794,8 +791,7 @@ module NoSlipWallBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -820,8 +816,7 @@ module NoSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: flux(NCONS),Q(NCONS)
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent private(Q,flux)  

@@ -639,8 +639,9 @@ Module DGSEMClass
          localR4 = 0.0_RP
          localR5 = 0.0_RP
          localR6 = 0.0_RP
+#ifdef CAHNHILLIARD
          localc  = 0.0_RP
-
+#endif
          !$acc loop vector collapse(3) reduction(max:localR1,localR2,localR3,localR4,localR5,localc)
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 #if defined FLOW && !(SPALARTALMARAS)
@@ -759,7 +760,7 @@ Module DGSEMClass
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
-!$acc parallel loop gang present(self, cfl, dcfl) reduction(min:TimeStep_Conv,TimeStep_Visc) copyout(TimeStep_Conv, TimeStep_Visc)
+!$acc parallel loop gang present(self, cfl, dcfl) reduction(min:TimeStep_Conv,TimeStep_Visc)
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements)
@@ -860,6 +861,8 @@ Module DGSEMClass
 !$omp end do
 !$omp end parallel
 !$acc end parallel loop
+
+      !!$acc update host(TimeStep_Conv, TimeStep_Visc)
 
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then

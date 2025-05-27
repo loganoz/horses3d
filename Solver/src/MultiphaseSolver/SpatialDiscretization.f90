@@ -239,7 +239,7 @@ module SpatialDiscretization
          select case (mode)
          case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
-!$acc parallel loop gang vector_length(128) present(mesh)
+!$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -256,6 +256,7 @@ module SpatialDiscretization
 !
 !$omp single
          !call mesh % SetStorageToEqn(C_BC)
+         !$acc wait
          select case (mode)
          case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
             call SetBoundaryConditionsEqn(C_BC)
@@ -273,7 +274,7 @@ module SpatialDiscretization
          call HexMesh_ProlongSolToFaces(mesh, NCOMP)
 
 !$omp do schedule(runtime)
-         !$acc parallel loop gang present(mesh)
+         !$acc parallel loop gang present(mesh) async(1)
          do fID = 1, size(mesh % faces)
             !$acc loop vector collapse(2)
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
@@ -326,7 +327,7 @@ module SpatialDiscretization
          select case (mode)
          case (CTD_IGNORE_MODE, CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
-            !$acc parallel loop gang vector_length(128) present(mesh)
+            !$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
 !
                !$acc loop vector collapse(3)
@@ -345,7 +346,7 @@ module SpatialDiscretization
 !$omp end do         
          case (CTD_IMEX_IMPLICIT)
 !$omp do schedule(runtime)
-            !$acc parallel loop gang vector_length(128) present(mesh)
+            !$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -374,7 +375,7 @@ module SpatialDiscretization
 !$omp end single
             ! copy mu to Q(1)
 !$omp do schedule(runtime)
-            !$acc parallel loop gang vector_length(128) present(mesh)
+            !$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -389,7 +390,7 @@ module SpatialDiscretization
             !!! copy c to Q(1) &&&  copy Q faces to mu faces !!!!
 
 !$omp do schedule(runtime)
-         !$acc parallel loop gang present(mesh)
+         !$acc parallel loop gang present(mesh) async(1)
          do fID = 1, size(mesh % faces)
             !$acc loop vector collapse(2)
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
@@ -401,7 +402,7 @@ module SpatialDiscretization
 !$omp end do
 
 !$omp do schedule(runtime)
-            !$acc parallel loop gang vector_length(128) present(mesh)
+            !$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -476,6 +477,7 @@ module SpatialDiscretization
          case (CTD_IGNORE_MODE, CTD_IMEX_EXPLICIT)
 !$omp single         
          !call mesh % SetStorageToEqn(NS_BC)
+         !$acc wait
          call SetBoundaryConditionsEqn(NS_BC)
 !$omp end single
 !
@@ -501,7 +503,7 @@ module SpatialDiscretization
 !        -------------------------------------
 !
 !$omp do schedule(runtime)
-         !$acc parallel loop gang vector_length(128) present(mesh)
+         !$acc parallel loop gang vector_length(128) present(mesh) async(1)
          do eID = 1, size(mesh % elements)
             !$acc loop vector collapse(3)
             do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -513,7 +515,7 @@ module SpatialDiscretization
 !$omp end do nowait
 
 !$omp do schedule(runtime)
-         !$acc parallel loop gang vector_length(128) present(mesh)
+         !$acc parallel loop gang vector_length(128) present(mesh) async(1)
          do fID = 1, size(mesh % faces)
             !$acc loop vector collapse(2)
             do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
@@ -549,7 +551,7 @@ module SpatialDiscretization
 !        Add the Non-Conservative term to QDot
 !        -------------------------------------
 !
-!$acc parallel loop gang vector_length(128) present(mesh)
+!$acc parallel loop gang vector_length(128) present(mesh) async(1)
 !$omp do schedule(runtime) private(i,j,k,e,sqrtRho,invMa2)
          do eID = 1, size(mesh % elements)
             !$acc loop vector collapse(3)
@@ -615,7 +617,7 @@ module SpatialDiscretization
          select case (mode)
          case(CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
-            !$acc parallel loop gang vector_length(128) present(mesh)
+            !$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -670,7 +672,7 @@ module SpatialDiscretization
 !           -----------------------------------------
 !
 !$omp do schedule(runtime)
-            !$acc parallel loop gang vector_length(128) present(mesh)
+            !$acc parallel loop gang vector_length(128) present(mesh) async(1)
             do eID = 1, size(mesh % elements)
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -683,6 +685,10 @@ module SpatialDiscretization
          end select
 !$omp end parallel
 !
+
+!        TODO: This is not useful - leaving here for debug
+         !$acc wait
+
       END SUBROUTINE ComputeTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////////////////
@@ -716,7 +722,7 @@ module SpatialDiscretization
 !        ******************************************
 !
 !$omp do schedule(runtime) private(fID)
-!$acc parallel loop gang collapse(2) present(mesh)
+!$acc parallel loop gang collapse(2) present(mesh) async(1)
          do iFace = 1, size(mesh % faces_interior) ; do side = 1,2
             fID = mesh % faces_interior(iFace)
             call computeElementInterfaceFlux_MUviscous(mesh % faces(fID), side)
@@ -734,7 +740,7 @@ module SpatialDiscretization
 !        *************************************************************************************
 !
 !$omp do schedule(runtime) private(i,j,k,eID)
-!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh)
+!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh) async(1)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
             call TimeDerivative_FacesContribution(mesh % elements(eID), mesh)
@@ -743,7 +749,7 @@ module SpatialDiscretization
 !$omp end do
 
 !$omp do schedule(runtime) private(i,j,k,sqrtRho,invSqrtRho)
-         !$acc parallel loop gang vector_length(128) present(mesh)
+         !$acc parallel loop gang vector_length(128) present(mesh) async(1)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
             !$acc loop vector collapse(3)
@@ -865,7 +871,7 @@ module SpatialDiscretization
 !        Compute inviscid - viscous contravariant flux
 !        ---------------------------------------------
          !$omp do schedule(runtime)
-         !$acc parallel loop gang present(mesh)
+         !$acc parallel loop gang present(mesh) async(1)
          do eID = 1 , size(mesh % elements)
 
             !$acc loop vector collapse(3) private(inviscidFlux, viscousFlux, jGradXi, jGradEta, jGradZeta)
@@ -998,7 +1004,7 @@ module SpatialDiscretization
          real(kind=RP) :: inv_flux2(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
 
          !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang vector_length(32) present(mesh) private(inv_flux1, inv_flux2, visc_flux)
+         !$acc parallel loop gang vector_length(32) present(mesh) private(inv_flux1, inv_flux2, visc_flux) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
          
@@ -1170,7 +1176,7 @@ module SpatialDiscretization
          
          call BCs(zoneID) % bc % FlowState(mesh, mesh % zones(zoneID))  
 
-         !$acc parallel loop gang present(mesh)
+         !$acc parallel loop gang present(mesh) async(1)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
              fID =  mesh % zones(zoneID) % faces(zonefID)
     
@@ -1209,7 +1215,7 @@ module SpatialDiscretization
 
          CALL BCs(zoneID) % bc % FlowNeumann(mesh, mesh % zones(zoneID))                           
 
-         !$acc parallel loop gang present(mesh) private(inv_flux1, inv_flux2)
+         !$acc parallel loop gang present(mesh) private(inv_flux1, inv_flux2) async(1)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
 
@@ -1286,7 +1292,7 @@ module SpatialDiscretization
 !        ***************************************************************
 ! 
 !$omp do schedule(runtime) private(i,j,k,eID)
-!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh)
+!$acc parallel loop gang num_gangs(size(mesh % elements_sequential)) vector_length(128) present(mesh) async(1)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
             call Laplacian_FacesContribution(mesh, eID)
@@ -1431,7 +1437,7 @@ module SpatialDiscretization
 !        Compute contravariant flux
 !        --------------------------
          !$omp do schedule(runtime)
-         !$acc parallel loop gang present(mesh) 
+         !$acc parallel loop gang present(mesh)  async(1)
          do eID = 1 , size(mesh % elements)
 
             !$acc loop vector collapse(3) private(cartesianFlux)
@@ -1530,7 +1536,7 @@ module SpatialDiscretization
          sigma = 1.0_RP
          
 !$omp do schedule(runtime) private(fID)
-!$acc parallel loop gang present(mesh)
+!$acc parallel loop gang present(mesh) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             !$acc loop vector collapse(2)
@@ -1653,7 +1659,7 @@ module SpatialDiscretization
          nZones = size(mesh % zones)
          do zoneID=1, nZones
          
-            !$acc parallel loop gang present(mesh)
+            !$acc parallel loop gang present(mesh) async(1)
             do zonefID = 1, mesh % zones(zoneID) % no_of_faces
                fID =  mesh % zones(zoneID) % faces(zonefID)
                
@@ -1682,7 +1688,7 @@ module SpatialDiscretization
 
             CALL BCs(zoneID) % bc % NeumannForEqn(mesh, mesh % zones(zoneID))                             
          
-            !$acc parallel loop gang present(mesh)
+            !$acc parallel loop gang present(mesh) async(1)
             do zonefID = 1, mesh % zones(zoneID) % no_of_faces
                fID =  mesh % zones(zoneID) % faces(zonefID)
 

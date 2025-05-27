@@ -583,8 +583,7 @@ module InflowBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1) 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -610,8 +609,7 @@ module InflowBCClass
          !local variables
          integer        :: i,j,zonefID,fID
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent 
@@ -637,7 +635,7 @@ module InflowBCClass
          real(kind=RP) :: Q(NCONS)
          integer       :: i,j,zonefID,fID
          
-         !$acc parallel loop gang present(mesh, self, zone)
+         !$acc parallel loop gang present(mesh, self, zone) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q)            
@@ -665,7 +663,7 @@ module InflowBCClass
 !        
          integer        :: i,j,zonefID,fID
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)            
@@ -690,7 +688,7 @@ module InflowBCClass
          !local variables
          integer        :: i,j,zonefID,fID
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) independent  
@@ -731,8 +729,7 @@ module InflowBCClass
 
              ! flow always in the x direction unless is the interphase is normal to x, in that case is in z direction
             direction_cond:if (self % isXLimited) then
-                !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-                !$acc parallel loop gang present(mesh, self, zone) private(fID)
+                !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
                 do zonefID = 1, zone % no_of_faces
                    fID = zone % faces(zonefID)
                    !$acc loop vector collapse(2) independent private(Q)  
@@ -758,8 +755,7 @@ module InflowBCClass
                  enddo
                 !$acc end parallel loop
             else if(self % isYLimited) then
-                !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-                !$acc parallel loop gang present(mesh, self, zone) private(fID)
+                !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
                 do zonefID = 1, zone % no_of_faces
                    fID = zone % faces(zonefID)
                    !$acc loop vector collapse(2) independent private(Q)  
@@ -785,8 +781,7 @@ module InflowBCClass
                 enddo
                 !$acc end parallel loop
             else if(self % isZLimited) then
-                !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-                !$acc parallel loop gang present(mesh, self, zone) private(fID)
+                !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
                 do zonefID = 1, zone % no_of_faces
                    fID = zone % faces(zonefID)
                    !$acc loop vector collapse(2) independent private(Q)  
@@ -814,7 +809,7 @@ module InflowBCClass
             end if direction_cond
 
          else
-            !$acc parallel loop gang present(mesh, self, zone) private(fID)
+            !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
             do zonefID = 1, zone % no_of_faces
                fID = zone % faces(zonefID)
                !$acc loop vector collapse(2) independent private(Q)  
@@ -856,8 +851,7 @@ module InflowBCClass
          
          ! flux = 0.0_RP directly stored in Fstar
 
-         !!$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2)

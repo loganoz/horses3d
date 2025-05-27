@@ -171,7 +171,7 @@ module EllipticBR1
 !        *******************************************
 !
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh, self) 
+         !$acc parallel loop gang present(mesh, self) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
             call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn)
@@ -187,7 +187,7 @@ module EllipticBR1
 !$omp end do 
 
 !$omp do schedule(runtime) private(eID)
-         !$acc parallel loop gang present(mesh) 
+         !$acc parallel loop gang present(mesh) async(1) 
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
 !
@@ -197,7 +197,7 @@ module EllipticBR1
          end do
          !$acc end parallel loop
 !$omp end do
-         
+
          call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, nGradEqn)
 
 #ifdef _HAS_MPI_
@@ -208,7 +208,7 @@ module EllipticBR1
 !$omp end single
 
 !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang present(mesh, self) 
+         !$acc parallel loop gang present(mesh, self) async(1) 
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn)
@@ -218,7 +218,7 @@ module EllipticBR1
 !
 
 !$omp do schedule(runtime) private(eID)
-!$acc parallel loop gang vector_length(128) present(mesh, self)
+!$acc parallel loop gang vector_length(128) present(mesh, self) async(1)
          do iEl = 1, size(mesh % elements_mpi)
             eID = mesh % elements_mpi(iEl)
 !
@@ -299,7 +299,7 @@ module EllipticBR1
 
          integer       :: i,j,eq
 
-         !$acc loop vector collapse(2) private(UL, UR)
+         !$acc loop vector collapse(2) private(UL, UR, ustar, jacobian)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             select case (self % eqName)
@@ -318,8 +318,8 @@ module EllipticBR1
             end select
             
 #else
-            call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL(1:nGradEqn))
-            call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR(1:nGradEqn))
+            call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+            call NSGradientVariables_STATE(nEqn, nGradEqn, f % storage(2) % Q(:,i,j), UR)
 #endif
 
             jacobian = f % geom % jacobian(i,j)
@@ -327,7 +327,7 @@ module EllipticBR1
             !$acc loop seq
             do eq =1, nEqn
                uStar = 0.5_RP * (UR(eq) - UL(eq)) * jacobian
-               
+
                f % storage(1) % unStar(eq,IX,i,j) = uStar * f % geom % normal(IX,i,j)
                f % storage(1) % unStar(eq,IY,i,j) = uStar * f % geom % normal(IY,i,j)
                f % storage(1) % unStar(eq,IZ,i,j) = uStar * f % geom % normal(IZ,i,j)
