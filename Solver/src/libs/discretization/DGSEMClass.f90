@@ -638,7 +638,6 @@ Module DGSEMClass
          localR3 = 0.0_RP
          localR4 = 0.0_RP
          localR5 = 0.0_RP
-         localR6 = 0.0_RP
 #ifdef CAHNHILLIARD
          localc  = 0.0_RP
 #endif

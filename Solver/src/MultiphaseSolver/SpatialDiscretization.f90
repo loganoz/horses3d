@@ -561,19 +561,19 @@ module SpatialDiscretization
                invMa2 = dimensionless % invMa2(1) * min(max(mesh % elements(eID) % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(mesh % elements(eID) % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP)) 
                mesh % elements(eID) % storage % QDot(IMC,i,j,k)      = 0.0_RP
                mesh % elements(eID) % storage % QDot(IMSQRHOU,i,j,k) = (-0.5_RP*sqrtRho*( mesh % elements(eID) % storage % Q(IMSQRHOU,i,j,k)*mesh % elements(eID) % storage % U_x(IGU,i,j,k) & 
-                                                                                       + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGU,i,j,k) &   
-                                                                                       + mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGU,i,j,k) ) &
-                                                                                       - mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_x(IGMU,i,j,k) )* jacobian
+                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGU,i,j,k) &   
+                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGU,i,j,k) ) &
+                                                                                        - mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_x(IGMU,i,j,k) )* jacobian
 
                mesh % elements(eID) % storage % QDot(IMSQRHOV,i,j,k) = (-0.5_RP*sqrtRho*( mesh % elements(eID) % storage % Q(IMSQRHOU,i,j,k)*mesh % elements(eID) % storage % U_x(IGV,i,j,k) & 
-                                                                                       + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGV,i,j,k) &   
-                                                                                       + mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGV,i,j,k) ) &
-                                                                                       - mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_y(IGMU,i,j,k)) * jacobian
+                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGV,i,j,k) &   
+                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGV,i,j,k) ) &
+                                                                                        - mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_y(IGMU,i,j,k)) * jacobian
 
-               mesh % elements(eID) % storage % QDot(IMSQRHOW,i,j,k) = (-0.5_RP*sqrtRho*(mesh % elements(eID) % storage % Q(IMSQRHOU,i,j,k)*mesh % elements(eID) % storage % U_x(IGW,i,j,k) & 
-                                                                                       +mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGW,i,j,k) &   
-                                                                                       +mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGW,i,j,k) ) &
-                                                                                       -mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_z(IGMU,i,j,k)) * jacobian
+               mesh % elements(eID) % storage % QDot(IMSQRHOW,i,j,k) = (-0.5_RP*sqrtRho*( mesh % elements(eID) % storage % Q(IMSQRHOU,i,j,k)*mesh % elements(eID) % storage % U_x(IGW,i,j,k) & 
+                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGW,i,j,k) &   
+                                                                                        + mesh % elements(eID) % storage % Q(IMSQRHOW,i,j,k)*mesh % elements(eID) % storage % U_z(IGW,i,j,k) ) &
+                                                                                        - mesh % elements(eID) % storage % Q(IMC,i,j,k)*mesh % elements(eID) % storage % U_z(IGMU,i,j,k)) * jacobian
                
                mesh % elements(eID) % storage % QDot(IMP,i,j,k) = -invMa2*(  mesh % elements(eID) % storage % U_x(IGU,i,j,k) + mesh % elements(eID) % storage % U_y(IGV,i,j,k) &
                                                                                        + mesh % elements(eID) % storage % U_z(IGW,i,j,k)) * jacobian
@@ -661,7 +661,7 @@ module SpatialDiscretization
 !
 !           Get the concentration Laplacian (into QDot => cDot)
             call ComputeLaplacian(mesh, time)
-
+!
 !$omp single
             call mesh % SetStorageToEqn(NS_BC)
             call SetBoundaryConditionsEqn(NS_BC)
@@ -999,17 +999,13 @@ module SpatialDiscretization
          type(HexMesh), intent(inout)  :: mesh
          integer                       :: i, j, eq, iFace, fID
 
-         real(kind=RP) :: visc_flux(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
-         real(kind=RP) :: inv_flux1(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
-         real(kind=RP) :: inv_flux2(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
-
          !$omp do schedule(runtime) private(fID)
-         !$acc parallel loop gang vector_length(32) present(mesh) private(inv_flux1, inv_flux2, visc_flux) async(1)
+         !$acc parallel loop gang vector_length(32) present(mesh) async(1)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
          
             call BR1_RiemannSolver_acc(mesh % faces(fID), NCONS, NGRAD, [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
-                                       ViscousDiscretization % sigma, visc_flux)
+                                       ViscousDiscretization % sigma, mesh % faces(fID) % storage(2) % FStar)
 
             call RiemannSolver_Selector_MU(mesh % faces(fID) % Nf(1), &                         
                                            mesh % faces(fID) % Nf(2), &
@@ -1022,23 +1018,23 @@ module SpatialDiscretization
                                            mesh % faces(fID) % geom % normal, &
                                            mesh % faces(fID) % geom % t1, &
                                            mesh % faces(fID) % geom % t2, &
-                                           inv_flux1,&
-                                           inv_flux2)
+                                           mesh % faces(fID) % storage(1) % Q_aux,&
+                                           mesh % faces(fID) % storage(2) % Q_aux)
 
 !           ------------------------
 !           Multiply by the Jacobian
 !           ------------------------
             !$acc loop vector collapse(3)
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1) ; do eq = 1, NCONS
-               mesh % faces(fID) % storage(1) % FStar(eq,i,j) = (inv_flux1(eq,i,j) - visc_flux(eq,i,j)) * mesh % faces(fID) % geom % jacobian(i,j)
-               inv_flux2(eq,i,j) = (inv_flux2(eq,i,j) - visc_flux(eq,i,j)) * mesh % faces(fID) % geom % jacobian(i,j)
+               mesh % faces(fID) % storage(1) % FStar(eq,i,j) = ( mesh % faces(fID) % storage(1) % Q_aux(eq,i,j) - mesh % faces(fID) % storage(2) % FStar(eq,i,j)) * mesh % faces(fID) % geom % jacobian(i,j)
+               mesh % faces(fID) % storage(2) % Q_aux(eq,i,j) = ( mesh % faces(fID) % storage(2) % Q_aux(eq,i,j) - mesh % faces(fID) % storage(2) % FStar(eq,i,j)) * mesh % faces(fID) % geom % jacobian(i,j)
             end do ; end do ;  end do
 !
 !           ---------------------------
 !           Return the flux to elements
 !           ---------------------------
             call Face_ProjectFluxToElements(mesh % faces(fID), NCONS, mesh % faces(fID) % storage(1) % FStar, 1)
-            call Face_ProjectFluxToElements(mesh % faces(fID), NCONS, inv_flux2, 2)
+            call Face_ProjectFluxToElements(mesh % faces(fID), NCONS, mesh % faces(fID) % storage(2) % Q_aux, 2)
 
          end do
          !$acc end parallel loop
@@ -1167,7 +1163,6 @@ module SpatialDiscretization
       real(kind=RP)                   :: mu
       real(kind=RP)                   :: aux_flux(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
 
-      real(kind=RP) :: visc_flux(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
       real(kind=RP) :: inv_flux1(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
       real(kind=RP) :: inv_flux2(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
 
@@ -1230,14 +1225,14 @@ module SpatialDiscretization
                                           mesh % faces(fID) % geom % normal, &
                                           mesh % faces(fID) % geom % t1, &
                                           mesh % faces(fID) % geom % t2, &
-                                          inv_flux1,&
-                                          inv_flux2)
+                                          mesh % faces(fID) % storage(1) % Q_aux,&
+                                          mesh % faces(fID) % storage(2) % Q_aux)
 !           ------------------------
 !           Multiply by the Jacobian
 !           ------------------------
             !$acc loop vector collapse(3)
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1) ; do eq = 1, NCONS               
-                  mesh % faces(fID) % storage(1) % FStar(eq,i,j) = (inv_flux1(eq,i,j)  - &
+                  mesh % faces(fID) % storage(1) % FStar(eq,i,j) = (mesh % faces(fID) % storage(1) % Q_aux(eq,i,j)  - &
                                                                     mesh % faces(fID) % storage(2) % FStar(eq,i,j)) * &
                                                                     mesh % faces(fID) % geom % jacobian(i,j)
             end do ; end do ; enddo
