@@ -1161,10 +1161,6 @@ module SpatialDiscretization
       INTEGER                         :: i, j, eq
       INTEGER                         :: nZones, zoneID, zonefID, fID
       real(kind=RP)                   :: mu
-      real(kind=RP)                   :: aux_flux(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
-
-      real(kind=RP) :: inv_flux1(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
-      real(kind=RP) :: inv_flux2(1:NCONS,0:mesh % Nx(1),0:mesh % Nx(1))
 
       nZones = size(mesh % zones)
        do zoneID=1, nZones

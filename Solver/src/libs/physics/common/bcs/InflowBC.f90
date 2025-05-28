@@ -84,8 +84,10 @@ module InflowBCClass
 #endif
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => InflowBC_PhaseFieldState
+         procedure         :: PhaseFieldGradVars=> InflowBC_PhaseFieldGradVars
          procedure         :: PhaseFieldNeumann => InflowBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => InflowBC_ChemPotState
+         procedure         :: ChemPotGradVars   => InflowBC_ChemPotGradVars
          procedure         :: ChemPotNeumann    => InflowBC_ChemPotNeumann
 #endif
    end type InflowBC_t

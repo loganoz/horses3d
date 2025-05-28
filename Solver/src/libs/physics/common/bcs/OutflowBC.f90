@@ -54,8 +54,10 @@ module OutflowBCClass
 #endif
 #if defined(CAHNHILLIARD)
          procedure         :: PhaseFieldState   => OutflowBC_PhaseFieldState
+         procedure         :: PhaseFieldGradVars=> OutflowBC_PhaseFieldGradVars
          procedure         :: PhaseFieldNeumann => OutflowBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => OutflowBC_ChemPotState
+         procedure         :: ChemPotGradVars   => OutflowBC_ChemPotGradVars
          procedure         :: ChemPotNeumann    => OutflowBC_ChemPotNeumann
 #endif
    end type OutflowBC_t

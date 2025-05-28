@@ -67,8 +67,10 @@ module NoSlipWallBCClass
 #endif
 #ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => NoSlipWallBC_PhaseFieldState
+         procedure         :: PhaseFieldGradVars=> NoSlipWallBC_PhaseFieldGradVars
          procedure         :: PhaseFieldNeumann => NoSlipWallBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => NoSlipWallBC_ChemPotState
+         procedure         :: ChemPotGradVars   => NoSlipWallBC_ChemPotGradVars
          procedure         :: ChemPotNeumann    => NoSlipWallBC_ChemPotNeumann
 #endif
    end type NoSlipWallBC_t
@@ -590,7 +592,7 @@ module NoSlipWallBCClass
          integer        :: i,j,zonefID,fID
          real(kind=RP)  :: u_int(NGRAD), u_star(NGRAD)
 
-         !$acc parallel loop gang present(mesh, self, zone) private(fID)  async(1)
+         !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
             !$acc loop vector collapse(2) private(Q, u_star, u_int)            
@@ -635,7 +637,7 @@ module NoSlipWallBCClass
          !$acc parallel loop gang present(mesh, self, zone) private(fID) async(1)
          do zonefID = 1, zone % no_of_faces
             fID = zone % faces(zonefID)
-            !$acc loop vector collapse(2) independent 
+            !$acc loop vector collapse(2) 
             do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % FStar(IMC,i,j) = 0.0_RP
             enddo ; enddo
@@ -685,7 +687,7 @@ module NoSlipWallBCClass
          !$acc end parallel loop
       end subroutine NoSlipWallBC_PhaseFieldState
 
-      subroutine NoSlipWall_PhaseFieldGradVars(self, mesh, zone)
+      subroutine NoSlipWallBC_PhaseFieldGradVars(self, mesh, zone)
          implicit none
          class(NoSlipWallBC_t), intent(in)    :: self
          type(HexMesh), intent(inout)           :: mesh
@@ -712,7 +714,7 @@ module NoSlipWallBCClass
          enddo
          !$acc end parallel loop
          
-      end subroutine NoSlipWall_PhaseFieldGradVars
+      end subroutine NoSlipWallBC_PhaseFieldGradVars
 
       subroutine NoSlipWallBC_PhaseFieldNeumann(self, mesh, zone)
          implicit none
@@ -742,7 +744,7 @@ module NoSlipWallBCClass
                   prod = 0.0_RP
                end if
 
-               mesh % faces(fID) % storage(2) % FStar(:,i,j) = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * prod 
+               mesh % faces(fID) % storage(2) % FStar(1,i,j) = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * prod 
             enddo ; enddo
         enddo
         !$acc end parallel loop
@@ -778,7 +780,7 @@ module NoSlipWallBCClass
          !$acc end parallel loop
       end subroutine NoSlipWallBC_ChemPotState
 
-      subroutine NoSlipWall_ChemPotGradVars(self, mesh, zone)
+      subroutine NoSlipWallBC_ChemPotGradVars(self, mesh, zone)
          implicit none
          class(NoSlipWallBC_t), intent(in)    :: self
          type(HexMesh), intent(inout)           :: mesh
@@ -805,7 +807,7 @@ module NoSlipWallBCClass
          enddo
          !$acc end parallel loop
          
-      end subroutine NoSlipWall_ChemPotGradVars
+      end subroutine NoSlipWallBC_ChemPotGradVars
 
       subroutine NoSlipWallBC_ChemPotNeumann(self, mesh, zone)
          implicit none
