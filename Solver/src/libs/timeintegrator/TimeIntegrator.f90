@@ -801,6 +801,9 @@
          call sem % fwh % writeToFile( force = .TRUE. )
          call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
+#if defined(NAVIERSTOKES)
+         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
+#endif
       end if
 
       sem % maxResidual       = maxval(maxResidual)
