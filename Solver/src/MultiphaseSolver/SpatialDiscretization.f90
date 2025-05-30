@@ -1206,7 +1206,7 @@ module SpatialDiscretization
 
          CALL BCs(zoneID) % bc % FlowNeumann(mesh, mesh % zones(zoneID))                           
 
-         !$acc parallel loop gang present(mesh) private(inv_flux1, inv_flux2) async(1)
+         !$acc parallel loop gang present(mesh) async(1)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
 

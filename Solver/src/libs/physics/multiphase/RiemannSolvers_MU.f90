@@ -188,8 +188,10 @@ module RiemannSolvers_MU
          real(kind=RP) :: cL, uL, vL, wL, pL, invSqrtRhoL, invMa2L
          real(kind=RP) :: cR, uR, vR, wR, pR, invSqrtRhoR, invMa2R
          integer :: i,j
+         real(kind=RP) :: flux_rot_R(5), flux_rot_L(5)
 
-         !$acc loop vector collapse(2)
+
+         !$acc loop vector collapse(2) private(flux_rot_R, flux_rot_L)
          do j = 0, Ny 
          do i = 0, Nx 
 !
@@ -202,11 +204,11 @@ module RiemannSolvers_MU
             wL = invSqrtRhoL * (QLeft(IMSQRHOU,i,j) * t2(1,i,j)   + QLeft(IMSQRHOV,i,j) * t2(2,i,j)   + QLeft(IMSQRHOW,i,j) * t2(3,i,j))
             pL = QLeft(IMP,i,j)
 
-            fL(IMC,i,j)      = uL*cL
-            fL(IMSQRHOU,i,j) = 0.5_RP*rhoL(i,j)*uL*uL + pL
-            fL(IMSQRHOV,i,j) = 0.5_RP*rhoL(i,j)*uL*vL
-            fL(IMSQRHOW,i,j) = 0.5_RP*rhoL(i,j)*uL*wL
-            fL(IMP,i,j)      = 0.0_RP
+            flux_rot_L(IMC)      = uL*cL
+            flux_rot_L(IMSQRHOU) = 0.5_RP*rhoL(i,j)*uL*uL + pL
+            flux_rot_L(IMSQRHOV) = 0.5_RP*rhoL(i,j)*uL*vL
+            flux_rot_L(IMSQRHOW) = 0.5_RP*rhoL(i,j)*uL*wL
+            flux_rot_L(IMP)      = 0.0_RP
 
 !
 !        Right state variables and fluxes
@@ -218,11 +220,11 @@ module RiemannSolvers_MU
             wR = invSqrtRhoR * (QRight(IMSQRHOU,i,j) * t2(1,i,j)   + QRight(IMSQRHOV,i,j) * t2(2,i,j)   + QRight(IMSQRHOW,i,j) * t2(3,i,j))
             pR = QRight(IMP,i,j)
 
-            fR(IMC,i,j)      = uR*cR
-            fR(IMSQRHOU,i,j) = 0.5_RP*rhoR(i,j)*uR*uR + pR
-            fR(IMSQRHOV,i,j) = 0.5_RP*rhoR(i,j)*uR*vR
-            fR(IMSQRHOW,i,j) = 0.5_RP*rhoR(i,j)*uR*wR
-            fR(IMP,i,j)      = 0.0_RP
+            flux_rot_R(IMC)      = uR*cR
+            flux_rot_R(IMSQRHOU) = 0.5_RP*rhoR(i,j)*uR*uR + pR
+            flux_rot_R(IMSQRHOV) = 0.5_RP*rhoR(i,j)*uR*vR
+            flux_rot_R(IMSQRHOW) = 0.5_RP*rhoR(i,j)*uR*wR
+            flux_rot_R(IMP)      = 0.0_RP
 
 !           Get the left and right face inv Mach^2 
             invMa2L = dimensionless % invMa2(1) * min(max(cL,0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(cL,0.0_RP),1.0_RP))
@@ -230,28 +232,33 @@ module RiemannSolvers_MU
 !
 !        Perform the average and rotation
 !        --------------------------------
-            fL(:,i,j) = 0.5_RP*(fL(:,i,j) + fR(:,i,j))
-            fR(:,i,j) = fL(:,i,j)
+            flux_rot_L(:) = 0.5_RP*(flux_rot_L(:) + flux_rot_R(:))
+            flux_rot_R(:) = flux_rot_L(:)
 !
 !        Add the non-conservative term
 !        -----------------------------
-            fL(IMSQRHOU,i,j) = fL(IMSQRHOU,i,j) + 0.5_RP*cL*(muR(i,j)-muL(i,j)) + 0.25_RP*rhoL(i,j)*uL*(uR-uL)
-            fL(IMSQRHOV,i,j) = fL(IMSQRHOV,i,j) + 0.25_RP*rhoL(i,j)*uL*(vR-vL)
-            fL(IMSQRHOW,i,j) = fL(IMSQRHOW,i,j) + 0.25_RP*rhoL(i,j)*uL*(wR-wL)
-            fL(IMP,i,j)      = fL(IMP,i,j)      + 0.5_RP*invMa2L*(uR-uL)
+            flux_rot_L(IMSQRHOU) = flux_rot_L(IMSQRHOU) + 0.5_RP*cL*(muR(i,j)-muL(i,j)) + 0.25_RP*rhoL(i,j)*uL*(uR-uL)
+            flux_rot_L(IMSQRHOV) = flux_rot_L(IMSQRHOV) + 0.25_RP*rhoL(i,j)*uL*(vR-vL)
+            flux_rot_L(IMSQRHOW) = flux_rot_L(IMSQRHOW) + 0.25_RP*rhoL(i,j)*uL*(wR-wL)
+            flux_rot_L(IMP)      = flux_rot_L(IMP)      + 0.5_RP*invMa2L*(uR-uL)
 
-            fR(IMSQRHOU,i,j) = fR(IMSQRHOU,i,j) + 0.5_RP*cR*(muL(i,j)-muR(i,j)) + 0.25_RP*rhoR(i,j)*uR*(uL-uR)
-            fR(IMSQRHOV,i,j) = fR(IMSQRHOV,i,j) + 0.25_RP*rhoR(i,j)*uR*(vL-vR)
-            fR(IMSQRHOW,i,j) = fR(IMSQRHOW,i,j) + 0.25_RP*rhoR(i,j)*uR*(wL-wR)
-            fR(IMP,i,j)      = fR(IMP,i,j)      + 0.5_RP*invMa2R*(uL-uR)
+            flux_rot_R(IMSQRHOU) = flux_rot_R(IMSQRHOU) + 0.5_RP*cR*(muL(i,j)-muR(i,j)) + 0.25_RP*rhoR(i,j)*uR*(uL-uR)
+            flux_rot_R(IMSQRHOV) = flux_rot_R(IMSQRHOV) + 0.25_RP*rhoR(i,j)*uR*(vL-vR)
+            flux_rot_R(IMSQRHOW) = flux_rot_R(IMSQRHOW) + 0.25_RP*rhoR(i,j)*uR*(wL-wR)
+            flux_rot_R(IMP)      = flux_rot_R(IMP)      + 0.5_RP*invMa2R*(uL-uR)
 
-            fL(2,i,j) = nHat(1,i,j)*fL(2,i,j) + t1(1,i,j)*fL(3,i,j) + t2(1,i,j)*fL(4,i,j)
-            fL(3,i,j) = nHat(2,i,j)*fL(2,i,j) + t1(2,i,j)*fL(3,i,j) + t2(2,i,j)*fL(4,i,j)
-            fL(4,i,j) = nHat(3,i,j)*fL(2,i,j) + t1(3,i,j)*fL(3,i,j) + t2(3,i,j)*fL(4,i,j)  
+            
+            fL(1,i,j) = flux_rot_L(1)
+            fL(2,i,j) = nHat(1,i,j)*flux_rot_L(2) + t1(1,i,j)*flux_rot_L(3) + t2(1,i,j)*flux_rot_L(4)
+            fL(3,i,j) = nHat(2,i,j)*flux_rot_L(2) + t1(2,i,j)*flux_rot_L(3) + t2(2,i,j)*flux_rot_L(4)
+            fL(4,i,j) = nHat(3,i,j)*flux_rot_L(2) + t1(3,i,j)*flux_rot_L(3) + t2(3,i,j)*flux_rot_L(4)  
+            fL(5,i,j) = flux_rot_L(5)
 
-            fR(2,i,j) = nHat(1,i,j)*fR(2,i,j) + t1(1,i,j)*fR(3,i,j) + t2(1,i,j)*fR(4,i,j)
-            fR(3,i,j) = nHat(2,i,j)*fR(2,i,j) + t1(2,i,j)*fR(3,i,j) + t2(2,i,j)*fR(4,i,j)
-            fR(4,i,j) = nHat(3,i,j)*fR(2,i,j) + t1(3,i,j)*fR(3,i,j) + t2(3,i,j)*fR(4,i,j)  
+            fR(1,i,j) = flux_rot_R(1)
+            fR(2,i,j) = nHat(1,i,j)*flux_rot_R(2) + t1(1,i,j)*flux_rot_R(3) + t2(1,i,j)*flux_rot_R(4)
+            fR(3,i,j) = nHat(2,i,j)*flux_rot_R(2) + t1(2,i,j)*flux_rot_R(3) + t2(2,i,j)*flux_rot_R(4)
+            fR(4,i,j) = nHat(3,i,j)*flux_rot_R(2) + t1(3,i,j)*flux_rot_R(3) + t2(3,i,j)*flux_rot_R(4)  
+            fR(5,i,j) = flux_rot_R(5)
             
          enddo 
          enddo
@@ -286,7 +293,7 @@ module RiemannSolvers_MU
 
          !$acc loop vector collapse(2) private(flux_rot_R, flux_rot_L)
          do j = 0,Ny
-         do i = 0,Nx 
+            do i = 0,Nx 
 !  
 !           Rotate the variables to the face local frame using normal and tangent vectors
 !           -----------------------------------------------------------------------------
@@ -362,11 +369,9 @@ module RiemannSolvers_MU
             fR(3,i,j) = nHat(2,i,j)*flux_rot_R(2) + t1(2,i,j)*flux_rot_R(3) + t2(2,i,j)*flux_rot_R(4)
             fR(4,i,j) = nHat(3,i,j)*flux_rot_R(2) + t1(3,i,j)*flux_rot_R(3) + t2(3,i,j)*flux_rot_R(4)  
             fR(5,i,j) = flux_rot_R(5)
-
-
-      enddo 
-      enddo
-
+            
+            enddo 
+         enddo
 
       end subroutine ExactRiemannSolver
 
