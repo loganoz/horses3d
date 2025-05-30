@@ -4726,12 +4726,12 @@ slavecoord:             DO l = 1, 4
       !$acc wait
 
       do eID = 1, SIZE(self % elements)
-      !   !$acc update self(self % elements(eID) % storage % Q)
-      !   !$acc update self(self % elements(eID) % storage % U_x)
-      !   !$acc update self(self % elements(eID) % storage % U_y)
-      !   !$acc update self(self % elements(eID) % storage % U_z)
-      !   !$acc update self(self % elements(eID) % storage % mu_ns)
-      !   !$acc update self(self % elements(eID) % storage % mu_turb_NS)
+         !$acc update self(self % elements(eID) % storage % Q)
+         !$acc update self(self % elements(eID) % storage % U_x)
+         !$acc update self(self % elements(eID) % storage % U_y)
+         !$acc update self(self % elements(eID) % storage % U_z)
+         !$acc update self(self % elements(eID) % storage % mu_ns)
+         !$acc update self(self % elements(eID) % storage % mu_turb_NS)
       enddo
       
       !$acc wait
