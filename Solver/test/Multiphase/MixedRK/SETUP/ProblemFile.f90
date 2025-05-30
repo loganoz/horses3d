@@ -539,7 +539,7 @@ END DO
             real(kind=RP)  :: error(5)
             integer        :: i, j,k, eID 
 
-            CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Sell"
+            CHARACTER(LEN=29)                  :: testName           = "Multiphase:: MixedRK"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             real(kind=RP), parameter           :: residuals_saved(5) = [2.8665833841075737E-06_RP, &
@@ -564,7 +564,7 @@ END DO
 
             CALL FTAssertEqual(expectedValue = residuals_saved(3)+1.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
-                               tol           = 1.d-8, &
+                               tol           = 1.d-11, &
                                msg           = "Y-Momentum Residual")
 
             CALL FTAssertEqual(expectedValue = residuals_saved(4)+1.0_RP, &

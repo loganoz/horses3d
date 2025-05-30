@@ -10,12 +10,14 @@ module MeshPartitioning
    public   PerformMeshPartitioning
 
    contains
-      subroutine PerformMeshPartitioning(mesh, no_of_domains, partitions, useWeights)
+      subroutine PerformMeshPartitioning(mesh, no_of_domains, partitions, useWeights, controlVariables)
+         use FTValueDictionaryClass
          implicit none
          type(HexMesh), intent(in)  :: mesh
          integer,       intent(in)  :: no_of_domains
          type(PartitionedMesh_t)    :: partitions(no_of_domains)
          logical,       intent(in)  :: useWeights
+         type(FTValueDictionary), intent(in)    :: controlVariables
 !
 !        ---------------
 !        Local variables
@@ -32,7 +34,7 @@ module MeshPartitioning
 !
 !        Get each domain elements and nodes
 !        ----------------------------------
-         call GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights)
+         call GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights, controlVariables)
 !
 !        Get the partition boundary faces
 !        --------------------------------
@@ -44,15 +46,17 @@ module MeshPartitioning
          call WritePartitionsFile(mesh, elementsDomain)
       end subroutine PerformMeshPartitioning
 
-      subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights)
+      subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights, controlVariables)
          use IntegerDataLinkedList
          use MPI_Process_Info
+         use FTValueDictionaryClass
          implicit none
          type(HexMesh), intent(in)              :: mesh
          integer,       intent(in)              :: no_of_domains
          integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
          type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)      
          logical,       intent(in)  :: useWeights
+         type(FTValueDictionary), intent(in)    :: controlVariables
 !
 !        ---------------
 !        Local variables
@@ -77,7 +81,7 @@ module MeshPartitioning
 !           METIS partitioning
 !           ------------------
             case (METIS_PARTITIONING)
-               call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights)
+               call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables)
          end select
 !
 !        ****************************************

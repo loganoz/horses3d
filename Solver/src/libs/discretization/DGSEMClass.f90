@@ -70,7 +70,7 @@ Module DGSEMClass
    END TYPE DGSem
 
    abstract interface
-      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode, HO_Elements)
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode, HO_Elements, element_mask)
          use SMConstants
          use HexMeshClass
          use ParticlesClass
@@ -84,6 +84,7 @@ Module DGSEMClass
          REAL(KIND=RP)                   :: time
          integer,             intent(in) :: mode
          logical, intent(in), optional   :: HO_Elements
+         logical, intent(in), optional   :: element_mask(:)
       end subroutine ComputeTimeDerivative_f
    END INTERFACE
 
@@ -132,6 +133,7 @@ Module DGSEMClass
       logical                     :: useWeightsPartition                ! Partitioning mesh using DOF of elements as weights
       real(kind=RP)               :: QbaseUniform(1:NCONS)
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
+      procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
 #endif
@@ -261,10 +263,18 @@ Module DGSEMClass
 !           Construct the "full" mesh
 !           -------------------------
             call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
+
+!           initialize the solution if the time stepping scheme is mixed RK, since Q is needed in the METIS partitioning  
+            if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'mixed rk') then
+               call self % mesh % CheckIfMeshIs2D(.true.)
+               call self % mesh % ConstructGeometry()
+               call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
+               call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
+            end if
 !
 !           Perform the partitioning
 !           ------------------------
-            call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition)
+            call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, controlVariables)
 !
 !           Send the partitions
 !           -------------------

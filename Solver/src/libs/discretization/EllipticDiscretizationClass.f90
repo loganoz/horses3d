@@ -119,7 +119,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_Describe
 
-      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements)
+      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -136,6 +136,7 @@ module EllipticDiscretizationClass
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: HO_Elements
+         logical, intent(in), optional    :: element_mask(:)
 !
 !        ---------------
 !        Local variables
@@ -143,6 +144,7 @@ module EllipticDiscretizationClass
 !
          integer  :: eID
          logical  :: set_mu
+         logical  :: compute_element
 
 #ifdef MULTIPHASE
          select case (self % eqName)
@@ -157,13 +159,18 @@ module EllipticDiscretizationClass
 
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
-            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+            compute_element = .true.
+            if (present(element_mask)) compute_element = element_mask(eID)
+            
+            if (compute_element) then
+               call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+            endif
          end do
 !$omp end do nowait
 
       end subroutine BaseClass_ComputeGradient
 
-      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients)
+      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
 !
 !        *****************************************************
 !        Lift gradients: do nothing here
@@ -178,6 +185,7 @@ module EllipticDiscretizationClass
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
+         logical, intent(in), optional    :: element_mask(:)
 
       end subroutine BaseClass_LiftGradients
 

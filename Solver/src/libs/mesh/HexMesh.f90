@@ -889,11 +889,12 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn, HO_Elements)
+      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn, HO_Elements, element_mask)
          implicit none
          class(HexMesh),    intent(inout) :: self
          integer,           intent(in)    :: nEqn
          logical, optional, intent(in)    :: HO_Elements
+         logical, optional, intent(in)    :: element_mask(:)
 !
 !        ---------------
 !        Local variables
@@ -902,6 +903,7 @@ slavecoord:             DO l = 1, 4
          integer  :: fIDs(6)
          integer  :: eID, i
          logical :: HOElements
+         logical  :: compute_element
 
          if (present(HO_Elements)) then
             HOElements = HO_Elements
@@ -910,30 +912,41 @@ slavecoord:             DO l = 1, 4
          end if
 
          if (HOElements) then
-!$omp do schedule(runtime) private(eID, fIDs)
+!$omp do schedule(runtime) private(eID, fIDs, compute_element)
             do i = 1, size(self % HO_Elements)
                eID = self % HO_Elements(i)
-               fIDs = self % elements(eID) % faceIDs
-               call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
-                                                                  self % faces(fIDs(1)),&
-                                                                  self % faces(fIDs(2)),&
-                                                                  self % faces(fIDs(3)),&
-                                                                  self % faces(fIDs(4)),&
-                                                                  self % faces(fIDs(5)),&
-                                                                  self % faces(fIDs(6)) )
+               compute_element = .true.
+               if (present(element_mask)) compute_element = element_mask(eID)
+
+               if (compute_element) then
+                  fIDs = self % elements(eID) % faceIDs
+                  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                     self % faces(fIDs(1)),&
+                                                                     self % faces(fIDs(2)),&
+                                                                     self % faces(fIDs(3)),&
+                                                                     self % faces(fIDs(4)),&
+                                                                     self % faces(fIDs(5)),&
+                                                                     self % faces(fIDs(6)) )
+               endif
             end do
 !$omp end do
          else
 !$omp do schedule(runtime) private(fIDs)
             do eID = 1, size(self % elements)
-               fIDs = self % elements(eID) % faceIDs
-               call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
-                                                                  self % faces(fIDs(1)),&
-                                                                  self % faces(fIDs(2)),&
-                                                                  self % faces(fIDs(3)),&
-                                                                  self % faces(fIDs(4)),&
-                                                                  self % faces(fIDs(5)),&
-                                                                  self % faces(fIDs(6)) )
+
+               compute_element = .true.
+               if (present(element_mask)) compute_element = element_mask(eID)
+
+               if (compute_element) then
+                  fIDs = self % elements(eID) % faceIDs
+                  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                     self % faces(fIDs(1)),&
+                                                                     self % faces(fIDs(2)),&
+                                                                     self % faces(fIDs(3)),&
+                                                                     self % faces(fIDs(4)),&
+                                                                     self % faces(fIDs(5)),&
+                                                                     self % faces(fIDs(6)) )
+               endif
             end do
 !$omp end do
          end if
@@ -1792,8 +1805,10 @@ slavecoord:             DO l = 1, 4
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_CheckIfMeshIs2D(self)
+      subroutine HexMesh_CheckIfMeshIs2D(self, ignore_mpi_section)
          implicit none
+         logical, optional , intent(in)    :: ignore_mpi_section !added bool to ignore the mpi section in this code. First used in relation to mixed RK stepping 
+
          !-arguments---------------------------------------
          class(HexMesh),   intent(inout) :: self
          !-local-variables---------------------------------
@@ -1805,6 +1820,7 @@ slavecoord:             DO l = 1, 4
          integer  :: no_of_orientedElems(NDIM)
          logical  :: meshExtrudedIn(NDIM)
          logical  :: meshExtrudedInLocal(NDIM)
+         logical  :: do_mpi_section
          real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
@@ -1812,6 +1828,11 @@ slavecoord:             DO l = 1, 4
                                                                     0._RP, 1._RP, 0._RP, &
                                                                     0._RP, 0._RP, 1._RP /) , (/3,3/) )
          !-------------------------------------------------
+
+         do_mpi_section = .true.
+         if (present(ignore_mpi_section)) then
+            if (ignore_mpi_section) do_mpi_section = .false.
+         endif
 
          no_of_orientedElems = 0
 
@@ -1985,10 +2006,12 @@ slavecoord:             DO l = 1, 4
 !        MPI communication
 !        -----------------
 #if _HAS_MPI_
-         if ( MPI_Process % doMPIAction ) then
-            meshExtrudedInLocal = meshExtrudedIn
-            call mpi_allreduce ( meshExtrudedInLocal, meshExtrudedIn, NDIM, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ierr )
-         end if
+   if (do_mpi_section) then
+            if ( MPI_Process % doMPIAction ) then
+               meshExtrudedInLocal = meshExtrudedIn
+               call mpi_allreduce ( meshExtrudedInLocal, meshExtrudedIn, NDIM, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ierr )
+            end if
+   endif
 #endif
 
          if ( any(meshExtrudedIn) ) then

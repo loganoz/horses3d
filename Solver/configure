@@ -92,6 +92,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Multiphase/RisingBubble \
             ./Multiphase/RisingBubbleVreman \
             ./Multiphase/Snell \
+            ./Multiphase/MixedRK \
             ./Multiphase/Pipe \
             ./Multiphase/Monopole_pAdaptationRL \
             ./Multiphase/ActuatorLineInterpolation \

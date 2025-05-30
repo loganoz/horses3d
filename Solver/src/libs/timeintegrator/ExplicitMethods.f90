@@ -17,10 +17,10 @@ MODULE ExplicitMethods
    IMPLICIT NONE
 
    private
-   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME, EULER_RK3_NAME
-   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY, EULER_RK3_KEY
+   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME, EULER_RK3_NAME, LSERK14_4_NAME, MIXED_RK_NAME
+   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY, EULER_RK3_KEY, LSERK14_4_KEY, MIXED_RK_KEY
    public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep
-   public   TakeSSPRK33Step, TakeSSPRK43Step, TakeEulerRK3Step
+   public   TakeSSPRK33Step, TakeSSPRK43Step, TakeEulerRK3Step, TakeLSERK14_4Step, TakeMixedRKStep
    public   Enable_CTD_AFTER_STEPS, Enable_limiter, CTD_AFTER_STEPS, LIMITED, LIMITER_MIN
 
    integer,  protected :: eBDF_order = 3
@@ -40,6 +40,9 @@ MODULE ExplicitMethods
    character(len=*), parameter :: SSPRK33_NAME = "ssprk33"
    character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
    character(len=*), parameter :: EULER_RK3_NAME = "euler rk3"
+   character(len=*), parameter :: LSERK14_4_NAME = "lserk14-4"
+   character(len=*), parameter :: MIXED_RK_NAME = "mixed rk"
+
 
    integer, parameter :: EULER_KEY   = 1
    integer, parameter :: RK3_KEY     = 2
@@ -48,6 +51,9 @@ MODULE ExplicitMethods
    integer, parameter :: SSPRK33_KEY = 5
    integer, parameter :: SSPRK43_KEY = 6
    integer, parameter :: EULER_RK3_KEY = 7
+   integer, parameter :: LSERK14_4_KEY = 8
+   integer, parameter :: MIXED_RK_KEY = 9
+
 !========
  CONTAINS
 !
@@ -198,6 +204,401 @@ MODULE ExplicitMethods
 
    END SUBROUTINE TakeEulerRK3Step
 
+
+SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+!
+!        *****************************************************************************************
+!          Uses RK3 in phase1 and LSERK14-4 in phase2, think phase1 is air and phase2 is water. Of course, this will only yield an advantage if: 
+!          - you can get away with a time step using the mixed RK that is 5x times larger than that in pure RK3 scheme,
+!          - AND if there are at LEAST 20+% air elements (aim for 50% or more)
+!          A stand-alone LSERK14-4 implimetnation is given in TakeLSERK14_4Step
+!          The mixed RK scheme is valid only for the multiphase solver and throws an error otherwise,  
+!          However, the rest of this function still has its implementation consistent
+!          with the other RK steppers in case anyone needed to extend it
+!        *****************************************************************************************
+!
+      implicit none
+      type(HexMesh)                   :: mesh
+#ifdef FLOW
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)                   :: t, deltaT, tk
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      logical, intent(in), optional :: dts
+      real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      logical, allocatable :: phase1_mask(:)
+      logical, allocatable :: phase2_mask(:)
+      integer                   :: id, i, j, k
+      integer                   :: phase1_count, phase2_count, total_elements
+      real(kind=RP)             :: phase1_percentage
+
+
+#if !defined(MULTIPHASE)
+   error stop 'Mixed RK time stepping is only implemented for the multiphase solver'
+#else
+
+      ! Arrays to store the original solution for all elements
+#ifdef FLOW
+      real(kind=RP), allocatable :: Q_orig(:,:,:,:,:)
+      real(kind=RP), allocatable :: G_NS_orig(:,:,:,:,:)
+      ! Arrays to store the updated solution for phase1 elements
+      real(kind=RP), allocatable :: Q_phase1(:,:,:,:,:)
+      real(kind=RP), allocatable :: G_NS_phase1(:,:,:,:,:)
+#endif
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+      real(kind=RP), allocatable :: c_orig(:,:,:,:,:)
+      real(kind=RP), allocatable :: G_CH_orig(:,:,:,:,:)
+      ! Arrays to store the updated solution for phase1 elements
+      real(kind=RP), allocatable :: c_phase1(:,:,:,:,:)
+      real(kind=RP), allocatable :: G_CH_phase1(:,:,:,:,:)
+#endif
+
+      integer, parameter        :: N_STAGES_RK3 = 3
+      real(kind=RP), parameter  :: a_RK3(N_STAGES_RK3) = [0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP]
+      real(kind=RP), parameter  :: b_RK3(N_STAGES_RK3) = [0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  ]
+      real(kind=RP), parameter  :: c_RK3(N_STAGES_RK3) = [1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP ]
+
+      integer, parameter        :: N_STAGES_RK14_4 = 14
+      real(kind=RP), parameter  :: a_RK14_4(N_STAGES_RK14_4) = [0.0000000000000000_RP, -0.7188012108672410_RP, -0.7785331173421570_RP, -0.0053282796654044_RP, -0.8552979934029281_RP, -3.9564138245774565_RP, -1.5780575380587385_RP, -2.0837094552574054_RP, -0.7483334182761610_RP, -0.7032861106563359_RP, +0.0013917096117681_RP, -0.0932075369637460_RP, -0.9514200470875948_RP, -7.1151571693922548_RP]
+      real(kind=RP), parameter  :: b_RK14_4(N_STAGES_RK14_4) = [0.0000000000000000_RP, 0.0367762454319673_RP, 0.1249685262725025_RP, 0.2446177702277698_RP, 0.2476149531070420_RP, 0.2969311120382472_RP, 0.3978149645802642_RP, 0.5270854589440328_RP, 0.6981269994175695_RP, 0.8190890835352128_RP, 0.8527059887098624_RP, 0.8604711817462826_RP, 0.8627060376969976_RP, 0.8734213127600976_RP]
+      real(kind=RP), parameter  :: c_RK14_4(N_STAGES_RK14_4) = [0.0367762454319673_RP, 0.3136296607553959_RP, 0.1531848691869027_RP, 0.0030097086818182_RP, 0.3326293790646110_RP, 0.2440251405350864_RP, 0.3718879239592277_RP, 0.6204126221582444_RP, 0.1524043173028741_RP, 0.0760894927419266_RP, 0.0077604214040978_RP, 0.0024647284755382_RP, 0.0780348340049386_RP, 5.5059777270269628_RP]
+
+      allocate(phase1_mask(size(mesh % elements)))
+      allocate(phase2_mask(size(mesh % elements)))
+
+      ! Initialize counters
+      phase1_count = 0
+      phase2_count = 0
+      total_elements = size(mesh % elements)
+
+!$omp parallel do schedule(runtime) reduction(+:phase1_count,phase2_count) private(id)
+      do id = 1, size(mesh % elements)
+         if ( all(mesh % elements(id) % storage % Q(1,:,:,:) > 1.0_RP - 1e-8_RP) ) then
+             phase1_mask(id) = .true.
+             phase2_mask(id) = .false.
+             phase1_count = phase1_count + 1
+         else
+            phase1_mask(id) = .false.
+            phase2_mask(id) = .true.
+            phase2_count = phase2_count + 1
+         endif
+     end do
+!$omp end parallel do
+
+    ! Print phase distribution every 100 iterations for debugging
+   !   if (present(iter)) then
+   !    if (mod(iter, 100) == 0) then
+   !       phase1_percentage = real(phase1_count, RP) / real(total_elements, RP) * 100.0_RP
+   !       write(*,*) "Inside explicit method MixedRK"
+   !       write(*,'(A,I8,A,F6.2,A,I8,A,I8,A)') 'Iteration ', iter, &
+   !             ': Phase1 elements = ', phase1_percentage, '% (', &
+   !             phase1_count, ' out of ', total_elements, ' elements)'
+   !    end if
+   ! end if
+
+
+      ! Save a copy of the original solution for all elements
+#ifdef FLOW
+      allocate(Q_orig(size(mesh % elements), size(mesh % elements(1) % storage % Q, 1), &
+                      size(mesh % elements(1) % storage % Q, 2), &
+                      size(mesh % elements(1) % storage % Q, 3), &
+                      size(mesh % elements(1) % storage % Q, 4)))
+      allocate(G_NS_orig(size(mesh % elements), size(mesh % elements(1) % storage % G_NS, 1), &
+                         size(mesh % elements(1) % storage % G_NS, 2), &
+                         size(mesh % elements(1) % storage % G_NS, 3), &
+                         size(mesh % elements(1) % storage % G_NS, 4)))
+      
+      do id = 1, size(mesh % elements)
+         Q_orig(id,:,:,:,:) = mesh % elements(id) % storage % Q
+         G_NS_orig(id,:,:,:,:) = mesh % elements(id) % storage % G_NS
+      end do
+      
+      ! Allocate arrays for the updated solution for phase1 elements
+      allocate(Q_phase1(size(mesh % elements), size(mesh % elements(1) % storage % Q, 1), &
+                        size(mesh % elements(1) % storage % Q, 2), &
+                        size(mesh % elements(1) % storage % Q, 3), &
+                        size(mesh % elements(1) % storage % Q, 4)))
+      allocate(G_NS_phase1(size(mesh % elements), size(mesh % elements(1) % storage % G_NS, 1), &
+                           size(mesh % elements(1) % storage % G_NS, 2), &
+                           size(mesh % elements(1) % storage % G_NS, 3), &
+                           size(mesh % elements(1) % storage % G_NS, 4)))
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+      allocate(c_orig(size(mesh % elements), size(mesh % elements(1) % storage % c, 1), &
+                      size(mesh % elements(1) % storage % c, 2), &
+                      size(mesh % elements(1) % storage % c, 3), &
+                      size(mesh % elements(1) % storage % c, 4)))
+      allocate(G_CH_orig(size(mesh % elements), size(mesh % elements(1) % storage % G_CH, 1), &
+                         size(mesh % elements(1) % storage % G_CH, 2), &
+                         size(mesh % elements(1) % storage % G_CH, 3), &
+                         size(mesh % elements(1) % storage % G_CH, 4)))
+      
+      do id = 1, size(mesh % elements)
+         c_orig(id,:,:,:,:) = mesh % elements(id) % storage % c
+         G_CH_orig(id,:,:,:,:) = mesh % elements(id) % storage % G_CH
+      end do
+      
+      ! Allocate arrays for the updated solution for phase1 elements
+      allocate(c_phase1(size(mesh % elements), size(mesh % elements(1) % storage % c, 1), &
+                        size(mesh % elements(1) % storage % c, 2), &
+                        size(mesh % elements(1) % storage % c, 3), &
+                        size(mesh % elements(1) % storage % c, 4)))
+      allocate(G_CH_phase1(size(mesh % elements), size(mesh % elements(1) % storage % G_CH, 1), &
+                           size(mesh % elements(1) % storage % G_CH, 2), &
+                           size(mesh % elements(1) % storage % G_CH, 3), &
+                           size(mesh % elements(1) % storage % G_CH, 4)))
+#endif
+
+      ! Apply RK3 to phase1 elements and RK14-4 to phase2 elements
+      if (present(dt_vec)) then 
+         ! Apply RK3 to phase1 elements
+         DO k = 1, N_STAGES_RK3
+
+            tk = t + b_RK3(k)*deltaT
+            CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .false., phase1_mask)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do schedule(runtime)
+            DO id = 1, SIZE( mesh % elements )
+               if (phase1_mask(id)) then
+#ifdef FLOW
+                  mesh % elements(id) % storage % G_NS = a_RK3(k)* mesh % elements(id) % storage % G_NS + mesh % elements(id) % storage % QDot
+                  mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + c_RK3(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(id) % storage % G_CH = a_RK3(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c = mesh % elements(id) % storage % c + c_RK3(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
+#endif
+               end if
+            END DO
+!$omp end parallel do
+         END DO
+
+         ! Save the updated solution for phase1 elements
+#ifdef FLOW
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               Q_phase1(id,:,:,:,:) = mesh % elements(id) % storage % Q
+               G_NS_phase1(id,:,:,:,:) = mesh % elements(id) % storage % G_NS
+            end if
+         end do
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               c_phase1(id,:,:,:,:) = mesh % elements(id) % storage % c
+               G_CH_phase1(id,:,:,:,:) = mesh % elements(id) % storage % G_CH
+            end if
+         end do
+#endif
+
+         ! Restore original solution for all elements
+#ifdef FLOW
+         do id = 1, size(mesh % elements)
+            mesh % elements(id) % storage % Q = Q_orig(id,:,:,:,:)
+            mesh % elements(id) % storage % G_NS = G_NS_orig(id,:,:,:,:)
+         end do
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+         do id = 1, size(mesh % elements)
+            mesh % elements(id) % storage % c = c_orig(id,:,:,:,:)
+            mesh % elements(id) % storage % G_CH = G_CH_orig(id,:,:,:,:)
+         end do
+#endif
+
+         ! Apply RK14-4 to phase2 elements
+         DO k = 1, N_STAGES_RK14_4
+            tk = t + b_RK14_4(k)*deltaT
+            CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .false., phase2_mask)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do schedule(runtime)
+            DO id = 1, SIZE( mesh % elements )
+               if (phase2_mask(id)) then
+#ifdef FLOW
+                  mesh % elements(id) % storage % G_NS = a_RK14_4(k)* mesh % elements(id) % storage % G_NS + mesh % elements(id) % storage % QDot
+                  mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + c_RK14_4(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(id) % storage % G_CH = a_RK14_4(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c = mesh % elements(id) % storage % c + c_RK14_4(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
+#endif
+               end if
+            END DO
+!$omp end parallel do
+         END DO
+
+         ! Combine the updated solutions
+#ifdef FLOW
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               mesh % elements(id) % storage % Q = Q_phase1(id,:,:,:,:)
+               mesh % elements(id) % storage % G_NS = G_NS_phase1(id,:,:,:,:)
+            end if
+         end do
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               mesh % elements(id) % storage % c = c_phase1(id,:,:,:,:)
+               mesh % elements(id) % storage % G_CH = G_CH_phase1(id,:,:,:,:)
+            end if
+         end do
+#endif
+
+      else
+         ! Same procedure but with deltaT instead of dt_vec
+         ! Apply RK3 to phase1 elements
+         DO k = 1, N_STAGES_RK3
+            tk = t + b_RK3(k)*deltaT
+            CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .false., phase1_mask)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do schedule(runtime)
+            DO id = 1, SIZE( mesh % elements )
+               if (phase1_mask(id)) then
+#ifdef FLOW
+                  mesh % elements(id) % storage % G_NS = a_RK3(k)* mesh % elements(id) % storage % G_NS + mesh % elements(id) % storage % QDot
+                  mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + c_RK3(k)*deltaT* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(id) % storage % G_CH = a_RK3(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c = mesh % elements(id) % storage % c + c_RK3(k)*deltaT* mesh % elements(id) % storage % G_CH
+#endif
+               end if
+            END DO
+!$omp end parallel do
+         END DO
+
+         ! Save the updated solution for phase1 elements
+#ifdef FLOW
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               Q_phase1(id,:,:,:,:) = mesh % elements(id) % storage % Q
+               G_NS_phase1(id,:,:,:,:) = mesh % elements(id) % storage % G_NS
+            end if
+         end do
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               c_phase1(id,:,:,:,:) = mesh % elements(id) % storage % c
+               G_CH_phase1(id,:,:,:,:) = mesh % elements(id) % storage % G_CH
+            end if
+         end do
+#endif
+
+         ! Restore original solution for all elements
+#ifdef FLOW
+         do id = 1, size(mesh % elements)
+            mesh % elements(id) % storage % Q = Q_orig(id,:,:,:,:)
+            mesh % elements(id) % storage % G_NS = G_NS_orig(id,:,:,:,:)
+         end do
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+         do id = 1, size(mesh % elements)
+            mesh % elements(id) % storage % c = c_orig(id,:,:,:,:)
+            mesh % elements(id) % storage % G_CH = G_CH_orig(id,:,:,:,:)
+         end do
+#endif
+
+         ! Apply RK14-4 to phase2 elements
+         DO k = 1, N_STAGES_RK14_4
+            tk = t + b_RK14_4(k)*deltaT
+            CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .false., phase2_mask)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do schedule(runtime)
+            DO id = 1, SIZE( mesh % elements )
+               if (phase2_mask(id)) then
+#ifdef FLOW
+                  mesh % elements(id) % storage % G_NS = a_RK14_4(k)* mesh % elements(id) % storage % G_NS + mesh % elements(id) % storage % QDot
+                  mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + c_RK14_4(k)*deltaT* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(id) % storage % G_CH = a_RK14_4(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c = mesh % elements(id) % storage % c + c_RK14_4(k)*deltaT* mesh % elements(id) % storage % G_CH
+#endif
+               end if
+            END DO
+!$omp end parallel do
+         END DO
+
+         ! Combine the updated solutions
+#ifdef FLOW
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               mesh % elements(id) % storage % Q = Q_phase1(id,:,:,:,:)
+               mesh % elements(id) % storage % G_NS = G_NS_phase1(id,:,:,:,:)
+            end if
+         end do
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+         do id = 1, size(mesh % elements)
+            if (phase1_mask(id)) then
+               mesh % elements(id) % storage % c = c_phase1(id,:,:,:,:)
+               mesh % elements(id) % storage % G_CH = G_CH_phase1(id,:,:,:,:)
+            end if
+         end do
+#endif
+      end if
+
+      ! Deallocate temporary arrays
+      deallocate(phase1_mask)
+      deallocate(phase2_mask)
+#ifdef FLOW
+      deallocate(Q_orig)
+      deallocate(G_NS_orig)
+      deallocate(Q_phase1)
+      deallocate(G_NS_phase1)
+#endif
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+      deallocate(c_orig)
+      deallocate(G_CH_orig)
+      deallocate(c_phase1)
+      deallocate(G_CH_phase1)
+#endif
+
+      call checkForNan(mesh, t)
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+! end if flow is multiphase
+#endif 
+
+   end subroutine TakeMixedRKStep
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
@@ -388,6 +789,99 @@ MODULE ExplicitMethods
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
    end subroutine TakeRK5Step
+
+   SUBROUTINE TakeLSERK14_4Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+!
+!        *****************************************************************************************
+!           This 14 stage LSRK scheme has been extracted from the paper: 
+!           "Efﬁcient low-storage Runge–Kutta schemes with optimized stability regions"
+!        *****************************************************************************************
+!
+      implicit none
+      type(HexMesh)                   :: mesh
+#ifdef FLOW
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)                   :: t, deltaT, tk
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      logical, intent(in), optional :: dts
+      real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                   :: id, i, j, k
+      integer, parameter        :: N_STAGES = 14
+      real(kind=RP), parameter  :: a(N_STAGES) = [0.0000000000000000_RP, -0.7188012108672410_RP, -0.7785331173421570_RP, -0.0053282796654044_RP, -0.8552979934029281_RP, -3.9564138245774565_RP, -1.5780575380587385_RP, -2.0837094552574054_RP, -0.7483334182761610_RP, -0.7032861106563359_RP, +0.0013917096117681_RP, -0.0932075369637460_RP, -0.9514200470875948_RP, -7.1151571693922548_RP]
+      real(kind=RP), parameter  :: b(N_STAGES) = [0.0000000000000000_RP, 0.0367762454319673_RP, 0.1249685262725025_RP, 0.2446177702277698_RP, 0.2476149531070420_RP, 0.2969311120382472_RP, 0.3978149645802642_RP, 0.5270854589440328_RP, 0.6981269994175695_RP, 0.8190890835352128_RP, 0.8527059887098624_RP, 0.8604711817462826_RP, 0.8627060376969976_RP, 0.8734213127600976_RP]
+      real(kind=RP), parameter  :: c(N_STAGES) = [0.0367762454319673_RP, 0.3136296607553959_RP, 0.1531848691869027_RP, 0.0030097086818182_RP, 0.3326293790646110_RP, 0.2440251405350864_RP, 0.3718879239592277_RP, 0.6204126221582444_RP, 0.1524043173028741_RP, 0.0760894927419266_RP, 0.0077604214040978_RP, 0.0024647284755382_RP, 0.0780348340049386_RP, 5.5059777270269628_RP]
+
+
+      if (present(dt_vec)) then 
+
+      DO k = 1, N_STAGES
+
+         tk = t + b(k)*deltaT
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
+
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+#ifdef FLOW
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
+#endif
+         END DO
+!$omp end parallel do
+
+      END DO
+
+      else
+
+      DO k = 1, N_STAGES
+
+         tk = t + b(k)*deltaT
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
+
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+#ifdef FLOW
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+#endif
+         END DO
+!$omp end parallel do
+
+      END DO
+
+      end if
+
+      call checkForNan(mesh, t)
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+
+   end subroutine TakeLSERK14_4Step
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
