@@ -65,6 +65,8 @@ module SurfaceIntegrals
 !        Initialization
 !        --------------
          val = 0.0_RP
+
+         call ProlongToFaces(mesh, zoneID)
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
@@ -267,15 +269,8 @@ module SurfaceIntegrals
          valy = 0.0_RP
          valz = 0.0_RP
 
-         !$acc wait 
-         call HexMesh_ProlongSolToFaces(mesh, NCONS)
-         if ( computeGradients ) then
-            call HexMesh_ProlongGradientsToFaces(mesh, size(mesh % elements_sequential), mesh % elements_sequential, NGRAD)
-         end if
-!
-!        Loop the zone to get faces and elements
-!        ---------------------------------------
-         !$acc wait
+         call ProlongToFaces(mesh, zoneID)
+
          select case ( integralType )
          case ( SURFACE )
 
@@ -1117,6 +1112,107 @@ module SurfaceIntegrals
       deallocate(x, y, z, vector_x, vector_y, vector_z)
 
    end subroutine GenerateVectormonitorTECfile
+
+   subroutine ProlongToFaces(mesh, zoneID)
+      implicit none
+      type(HexMesh),       intent(inout) :: mesh 
+      integer,             intent(in)    :: zoneID
+
+      !-------- local variables ----------
+      integer :: zonefID, fID, eID
+      integer :: nEqn, nGradEqn
+
+         !$acc wait 
+
+         select case ( mesh %nodeType )
+         case(1) !Gauss-Legendre
+         !$acc parallel loop gang present(mesh) 
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            fID =  mesh % zones(zoneID) % faces(zonefID)
+            eID = mesh % faces(fID) % elementIDs(1)
+            call HexElement_ProlongSolToFaces(mesh % elements(eID), nEqn, mesh % faces(fID), fID)                        
+         end do 
+         !$acc end parallel loop
+         
+         case(2)
+         !$acc parallel loop gang present(mesh)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+            fID =  mesh % zones(zoneID) % faces(zonefID)
+            eID = mesh % faces(fID) % elementIDs(1)
+            call HexElement_ProlongSolToFaces_GL(mesh % elements(eID), nEqn, mesh % faces(fID), fID)                        
+         end do 
+         !$acc end parallel loop
+         end select
+
+         if ( computeGradients ) then
+            select case ( mesh %nodeType )
+            case(1) !Gauss
+
+            !$omp do schedule(runtime) private(eID)
+            !$acc parallel loop gang present(mesh) 
+            do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+               fID =  mesh % zones(zoneID) % faces(zonefID)
+               eID = mesh % faces(fID) % elementIDs(1)
+               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), nGradEqn, &
+                                                       mesh % faces(fID), &
+                                                       mesh % elements(eID) % storage % U_x,fID, 1)
+
+               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), nGradEqn, &
+                                                       mesh % faces(fID), &
+                                                       mesh % elements(eID) % storage % U_y,fID, 2)
+
+               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), nGradEqn, &
+                                                       mesh % faces(fID), &
+                                                       mesh % elements(eID) % storage % U_z,fID, 3)
+            end do
+            !$acc end parallel loop
+            !$omp end do
+
+            case(2) !Gauss-Lobatto
+
+            !$omp do schedule(runtime)
+            !$acc parallel loop gang present(mesh) private(fID)
+            do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+               fID =  mesh % zones(zoneID) % faces(zonefID)
+               eID = mesh % faces(fID) % elementIDs(1)
+               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), nGradEqn, &
+                                                          mesh % faces(fID), &
+                                                          mesh % elements(eID) % storage % U_x, fID,1)                        
+            end do
+            !$acc end parallel loop
+            !$omp end do
+
+            !$omp do schedule(runtime)
+            !$acc parallel loop gang present(mesh) private(fID)
+            do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+               fID =  mesh % zones(zoneID) % faces(zonefID)
+               eID = mesh % faces(fID) % elementIDs(1)
+               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), nGradEqn, &
+                                                          mesh % faces(fID), &
+                                                          mesh % elements(eID) % storage % U_y, fID,2)                        
+            end do
+            !$acc end parallel loop
+            !$omp end do
+         
+            !$omp do schedule(runtime)
+            !$acc parallel loop gang present(mesh) private(fID)
+            do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+               fID =  mesh % zones(zoneID) % faces(zonefID)
+               eID = mesh % faces(fID) % elementIDs(1)
+               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), nGradEqn, &
+                                                          mesh % faces(fID), &
+                                                          mesh % elements(eID) % storage % U_z, fID,3)                        
+            end do
+            !$acc end parallel loop
+            !$omp end do
+            end select
+         end if
+!
+!        Loop the zone to get faces and elements
+!        ---------------------------------------
+         !$acc wait
+
+   end subroutine ProlongToFaces
 
 end module SurfaceIntegrals
 #endif

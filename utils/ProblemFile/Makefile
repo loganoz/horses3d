@@ -53,6 +53,7 @@ INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback \
 		   -check bounds -check uninit -ftrapuv -debug all \
 		   -ftrace=full -ftz -fp-model precise \
 		   -fp-speculation=off -assume bscc -D_has_Quad
+NVFORTRAN_RELEASE_FLAGS= -O3 -fast -Mfree -Mbackslash -Mpreprocess
 ARFLAGS=crv
 
 TARGET=./libproblemfile
@@ -118,6 +119,12 @@ else ifeq ($(COMPILER),INTEL)
   WHOLE_FILE:=
 endif
 
+ifeq ($(COMPILER),nvfortran)
+  FC:=nvfortran
+  MOD_FLAG:=-J
+  WHOLE_FILE:=
+endif
+
 ##########################################
 ## Select mode
 ##########################################
@@ -126,6 +133,8 @@ ifeq ($(MODE),RELEASE)
          FFLAGS+=$(GNU_RELEASE_FLAGS)
      else ifeq ($(FC),ifort)
          FFLAGS+=$(INTEL_RELEASE_FLAGS)
+      else ifeq ($(FC),nvfortran)
+         FFLAGS+=$(NVFORTRAN_RELEASE_FLAGS)
      endif
 else ifeq ($(MODE),HPC)
 	 MACROS+= -D_HPC_MODE
@@ -149,6 +158,9 @@ ifeq ($(COMM),PARALLEL)
     else ifeq ($(FC),ifort)
         FC=mpiifort
 	MACROS+= -D_HAS_MPI_
+    else ifeq ($(FC),nvfortran)
+        FC=mpif90
+	MACROS+= -D_HAS_MPI_
     endif
 endif
 
@@ -168,6 +180,9 @@ HORSES_LIBS_MU=-ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_
 .DEFAULT_GOAL := all
 
 all: $(TARGET_NS) $(TARGET_NSSA) $(TARGET_iNS) $(TARGET_CH) $(TARGET_MU)
+
+mu: $(TARGET_MU)
+ns: $(TARGET_NS)
 
 $(TARGET_NS): FORCE ./ProblemFile_NS.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NS) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_NS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
