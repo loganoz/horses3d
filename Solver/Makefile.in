@@ -171,7 +171,7 @@ endif
 ##########################
 # We do not use threads with N
 ifeq ($(FC),nvfortran)
-    ENABLE_THREADS?=NO
+    ENABLE_THREADS:=NO
 endif
 ifeq ($(ENABLE_THREADS),YES)
     FFLAGS+=-fopenmp
