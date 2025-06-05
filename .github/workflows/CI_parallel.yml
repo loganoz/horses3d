@@ -1103,7 +1103,24 @@ jobs:
         working-directory: ./Solver/test/Multiphase/Snell
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.mu snell_N80.control
+          mpiexec -n 64 ./horses3d.mu snell.control
+        if: ('!cancelled()')
+
+#
+# 8) Mixed RK
+# ----------------------------
+      - name: Build MultiphaseMixedRK
+        working-directory: ./Solver/test/Multiphase/MixedRK/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: ('!cancelled()')
+
+      - name: Run MultiphaseMixedRK
+        working-directory: ./Solver/test/Multiphase/MixedRK
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.mu mixedRK.control
         if: ('!cancelled()')
 
 # ########################################################################

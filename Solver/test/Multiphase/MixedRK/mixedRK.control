@@ -1,7 +1,7 @@
-mesh file name        = "MESH/N80.msh"
+mesh file name        = "MESH/N50.msh"
 
-Polynomial order i = 3
-Polynomial order j = 3
+Polynomial order i = 2
+Polynomial order j = 2
 Polynomial order k = 1
 
 Number of time steps  = 50
@@ -55,7 +55,9 @@ interface width (m) = 0.01
 interface tension (N/m) = 1e-16   !72.8e-3
 
 Time integration = Explicit
+explicit method  = mixed rk 
 
+partitioning = METIS
 
 !-------------------------------------------------------------
 !------ BC --------
