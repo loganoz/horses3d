@@ -491,13 +491,12 @@
 #if defined(NAVIERSTOKES)
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       if(ActuatorLineFlag) then
           call ConstructFarm(farm, controlVariables, t, sem % mesh)
           call UpdateFarm(farm, t, sem % mesh)
       end if
-      call sponge % construct(sem % mesh,controlVariables)
-#endif
-#if defined(INCNS)
       call sponge % construct(sem % mesh,controlVariables)
 #endif
 !
@@ -516,7 +515,7 @@
 !
 !           Correct time step
 !           -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(INCNS) || defined(MULTIPHASE)
             sem % mesh% IBM% eta = self% CorrectDt(t, dt)
             sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -643,6 +642,8 @@
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors, FLUID_DATA_VARS)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 !
@@ -654,10 +655,14 @@
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
             ! Need to fix this, Nvfortran does not like the pointer here - select function might solve the problem
             CALL TakeRK3Step( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+#if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+#endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -673,11 +678,8 @@
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm,t,k)
-         call sponge % updateBaseFlow(sem % mesh,dt)
-#endif
-#if defined(INCNS)
          call sponge % updateBaseFlow(sem % mesh,dt)
 #endif
 !
@@ -799,10 +801,10 @@
          
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
-         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
+         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
 #endif
       end if
 
@@ -831,10 +833,9 @@
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
-         if(ActuatorLineFlag) call DestructFarm(farm)
-         call sponge % destruct()
 #endif
-#if defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+         if(ActuatorLineFlag) call DestructFarm(farm)
          call sponge % destruct()
 #endif
 

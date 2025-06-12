@@ -840,7 +840,25 @@ module SpatialDiscretization
 !$omp end single
          end if
 #endif
-
+!           ***************
+!           Add source term
+!           ***************
+!The scale with sqrtRho is done in the subroutines, not done againg here
+         call ForcesFarm(farm, mesh, t)
+!
+!        ****************************
+!        Now add all the source terms
+!        ****************************
+!$omp do schedule(runtime) private(i,j,k)
+!$acc parallel loop gang vector_length(128) present(mesh) async(1)
+         do eID = 1, mesh % no_of_elements
+            !$acc loop vector collapse(4)
+            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1) ; do eq = 1, NCONS
+               mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) + mesh % elements(eID) % storage % S_NS(eq,i,j,k)
+            end do   ;  end do   ;  end do   ;  end do
+         end do
+!$acc end parallel loop
+!$omp end do
 
       end subroutine ComputeNSTimeDerivative
 !
