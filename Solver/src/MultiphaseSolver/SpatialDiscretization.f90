@@ -708,7 +708,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
          integer     :: eID , i, j, k, ierr
-         integer     :: fID, side, iFace, iEl
+         integer     :: fID, side, iFace, iEl, eq
          real(kind=RP) :: sqrtRho, invSqrtRho
 !
 !        ****************

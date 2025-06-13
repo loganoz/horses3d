@@ -470,9 +470,6 @@ contains
 !$omp end do
     end if
 
-    ! print *, "elementsActuated: ", elementsActuated
-    ! print *, "turbineOfElement: ", turbineOfElement
-
     print*, "I allocate the AL device data"
 !$acc update device(elementsActuated)
 !$acc update device(turbineOfElement)
@@ -728,7 +725,6 @@ contains
 #endif
 
     if (.not. self % active) return
-    print *, "start ForcesFarm"
 
     Non_dimensional = POW2(refValues % V) * refValues % rho / Lref
     t = time * Lref / refValues % V
@@ -830,17 +826,8 @@ contains
         end do
 !$omp end do
 !$acc end parallel loop
-
-! print *, "end loop"
-!        !$acc update self(mesh % elements(23868) % storage % S_NS)
-! print *, "end source update"
-!!$acc wait
-! eID = 23868
-         ! print *, "s: ", mesh % elements(eID) % storage % S_NS
-
     endif
-    print *, "finish ForcesFarm"
-
+!
    end subroutine  ForcesFarm
 !
 !///////////////////////////////////////////////////////////////////////////////////////

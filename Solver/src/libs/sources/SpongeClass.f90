@@ -9,7 +9,7 @@
 
 #include "Includes.h"
 Module SpongeClass  !
-#if defined(NAVIERSTOKES) || defined (INCNS)
+#if defined(FLOW) 
     use SMConstants
     use HexMeshClass
     use SolutionFile
@@ -17,7 +17,7 @@ Module SpongeClass  !
     Implicit None
 
     private
-    public sponge
+    public sponge, addSourceSponge
 
     !definition of sponge class 
     type sponge_t
@@ -45,7 +45,7 @@ Module SpongeClass  !
         procedure :: construct      => spongeConstruct
         procedure :: destruct       => spongeDestruct
         procedure :: creatRamp
-        procedure :: addSource
+        ! procedure :: addSource
         procedure :: initializeBaseFlow
         procedure :: updateBaseFlow
         procedure :: readBaseFlow
@@ -330,7 +330,7 @@ Module SpongeClass  !
 
     End Subroutine creatRamp
 !
-    Subroutine addSource(self,mesh)
+    Subroutine addSourceSponge(self,mesh)
         Implicit None
         class(sponge_t)                                         :: self
         type(HexMesh), intent(inout)                            :: mesh
@@ -345,7 +345,7 @@ Module SpongeClass  !
 
         Nxyz = mesh % elements(1) % Nxyz
 
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k,eID)
         do spongeEID = 1, self % nElements
             eID = self % elementIndexMap(spongeEID)
             associate(e => mesh % elements(eID))
@@ -357,7 +357,7 @@ Module SpongeClass  !
         end do
 !$omp end do
 
-    End Subroutine addSource
+    End Subroutine addSourceSponge
 !
     Subroutine initializeBaseFlow(self,mesh)
         use ElementClass
@@ -562,6 +562,9 @@ Module SpongeClass  !
         refs(T_REF)     = 0.0_RP
         refs(MACH_REF)  = 0.0_RP
 !        refs(RE_REF)    = dimensionless  % Re
+#endif
+#if defined(Multiphase)
+        refs = 0.0_RP
 #endif
 !       Create new file
 !       ---------------
