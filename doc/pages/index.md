@@ -4,7 +4,7 @@ ordered_subpage: user_manual
 
 ---
 
-# Welcome to `HORSES`
+# Welcome to `HORSES3D`
 This is the front page for HORSES3D user documentation including, file structure, theory and tutorials. 
 
 <!---

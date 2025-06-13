@@ -119,7 +119,7 @@ To run the in-time computation, the observers must be defined in the control fil
 | tool type                      | *CHARACTER(*)*: Necessary for post-process calculation. Defines the type of post-process of horses.tools. For the FWH analogy the value must be ''fwh post''                          | --            |
 
 
-## Incopressible navier-Stokes
+## Incompressible navier-Stokes
 
 Among the various incompressible Navier-Stokes models, `HORSES3D` uses an artificial compressibility 
 formulation, which converts the elliptic problem into a hyperbolic system of equations, at the expense of a non divergence–free 
@@ -251,7 +251,7 @@ where \(c_{V,p}\) is the specific heat of the particle, which is assumed to be c
 In practical simulations, integrating the trajectory of every particle is too expensive. Therefore, particles are agglomerated into parcels, each of them accounting for many particles with the same physical properties, position, velocity, and temperature. The evolution of the parcels is tracked with the same set of equations presented for the particles.
 
 The two-way coupling means that fluid flow is modified because of the presence of particles. Therefore, the Navier-Stokes equations are enriched with the following source terms:
-%
+
 \begin{equation}
 \boldsymbol{S} = \beta\left[\begin{array}{c} 0 \\
                                                                        \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{1,n}-v_1)\delta(\mathbf{x} - \mathbf{y}_n)  \\
@@ -261,7 +261,7 @@ The two-way coupling means that fluid flow is modified because of the presence o
 \end{array}\right],
 \label{eq:particlessource}
 \end{equation}
-%
+
 where \(\delta\) is the Dirac delta function, \(N_p\) is the number of parcels, \(\beta\) is the number of particles per parcel and \(u_{i,n}\), \(\mathbf{y}_{i,n}\), \(T_{p,n}\) are the velocity, spatial coordinates, and temperature of the parcel \emph{nth}.
 The dimensionless form of the Navier Stokes equations can be seen in the appendix at the end of this document. 
 
