@@ -699,6 +699,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine ComputeNSTimeDerivative( mesh , t )
+         use ActuatorLine, only: farm, ForcesFarm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -1456,8 +1457,8 @@ module SpatialDiscretization
                kappa = 0.0_RP
                beta  = multiphase % M0_star
 
-               call CHDivergenceFlux( NCOMP, NCOMP, mesh % elements(eID) % storage % Q(IMC,i,j,k) , mesh % elements(eID) % storage % U_x(IMC,i,j,k) , & 
-                                      mesh % elements(eID) % storage % U_y(IMC,i,j,k) , mesh % elements(eID) % storage % U_z(IMC,i,j,k), mu, beta, kappa, cartesianFlux)
+               call CHDivergenceFlux( NCOMP, NCOMP, mesh % elements(eID) % storage % Q(1:IMC,i,j,k) , mesh % elements(eID) % storage % U_x(1:IMC,i,j,k) , & 
+                                      mesh % elements(eID) % storage % U_y(1:IMC,i,j,k) , mesh % elements(eID) % storage % U_z(1:IMC,i,j,k), mu, beta, kappa, cartesianFlux)
             
                mesh % elements(eID) % storage % contravariantFlux(IMC,i,j,k,IX)  = &
                                                          - cartesianFlux(IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
@@ -1554,15 +1555,15 @@ module SpatialDiscretization
 
                call GetCHViscosity(0.0_RP, mu)
 
-               call CHDivergenceFlux( NCONS, NCONS, mesh % faces(fID) % storage(1) % Q(IMC,i,j) , mesh % faces(fID) % storage(1) % U_x(IMC,i,j) , & 
-                                      mesh % faces(fID) % storage(1) % U_y(IMC,i,j) , mesh % faces(fID) % storage(1) % U_z(IMC,i,j), mu, 0.0_RP, 0.0_RP, mesh % faces(fID) % storage(1) % unStar(:,:,i,j))
+               call CHDivergenceFlux( NCONS, NCONS, mesh % faces(fID) % storage(1) % Q(1:IMC,i,j) , mesh % faces(fID) % storage(1) % U_x(1:IMC,i,j) , & 
+                                      mesh % faces(fID) % storage(1) % U_y(1:IMC,i,j) , mesh % faces(fID) % storage(1) % U_z(1:IMC,i,j), mu, 0.0_RP, 0.0_RP, mesh % faces(fID) % storage(1) % unStar(:,:,i,j))
 
-               call CHDivergenceFlux( NCONS, NCONS, mesh % faces(fID) % storage(2) % Q(IMC,i,j) , mesh % faces(fID) % storage(2) % U_x(IMC,i,j) , & 
-                                      mesh % faces(fID) % storage(2) % U_y(IMC,i,j) , mesh % faces(fID) % storage(2) % U_z(IMC,i,j), mu, 0.0_RP, 0.0_RP, mesh % faces(fID) % storage(2) % unStar(:,:,i,j))
+               call CHDivergenceFlux( NCONS, NCONS, mesh % faces(fID) % storage(2) % Q(1:IMC,i,j) , mesh % faces(fID) % storage(2) % U_x(1:IMC,i,j) , & 
+                                      mesh % faces(fID) % storage(2) % U_y(1:IMC,i,j) , mesh % faces(fID) % storage(2) % U_z(1:IMC,i,j), mu, 0.0_RP, 0.0_RP, mesh % faces(fID) % storage(2) % unStar(:,:,i,j))
             
             end do   ;  end do 
 
-            call BR1_RiemannSolver_acc(mesh % faces(fID), NCOMP, NCOMP, 1.0_RP, CHDiscretization % sigma, mesh % faces(fID) % storage(1) % FStar)
+            call BR1_RiemannSolver_acc(mesh % faces(fID), NCOMP, NCOMP, [1.0_RP], CHDiscretization % sigma, mesh % faces(fID) % storage(1) % FStar)
 
 !           ------------------------
 !           Multiply by the Jacobian
@@ -1604,25 +1605,25 @@ module SpatialDiscretization
 !              --------------
 !      
                call GetCHViscosity(0.0_RP, mu)
-               CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
-                                                  EllipticFlux = CHDivergenceFlux, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
-                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  sigma = [1.0_RP], &
-                                                  flux  = flux(:,i,j) )
+               !CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+               !                                   EllipticFlux = CHDivergenceFlux, &
+               !                                   f = f, &
+               !                                   QLeft = f % storage(1) % Q(:,i,j), &
+               !                                   QRight = f % storage(2) % Q(:,i,j), &
+               !                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
+               !                                   U_yLeft = f % storage(1) % U_y(:,i,j), &
+               !                                   U_zLeft = f % storage(1) % U_z(:,i,j), &
+               !                                   U_xRight = f % storage(2) % U_x(:,i,j), &
+               !                                   U_yRight = f % storage(2) % U_y(:,i,j), &
+               !                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+               !                                   mu_left  = [mu, 0.0_RP, 0.0_RP], &
+               !                                   mu_right = [mu, 0.0_RP, 0.0_RP], &
+               !                                   nHat = f % geom % normal(:,i,j) , &
+               !                                   dWall = f % geom % dWall(i,j), &
+               !                                   sigma = [1.0_RP], &
+               !                                   flux  = flux(:,i,j) )
 
-               flux(:,i,j) = flux(:,i,j) * f % geom % jacobian(i,j)
+               !flux(:,i,j) = flux(:,i,j) * f % geom % jacobian(i,j)
 
             END DO   
          END DO  
@@ -1676,10 +1677,10 @@ module SpatialDiscretization
                do j = 0, mesh % faces(fID) % Nf(2) ; do i = 0, mesh % faces(fID) % Nf(1)
                mesh % faces(fID) % storage(2) % Q(IMC,i,j) = mesh % faces(fID) % storage(1) % Q(IMC,i,j)
                call GetCHViscosity(0.0_RP, mu)
-               call CHDivergenceFlux(NCONS, NCONS, mesh % faces(fID) % storage(1) % Q(IMC,i,j), &
-                                                   mesh % faces(fID) % storage(1) % U_x(IMC,i,j), &
-                                                   mesh % faces(fID) % storage(1) % U_y(IMC,i,j), &
-                                                   mesh % faces(fID) % storage(1) % U_z(IMC,i,j), &
+               call CHDivergenceFlux(NCONS, NCONS, mesh % faces(fID) % storage(1) %   Q(1:IMC,i,j), &
+                                                   mesh % faces(fID) % storage(1) % U_x(1:IMC,i,j), &
+                                                   mesh % faces(fID) % storage(1) % U_y(1:IMC,i,j), &
+                                                   mesh % faces(fID) % storage(1) % U_z(1:IMC,i,j), &
                                                    mu, 0.0_RP, 0.0_RP, &
                                                    mesh % faces(fID) % storage(1) % unStar(:,:,i,j))
                enddo ; enddo

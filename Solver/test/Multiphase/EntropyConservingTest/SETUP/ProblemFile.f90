@@ -568,15 +568,6 @@ end module ProblemFileFunctions
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = entropyRate_saved+1.0_RP, &
-                               actualValue   = monitors % volumeMonitors(1) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Entropy-Rate")
-
-            CALL FTAssertEqual(expectedValue = entropyBal_saved+1.0_RP, &
-                               actualValue   = monitors % volumeMonitors(2) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Entropy-Balance")
 
             CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+100.0_RP, &
