@@ -85,10 +85,12 @@ module ResidualsMonitorClass
 #elif defined(MULTIPHASE)
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "concentration" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
-#elif defined(SCALAR)
-            write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "slr"
 #elif defined(CAHNHILLIARD)
             write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "concentration"
+
+#elif defined(ACOUSTIC)
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
+                        "Elapsed Time (s)" , "density" , "x-velocity" , "y-velocity" , "z-velocity", "pressure" , "Max-Residual"
 
 #endif
 !
@@ -151,10 +153,14 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "div-v"
-#elif defined(SCALAR)
-         write(STD_OUT , '(3X,A10)' , advance = "no") "slr"
 #elif defined(CAHNHILLIARD)
          write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
+#elif defined(ACOUSTIC)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "density"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "x-velocity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "y-velocity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "z-velocity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "pressure"
 
 #endif
 
@@ -226,8 +232,6 @@ module ResidualsMonitorClass
 #if defined(FLOW)
 111 format(6(2X,ES24.16))
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
-111 format(2(2X,ES24.16))
-#else
 111 format(2(2X,ES24.16))
 #endif
       end subroutine Residuals_WriteToFile

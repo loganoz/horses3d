@@ -12,13 +12,29 @@
 
     <title>Monitors.f90 &ndash; HORSES3D</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
-    <link href="../css/pygments.css" rel="stylesheet">
-    <link href="../css/font-awesome.min.css" rel="stylesheet">
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- Font Awesome -->
+    <link href="../css/fontawesome.min.css" rel="stylesheet">
+    <link href="../css/brands.min.css" rel="stylesheet">
+    <link href="../css/regular.min.css" rel="stylesheet">
+    <link href="../css/solid.min.css" rel="stylesheet">
+    <link href="../css/v4-font-face.min.css" rel="stylesheet">
+    <link href="../css/v4-shims.min.css" rel="stylesheet">
+    <!-- MathJax -->
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        TeX: { equationNumbers: { autoNumber: "AMS" } }
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/MathJax.js?config=TeX-AMS-MML_HTMLorMML" async
+            integrity="sha256-DViIOMYdwlM/axqoGDPeUyf0urLoHMN4QACBKyB58Uw=" crossorigin="anonymous"></script>
+    <!-- Other scripts and stylesheets -->
     <link href="../css/local.css" rel="stylesheet">
-
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <link href="../css/pygments.css" rel="stylesheet">
     <script src="../js/svg-pan-zoom.min.js"></script>
   </head>
 
@@ -47,15 +63,14 @@
                   <a class="nav-link" href="../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -75,7 +90,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title=" 0.8% of total for source files.">372 statements</a>
+                 title=" 8.9% of total for source files.">372 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -94,9 +109,11 @@
     </div>
   </div>
   <script>
-    $(function () {
-    $('[data-bs-toggle="tooltip"]').tooltip()
-    })
+    // Enable Bootstrap tooltips
+    (function () {
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+    })();
   </script>
 
   </div>
@@ -165,7 +182,7 @@
 <a id="ln-11" name="ln-11" href="#ln-11"></a><span class="cp">#ifdef FLOW</span>
 <a id="ln-12" name="ln-12" href="#ln-12"></a><span class="w">   </span><span class="k">use </span><span class="n">ProbeClass</span>
 <a id="ln-13" name="ln-13" href="#ln-13"></a><span class="cp">#endif</span>
-<a id="ln-14" name="ln-14" href="#ln-14"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-14" name="ln-14" href="#ln-14"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-15" name="ln-15" href="#ln-15"></a><span class="w">   </span><span class="k">use </span><span class="n">StatisticsMonitor</span>
 <a id="ln-16" name="ln-16" href="#ln-16"></a><span class="w">   </span><span class="k">use </span><span class="n">SurfaceMonitorClass</span>
 <a id="ln-17" name="ln-17" href="#ln-17"></a><span class="cp">#endif</span>
@@ -198,7 +215,7 @@
 <a id="ln-44" name="ln-44" href="#ln-44"></a><span class="cp">#ifdef FLOW</span>
 <a id="ln-45" name="ln-45" href="#ln-45"></a><span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">Probe_t</span><span class="p">)</span><span class="w">               </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">probes</span><span class="p">(:)</span>
 <a id="ln-46" name="ln-46" href="#ln-46"></a><span class="cp">#endif</span>
-<a id="ln-47" name="ln-47" href="#ln-47"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-47" name="ln-47" href="#ln-47"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-48" name="ln-48" href="#ln-48"></a><span class="w">      </span><span class="k">class</span><span class="p">(</span><span class="n">SurfaceMonitor_t</span><span class="p">)</span><span class="w">      </span><span class="p">,</span><span class="w"> </span><span class="k">allocatable</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="p">(:)</span>
 <a id="ln-49" name="ln-49" href="#ln-49"></a><span class="w">      </span><span class="k">type</span><span class="p">(</span><span class="n">StatisticsMonitor_t</span><span class="p">)</span><span class="w">                  </span><span class="kd">::</span><span class="w"> </span><span class="n">stats</span>
 <a id="ln-50" name="ln-50" href="#ln-50"></a><span class="cp">#endif</span>
@@ -292,7 +309,7 @@
 <a id="ln-138" name="ln-138" href="#ln-138"></a><span class="w">         </span><span class="k">end do</span>
 <a id="ln-139" name="ln-139" href="#ln-139"></a><span class="cp">#endif</span>
 <a id="ln-140" name="ln-140" href="#ln-140"></a>
-<a id="ln-141" name="ln-141" href="#ln-141"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-141" name="ln-141" href="#ln-141"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-142" name="ln-142" href="#ln-142"></a><span class="w">         </span><span class="n">saveGradients</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">logicalValueForKey</span><span class="p">(</span><span class="n">saveGradientsToSolutionKey</span><span class="p">)</span>
 <a id="ln-143" name="ln-143" href="#ln-143"></a><span class="w">         </span><span class="k">call </span><span class="n">Monitors</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">stats</span><span class="w">     </span><span class="p">%</span><span class="w"> </span><span class="n">Construct</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">saveGradients</span><span class="p">)</span>
 <a id="ln-144" name="ln-144" href="#ln-144"></a>
@@ -354,7 +371,7 @@
 <a id="ln-200" name="ln-200" href="#ln-200"></a><span class="w">         </span><span class="k">end do</span>
 <a id="ln-201" name="ln-201" href="#ln-201"></a><span class="cp">#endif</span>
 <a id="ln-202" name="ln-202" href="#ln-202"></a>
-<a id="ln-203" name="ln-203" href="#ln-203"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-203" name="ln-203" href="#ln-203"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-204" name="ln-204" href="#ln-204"></a><span class="c">!</span>
 <a id="ln-205" name="ln-205" href="#ln-205"></a><span class="c">!        Write surface monitors labels</span>
 <a id="ln-206" name="ln-206" href="#ln-206"></a><span class="c">!        -----------------------------</span>
@@ -428,7 +445,7 @@
 <a id="ln-274" name="ln-274" href="#ln-274"></a><span class="k">         end do</span>
 <a id="ln-275" name="ln-275" href="#ln-275"></a><span class="cp">#endif</span>
 <a id="ln-276" name="ln-276" href="#ln-276"></a>
-<a id="ln-277" name="ln-277" href="#ln-277"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-277" name="ln-277" href="#ln-277"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-278" name="ln-278" href="#ln-278"></a><span class="c">!</span>
 <a id="ln-279" name="ln-279" href="#ln-279"></a><span class="c">!        Print dashes for surface monitors</span>
 <a id="ln-280" name="ln-280" href="#ln-280"></a><span class="c">!        ---------------------------------</span>
@@ -493,7 +510,7 @@
 <a id="ln-339" name="ln-339" href="#ln-339"></a><span class="w">         </span><span class="k">end do</span>
 <a id="ln-340" name="ln-340" href="#ln-340"></a><span class="cp">#endif</span>
 <a id="ln-341" name="ln-341" href="#ln-341"></a>
-<a id="ln-342" name="ln-342" href="#ln-342"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-342" name="ln-342" href="#ln-342"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-343" name="ln-343" href="#ln-343"></a><span class="c">!</span>
 <a id="ln-344" name="ln-344" href="#ln-344"></a><span class="c">!        Print surface monitors</span>
 <a id="ln-345" name="ln-345" href="#ln-345"></a><span class="c">!        ----------------------</span>
@@ -577,7 +594,7 @@
 <a id="ln-423" name="ln-423" href="#ln-423"></a><span class="w">         </span><span class="k">end do</span>
 <a id="ln-424" name="ln-424" href="#ln-424"></a><span class="cp">#endif</span>
 <a id="ln-425" name="ln-425" href="#ln-425"></a>
-<a id="ln-426" name="ln-426" href="#ln-426"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-426" name="ln-426" href="#ln-426"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-427" name="ln-427" href="#ln-427"></a><span class="c">!</span>
 <a id="ln-428" name="ln-428" href="#ln-428"></a><span class="c">!        Update surface monitors</span>
 <a id="ln-429" name="ln-429" href="#ln-429"></a><span class="c">!        -----------------------</span>
@@ -642,7 +659,7 @@
 <a id="ln-488" name="ln-488" href="#ln-488"></a><span class="w">            </span><span class="k">end do</span>
 <a id="ln-489" name="ln-489" href="#ln-489"></a><span class="cp">#endif</span>
 <a id="ln-490" name="ln-490" href="#ln-490"></a><span class="w">   </span>
-<a id="ln-491" name="ln-491" href="#ln-491"></a><span class="cp">#if defined(NAVIERSTOKES)   </span>
+<a id="ln-491" name="ln-491" href="#ln-491"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)  </span>
 <a id="ln-492" name="ln-492" href="#ln-492"></a><span class="w">            </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">no_of_surfaceMonitors</span>
 <a id="ln-493" name="ln-493" href="#ln-493"></a><span class="w">               </span><span class="k">call </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">WriteToFile</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">iter</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">bufferLine</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-494" name="ln-494" href="#ln-494"></a><span class="w">            </span><span class="k">end do</span>
@@ -683,7 +700,7 @@
 <a id="ln-529" name="ln-529" href="#ln-529"></a><span class="w">               </span><span class="k">end do</span>
 <a id="ln-530" name="ln-530" href="#ln-530"></a><span class="cp">#endif</span>
 <a id="ln-531" name="ln-531" href="#ln-531"></a>
-<a id="ln-532" name="ln-532" href="#ln-532"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-532" name="ln-532" href="#ln-532"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-533" name="ln-533" href="#ln-533"></a><span class="w">               </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">no_of_surfaceMonitors</span>
 <a id="ln-534" name="ln-534" href="#ln-534"></a><span class="w">                  </span><span class="k">call </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">WriteToFile</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">iter</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">bufferLine</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-535" name="ln-535" href="#ln-535"></a><span class="w">               </span><span class="k">end do</span>
@@ -720,7 +737,7 @@
 <a id="ln-566" name="ln-566" href="#ln-566"></a><span class="w">         </span><span class="n">safedeallocate</span><span class="w"> </span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">probes</span><span class="p">)</span>
 <a id="ln-567" name="ln-567" href="#ln-567"></a><span class="cp">#endif</span>
 <a id="ln-568" name="ln-568" href="#ln-568"></a><span class="w">         </span>
-<a id="ln-569" name="ln-569" href="#ln-569"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-569" name="ln-569" href="#ln-569"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-570" name="ln-570" href="#ln-570"></a><span class="w">         </span><span class="k">call </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">destruct</span>
 <a id="ln-571" name="ln-571" href="#ln-571"></a><span class="w">         </span><span class="n">safedeallocate</span><span class="w"> </span><span class="p">(</span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="p">)</span>
 <a id="ln-572" name="ln-572" href="#ln-572"></a><span class="w">         </span>
@@ -778,7 +795,7 @@
 <a id="ln-624" name="ln-624" href="#ln-624"></a><span class="w">         </span><span class="n">to</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">probes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">from</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">probes</span>
 <a id="ln-625" name="ln-625" href="#ln-625"></a><span class="cp">#endif</span>
 <a id="ln-626" name="ln-626" href="#ln-626"></a><span class="w">         </span>
-<a id="ln-627" name="ln-627" href="#ln-627"></a><span class="cp">#if defined(NAVIERSTOKES)</span>
+<a id="ln-627" name="ln-627" href="#ln-627"></a><span class="cp">#if defined(NAVIERSTOKES) || defined(INCNS)</span>
 <a id="ln-628" name="ln-628" href="#ln-628"></a><span class="w">         </span><span class="n">safedeallocate</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-629" name="ln-629" href="#ln-629"></a><span class="w">         </span><span class="k">allocate</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">from</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">)</span>
 <a id="ln-630" name="ln-630" href="#ln-630"></a><span class="w">         </span><span class="n">to</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">from</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceMonitors</span>
@@ -895,37 +912,18 @@
           <div class="col">
             <p>
               HORSES3D
- was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+ was developed by HORSES3D developers<br>              &copy; 2025 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
 </p>
           </div>
           <div class="col">
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-10-16 16:27              </p>
+ on 2025-06-14 06:05 +0000             </p>
           </div>
         </div>
         <br>
       </div> <!-- /container -->
     </footer>
-
-    <!-- Bootstrap core JavaScript -->
-    <!-- Placed at the end of the document so the pages load faster -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
-
-    <!-- MathJax JavaScript
-             ================================================== -->
-             <!-- Placed at the end of the document so the pages load faster -->
-        <script type="text/x-mathjax-config">
-          MathJax.Hub.Config({
-          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
-          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
-          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
-          });
-        </script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-
-
   </body>
 </html>

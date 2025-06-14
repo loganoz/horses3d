@@ -12,13 +12,29 @@
 
     <title>Physics related keywords &ndash; HORSES3D</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
-    <link href="../../css/pygments.css" rel="stylesheet">
-    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- Font Awesome -->
+    <link href="../../css/fontawesome.min.css" rel="stylesheet">
+    <link href="../../css/brands.min.css" rel="stylesheet">
+    <link href="../../css/regular.min.css" rel="stylesheet">
+    <link href="../../css/solid.min.css" rel="stylesheet">
+    <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+    <link href="../../css/v4-shims.min.css" rel="stylesheet">
+    <!-- MathJax -->
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        TeX: { equationNumbers: { autoNumber: "AMS" } }
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.9/MathJax.js?config=TeX-AMS-MML_HTMLorMML" async
+            integrity="sha256-DViIOMYdwlM/axqoGDPeUyf0urLoHMN4QACBKyB58Uw=" crossorigin="anonymous"></script>
+    <!-- Other scripts and stylesheets -->
     <link href="../../css/local.css" rel="stylesheet">
-
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <link href="../../css/pygments.css" rel="stylesheet">
     <script src="../../js/svg-pan-zoom.min.js"></script>
   </head>
 
@@ -47,15 +63,14 @@
                   <a class="nav-link" href="../../lists/procedures.html">Procedures</a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link" href="../../lists/absint.html">Abstract Interfaces</a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link" href="../../lists/types.html">Derived Types</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="../../lists/programs.html">Programs</a>
-                </li>
             </ul>
+              <div class="d-flex align-items-end flex-grow-1">
+                <form action="../../search.html" role="search" class="ms-auto">
+                  <input type="text" class="form-control" aria-label="Search" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+                </form>
+              </div>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
@@ -125,7 +140,7 @@
 <li><a href="#acoustic">Acoustic</a></li>
 </ul>
 </li>
-<li><a href="#incopressible-navier-stokes">Incopressible navier-Stokes</a></li>
+<li><a href="#incompressible-navier-stokes">Incompressible navier-Stokes</a></li>
 <li><a href="#multiphase">Multiphase</a></li>
 <li><a href="#particles">Particles</a></li>
 <li><a href="#complementary-modes">Complementary Modes</a><ul>
@@ -426,7 +441,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="incopressible-navier-stokes">Incopressible navier-Stokes</h2>
+<h2 id="incompressible-navier-stokes">Incompressible navier-Stokes</h2>
 <p>Among the various incompressible Navier-Stokes models, <code>HORSES3D</code> uses an artificial compressibility 
 formulation, which converts the elliptic problem into a hyperbolic system of equations, at the expense of a non divergence–free 
 velocity field. However, it allows one to avoid constructing an approximation that satisfies the inf–sup condition. 
@@ -567,7 +582,8 @@ The modified entropy-stable version approximates:</p>
 c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
 \label{eq:governing:cahn--hilliard}
 \end{equation}</script>
-%
+</p>
+<p>
 <script type="math/tex; mode=display">\begin{equation}
 \sqrt{\rho}\left(\sqrt{\rho}\vec{u}\right)_t+\vec{\nabla}\cdot\left(\frac{1}{2}\rho \vec{u}\vec{u}\right) 
 +\frac{1}{2}\rho\vec{u}\cdot\vec{\nabla}\vec{u}+c\vec{\nabla}\mu
@@ -575,13 +591,14 @@ c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
 \vec{\nabla}\vec{u}^{T}\right)\right)+\rho\vec{g},
 \label{eq:governing:momentum-skewsymmetric-sqrtRho}
 \end{equation}</script>
-%
+</p>
+<p>
 <script type="math/tex; mode=display">\begin{equation}
   p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
   \label{eq:governing:ACM}
 \end{equation}</script>
-%
-where <script type="math/tex">c</script> is the phase field parameter, <script type="math/tex">M_0</script> is the mobility, <script type="math/tex">\mu</script> is the chemical potential, 
+</p>
+<p>where <script type="math/tex">c</script> is the phase field parameter, <script type="math/tex">M_0</script> is the mobility, <script type="math/tex">\mu</script> is the chemical potential, 
 <script type="math/tex">\eta</script> is the viscosity and <script type="math/tex">c_0</script> is the artificial speed of sound. The factor <script type="math/tex">\rho_0</script> is computed as <script type="math/tex">max(\rho_1/\rho_1,\rho_2/\rho_1)</script>.
 Mobility <script type="math/tex">M_0</script> is computed from the control file parameters chemical characteristic time <script type="math/tex">t_{CH}</script>, interface width <script type="math/tex">\epsilon</script> and interface tension <script type="math/tex">\sigma</script> with the formula 
 <script type="math/tex">M_0 = L_{ref}^2 \epsilon /(t_{CH} \sigma)</script>. </p>
@@ -686,8 +703,8 @@ where <script type="math/tex">u_i</script> and <script type="math/tex">y_i</scri
 \end{equation}</script>
 where <script type="math/tex">c_{V,p}</script> is the specific heat of the particle, which is assumed to be constant with respect to temperature. <script type="math/tex">T_p</script> is the particle temperature and <script type="math/tex">h</script> is the convective heat transfer coefficient, which for a Stokesian particle can be calculated from the Nusselt number <script type="math/tex">Nu = hD_p/k = 2</script>.</p>
 <p>In practical simulations, integrating the trajectory of every particle is too expensive. Therefore, particles are agglomerated into parcels, each of them accounting for many particles with the same physical properties, position, velocity, and temperature. The evolution of the parcels is tracked with the same set of equations presented for the particles.</p>
-<p>The two-way coupling means that fluid flow is modified because of the presence of particles. Therefore, the Navier-Stokes equations are enriched with the following source terms:
-%
+<p>The two-way coupling means that fluid flow is modified because of the presence of particles. Therefore, the Navier-Stokes equations are enriched with the following source terms:</p>
+<p>
 <script type="math/tex; mode=display">\begin{equation}
 \boldsymbol{S} = \beta\left[\begin{array}{c} 0 \\
                                                                        \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{1,n}-v_1)\delta(\mathbf{x} - \mathbf{y}_n)  \\
@@ -697,8 +714,8 @@ where <script type="math/tex">c_{V,p}</script> is the specific heat of the parti
 \end{array}\right],
 \label{eq:particlessource}
 \end{equation}</script>
-%
-where <script type="math/tex">\delta</script> is the Dirac delta function, <script type="math/tex">N_p</script> is the number of parcels, <script type="math/tex">\beta</script> is the number of particles per parcel and <script type="math/tex">u_{i,n}</script>, <script type="math/tex">\mathbf{y}_{i,n}</script>, <script type="math/tex">T_{p,n}</script> are the velocity, spatial coordinates, and temperature of the parcel \emph{nth}.
+</p>
+<p>where <script type="math/tex">\delta</script> is the Dirac delta function, <script type="math/tex">N_p</script> is the number of parcels, <script type="math/tex">\beta</script> is the number of particles per parcel and <script type="math/tex">u_{i,n}</script>, <script type="math/tex">\mathbf{y}_{i,n}</script>, <script type="math/tex">T_{p,n}</script> are the velocity, spatial coordinates, and temperature of the parcel \emph{nth}.
 The dimensionless form of the Navier Stokes equations can be seen in the appendix at the end of this document. </p>
 <p>Particles are solved in a box domain inside the flow domain. The box is defined with the keywords <code>minimum box'' and</code>maximum box''. The boundary conditions for the particles are defined with the keyword ``bc box''. Possible options are inflow/outflow, periodic and wall (with perfect rebound).</p>
 <table class="table table-striped">
@@ -996,37 +1013,18 @@ The keywords for the trip options are:</p>
           <div class="col">
             <p>
               HORSES3D
- was developed by HORSES3D developers<br>              &copy; 2024 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
+ was developed by HORSES3D developers<br>              &copy; 2025 <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/80x15.png" /></a>
 </p>
           </div>
           <div class="col">
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2024-10-16 16:27              </p>
+ on 2025-06-14 06:05 +0000             </p>
           </div>
         </div>
         <br>
       </div> <!-- /container -->
     </footer>
-
-    <!-- Bootstrap core JavaScript -->
-    <!-- Placed at the end of the document so the pages load faster -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>    
-
-    <!-- MathJax JavaScript
-             ================================================== -->
-             <!-- Placed at the end of the document so the pages load faster -->
-        <script type="text/x-mathjax-config">
-          MathJax.Hub.Config({
-          TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
-          jax: ['input/TeX','input/MathML','output/HTML-CSS'],
-          extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
-          });
-        </script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-
-
   </body>
 </html>
