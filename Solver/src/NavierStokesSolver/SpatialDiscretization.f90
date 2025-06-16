@@ -1318,13 +1318,6 @@ module SpatialDiscretization
                
                do eq =1, NCONS
 
-               if (eid .eq. 1841) then
-                  if (eq .eq. 2) then
-                     print *, i,j,k, inviscidFlux(eq,1), inviscidFlux(eq,2), inviscidFlux(eq,3), viscousFlux(eq,1), viscousFlux(eq,2), viscousFlux(eq,3)
-                     print *, mesh % elements(eID) % storage % U_x(eq,i,j,k), mesh % elements(eID) % storage % U_y(eq,i,j,k), mesh % elements(eID) % storage % U_z(eq,i,j,k), mesh % elements(eID) % storage % Q(eq,i,j,k)
-                  end if
-               end if 
-
                inviscidFlux(eq,:) = inviscidFlux(eq,:) - viscousFlux(eq,:)
                   
                mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = &

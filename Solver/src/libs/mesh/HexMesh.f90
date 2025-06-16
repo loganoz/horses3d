@@ -4396,7 +4396,8 @@ slavecoord:             DO l = 1, 4
  
       print*, "I allocate the device data"
 
-      !$acc enter data copyin(self)
+      !!$acc enter data copyin(self)
+      !$acc update device(self)
       !$acc enter data copyin(self%storage)
       !$acc enter data copyin(self%elements)
 

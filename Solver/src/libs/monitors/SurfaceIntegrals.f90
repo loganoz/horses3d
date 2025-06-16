@@ -257,7 +257,7 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, i, j, ierr
-         real(kind=RP) :: localval(NDIM)
+         real(kind=RP)  :: localval(NDIM)
          real(kind=RP)  :: valx, valy, valz
          real(kind=RP)  :: localx, localy, localz
          real(kind=RP)  :: p, tau(1:NDIM, 1:NDIM)
@@ -265,6 +265,7 @@ module SurfaceIntegrals
 !        Initialization
 !        --------------
          val = 0.0_RP
+         localval = 0.0_RP
          valx = 0.0_RP
          valy = 0.0_RP
          valz = 0.0_RP
@@ -330,7 +331,7 @@ module SurfaceIntegrals
             !              F = \int p \vec{n}ds - \int tau'·\vec{n}ds
             !           ************************************************
             !
-                        !$acc loop vector collapse(2) reduction(+:localx, localy, localz) private(tau, val)
+                        !$acc loop vector collapse(2) reduction(+:localx, localy, localz) private(tau, localval)
                         do j = 0, mesh % faces(fid) % Nf(2) ;    do i = 0, mesh % faces(fid) % Nf(1)
             !
             !              Compute the integral
@@ -339,13 +340,13 @@ module SurfaceIntegrals
                            call getStressTensor(mesh % faces(fid) % storage(1) % Q(:,i,j),  mesh % faces(fid) % storage(1) % U_x(:,i,j),&
                                                 mesh % faces(fid) % storage(1) % U_y(:,i,j),mesh % faces(fid) % storage(1) % U_z(:,i,j), tau)
             
-                           val = ( p * mesh % faces(fid) % geom % normal(:,i,j) - matmul(tau,mesh % faces(fid) % geom % normal(:,i,j)) ) &
+                           localval  = ( p * mesh % faces(fid) % geom % normal(:,i,j) - matmul(tau,mesh % faces(fid) % geom % normal(:,i,j)) ) &
                                      * mesh % faces(fid) % geom % jacobian(i,j) &
                                      * NodalStorage(mesh % faces(fid) % Nf(1)) % w(i) * NodalStorage(mesh % faces(fid) % Nf(2)) % w(j)
                            
-                           localx = localx + val(1)
-                           localy = localy + val(2)
-                           localz = localz + val(3)
+                           localx = localx + localval(1)
+                           localy = localy + localval(2)
+                           localz = localz + localval(3)
                         end do          ;    end do
                         
                         valx = valx + localx
@@ -1120,7 +1121,6 @@ module SurfaceIntegrals
 
       !-------- local variables ----------
       integer :: zonefID, fID, eID
-      integer :: nEqn, nGradEqn
 
          !$acc wait 
 
@@ -1130,7 +1130,7 @@ module SurfaceIntegrals
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
             eID = mesh % faces(fID) % elementIDs(1)
-            call HexElement_ProlongSolToFaces(mesh % elements(eID), nEqn, mesh % faces(fID), fID)                        
+            call HexElement_ProlongSolToFaces(mesh % elements(eID), NCONS, mesh % faces(fID), mesh % faces(fID) % elementSide(1))                        
          end do 
          !$acc end parallel loop
          
@@ -1139,7 +1139,7 @@ module SurfaceIntegrals
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID =  mesh % zones(zoneID) % faces(zonefID)
             eID = mesh % faces(fID) % elementIDs(1)
-            call HexElement_ProlongSolToFaces_GL(mesh % elements(eID), nEqn, mesh % faces(fID), fID)                        
+            call HexElement_ProlongSolToFaces_GL(mesh % elements(eID), NCONS, mesh % faces(fID), mesh % faces(fID) % elementSide(1))                        
          end do 
          !$acc end parallel loop
          end select
@@ -1153,17 +1153,17 @@ module SurfaceIntegrals
             do zonefID = 1, mesh % zones(zoneID) % no_of_faces
                fID =  mesh % zones(zoneID) % faces(zonefID)
                eID = mesh % faces(fID) % elementIDs(1)
-               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), nGradEqn, &
+               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
                                                        mesh % faces(fID), &
-                                                       mesh % elements(eID) % storage % U_x,fID, 1)
+                                                       mesh % elements(eID) % storage % U_x, mesh % faces(fID) % elementSide(1), 1)
 
-               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), nGradEqn, &
+               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
                                                        mesh % faces(fID), &
-                                                       mesh % elements(eID) % storage % U_y,fID, 2)
+                                                       mesh % elements(eID) % storage % U_y, mesh % faces(fID) % elementSide(1), 2)
 
-               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), nGradEqn, &
+               call HexElement_ProlongGradientsToFaces(mesh % elements(eID), NGRAD, &
                                                        mesh % faces(fID), &
-                                                       mesh % elements(eID) % storage % U_z,fID, 3)
+                                                       mesh % elements(eID) % storage % U_z, mesh % faces(fID) % elementSide(1), 3)
             end do
             !$acc end parallel loop
             !$omp end do
@@ -1175,9 +1175,9 @@ module SurfaceIntegrals
             do zonefID = 1, mesh % zones(zoneID) % no_of_faces
                fID =  mesh % zones(zoneID) % faces(zonefID)
                eID = mesh % faces(fID) % elementIDs(1)
-               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), nGradEqn, &
+               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), NGRAD, &
                                                           mesh % faces(fID), &
-                                                          mesh % elements(eID) % storage % U_x, fID,1)                        
+                                                          mesh % elements(eID) % storage % U_x, mesh % faces(fID) % elementSide(1),1)                        
             end do
             !$acc end parallel loop
             !$omp end do
@@ -1187,9 +1187,9 @@ module SurfaceIntegrals
             do zonefID = 1, mesh % zones(zoneID) % no_of_faces
                fID =  mesh % zones(zoneID) % faces(zonefID)
                eID = mesh % faces(fID) % elementIDs(1)
-               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), nGradEqn, &
+               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), NGRAD, &
                                                           mesh % faces(fID), &
-                                                          mesh % elements(eID) % storage % U_y, fID,2)                        
+                                                          mesh % elements(eID) % storage % U_y, mesh % faces(fID) % elementSide(1),2)                        
             end do
             !$acc end parallel loop
             !$omp end do
@@ -1199,9 +1199,9 @@ module SurfaceIntegrals
             do zonefID = 1, mesh % zones(zoneID) % no_of_faces
                fID =  mesh % zones(zoneID) % faces(zonefID)
                eID = mesh % faces(fID) % elementIDs(1)
-               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), nGradEqn, &
+               call HexElement_ProlongGradientsToFaces_GL(mesh % elements(eID), NGRAD, &
                                                           mesh % faces(fID), &
-                                                          mesh % elements(eID) % storage % U_z, fID,3)                        
+                                                          mesh % elements(eID) % storage % U_z, mesh % faces(fID) % elementSide(1),3)                        
             end do
             !$acc end parallel loop
             !$omp end do

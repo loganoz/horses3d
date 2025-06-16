@@ -93,6 +93,8 @@
       call InitializeNodalStorage(controlVariables, Nmax)
       call Initialize_InterpolationMatrices(Nmax)
       
+      !$acc enter data copyin(sem)
+
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
