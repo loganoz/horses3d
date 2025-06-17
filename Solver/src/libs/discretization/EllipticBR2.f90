@@ -276,7 +276,7 @@ module EllipticBR2
 !$acc parallel loop gang present(mesh)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
-            call BR2_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn)
+            call BR2_GradientInterfaceSolutionMPI(self, mesh % faces(fID), nEqn, nGradEqn)
          end do
 !$acc end parallel loop
 !$omp end do 

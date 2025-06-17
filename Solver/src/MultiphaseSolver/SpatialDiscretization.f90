@@ -788,7 +788,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients(NCONS)
+            call HexMesh_GatherMPIFacesGradients(mesh, NCONS)
 !$omp end single
 !
 !           **************************************
@@ -814,7 +814,7 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh)
+               call TimeDerivative_FacesContribution(e, mesh)
  
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                   sqrtRho = sqrt(e % storage % rho(i,j,k))
@@ -1344,7 +1344,7 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh)
+               call TimeDerivative_FacesContribution(e, mesh)
 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
