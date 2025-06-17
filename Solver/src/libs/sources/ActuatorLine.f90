@@ -694,6 +694,7 @@ contains
     end do
 
    end if projection_cond
+!$acc wait
 !
    end subroutine UpdateFarm
 !
