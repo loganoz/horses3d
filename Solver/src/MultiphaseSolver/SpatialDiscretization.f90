@@ -19,6 +19,7 @@ module SpatialDiscretization
       use BoundaryConditions
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use ParticlesClass
+      use IBMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -711,6 +712,7 @@ module SpatialDiscretization
          integer     :: eID , i, j, k, ierr
          integer     :: fID, side, iFace, iEl, eq
          real(kind=RP) :: sqrtRho, invSqrtRho
+         real(kind=RP)  :: Source(NCONS)
 !
 !        ****************
 !        Volume integrals
@@ -860,8 +862,35 @@ module SpatialDiscretization
          end do
 !$acc end parallel loop
 !$omp end do
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+! no wall function for MULTIPHASE
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source)
+                  ! Check if update(t) is required
+                  !$acc parallel loop gang present(mesh) copyin(t) async(1)
+                  do eID = 1, mesh % no_of_elements  
+                     !$acc loop vector collapse(3) private(Source)
+                     do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                        if( mesh % elements(eID) % isInsideBody(i,j,k) ) then
+                           ! only without moving for now in MULTIPHASE
+                           if( .not. mesh % IBM % stl(mesh % elements(eID) % STL(i,j,k)) % move ) then 
+                              call IBM_SourceTerm(mesh % IBM, eID = eID, Q = mesh % elements(eID) % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                           end if 
+                           mesh % elements(eID) % storage % QDot(:,i,j,k) = mesh % elements(eID) % storage % QDot(:,i,j,k) + Source
+                        end if
+                     end do                  ; end do                ; end do
+                  end do
+                  !$acc end parallel loop
+!$omp end do       
+            end if 
+         end if
 
          !$acc wait
+!
       end subroutine ComputeNSTimeDerivative
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
