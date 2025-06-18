@@ -88,6 +88,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/ActuatorLineInterpolation \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
+            ./Multiphase/Convergence_cs \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
             ./Multiphase/RisingBubbleVreman \

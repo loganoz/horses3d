@@ -52,9 +52,12 @@ module SpatialDiscretization
       
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
+      character(len=LINE_LENGTH), parameter  :: FLUID1_COMPRESSIBILITY_KEY = "fluid 1 sound speed square (m/s)"
+
 
       real(kind=RP), protected :: IMEX_S0 = 0.0_RP 
       real(kind=RP), protected :: IMEX_K0 = 1.0_RP
+      logical :: use_non_constant_speed_of_sound = .false.
 !
 !     ========      
       CONTAINS 
@@ -188,6 +191,13 @@ module SpatialDiscretization
    
             end select
    
+            use_non_constant_speed_of_sound = controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)
+            if(use_non_constant_speed_of_sound) then
+               write(STD_OUT,'(A)') "  Implementing artificial compressibility with a non-constant speed of sound in each phase"
+            else
+               write(STD_OUT,'(A)') "  Implementing artificial compressibility with a constant speed of sound in each phase"
+            endif
+
             call CHDiscretization % Construct(controlVariables, ELLIPTIC_CH)
             call CHDiscretization % Describe
 
@@ -448,7 +458,7 @@ module SpatialDiscretization
 #endif
 !
 !        -------------------------------------
-!        Get the density in faces and elements
+!        Get the density and invMa2 in faces and elements
 !        -------------------------------------
 !
 !$omp do schedule(runtime)
@@ -459,9 +469,17 @@ module SpatialDiscretization
             if (compute_element) then
 
                mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,:,:,:)
-
                mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
+
+               if (use_non_constant_speed_of_sound ) then
+                  mesh % elements(eID) % storage % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP)))**2 
+                  mesh % elements(eID) % storage % invMa2 = mesh % elements(eID) % storage % invMa2*mesh % elements(eID) % storage % rho 
+               else
+                  mesh % elements(eID) % storage % invMa2 = dimensionless % invMa2(1)
+               endif
+
             endif 
+
          end do
 !$omp end do nowait
 
@@ -477,6 +495,20 @@ module SpatialDiscretization
 
                mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, dimensionless % rho_min),dimensionless % rho_max)
                mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, dimensionless % rho_min),dimensionless % rho_max)
+
+
+               if (use_non_constant_speed_of_sound ) then
+                  mesh % faces(fID) % storage(1) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2
+                  mesh % faces(fID) % storage(2) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2 
+
+                  mesh % faces(fID) % storage(1) % invMa2 = mesh % faces(fID) % storage(1) % invMa2*mesh % faces(fID) % storage(1) % rho
+                  mesh % faces(fID) % storage(2) % invMa2 = mesh % faces(fID) % storage(2) % invMa2*mesh % faces(fID) % storage(2) % rho
+
+               else
+                  mesh % faces(fID) % storage(1) % invMa2 = dimensionless % invMa2(1)
+                  mesh % faces(fID) % storage(2) % invMa2 = dimensionless % invMa2(2)
+               endif
+
             endif
          end do
 !$omp end do
@@ -511,7 +543,9 @@ module SpatialDiscretization
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   sqrtRho = sqrt(e % storage % rho(i,j,k))
-                  invMa2 = dimensionless % invMa2(1) * min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(e % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP)) 
+
+                  invMa2 = e % storage % invMa2(i,j,k)
+
                   e % storage % QDot(IMC,i,j,k)      = 0.0_RP
                   e % storage % QDot(IMSQRHOU,i,j,k) = -0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGU,i,j,k) & 
                                                                         + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGU,i,j,k) &   
@@ -1094,7 +1128,9 @@ module SpatialDiscretization
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   fL     = inv_fluxL(:,i,j), &
-                                  fR     = inv_fluxR(:,i,j) )
+                                  fR     = inv_fluxR(:,i,j), &
+                                  invMa2L= f % storage(1) % invMa2(i,j), &
+                                  invMa2R= f % storage(2) % invMa2(i,j))
 
                
 !
@@ -1190,7 +1226,9 @@ module SpatialDiscretization
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   fL     = inv_fluxL(:,i,j), &
-                                  fR     = inv_fluxR(:,i,j) )
+                                  fR     = inv_fluxR(:,i,j),&
+                                  invMa2L= f % storage(1) % invMa2(i,j), &
+                                  invMa2R= f % storage(2) % invMa2(i,j)) 
 
                
 !
@@ -1293,7 +1331,9 @@ module SpatialDiscretization
                                t1     = f % geom % t1(:,i,j), &
                                t2     = f % geom % t2(:,i,j), &
                                fL     = inv_fluxL, &
-                               fR     = inv_fluxR )
+                               fR     = inv_fluxR,&
+                               invMa2L= f % storage(1) % invMa2(i,j), &
+                               invMa2R= f % storage(2) % invMa2(i,j)) 
 
             fStar(:,i,j) = (inv_fluxL - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
          end do   

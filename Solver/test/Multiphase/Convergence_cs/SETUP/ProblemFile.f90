@@ -197,7 +197,6 @@ end module ProblemFileFunctions
 !        --------------------------------
 !
             IMPLICIT NONE  
-
          END SUBROUTINE UserDefinedStartup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -231,7 +230,6 @@ end module ProblemFileFunctions
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
-
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -267,67 +265,47 @@ end module ProblemFileFunctions
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
-
 !
 !           ---------------
-!           Local variables
+!           local variables
 !           ---------------
 !
-            REAL(KIND=RP) :: x(3)        
-            INTEGER       :: i, j, k, eID
-            REAL(KIND=RP) :: rho , u , v , w , p
-            REAL(KIND=RP) :: L, u_0, rho_0, p_0, theta, phi, eps,c,angle
-            integer       :: Nx, Ny, Nz
-
-
+            integer        :: eid, i, j, k
+            real(kind=RP)  :: c, u, v, w, p, phi
+            real(kind=RP)  :: x, y, z
+!
+!           ------------------------------------------------------
+!           Incompressible Navier-Stokes default initial condition
+!           ------------------------------------------------------
+!
 #if defined(MULTIPHASE)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  x = mesh % elements(eID) % geom % x(IX,i,j,k)               
+                  y = mesh % elements(eID) % geom % x(IY,i,j,k)               
+                  z = mesh % elements(eID) % geom % x(IZ,i,j,k)               
 
-            
-angle = -10.0*PI/180.0 
+                  phi = 0.0_RP
+                  c = 0.5_RP
+      
+                  u = 0.0_RP
+                  v = 0.0_RP
+                  w = 0.0_RP
 
-DO eID = 1, SIZE(mesh % elements)
-   Nx = mesh % elements(eID) % Nxyz(1)
-   Ny = mesh % elements(eID) % Nxyz(2)
-   Nz = mesh % elements(eID) % Nxyz(3)
-
-   DO k = 0, Nz
-      DO j = 0, Ny
-         DO i = 0, Nx 
-             
-            
-            c  = 1.0 - 0.5*(1.0+tanh(2.0*(( mesh % elements(eID) % geom % x(IX,i,j,k)*cos(angle) + mesh % elements(eID) % geom % x(IY,i,j,k)*sin(angle) + 0.0))/multiphase_ % eps))
-             
-                          
-            if (c<1e-14) then
-              c=1e-14
-            endif
-            
-
-            mesh % elements(eID) % storage % Q(1,i,j,k) = c
-            mesh % elements(eID) % storage % Q(2,i,j,k) =  1e-14_RP !+ (1.0/sqrt(dimensionless_ % rho(1)))*(1.0/sqrt(thermodynamics_ % c02(1))) * exp(-1000.0*(mesh % elements(eID) % geom % x(IX,i,j,k)+0.70)**2.0) 
-            mesh % elements(eID) % storage % Q(3,i,j,k) = 0.0
-            mesh % elements(eID) % storage % Q(4,i,j,k) = 0.0
-            mesh % elements(eID) % storage % Q(5,i,j,k) = 1e-14_RP  !+ exp(-1000.0*(mesh % elements(eID) % geom % x(IX,i,j,k)+0.70)**2.0) 
-
-         END DO
-      END DO
-   END DO 
+                  p = 2*sin(PI*x)*sin(PI*y)
    
-END DO 
-
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [c,u,v,w,p] 
+               end do;        end do;        end do
+               end associate
+            end do
 #endif
 
          end subroutine UserDefinedInitialCondition
-
-
-         subroutine UserDefinedState1(x, t, nHat, Q &
-#if defined(FLOW)
-         ,thermodynamics_, dimensionless_, refValues_ &
-#endif
-#if defined(CAHNHILLIARD)
-	,multiphase_ &
-#endif
-	)
+#ifdef FLOW
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
 !           Used to define an user defined boundary condition
@@ -341,20 +319,11 @@ END DO
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
             real(kind=RP), intent(inout)  :: Q(NCONS)
-#ifdef FLOW
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-            type(Multiphase_t),     intent(in)  :: multiphase_
-#endif	
-	    real(kind=RP)     :: lambda, period, amplitude, depth, omega, wave_n
-	    real(kind=RP)     :: pos, u_air,v_air,w_air, u_water, v_water, w_water  ,c, u, v, w, p,rho 
-	         
          end subroutine UserDefinedState1
 
-#if defined(FLOW)
          subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
@@ -379,16 +348,13 @@ END DO
             real(kind=RP), intent(in)    :: t
             real(kind=RP), intent(in)    :: nHat(NDIM)
             real(kind=RP), intent(in)    :: Q(NCONS)
-            real(kind=RP), intent(inout)    :: U_x(NGRAD)
-            real(kind=RP), intent(inout)    :: U_y(NGRAD)
-            real(kind=RP), intent(inout)    :: U_z(NGRAD)
+            real(kind=RP), intent(in)    :: U_x(NGRAD)
+            real(kind=RP), intent(in)    :: U_y(NGRAD)
+            real(kind=RP), intent(in)    :: U_z(NGRAD)
             real(kind=RP), intent(inout) :: flux(NCONS)
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
-
-   
-
          end subroutine UserDefinedNeumann1
 #endif
 !
@@ -439,57 +405,108 @@ END DO
             type(RefValues_t),      intent(in)  :: refValues_
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
-            real(kind=RP)                          :: f,c0,b,w
-            real(kind=RP)                          :: x0(NDIM-1),r(NDIM-1)
-            real(kind=RP)                          :: freqTerm
-            integer, parameter                     :: Nfreq=1
-            integer                                :: i
-            real(kind=RP)                          :: fMax,fMin,df,freqVector(0:Nfreq)
-            real(kind=RP)                          :: phi(0:Nfreq),xwrap(0:Nfreq),dummy(0:Nfreq)
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            real(kind=RP)  :: rho0, eta = 0.001_RP
+            real(kind=RP)  :: rho1, rho2, cs1, cs2
+
+            rho1 = dimensionless_ % rho(2)
+            rho2 = dimensionless_ % rho(1)
+            cs1 = sqrt(thermodynamics_ % c02(2))
+            cs2 = sqrt(thermodynamics_ % c02(1))
+
+            S(IMC) = 0.5_RP*cos(time)*cos(PI*x(IX))*cos(PI*x(IY)) &  !diff(c,t)                          
+                     +PI* &
+                     (4.0_RP*sin(time)*(cos(PI*x(IX)))**2*(cos(PI*x(IY)))**2 &
+                     -1.0_RP*sin(time)*(cos(PI*x(IX)))**2  &
+                     -1.0_RP*sin(time)*(cos(PI*x(IY)))**2  &
+                     +2.0_RP*cos(PI*x(IX))*cos(PI*x(IY))   &
+                     )*(sin(time)) &  !+diff(c*u,x)+diff(c*v,y)
+                     +(PI**2)*(multiphase_ % M0*multiphase_ % sigma/multiphase_ % eps) &
+                     *(                                 &
+                      3.0_RP*(PI*multiphase_ % eps)**2 &
+                      +108.0_RP*(sin(time)*sin (PI*x(IX))*sin(PI*x(IY)))**2 &
+                      -72.0_RP*(sin(time)*sin(PI*x(IX)))**2 &
+                      -72.0_RP*(sin(time)*sin(PI*x(IY)))**2 &
+                      +36.0_RP*(sin(time)**2) &
+                      -12.0_RP &
+                      ) &
+                     *sin(time)*cos(PI*x(IX))*cos(PI*x(IY))  !-M0*(diff(μ,x,2)+diff(μ,y,2)) 
+
+            S(IMSQRHOU) = 1.0_RP*( &
+                           -1.5_RP*rho1*sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + rho1 & 
+                           +1.5_RP*rho2*sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + rho2 &
+                          ) &
+                          *sin(PI*x(IX))*cos(time)*cos(PI*x(IY)) & !sqrt(ρ)*diff(sqrt(ρ)*u,t)                                                                                                                                                        
+                         + PI * ( &
+                           - 6.0_RP * rho1 * sin(time) * (cos(PI*x(IX)))**2 * (cos(PI*x(IY)))**3 &
+                           + 2.0_RP * rho1 * sin(time) * (cos(PI*x(IX)))**2 * cos(PI*x(IY)) &
+                           + 1.0_RP * rho1 * sin(time) * cos(PI*x(IY))**3 &
+                           + 4.0_RP * rho1 * cos(PI*x(IX)) * (cos(PI*x(IY)))**2 &
+                           - 1.0_RP * rho1 * cos(PI*x(IX)) &
+                           + 6.0_RP * rho2 * sin(time) * (cos(PI*x(IX)))**2 * (cos(PI*x(IY)))**3 &
+                           - 2.0_RP * rho2 * sin(time) * (cos(PI*x(IX)))**2 * cos(PI*x(IY)) &
+                           - 1.0_RP * rho2 * sin(time) * cos(PI*x(IY))**3 &
+                           + 4.0_RP * rho2 * cos(PI*x(IX)) * (cos(PI*x(IY)))**2 &
+                           - 1.0_RP * rho2 * cos(PI*x(IX)) &
+                             ) * (sin(time))**2 * sin(PI*x(IX)) & !0.5*(diff(ρ*u*u,x)+diff(ρ*u*v,y))
+                          -PI*( &
+                           rho1*(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) - 1.0_RP) &
+                          -rho2*(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + 1.0_RP) &
+                           ) &
+                          *(sin(time))**2*sin(PI*x(IX))*cos(PI*x(IX))*cos(2*PI*x(IY)) &    !0.5*ρ*(u*diff(u,x)+v*diff(u,y))
+                          -0.5_RP*PI*multiphase_ % sigma / multiphase_ % eps  & 
+                          *(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + 1.0_RP) &
+                          *(1.5_RP*(PI*multiphase_ % eps)**2  + 18.0_RP*(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)))**2 - 6.0_RP) &
+                          *sin(time)*sin(PI*x(IX))*cos(PI*x(IY)) &  !+ c *diff(μ,x)
+                          + 2.0_RP*PI*sin(PI*x(IY))*cos(time)*cos(PI*x(IX)) & !+diff(p,x)
+                          + 8.0_RP*(PI**2) *eta*sin(time)*sin(PI*x(IX))*cos(PI*x(IY)) !- diff(η*(diff(u,x) + diff(u,x)),x) - diff(η*(diff(u,y) + diff(v,x)),y)
+
+            S(IMSQRHOV) = 1.0_RP*( &
+                           -1.5_RP*rho1*sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + rho1 & 
+                           +1.5_RP*rho2*sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + rho2 &
+                          ) &
+                          *sin(PI*x(IY))*cos(time)*cos(PI*x(IX)) & !sqrt(ρ)*diff(sqrt(ρ)*v,t)        
+                          +PI * ( &
+                             -6.0_RP * rho1 * sin(time) * (cos(PI*x(IX)))**3 * (cos(PI*x(IY)))**2 &
+                             + 1.0_RP * rho1 * sin(time) * (cos(PI*x(IX)))**3 &
+                             + 2.0_RP * rho1 * sin(time) * cos(PI*x(IX)) * (cos(PI*x(IY)))**2 &
+                             + 4.0_RP * rho1 * (cos(PI*x(IX)))**2 * cos(PI*x(IY)) &
+                             - 1.0_RP * rho1 * (cos(PI*x(IY))) &
+                             + 6.0_RP * rho2 * sin(time) * (cos(PI*x(IX)))**3 * (cos(PI*x(IY)))**2 &
+                             - 1.0_RP * rho2 * sin(time) * (cos(PI*x(IX)))**3 &
+                             - 2.0_RP * rho2 * sin(time) * cos(PI*x(IX)) * (cos(PI*x(IY)))**2 &
+                             + 4.0_RP * rho2 * (cos(PI*x(IX)))**2 * cos(PI*x(IY)) &
+                             - 1.0_RP * rho2 * (cos(PI*x(IY))) ) &
+                           * (sin(time))**2 * sin(PI*x(IY)) & !0.5*(diff(ρ*v*u,x)+diff(ρ*v*v,y))
+                          -PI*( &
+                           rho1*(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) - 1.0_RP) &
+                          -rho2*(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + 1.0_RP) &
+                           ) &
+                          *(sin(time))**2*sin(PI*x(IY))*cos(2.0_RP*PI*x(IX))*cos(PI*x(IY)) &    !0.5*ρ*(u*diff(v,x)+v*diff(v,y))
+                          -0.5_RP*PI*multiphase_ % sigma / multiphase_ % eps  & 
+                          *(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)) + 1.0_RP) &
+                          *(1.5_RP*(PI*multiphase_ % eps)**2  + 18.0_RP*(sin(time)*cos(PI*x(IX))*cos(PI*x(IY)))**2 - 6.0_RP) &
+                          *sin(time)*sin(PI*x(IY))*cos(PI*x(IX)) &  !+ c *diff(μ,y)
+                          + 2.0_RP*PI*sin(PI*x(IX))*cos(time)*cos(PI*x(IY)) & !+diff(p,y)
+                          + 8.0_RP *(PI**2)*eta*sin(time)*sin(PI*x(IY))*cos(PI*x(IX)) !- diff(η*(diff(v,x) + diff(u,y)),x) - diff(η*(diff(v,y) + diff(v,y)),y)
+
             
-
-#if defined(MULTIPHASE)
-!           Usage example
-!           -------------
-            S = 0.0_RP
-            b = 0.01_RP
-            ! w = 2.0_RP*PI
-            x0 = -0.55_RP
-            ! fMax = 5.0_RP
-            ! fMin = 0.5_RP
-            !fMin = 500.0_RP
-            !df = 0.5_RP
-
-            !c0 = sqrt(thermodynamics_ % c02(1)) 
-
-            !freqVector(0:Nfreq) = [(fMin+i*df,i=0, Nfreq)]
-            !freqVector(0) = 1000.0_RP
-
-            ! phase using parabolic distribution to avoid over increases
-            ! dummy = 1.0
-            ! phi = [(i,i=1,Nfreq+1)]
-            ! phi = 1 - phi * phi
-            ! phi = -PI/(real(Nfreq,RP)+1)*phi
-            ! xwrap = mod(phi, 2.0_RP*PI)
-            ! phi = xwrap + merge(-2.0_RP*PI,0.0_RP,abs(xwrap)>PI)*sign(dummy, xwrap)
-
-            ! s of p
-            ! freqTerm = 0.0_RP
-            ! do i = 0,Nfreq
-            !     w = 2.0_RP*PI*freqVector(i)
-            !     freqTerm = freqTerm + cos(w*time + phi(i))
-            ! end do
-            ! r = x-x0
-            r = x(IX:IY)-x0
-            ! f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum(r*r) ) * cos(w*time)
-            ! f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum(r*r) ) * freqTerm
-            freqTerm = 1000.0_RP
-            f = 1.0_RP * exp(-log(2.0_RP)/(b*b)*sum((x(IX)-x0)*(x(IX)-x0)) ) * cos(2.0_RP*PI*time*freqTerm)
-            !S(1) = f /(c0*c0)
-            S(5) = f 
-#endif
-
+            S(IMSQRHOW) = 0.0_RP
+            
+            S(IMP) = sin(PI*x(IX))*sin(PI*x(IY))*sin(time)*(-2.0_RP) & !diff(p,t) 
+                     -0.5_RP * PI * ( &
+                         cs1 * (sin(time) * cos(PI*x(IX)) * cos(PI*x(IY)) - 1.0_RP) &
+                       - cs2 * (sin(time) * cos(PI*x(IX)) * cos(PI*x(IY)) + 1.0_RP) )**2 &
+                       * ( &
+                         rho1 * (sin(time) * cos(PI*x(IX)) * cos(PI*x(IY)) - 1.0_RP) &
+                       - rho2 * (sin(time) * cos(PI*x(IX)) * cos(PI*x(IY)) + 1.0_RP) ) &
+                       * sin(time) * cos(PI*x(IX)) * cos(PI*x(IY)) !+ρ*cs^2*(diff(u,x)+diff(v,y))
+#endif                  
+   
          end subroutine UserDefinedSourceTermNS
 #endif
 !
@@ -536,53 +553,92 @@ END DO
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
             real(kind=RP)  :: x, y, z, c, locErr(5), phi, u, v, w, p, rho, rho0
-            real(kind=RP)  :: error(5)
+            real(kind=RP), parameter  :: saved_errors(5) = [4.877120855395489E-6_RP, &
+                                          6.8958937066338505E-05_RP, &
+                                          6.8958937066344671E-05_RP, &
+                                          7.4217194511428453E-17_RP, & 
+                                          6.1637135702849238E-04_RP]
             integer        :: i, j,k, eID 
-
-            CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Sell"
+            CHARACTER(LEN=29)                  :: testName           = "Multiphase convergence non constant sound speed"
+            real(kind=RP)  :: error(5)
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter           :: residuals_saved(5) = [2.8665833841075737E-06_RP, &
-                                                                        1.9361250101172587E-03_RP, &
-                                                                        5.2814258414213508E-11_RP, &
-                                                                        2.3047237097072765E-17_RP, &
-                                                                        7.1908221803287240E-01_RP]
+            real(kind=RP), parameter   :: w_LGL(0:5) = [0.066666666666667_RP, &
+                                                      0.378474956297847_RP, &
+                                                      0.554858377035486_RP, &
+                                                      0.554858377035486_RP, &
+                                                      0.378474956297847_RP, &
+                                                      0.066666666666667_RP ]
+!
+!           *********************************
+!           Check the L-inf norm of the error
+!           *********************************
+!
+#ifdef MULTIPHASE
+            rho0 = dimensionless_ % rho(2)
+#endif
+            error = 0.0_RP
+            do eID = 1, mesh % no_of_elements
+               associate(e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(IX,i,j,k)
+                  y = e % geom % x(IY,i,j,k)
+                  z = e % geom % x(IZ,i,j,k)
 
+                  phi = cos(PI*x)*cos(PI*y)*sin(time)
+                  c = 0.5_RP*(1.0_RP + phi)
+
+                  rho = c + rho0*(1.0_RP-c)
+
+                  u = 2*sin(PI*x)*cos(PI*y)*sin(time)
+                  v = 2*cos(PI*x)*sin(PI*y)*sin(time)
+                  w = 0.0_RP
+                  p = 2*sin(PI*x)*sin(PI*y)*cos(time)
+
+                  locErr = e % storage % Q(:,i,j,k) - [c,sqrt(rho)*u,sqrt(rho)*v,sqrt(rho)*w,p]
+
+                  error = error + e % geom % jacobian(i,j,k)*locErr**2*w_LGL(i)*w_LGL(j)*2.0_RP
+
+               end do            ; end do ; end do
+               end associate
+            end do
+
+            error = sqrt(error)
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = residuals_saved(1)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = saved_errors(1)+1.0_RP, &
+                               actualValue   = error(1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Continuity Residual")
+                               msg           = "Concentration error")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(2)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+
+            CALL FTAssertEqual(expectedValue = saved_errors(2)+1.0_RP, &
+                               actualValue   = error(2)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "X-Momentum Residual")
+                               msg           = "X-Momentum error")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(3)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
-                               tol           = 1.d-8, &
-                               msg           = "Y-Momentum Residual")
-
-            CALL FTAssertEqual(expectedValue = residuals_saved(4)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = saved_errors(3)+1.0_RP, &
+                               actualValue   = error(3)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Z-Momentum Residual")
+                               msg           = "Y-Momentum error")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(5)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = saved_errors(4)+1.0_RP, &
+                               actualValue   = error(4)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Div Residual")
+                               msg           = "Z-Momentum error")
 
+            CALL FTAssertEqual(expectedValue = saved_errors(5)+1.0_RP, &
+                               actualValue   = error(5)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Pressure error")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 50 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
@@ -593,6 +649,7 @@ END DO
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+
 
 
 
@@ -610,5 +667,3 @@ END DO
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
       
-
-
