@@ -16,6 +16,8 @@ module IBMClass
 #endif
    implicit none
 
+   public :: IBM_SourceTerm !, IBM_MaskVelocity
+
    type :: Integral_t
 
       logical              :: ListComputed = .false., &
@@ -102,7 +104,8 @@ module IBMClass
          procedure :: DestroyKDtree                       => IBM_DestroyKDtree
          procedure :: constructDistance_KDtree            => IBM_constructDistance_KDtree
          procedure :: MPI_PointsListOperations            => IBM_MPI_PointsListOperations
-         procedure :: MaskVelocity                        => IBM_MaskVelocity
+         ! procedure :: MaskVelocity                        => IBM_MaskVelocity
+         procedure :: CreateDeviceData                    => IBM_CreateDeviceData
    end type
 
    public :: expCoeff, EXPONENTIAL
@@ -1059,8 +1062,19 @@ module IBMClass
          this% BandRegion(STLNum)% U_y = 0.0_RP
          this% BandRegion(STLNum)% U_z = 0.0_RP
       end if
+      
+      !Update GPU variables
+      !$acc update device(this % BandRegion(STLNum)% Q )
+      if( gradients ) then
+         !$acc update device(this % BandRegion(STLNum)% U_x )
+         !$acc update device(this % BandRegion(STLNum)% U_y )
+         !$acc update device(this % BandRegion(STLNum)% U_z )
+      end if
+      !$acc wait
+
 !$omp parallel
 !$omp do schedule(runtime) private(i,j,k,eID)
+      !$acc parallel loop present(this, elements)
       do n = 1, this% BandRegion(STLNum)% NumOfObjs
          if( this% BandRegion(STLNum)% x(n)% partition .eq. MPI_Process% rank ) then
             i   = this% BandRegion(STLNum)% x(n)% local_Position(1)
@@ -1075,8 +1089,10 @@ module IBMClass
             end if
          end if
       end do
+      !$acc end parallel loop
 !$omp end do
 !$omp end parallel
+
 #ifdef _HAS_MPI_
       if( MPI_Process% doMPIAction ) then     
          NumOfObjs = this% BandRegion(STLNum)% NumOfObjs
@@ -1699,6 +1715,7 @@ module IBMClass
 !  Source terms for the immersed boundary 
 !  ------------------------------------------------   
    subroutine IBM_SourceTerm( this, eID, Q, Q_target, Source, Wallfunction )
+      !$acc routine seq
       use PhysicsStorage
       implicit none
       !-arguments--------------------------------------------
@@ -1755,67 +1772,68 @@ module IBMClass
       end if 
    end subroutine IBM_SourceTerm
 
-   function IBM_MaskVelocity( this, Q, nEqn, STLNum, x, t ) result( Q_target )
-      use PhysicsStorage
-      use FluidData
-      use TessellationTypes
-      use OrientedBoundingBox
-      implicit none
+!    function IBM_MaskVelocity( this, Q, nEqn, STLNum, x, t ) result( Q_target )
+!       use PhysicsStorage
+!       use FluidData
+!       use TessellationTypes
+!       use OrientedBoundingBox
+!       implicit none
 
-      class(IBM_type), intent(inout) :: this 
-      integer,         intent(in)    :: nEqn, STLNum
-      real(kind=RP),   intent(in)    :: Q(nEqn), x(NDIM), t
-      real(kind=RP)                  :: Q_target(nEqn)
+!       class(IBM_type), intent(inout) :: this 
+!       integer,         intent(in)    :: nEqn, STLNum
+!       real(kind=RP),   intent(in)    :: Q(nEqn), x(NDIM), t
+!       real(kind=RP)                  :: Q_target(nEqn)
 
-      real(kind=RP) :: R, v_plane, time, theta, &
-                       rho, u_s, v_s, w_s
+!       real(kind=RP) :: R, v_plane, time, theta, &
+!                        rho, u_s, v_s, w_s
       
-      Q_target = Q
+!       Q_target = Q
 
-      u_s = 0.0_RP; v_s = 0.0_RP; w_s = 0.0_RP
-#if defined(NAVIERSTOKES)
-      if( this% stl(STLNum)% motionType .eq. LINEAR ) then
-         select case( this% stl(STLNum)% motionAxis )
-         case( IX )
-            u_s = this% stl(STLNum)% Velocity/refValues% V
-         case( IY )
-            v_s = this% stl(STLNum)% Velocity/refValues% V
-         case( IZ ) 
-            w_s = this% stl(STLNum)% Velocity/refValues% V
-         end select 
-      elseif( this% stl(STLNum)% motionType .eq. ROTATION ) then
-         R = norm2( x - this% stl(STLNum)% rotationCenter ) 
+!       u_s = 0.0_RP; v_s = 0.0_RP; w_s = 0.0_RP
+! #if defined(NAVIERSTOKES)
+!       if( this% stl(STLNum)% motionType .eq. LINEAR ) then
+!          select case( this% stl(STLNum)% motionAxis )
+!          case( IX )
+!             u_s = this% stl(STLNum)% Velocity/refValues% V
+!          case( IY )
+!             v_s = this% stl(STLNum)% Velocity/refValues% V
+!          case( IZ ) 
+!             w_s = this% stl(STLNum)% Velocity/refValues% V
+!          end select 
+!       elseif( this% stl(STLNum)% motionType .eq. ROTATION ) then
+!          R = norm2( x - this% stl(STLNum)% rotationCenter ) 
 
-         v_plane = this% stl(STLNum)% angularVelocity * R * Lref
-         v_plane = v_plane/refValues% V
+!          v_plane = this% stl(STLNum)% angularVelocity * R * Lref
+!          v_plane = v_plane/refValues% V
 
-         time    = t * Lref/refValues% V
-         theta   = this% stl(STLNum)% angularVelocity * time
+!          time    = t * Lref/refValues% V
+!          theta   = this% stl(STLNum)% angularVelocity * time
 
-         select case( this% stl(STLNum)% motionAxis )
-         case( IX ) 
-            v_s = -sin(theta) * v_plane 
-            w_s =  cos(theta) * v_plane 
-         case( IY )
-            u_s =  cos(theta) * v_plane  
-            w_s = -sin(theta) * v_plane 
-         case( IZ )
-            u_s = -sin(theta) * v_plane
-            v_s =  cos(theta) * v_plane 
-         end select
-      end if 
+!          select case( this% stl(STLNum)% motionAxis )
+!          case( IX ) 
+!             v_s = -sin(theta) * v_plane 
+!             w_s =  cos(theta) * v_plane 
+!          case( IY )
+!             u_s =  cos(theta) * v_plane  
+!             w_s = -sin(theta) * v_plane 
+!          case( IZ )
+!             u_s = -sin(theta) * v_plane
+!             v_s =  cos(theta) * v_plane 
+!          end select
+!       end if 
 
-      rho = Q_target(IRHO)
+!       rho = Q_target(IRHO)
 
-      Q_target(IRHOU) = rho * u_s      
-      Q_target(IRHOV) = rho * v_s      
-      Q_target(IRHOW) = rho * w_s      
-#endif
-   end function IBM_MaskVelocity
+!       Q_target(IRHOU) = rho * u_s      
+!       Q_target(IRHOV) = rho * v_s      
+!       Q_target(IRHOW) = rho * w_s      
+! #endif
+!    end function IBM_MaskVelocity
 !
 !  Analytical jacobian: dS/dQ 
 !  ---------------------------    
    subroutine IBM_semiImplicitJacobian( this, eID, Q, dS_dQ )
+      !$acc routine seq
       use PhysicsStorage
       implicit none
       !-arguments----------------------------------------------------
@@ -1887,7 +1905,7 @@ module IBMClass
 
       dS_dQ = -1.0_RP/(this% penalCoeff*this% penalization(ImagePoint% element_index)) * dS_dQ 
 
-      call this% semiImplicitJacobian( ImagePoint% element_index, Q, dS_dQns )
+      call IBM_semiImplicitJacobian(this, ImagePoint% element_index, Q, dS_dQns )
 
       dS_dQ = dS_dQns - dS_dQ
 
@@ -1896,6 +1914,7 @@ module IBMClass
 !  Analytical inverse jacobian: (1 - dt*dS/dQ)^(-1) 
 !  --------------------------------------------------   
    subroutine IBM_semiImplicitShiftJacobian( this, eID, Q, dt, invdS_dQ )
+      !$acc routine seq
       use PhysicsStorage
       implicit none
          !-arguments----------------------------------------------------------------
@@ -1908,8 +1927,7 @@ module IBMClass
          real(kind=rp) :: rho, u, v, w
 
          invdS_dQ = 0.0_RP  
-         
-         associate( eta => this% penalization(eID) )     
+             
 #if defined(NAVIERSTOKES) 
          rho = Q(IRHO)
          u   = Q(IRHOU)/rho 
@@ -1917,19 +1935,18 @@ module IBMClass
          w   = Q(IRHOW)/rho 
          
          invdS_dQ(IRHO,IRHO)   = 1.0_RP
-         invdS_dQ(IRHOU,IRHOU) = eta/( dt + eta )
-         invdS_dQ(IRHOV,IRHOV) = eta/( dt + eta )
-         invdS_dQ(IRHOW,IRHOW) = eta/( dt + eta )
-         invdS_dQ(IRHOE,IRHO)  = 0.5_RP*dt/eta * (POW2(u) + POW2(v) + POW2(w))
-         invdS_dQ(IRHOE,IRHOU) = -dt*u/( dt + eta )
-         invdS_dQ(IRHOE,IRHOV) = -dt*v/( dt + eta )
-         invdS_dQ(IRHOE,IRHOW) = -dt*w/( dt + eta )
+         invdS_dQ(IRHOU,IRHOU) = this% penalization(eID)/( dt + this% penalization(eID) )
+         invdS_dQ(IRHOV,IRHOV) = this% penalization(eID)/( dt + this% penalization(eID) )
+         invdS_dQ(IRHOW,IRHOW) = this% penalization(eID)/( dt + this% penalization(eID) )
+         invdS_dQ(IRHOE,IRHO)  = 0.5_RP*dt/this% penalization(eID) * (POW2(u) + POW2(v) + POW2(w))
+         invdS_dQ(IRHOE,IRHOU) = -dt*u/( dt + this% penalization(eID) )
+         invdS_dQ(IRHOE,IRHOV) = -dt*v/( dt + this% penalization(eID) )
+         invdS_dQ(IRHOE,IRHOW) = -dt*w/( dt + this% penalization(eID) )
          invdS_dQ(IRHOE,IRHOE) =  1.0_RP 
 #if defined(SPALARTALMARAS)
-         invdS_dQ(IRHOTHETA,IRHOTHETA) = eta/( dt + eta )
+         invdS_dQ(IRHOTHETA,IRHOTHETA) = this% penalization(eID)/( dt + this% penalization(eID) )
 #endif                                                                           
 #endif
-       end associate
  
    end subroutine IBM_SemiImplicitShiftJacobian
 !
@@ -1956,6 +1973,7 @@ module IBMClass
 !  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
 !  ------------------------------------------------------------------------------------------------
    subroutine IBM_GetSemiImplicitStep( this, eID, dt, Q, Q_target )
+      !$acc routine seq
       use PhysicsStorage
       implicit none
       !-arguments-----------------------------------------------------
@@ -1968,13 +1986,13 @@ module IBMClass
       real(kind=rp) :: dS_dQ(NCONS,NCONS), invdS_dQ(NCONS,NCONS), &
                        IBMSource(NCONS)
 
-      call this% semiImplicitJacobian( eID, Q, dS_dQ )
+      call IBM_semiImplicitJacobian(this, eID, Q, dS_dQ )
 
-      call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ ) 
+      call IBM_semiImplicitShiftJacobian(this, eID, Q, dt, invdS_dQ ) 
       if( present(Q_target) ) then 
-         call this% SourceTerm(eID = eID, Q = Q, Q_target = Q_target, Source = IBMSource, Wallfunction  =.false.)
+         call IBM_SourceTerm(this=this, eID = eID, Q = Q, Q_target = Q_target, Source = IBMSource, Wallfunction  =.false.)
       else
-         call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource, Wallfunction  =.false.)          
+         call IBM_SourceTerm(this=this, eID = eID, Q = Q, Source = IBMSource, Wallfunction  =.false.)          
       end if 
 
       Q = matmul(invdS_dQ, Q + dt*( IBMSource - matmul(dS_dQ,Q) ))
@@ -1997,15 +2015,15 @@ module IBMClass
       real(kind=rp) :: dS_dQ(NCONS,NCONS), invdS_dQ(NCONS,NCONS), &
                        TurbulenceSource(NCONS)
 
-      call this% semiImplicitTurbulenceJacobian( ImagePoint, Q, normal, dWall, STLNum, dS_dQ )
+      call IBM_semiImplicitTurbulenceJacobian(this, ImagePoint, Q, normal, dWall, STLNum, dS_dQ )
 
       invdS_dQ = -dS_dQ
 
-      call this% SemiImplicitTurbulenceShiftJacobian( dt, invdS_dQ )
+      call IBM_SemiImplicitTurbulenceShiftJacobian(this, dt, invdS_dQ )
 
       invdS_dQ = inverse(invdS_dQ)
 
-      call this% SourceTermTurbulence( ImagePoint, Q, normal, dWall, STLNum, TurbulenceSource )       
+      call IBM_SourceTermTurbulence(this, ImagePoint, Q, normal, dWall, STLNum, TurbulenceSource )       
  
       Q = matmul(invdS_dQ, Q + dt*( TurbulenceSource - matmul(dS_dQ,Q) ))
   
@@ -2013,49 +2031,44 @@ module IBMClass
 !    
 !   Splitting correction is applied. In the splitting, dt = dt/2
 !   ------------------------------------------------------------
-   subroutine IBM_SemiImplicitCorrection( this, elements, t, dt )
+   subroutine IBM_SemiImplicitCorrection( this, elements, dt )
       use PhysicsStorage
       implicit none
       !-arguments-----------------------------------
       class(IBM_type), intent(inout) :: this
       type(element),   intent(inout) :: elements(:)
-      real(kind=RP),   intent(in)    :: t, dt
+      real(kind=RP),   intent(in)    :: dt
       !-local-variables-----------------------------
-      real(kind=RP) :: Q_target(NCONS)
       integer       :: eID, i, j, k, iP
 
-      if( .not. this% semiImplicit ) return
+      if( .not. this % semiImplicit ) return
 
-      if( this% Wallfunction ) call this% GetBandRegionStates( elements )
+      !$acc wait
+      if( this % Wallfunction ) call this % GetBandRegionStates( elements )
 !$omp parallel
-!$omp do schedule(runtime) private(i,j,k,Q_target)
+      !$omp do schedule(runtime) private(i,j,k)
+      !$acc parallel loop gang present(this, elements)
       do eID = 1, SIZE( elements )
-         associate(e => elements(eID))
-         do i = 0, e% Nxyz(1); do j = 0, e% Nxyz(2); do k = 0, e% Nxyz(3)
-            if( e% isInsideBody(i,j,k) ) then 
-               if( this% stl(e% STL(i,j,k))% move ) then 
-#if defined(NAVIERSTOKES)
-                  Q_target = this% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
-#endif
-                  call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k), Q_target )
-               else
-                  call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k) ) 
-               end if 
+         !$acc loop vector collapse(3)   
+         do i = 0, elements(eID) % Nxyz(1); do j = 0, elements(eID) % Nxyz(2); do k = 0, elements(eID) % Nxyz(3)
+            if( elements(eID) % isInsideBody(i,j,k) ) then 
+               call IBM_GetSemiImplicitStep(this, eID, 0.5_RP*dt, elements(eID) % storage % Q(:,i,j,k) ) 
             end if 
          end do; end do; end do
-         end associate
       end do
+      !$acc end parallel loop
 !$omp end do 
+
       if( this% Wallfunction ) then
 !$omp do schedule(runtime) private(i,j,k)
-         do iP = 1, this% NumOfForcingPoints
-            associate( e => elements(this% ImagePoints(iP)% element_index))
-            i = this% ImagePoints(iP)% local_position(1)
-            j = this% ImagePoints(iP)% local_position(2)
-            k = this% ImagePoints(iP)% local_position(3)
-            call this% GetSemiImplicitStepTurbulence( this% ImagePoints(iP), 0.5_RP*dt, e% storage% Q(:,i,j,k),      &
-                                                      e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k), e% STL(i,j,k) )
-            end associate 
+!!! --------------TODO: parallel loop with openacc-------------------!!!
+         do iP = 1, this % NumOfForcingPoints
+            i = this % ImagePoints(iP) % local_position(1)
+            j = this % ImagePoints(iP) % local_position(2)
+            k = this % ImagePoints(iP) % local_position(3)
+            call IBM_GetSemiImplicitStepTurbulence(this, this % ImagePoints(iP), 0.5_RP*dt, elements(this % ImagePoints(iP) % element_index) % storage% Q(:,i,j,k),      &
+                                                    elements(this % ImagePoints(iP) % element_index) % geom % normal(:,i,j,k), &
+                                                    elements(this % ImagePoints(iP) % element_index) % geom % dWall(i,j,k), elements(this % ImagePoints(iP) % element_index) % STL(i,j,k) )
          end do
 !$omp end do 
       end if 
@@ -2104,7 +2117,7 @@ module IBMClass
 #if defined(NAVIERSTOKES) 
       call ForcingPointState( Q_IP, this% IP_Distance, dWall, normal, Q_FP )
 #endif
-      call this% SourceTerm( ImagePoint% element_index, Q, Q_FP, TurbulenceSource, .true. )
+      call IBM_SourceTerm(this, ImagePoint% element_index, Q, Q_FP, TurbulenceSource, .true. )
 
       !TurbulenceSource = -1.0_RP/(1.0_RP*this% penalization(ImagePoint% element_index)) * (Q - Q_FP)
 
@@ -3195,6 +3208,7 @@ module IBMClass
    real(kind=RP), optional, intent(in) :: x, y, z
    !-local-variables------------------------------------------------------
    real(kind=RP), allocatable :: weights(:), f(:)
+   integer                    :: i, j
 
    select case( INTERPOLATION )
       case( POLYHARMONIC_SPLINE )
@@ -3534,5 +3548,60 @@ module IBMClass
       end do
    
    end subroutine TECtriangle_3points
+
+   subroutine IBM_CreateDeviceData(self)
+      implicit none 
+      class(IBM_type), intent(in)    :: self
+
+      integer :: i, j
+
+      !$acc enter data copyin(self)
+      !$acc enter data copyin(self % NumOfForcingPoints)
+      !$acc enter data copyin(self % ImagePoints)
+      !$acc enter data copyin(self % penalization)
+      !$acc enter data copyin(self % penalCoeff)
+      !$acc enter data copyin(self % InterpolationType)
+      !$acc enter data copyin(self % IP_Distance)
+      !$acc enter data copyin(self % stl)
+
+      DO i = 1, SIZE(self % stl)
+         !$acc enter data copyin(self % stl(i))
+         !$acc enter data copyin(self % stl(i) % move)
+         !$acc enter data copyin(self % stl(i) % motionType)
+         !$acc enter data copyin(self % stl(i) % motionAxis)
+         !$acc enter data copyin(self % stl(i) % Velocity)
+         !$acc enter data copyin(self % stl(i) % rotationCenter)
+         !$acc enter data copyin(self % stl(i) % angularVelocity)
+      enddo
+
+      DO i = 1, SIZE(self % ImagePoints)
+         !$acc enter data copyin(self % ImagePoints(i))
+         !$acc enter data copyin(self % ImagePoints(i) % local_position)
+         !$acc enter data copyin(self % ImagePoints(i) % nearestPoints)
+         !$acc enter data copyin(self % ImagePoints(i) % invPhi)
+         !$acc enter data copyin(self % ImagePoints(i) % b)
+         !$acc enter data copyin(self % ImagePoints(i) % element_index)
+      enddo
+
+      DO i = 1, SIZE(self % BandRegion)
+         !$acc enter data copyin(self % BandRegion(i))
+         !$acc enter data copyin(self % BandRegion(i) % NumOfObjs)
+         !$acc enter data copyin(self % BandRegion(i) % x)
+         !$acc enter data copyin(self % BandRegion(i) % Q)
+         !$acc enter data copyin(self % BandRegion(i) % U_x)
+         !$acc enter data copyin(self % BandRegion(i) % U_y)
+         !$acc enter data copyin(self % BandRegion(i) % U_z)
+
+         DO j = 1, SIZE(self % BandRegion(i) % x)
+            !$acc enter data copyin(self % BandRegion(i) % x(j))
+            !$acc enter data copyin(self % BandRegion(i) % x(j) % local_position)
+            !$acc enter data copyin(self % BandRegion(i) % x(j) % element_index)
+         enddo
+      enddo
+
+      !$acc wait
+      
+
+   end subroutine IBM_CreateDeviceData
 
 end module IBMClass

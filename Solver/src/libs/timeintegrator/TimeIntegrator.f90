@@ -488,7 +488,7 @@
       t = self % time
 
 #if defined(NAVIERSTOKES)
-      if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
+      if( .not. sem % mesh % IBM % active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
@@ -503,20 +503,23 @@
 !     Set up mask's coefficient for IBM
 !     ----------------------------------
 !
-      if( sem % mesh% IBM% active ) then
+      if( sem % mesh % IBM % active ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
          else
-            dt = self% dt
+            dt = self % dt
          end if
 
-         if( sem % mesh% IBM% TimePenal ) then 
+         if( sem % mesh % IBM % TimePenal ) then 
 !
 !           Correct time step
 !           -----------------
 #if (defined(NAVIERSTOKES) && (!(SPALARTALMARAS))) || defined(INCNS) || defined(MULTIPHASE)
-            sem % mesh% IBM% eta = self% CorrectDt(t, dt)
-            sem % mesh% IBM% penalization = sem % mesh% IBM% eta
+            sem % mesh % IBM % eta = self % CorrectDt(t, dt)
+            sem % mesh % IBM % penalization = sem % mesh % IBM % eta
+            !We should think what to do with this code here (CFL)
+            !$acc update device(sem % mesh % IBM % penalization)
+            !$acc wait
 #endif
          end if
       end if
@@ -533,9 +536,9 @@
 !     Check initial residuals
 !     -----------------------
 !
-      if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )     
+      if( sem % mesh % IBM % active ) call sem % mesh % IBM % SemiImplicitCorrection( sem % mesh % elements, dt )     
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
-      if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+      if( sem % mesh % IBM % active ) call sem % mesh % IBM % SemiImplicitCorrection( sem % mesh % elements, dt )
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false., dt )
@@ -620,20 +623,22 @@
 !
 !        Set penalization term for IBM
 !        -----------------------------
-         if( sem % mesh% IBM% active ) then
-            if( sem% mesh% IBM% TimePenal ) sem % mesh% IBM% penalization = dt
+         if( sem % mesh % IBM % active ) then
+            if( sem % mesh % IBM % TimePenal ) sem % mesh % IBM % penalization = dt
+            !$acc update device(sem % mesh % IBM % penalization)
+            !$acc wait
          end if
 
 !
 !        Moving Body IMMERSED BOUNDARY
 !        -----------------------------
-         if( sem% mesh% IBM% active ) then
-            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                  &
-                                           sem% mesh% no_of_elements,            &
-                                           sem% mesh% NDOF, sem% mesh% child, t, &
-                                           k+1,                                  &
-                                           self % autosave % Autosave(k+1)       )
-         end if
+         ! if( sem% mesh% IBM% active ) then
+         !    call sem% mesh% IBM% MoveBody( sem% mesh% elements,                  &
+         !                                   sem% mesh% no_of_elements,            &
+         !                                   sem% mesh% NDOF, sem% mesh% child, t, &
+         !                                   k+1,                                  &
+         !                                   self % autosave % Autosave(k+1)       )
+         ! end if
  
 !
 !        User defined periodic operation
@@ -655,12 +660,12 @@
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
 #if defined(NAVIERSTOKES)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+            if( sem % mesh % IBM % active ) call sem % mesh % IBM % SemiImplicitCorrection( sem % mesh % elements, dt )
 #endif
             ! Need to fix this, Nvfortran does not like the pointer here - select function might solve the problem
             CALL TakeRK3Step( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
 #if defined(NAVIERSTOKES)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+            if( sem % mesh % IBM % active ) call sem % mesh % IBM % SemiImplicitCorrection( sem % mesh % elements, dt )
 #endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then

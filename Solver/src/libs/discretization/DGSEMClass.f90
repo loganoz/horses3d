@@ -532,6 +532,10 @@ Module DGSEMClass
 !
 #ifdef _OPENACC
             call self % mesh % CreateDeviceData()
+
+            if( self % mesh% IBM% active ) then
+               call self % mesh % IBM % CreateDeviceData()
+            endif
 #endif
          ELSE
 
@@ -546,6 +550,10 @@ Module DGSEMClass
 !
 #ifdef _OPENACC
             call self % mesh % CreateDeviceData()
+
+            if( self % mesh% IBM% active ) then
+               call self % mesh % IBM % CreateDeviceData()
+            endif
 #endif
 !
 !           Save the initial condition

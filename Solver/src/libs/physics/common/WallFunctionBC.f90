@@ -222,7 +222,8 @@ MODULE WallFunctionBC
 !------------------------------------------------------------------------------------------------------------------------
 !
    PURE FUNCTION u_plus_f (y_plus)
-       USE WallFunctionDefinitions, ONLY: kappa, WallC
+   !$acc routine seq
+      USE WallFunctionDefinitions, ONLY: kappa, WallC
       IMPLICIT NONE
       ! Definition of u_plus
       ! Reichardt law-of-the-wall (taken from Frere et al 2017 Eq. (3))

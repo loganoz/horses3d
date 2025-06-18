@@ -370,7 +370,7 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
-      use WallFunctionConnectivity
+         use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
          use ActuatorLine, only: farm, ForcesFarm
          use SpongeClass, only: sponge
@@ -657,40 +657,44 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
-         if( mesh% IBM% active ) then
-            if( .not. mesh% IBM% semiImplicit ) then 
+         if( mesh % IBM % active ) then
+            if( .not. mesh % IBM % semiImplicit ) then 
 !$omp do schedule(runtime) private(i,j,k,Source,Q_target)
+                  ! Check if update(t) is required
+                  !$acc parallel loop gang present(mesh) copyin(t) async(1)
                   do eID = 1, mesh % no_of_elements  
-                     associate ( e => mesh % elements(eID) ) 
-                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                        if( e% isInsideBody(i,j,k) ) then
-                           if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                              Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
-                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
+                     !$acc loop vector collapse(3) private(Source, Q_target)
+                     do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
+                        if( mesh % elements(eID) % isInsideBody(i,j,k) ) then
+                           if( mesh % IBM % stl(mesh % elements(eID) % STL(i,j,k)) % move ) then 
+                              ! Q_target = IBM_MaskVelocity(mesh%IBM, mesh % elements(eID)% storage% Q(:,i,j,k), NCONS, mesh % elements(eID)% STL(i,j,k), mesh % elements(eID)% geom% x(:,i,j,k), t )
+                              call IBM_MaskVelocity(mesh % IBM, mesh % elements(eID) % storage % Q(:,i,j,k), NCONS, mesh % elements(eID) % STL(i,j,k), mesh % elements(eID) % geom % x(:,i,j,k), t, Q_target )
+                              call IBM_SourceTerm(mesh % IBM, eID = eID, Q = mesh % elements(eID) % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
                            else 
-                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                              call IBM_SourceTerm(mesh % IBM, eID = eID, Q = mesh % elements(eID) % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
                            end if 
-                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                           mesh % elements(eID) % storage % QDot(:,i,j,k) = mesh % elements(eID) % storage % QDot(:,i,j,k) + Source
                         end if
                      end do                  ; end do                ; end do
-                     end associate
                   end do
+                  !$acc end parallel loop
 !$omp end do       
-               if( mesh% IBM% Wallfunction ) then
+               if( mesh % IBM % Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+                  call mesh % IBM % GetBandRegionStates( mesh % elements )
 !$omp end single
 !$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index), &
-                                e_in => mesh% elements(mesh% IBM% ImagePoints(iP)% element_in)     )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                             e% STL(i,j,k), TurbulentSource                      )             
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+!!! --------------TODO: parallel loop with openacc-------------------!!!
+                  do iP = 1, mesh % IBM % NumOfForcingPoints
+                     associate( e    => mesh % elements(mesh % IBM % ImagePoints(iP) % element_index), &
+                                e_in => mesh % elements(mesh % IBM % ImagePoints(iP) % element_in)     )
+                     i = mesh % IBM % ImagePoints(iP) % local_position(1)
+                     j = mesh % IBM % ImagePoints(iP) % local_position(2)
+                     k = mesh % IBM % ImagePoints(iP) % local_position(3)
+                     call mesh % IBM % SourceTermTurbulence( mesh % IBM % ImagePoints(iP), e % storage % Q(:,i,j,k), &
+                                                             e % geom % normal(:,i,j,k), e % geom % dWall(i,j,k),    &
+                                                             e % STL(i,j,k), TurbulentSource                      )             
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
                      end associate
                   end do
 !$omp end do
@@ -710,6 +714,7 @@ module SpatialDiscretization
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
          use ActuatorLine, only: farm, ForcesFarm
+         use IBMClass
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -972,8 +977,8 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
-         if( mesh% IBM% active ) then
-            if( .not. mesh% IBM% semiImplicit ) then 
+         if( mesh % IBM % active ) then
+            if( .not. mesh % IBM % semiImplicit ) then 
 !$omp do schedule(runtime) private(i,j,k,Source,Q_target)
                do eID = 1, size(mesh % HO_Elements)
                   
@@ -981,11 +986,12 @@ module SpatialDiscretization
 
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
-                        if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                           Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
-                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
+                        if( mesh % IBM % stl(e % STL(i,j,k))% move ) then 
+                           ! Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
+                           call IBM_MaskVelocity(mesh % IBM, e % storage % Q(:,i,j,k), NCONS, e % STL(i,j,k), e % geom % x(:,i,j,k), t, Q_target )
+                           call IBM_SourceTerm(mesh % IBM, eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
                         else 
-                           call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                           call IBM_SourceTerm(mesh % IBM, eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
                         end if 
                         e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                      end if
@@ -994,22 +1000,22 @@ module SpatialDiscretization
                end do
 !$omp end do       
 
-               if( mesh% IBM% Wallfunction ) then
+               if( mesh % IBM % Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+                  call mesh % IBM % GetBandRegionStates( mesh % elements )
 !$omp end single
 
 !$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index), &
-                                 e_in => mesh% elements(mesh% IBM% ImagePoints(iP)% element_in)     )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                               e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                               e% STL(i,j,k), TurbulentSource                      )             
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                  do iP = 1, mesh % IBM % NumOfForcingPoints
+                     associate( e    => mesh% elements(mesh % IBM % ImagePoints(iP) % element_index), &
+                                 e_in => mesh% elements(mesh % IBM % ImagePoints(iP) % element_in)     )
+                     i = mesh % IBM % ImagePoints(iP) % local_position(1)
+                     j = mesh % IBM % ImagePoints(iP) % local_position(2)
+                     k = mesh % IBM % ImagePoints(iP) % local_position(3)
+                     call mesh % IBM % SourceTermTurbulence( mesh % IBM % ImagePoints(iP), e % storage % Q(:,i,j,k), &
+                                                               e % geom % normal(:,i,j,k), e % geom % dWall(i,j,k),    &
+                                                               e % STL(i,j,k), TurbulentSource                      )             
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
                      end associate
                   end do
 !$omp end do
@@ -1154,34 +1160,34 @@ module SpatialDiscretization
 !        Add IBM source term
 !        *********************
 
-         if( mesh% IBM% active ) then
-            if( .not. mesh% IBM% semiImplicit ) then 
+         if( mesh % IBM % active ) then
+            if( .not. mesh % IBM % semiImplicit ) then 
 !$omp do schedule(runtime) private(i,j,k,Source)
                do eID = 1, mesh % no_of_elements
                   associate ( e => mesh % elements(eID) )
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
-                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                        call mesh% IBM % SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
                         e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                      end if
                   end do                  ; end do                ; end do
                   end associate
                end do
 !$omp end do      
-               if( mesh% IBM% Wallfunction ) then
+               if( mesh % IBM % Wallfunction ) then
 !$omp single
-                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+                  call mesh % IBM % GetBandRegionStates( mesh % elements )
 !$omp end single 
 !$omp do schedule(runtime) private(i,j,k,TurbulentSource)
-                  do iP = 1, mesh% IBM% NumOfForcingPoints
-                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index) )
-                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
-                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
-                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
-                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
-                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
-                                                             e% STL(i,j,k), TurbulentSource                      )              
-                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                  do iP = 1, mesh % IBM % NumOfForcingPoints
+                     associate( e    => mesh% elements(mesh % IBM % ImagePoints(iP) % element_index) )
+                     i = mesh % IBM % ImagePoints(iP) % local_position(1)
+                     j = mesh % IBM % ImagePoints(iP) % local_position(2)
+                     k = mesh % IBM % ImagePoints(iP) % local_position(3)
+                     call mesh % IBM % SourceTermTurbulence( mesh % IBM % ImagePoints(iP), e % storage % Q(:,i,j,k), &
+                                                             e % geom % normal(:,i,j,k), e % geom % dWall(i,j,k),    &
+                                                             e % STL(i,j,k), TurbulentSource                      )              
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
                      end associate
                   end do
 !$omp end do
@@ -1745,5 +1751,64 @@ module SpatialDiscretization
          !end select
       
       end subroutine ViscousFlux_selector
+
+      subroutine IBM_MaskVelocity( this, Q, nEqn, STLNum, x, t, Q_target ) 
+         !$acc routine seq
+         use PhysicsStorage
+         use FluidData
+         use TessellationTypes
+         use OrientedBoundingBox
+         implicit none
+   
+         class(IBM_type), intent(inout) :: this 
+         integer,         intent(in)    :: nEqn, STLNum
+         real(kind=RP),   intent(in)    :: Q(nEqn), x(NDIM), t
+         real(kind=RP),   intent(out)   :: Q_target(nEqn)
+   
+         real(kind=RP) :: R, v_plane, time, theta, &
+                          rho, u_s, v_s, w_s
+         
+         Q_target = Q
+   
+         u_s = 0.0_RP; v_s = 0.0_RP; w_s = 0.0_RP
+#if defined(NAVIERSTOKES)
+         if( this% stl(STLNum)% motionType .eq. LINEAR ) then
+            select case( this% stl(STLNum)% motionAxis )
+            case( IX )
+               u_s = this% stl(STLNum)% Velocity/refValues% V
+            case( IY )
+               v_s = this% stl(STLNum)% Velocity/refValues% V
+            case( IZ ) 
+               w_s = this% stl(STLNum)% Velocity/refValues% V
+            end select 
+         elseif( this% stl(STLNum)% motionType .eq. ROTATION ) then
+            R = norm2( x - this% stl(STLNum)% rotationCenter ) 
+   
+            v_plane = this% stl(STLNum)% angularVelocity * R * Lref
+            v_plane = v_plane/refValues% V
+   
+            time    = t * Lref/refValues% V
+            theta   = this% stl(STLNum)% angularVelocity * time
+   
+            select case( this% stl(STLNum)% motionAxis )
+            case( IX ) 
+               v_s = -sin(theta) * v_plane 
+               w_s =  cos(theta) * v_plane 
+            case( IY )
+               u_s =  cos(theta) * v_plane  
+               w_s = -sin(theta) * v_plane 
+            case( IZ )
+               u_s = -sin(theta) * v_plane
+               v_s =  cos(theta) * v_plane 
+            end select
+         end if 
+   
+         rho = Q_target(IRHO)
+   
+         Q_target(IRHOU) = rho * u_s      
+         Q_target(IRHOV) = rho * v_s      
+         Q_target(IRHOW) = rho * w_s      
+#endif
+      end subroutine IBM_MaskVelocity
 
 end module SpatialDiscretization

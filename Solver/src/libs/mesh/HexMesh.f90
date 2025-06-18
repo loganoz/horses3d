@@ -4400,6 +4400,7 @@ slavecoord:             DO l = 1, 4
       !$acc update device(self)
       !$acc enter data copyin(self%storage)
       !$acc enter data copyin(self%elements)
+      !$acc enter data copyin(self%no_of_elements)
 
       DO eID = 1, SIZE(self % elements)
          !$acc enter data copyin(self % elements(eID))
@@ -4435,9 +4436,14 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % elements(eID) % geom % InvJacobian)
          !$acc enter data copyin(self % elements(eID) % geom % dWall)
          !$acc enter data copyin(self % elements(eID) % geom % Volume)
+         !$acc enter data copyin(self % elements(eID) % geom % x)
+         !$acc enter data copyin(self % elements(eID) % geom % normal)
 
          !$acc enter data copyin(self % elements(eID) % faceIDs)
          !$acc enter data copyin(self % elements(eID) % faceSide)
+
+         !$acc enter data copyin(self % elements(eID) % isInsideBody)
+         !$acc enter data copyin(self % elements(eID) % STL)
 
 #ifdef CAHNHILLIARD
          !$acc enter data copyin(self % elements(eID) % storage % c)     ! CHE concentration
