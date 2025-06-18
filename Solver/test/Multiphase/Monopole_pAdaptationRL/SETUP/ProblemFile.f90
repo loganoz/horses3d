@@ -682,7 +682,7 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Re 100 Cylinder acoustics p-Adaptation"
+            CHARACTER(LEN=29)                  :: testName           = "Monopole P-adaptation RL"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -708,11 +708,11 @@ end module ProblemFileFunctions
 !           -----------------------------------------------------------------
 !
 #if defined(MULTIPHASE)
-            real(kind=RP), parameter :: residuals(5) = [ 6.7612332904056904E+00_RP, &
-                                                         1.3126856239198450E+00_RP, &
-                                                         1.3630698469480864E+00_RP, &
+            real(kind=RP), parameter :: residuals(5) = [ 6.7612400583858490E+00_RP, &
+                                                         1.7330535798928657E+00_RP, &
+                                                         1.4330968454689006E+00_RP, &
                                                          4.5116531519710653E-15_RP, &
-                                                         7.2809447388229482E+03_RP]
+                                                         5.1783390535161334E+03_RP]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
