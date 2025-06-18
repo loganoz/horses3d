@@ -346,12 +346,12 @@ module RiemannSolvers_MU
             halfRhouStar = 0.5_RP*rhoStar*uStar
 !
 !      -    Add first the common (conservative) part
-            flux_rot_L(:) = [cuStar+lambda_mu*(muL(i,j)-muR(i,j)), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, 0.5*(invMa2L+invMa2R) * uStar]
+            flux_rot_L(:) = [cuStar+lambda_mu*(muL(i,j)-muR(i,j)), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, 0.0_RP] !(invMa2L+invMa2R)*uStar -> NOT CORRECT BEFORE
             flux_rot_R(:) = flux_rot_L(:)
 !
 !      -    Add the non--conservative part
-            flux_rot_L(:) = flux_rot_L(:) + [0.0_RP, cL*0.5_RP*(muR(i,j)-muL(i,j))-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -invMa2L*uL]
-            flux_rot_R(:) = flux_rot_R(:) + [0.0_RP, cR*0.5_RP*(muL(i,j)-muR(i,j))-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -invMa2R*uR]
+            flux_rot_L(:) = flux_rot_L(:) + [0.0_RP, cL*0.5_RP*(muR(i,j)-muL(i,j))-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, invMa2L*(uStar - uL)]
+            flux_rot_R(:) = flux_rot_R(:) + [0.0_RP, cR*0.5_RP*(muL(i,j)-muR(i,j))-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, invMa2R*(uStar - uR)]
 !
 !            ************************************************
 !            Return momentum equations to the cartesian frame
