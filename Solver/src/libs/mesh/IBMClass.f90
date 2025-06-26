@@ -3598,10 +3598,7 @@ module IBMClass
             !$acc enter data copyin(self % BandRegion(i) % x(j) % element_index)
          enddo
       enddo
-
-      !$acc wait
       
-
    end subroutine IBM_CreateDeviceData
 
 end module IBMClass

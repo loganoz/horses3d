@@ -706,7 +706,7 @@ contains
    use fluiddata
    implicit none
 
-   type(Farm_t) , intent(inout)     :: self
+   type(Farm_t) , intent(inout)      :: self
    type(HexMesh), intent(in)         :: mesh
    real(kind=RP),intent(in)          :: time
 
@@ -716,11 +716,17 @@ contains
    integer                           :: i,j, k
    integer                           :: eID, eIndex
    real(kind=RP), dimension(NDIM)    :: actuator_source
+   real(kind=RP)                     :: actuator_source_x_iijj
+   real(kind=RP)                     :: actuator_source_y_iijj
+   real(kind=RP)                     :: actuator_source_z_iijj
+   real(kind=RP), dimension(NDIM)    :: xlocal
    real(kind=RP)                     :: local_angle
    real(kind=RP)                     :: local_velocity
    real(kind=RP)                     :: local_Re
    real(kind=RP)                     :: local_thrust
    real(kind=RP)                     :: local_rotor_force
+   real(kind=RP)                     :: azimuth_angle
+   real(kind=RP)                     :: epsil
 #if defined(MULTIPHASE)
    real(kind=RP)                     :: invSqrtRho
 #endif
@@ -783,49 +789,59 @@ contains
     
     else ! no projection
 
-!$acc parallel loop gang present(self,mesh)
-!$omp do schedule(runtime) private(i,j,k,ii,jj,kk,actuator_source,eID,interp)
-        do eIndex = 1, size(elementsActuated)
+        !$acc parallel loop gang collapse(4) present(self,mesh) private(xlocal)
+        !!$omp do schedule(runtime) private(i,j,k,ii,jj,kk,actuator_source,eID,interp)
+        do eIndex = 1, size(elementsActuated) ;  do k = 0, mesh % Nx(1) ;  do j = 0, mesh % Nx(1) ; do i = 0, mesh % Nx(1)
+      
             eID = elementsActuated(eIndex)
             ! only one turbine is associated for one element
             kk = turbineOfElement(eIndex)
 
-!$acc loop vector collapse(3) private(actuator_source)
-            do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
-                actuator_source(:) = 0.0_RP
+                actuator_source_x_iijj = 0.0_RP  
+                actuator_source_y_iijj = 0.0_RP   
+                actuator_source_z_iijj = 0.0_RP   
+ 
+                xlocal = mesh % elements(eID) % geom % x(:,i,j,k) 
+                !$acc loop vector collapse(2) reduction(+:actuator_source_x_iijj, actuator_source_y_iijj, actuator_source_z_iijj)
+                 do jj = 1, self % turbine_t(kk) % num_blades ; do ii = 1, self % turbine_t(kk) % num_blade_sections
 
-!$acc loop seq
-                do jj = 1, self % turbine_t(kk) % num_blades
-                    do ii = 1, self % turbine_t(kk) % num_blade_sections
-                        interp = GaussianInterpolation(self%epsilon_type, mesh % elements(eID) % geom % x(:,i,j,k), self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,:), &
-                                                       self%turbine_t(kk)%blade_t(jj)%chord(ii), self%gauss_epsil,self%turbine_t(kk)%blade_t(jj)%gauss_epsil_delta(ii))
-        
-                        ! minus account action-reaction effect, is the force on the fluid
-                        actuator_source(1) = actuator_source(1) - self%turbine_t(kk)%blade_t(jj)%local_thrust(ii) * interp
-                        actuator_source(2) = actuator_source(2) - (-self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(kk)%blade_t(jj)%azimuth_angle)  * interp)
-                        actuator_source(3) = actuator_source(3) - self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(kk)%blade_t(jj)%azimuth_angle) * interp 
+                    azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle
+                    local_rotor_force = self%turbine_t(kk)%blade_t(jj)%local_rotor_force(ii)
+                    local_thrust = self%turbine_t(kk)%blade_t(jj)%local_thrust(ii)
+                    epsil = self % gauss_epsil * self%turbine_t(kk) % blade_t(jj) % gauss_epsil_delta(ii)
 
-                    enddo
-                enddo
-                ! NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
-                actuator_source = actuator_source/ Non_dimensional
+                    interp = exp( -(POW2(xlocal(1) - self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1)) &
+                                  + POW2(xlocal(2) - self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2)) &
+                                  + POW2(xlocal(3) - self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3))) &
+                                  / POW2(epsil) ) / ( POW3(epsil) * pi**(3.0_RP/2.0_RP) )
+
+                    ! minus account action-reaction effect, is the force on the fluid
+                    actuator_source_x_iijj = actuator_source_x_iijj -   local_thrust * interp
+                    actuator_source_y_iijj = actuator_source_y_iijj - (-local_rotor_force*sin(azimuth_angle) * interp)
+                    actuator_source_z_iijj = actuator_source_z_iijj -   local_rotor_force*cos(azimuth_angle) * interp 
+                end do                  ; end do 
+
+                actuator_source_x_iijj = actuator_source_x_iijj/ Non_dimensional
+                actuator_source_y_iijj = actuator_source_y_iijj/ Non_dimensional
+                actuator_source_z_iijj = actuator_source_z_iijj/ Non_dimensional
+
 #if defined(NAVIERSTOKES)
-                mesh % elements(eID) % storage % S_NS(IRHOU,i,j,k) = actuator_source(1)
-                mesh % elements(eID) % storage % S_NS(IRHOV,i,j,k) = actuator_source(2)
-                mesh % elements(eID) % storage % S_NS(IRHOW,i,j,k) = actuator_source(3)
+                mesh % elements(eID) % storage % S_NS(IRHOU,i,j,k) = actuator_source_x_iijj
+                mesh % elements(eID) % storage % S_NS(IRHOV,i,j,k) = actuator_source_y_iijj
+                mesh % elements(eID) % storage % S_NS(IRHOW,i,j,k) = actuator_source_z_iijj
 #elif defined(INCNS)
-                mesh % elements(eID) % storage % S_NS(INSRHOU,i,j,k) = actuator_source(1)
-                mesh % elements(eID) % storage % S_NS(INSRHOV,i,j,k) = actuator_source(2)
-                mesh % elements(eID) % storage % S_NS(INSRHOW,i,j,k) = actuator_source(3)
+                mesh % elements(eID) % storage % S_NS(INSRHOU,i,j,k) = actuator_source_x_iijj
+                mesh % elements(eID) % storage % S_NS(INSRHOV,i,j,k) = actuator_source_y_iijj
+                mesh % elements(eID) % storage % S_NS(INSRHOW,i,j,k) = actuator_source_z_iijj
 #elif defined(MULTIPHASE)
                 invSqrtRho = 1.0_RP / sqrt(mesh % elements(eID) % storage % rho(i,j,k))
-                mesh % elements(eID) % storage % S_NS(IMSQRHOU,i,j,k) = actuator_source(1)*invSqrtRho
-                mesh % elements(eID) % storage % S_NS(IMSQRHOV,i,j,k) = actuator_source(2)*invSqrtRho
-                mesh % elements(eID) % storage % S_NS(IMSQRHOW,i,j,k) = actuator_source(3)*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOU,i,j,k) = actuator_source_x_iijj*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOV,i,j,k) = actuator_source_y_iijj*invSqrtRho
+                mesh % elements(eID) % storage % S_NS(IMSQRHOW,i,j,k) = actuator_source_z_iijj*invSqrtRho
 #endif
             end do                  ; end do                ; end do
         end do
-!$omp end do
+!!$omp end do
 !$acc end parallel loop
     endif
 !
@@ -1344,7 +1360,9 @@ Function interpolateQ(mesh,eID,xi) result(Qe)
      leta = spAeta % lj(xi(2))
      lzeta = spAzeta % lj(xi(3))
 
-     !$acc update self(mesh%elements(eID)%Storage%Q)
+     !$acc update self(mesh%elements(eID)%Storage%Q) async(eid)
+     !$acc wait(eid)
+     
      Qe = 0.0_RP
      do k = 0, Nxyz(3)    ; do j = 0, Nxyz(2)  ; do i = 0, Nxyz(1)
          Qe = Qe + mesh % elements(eID) % Storage % Q(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)

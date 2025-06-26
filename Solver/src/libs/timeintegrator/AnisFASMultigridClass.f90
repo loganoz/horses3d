@@ -171,13 +171,13 @@ module AnisFASMultigridClass
       end if
       
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
-         case('RK3')  ; SmoothIt => TakeRK3Step
+         case('RK3')  ; !SmoothIt => TakeRK3Step
          case('SIRK')
             !! SmoothIt => TakeSIRKStep
             error stop ':: AnisFASMultigrid: SIRK smoother not implemented yet'
          case default 
             if (MPI_Process %isRoot) write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
-            SmoothIt => TakeRK3Step
+            !SmoothIt => TakeRK3Step
       end select
       
       if (controlVariables % containsKey("max mg sweeps")) then
@@ -597,7 +597,7 @@ module AnisFASMultigridClass
       DO
          do iEl = 1, NumOfSweeps
             if (Compute_dt) call MaxTimeStep(self=p_sem, cfl=cfl, dcfl=dcfl, MaxDt=dt )
-            call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
+            !call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
          end do
          sweepcount = sweepcount + 1
          if (MGOutput) call PlotResiduals( lvl, sweepcount*NumOfSweeps , p_sem % mesh )
@@ -668,7 +668,7 @@ module AnisFASMultigridClass
          
          do iEl = 1, NumOfSweeps
             if (Compute_dt) call MaxTimeStep(self=p_sem, cfl=cfl, dcfl=dcfl, MaxDt=dt )
-            call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
+            !call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
          end do
 
          sweepcount = sweepcount + 1

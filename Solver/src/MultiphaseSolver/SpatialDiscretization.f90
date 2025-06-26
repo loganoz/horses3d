@@ -845,7 +845,9 @@ module SpatialDiscretization
 !           Add source term
 !           ***************
 !The scale with sqrtRho is done in the subroutines, not done againg here
+         !$acc wait
          call ForcesFarm(farm, mesh, t)
+         !$acc wait
 !
 !        ****************************
 !        Now add all the source terms
