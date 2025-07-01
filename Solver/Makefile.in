@@ -170,7 +170,7 @@ endif
 ## 	THREADS  	##
 ##########################
 # We do not use threads with N
-ifeq ($(FC),nvfortran)
+ifeq ($(COMPILER),nvfortran)
     ENABLE_THREADS:=NO
 endif
 ifeq ($(ENABLE_THREADS),YES)
