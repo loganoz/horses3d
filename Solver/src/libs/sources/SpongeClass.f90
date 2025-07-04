@@ -316,23 +316,21 @@ Module SpongeClass  !
                             ! remove components in the axis direction
                             r_vector(:) = r_vector(:) - sum((e % geom % x(:,i,j,k) - self % x0(sponge_number,:))*self % axis(sponge_number,:))*self % axis(sponge_number,:)
                             ! xStar is non-dimensionalized by the width of the ramp, since the difference is squared, the width is too
-                            xStar(i,j,k) = sqrt(sum(r_vector*r_vector) - POW2(self % radious(sponge_number))) / self % rampWidth
+                            xStar(i,j,k) = sqrt(abs(sum(r_vector*r_vector) - POW2(self % radious(sponge_number)))) / self % rampWidth
                         case (SPONGE_CARTESIAN)
                             xStar(i,j,k) = sum(r_vector(:)*self % axis(sponge_number,:))/(self % rampWidth)
                         end select
                     end do         ; end do          ; end do
                 
-                    if (any(xStar .ge. 0.0_RP)) then
-                        ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
-                        xStar = max(0.0_RP,xStar)
-                        xStar = min(1.0_RP,xStar)
-                        ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
-                        sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
-                        ! limit sigms <=1 since after 1 should be constant at the amplitude value
-                        sigma  = MIN(1.0_RP,sigma)
-                        ! pre computed intensity, including amplitude and ramp damping
-                        e % storage % intensitySponge(:,:,:) = max(e % storage % intensitySponge(:,:,:), self % amplitude * sigma(:,:,:))
-                    endif
+                    ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
+                    xStar = max(0.0_RP,xStar)
+                    xStar = min(1.0_RP,xStar)
+                    ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
+                    sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
+                    ! limit sigms <=1 since after 1 should be constant at the amplitude value
+                    sigma  = MIN(1.0_RP,sigma)
+                    ! pre computed intensity, including amplitude and ramp damping
+                    e % storage % intensitySponge(:,:,:) = max(e % storage % intensitySponge(:,:,:), self % amplitude * sigma(:,:,:))
                 end associate
             end do 
         end do
@@ -563,7 +561,7 @@ Module SpongeClass  !
         refs(V_REF)     = refValues      % V
         refs(T_REF)     = refValues      % T
         refs(MACH_REF)  = dimensionless  % Mach
-        refs(RE_REF)    = dimensionless  % Re
+        ! refs(RE_REF)    = dimensionless  % Re
 #endif
 #if defined(INCNS)
         refs(GAMMA_REF) = 0.0_RP
@@ -592,7 +590,7 @@ Module SpongeClass  !
                 Nxyz = e % Nxyz
                 if (allocated(Q)) deallocate(Q)
                 allocate(Q(NCONS, 0:Nxyz(1), 0:Nxyz(2), 0:Nxyz(3)))
-                pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
+                pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*padding*e % offsetIO * SIZEOF_RP
                 Q(1:NCONS,:,:,:)  = e % storage % QbaseSponge(:,:,:,:)
                 call writeArray(fid, Q, position=pos)
             end associate
