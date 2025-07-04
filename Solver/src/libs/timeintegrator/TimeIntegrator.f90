@@ -170,6 +170,10 @@
                self % RKStep => TakeRK5Step
                self % RKStep_key = RK5_KEY
 
+            case(LSERK14_4_NAME)
+               self % RKStep => TakeLSERK14_4Step
+               self % RKStep_key = LSERK14_4_KEY
+
             case(SSPRK33_NAME)
                self % RKStep => TakeSSPRK33Step
                self % RKStep_key = SSPRK33_KEY
@@ -183,6 +187,10 @@
                self % RKStep_key = EULER_RK3_KEY
                !Create the array of High-Order elements and faces for the Euler-RK3 method
                call sem % mesh % UpdateHOArrays()
+
+            case(MIXED_RK_NAME)
+               self % RKStep => TakeMixedRKStep
+               self % RKStep_key = MIXED_RK_KEY
 
             case default
                print*, "Explicit time integration method not implemented"
@@ -272,12 +280,16 @@
                write(STD_OUT,'(A)') "RK3"
             case (RK5_KEY)
                write(STD_OUT,'(A)') "RK5"
+            case (LSERK14_4_KEY)
+               write(STD_OUT,'(A)') "LSERK14-4"  
             case (SSPRK33_KEY)
                write(STD_OUT,'(A)') "SSPRK33"
             case (SSPRK43_KEY)
                write(STD_OUT,'(A)') "SSPRK43"
             case (EULER_RK3_KEY)
                write(STD_OUT,'(A)') "Euler-RK3"
+            case (MIXED_RK_KEY)
+               write(STD_OUT,'(A)') "Mixed rk"
             end select
 
             write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
