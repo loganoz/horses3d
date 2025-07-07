@@ -5977,8 +5977,10 @@ call elementMPIList % destruct
       real(kind=rp) :: theta
       logical :: confor=.FALSE.
 
+      !write(*,*) "here we are, first rot"
+      !self%sliding=.false.
       if (.not. self%sliding) call self % MarkRadius(rad, center, n_sliding, n_slidingnewnodes)
-      if (present(allmesh) .AND. (.not. self%sliding)) self%sliding=.TRUE.
+      !if (present(allmesh) .AND. (.not. self%sliding)) self%sliding=.TRUE.
       if (.NOT. self%sliding) then 
          oldnode=size(self%nodes)
          allocate(tmp_nodes(oldnode))
@@ -6001,7 +6003,7 @@ call elementMPIList % destruct
       end if 
   
       PI=4.0_RP*DATAN(1.0_RP)
-      theta=PI/20000.0_RP
+      theta=PI/80.0_RP
       if (.not.allocated(self%arr1) ) allocate (self%arr1(n_slidingnewnodes))
       if (.not.allocated(self%arr2))  allocate (self%arr2(n_slidingnewnodes))
       if (.not.allocated(self%mortararr1))  allocate (self%mortararr1(n_slidingnewnodes,2))
@@ -6025,7 +6027,8 @@ call elementMPIList % destruct
          self%numBFacePoints=numBFacePoints
       end if 
 
-   if (present(angle))theta=angle
+   !if (present(angle))theta=angle
+   self%omega=0.0_RP
    self%omega=self%omega+theta 
          call self % Modifymesh(nodes,self%n_slidingnewnodes, self%arr1, self%arr2, self%arr3,self%Mat,center, o, s, self%face_nodes,self%face_othernodes, self%rotmortars, th, &
          numberOfNodes,self%numBFacePoints,oldnode, theta, self%omega)
@@ -6101,6 +6104,7 @@ call elementMPIList % destruct
     if (.NOT.present(allmesh))  call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
      
      self%sliding=.true.
+     !write(*,*) 'tseM', TsetM(self%faces(1) % NfLeft(1), self%faces(1) % Nf(1), 1, 1) % T
    end subroutine HexMesh_RotateMesh
 
 
