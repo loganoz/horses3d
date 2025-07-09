@@ -292,6 +292,13 @@
             call Tset(self % NfLeft(2), self % Nf(2)) % construct(self % NfLeft(2), self % Nf(2))
             call Tset(self % Nf(2), self % NfLeft(2)) % construct(self % Nf(2), self % NfLeft(2))
 
+            call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
+            call Tset(self % Nf(1), self % NfRight(1)) % construct(self % Nf(1), self % NfRight(1))
+            
+            call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
+            call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
+   
+
          end if 
          if (present(offset) .and. (.not.present(s))) then !4:1
             call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 0.5_RP, 1)  !0.5_RP, 0.5_RP
@@ -320,38 +327,21 @@
 
          end if 
          if (present(offset) .and. present(s)) then !Sliding
-            !write(*,*) 'sliding mortars projections'
             if (self% Mortarpos==0) then!!!!!!0  !!!!1
-               call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(1), 1)!in    !o=-0.5
-               call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(1), 2)!out
-              ! write(*,*)'tset 1, offset :', offset(1), 'scale:',s(1)
-               call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(2), 1)      !o=0.5
+               call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(1), 1)
+               call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(1), 2)
+
+               call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(2), 1)    
                call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(2), 2)
-               !write(*,*)'tset 1 and 2, :', offset, 'scale:',s
-               !write(*,*) "TsetM 1 1 ", TsetM(self % NfLeft(1), self % Nf(1), 1, 1)%T
-               !write(*,*) "TsetM 1 2 ", TsetM(self % Nf(1), self % NfLeft(1), 1, 2)%T
-               !write(*,*) "TsetM 2 1 ", TsetM(self % NfLeft(1), self % Nf(1), 2, 1)%T
-               !write(*,*) "TsetM 2 2 ", TsetM(self % Nf(1), self % NfLeft(1), 2, 2)%T
             else if (self%Mortarpos==1)  then!!!!!!1  !!!!!0
-               call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(1), 1)       !o=0.5
+               call TsetM(self % NfLeft(1), self % Nf(1), 3, 1) % construct(self % NfLeft(1), self % Nf(1), offset(2), s(1), 1)       
                call TsetM(self % Nf(1), self % NfLeft(1), 3, 2) % construct(self % Nf(1), self % NfLeft(1), offset(2), s(1), 2)
-             !  write(*,*)'tset 3, offset :', offset(1), 'scale:',s(1)
-               call TsetM(self % NfLeft(1), self % Nf(1), 4, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(2), 1)     !o=-0.5
+
+               call TsetM(self % NfLeft(1), self % Nf(1), 4, 1) % construct(self % NfLeft(1), self % Nf(1), offset(1), s(2), 1)    
                call TsetM(self % Nf(1), self % NfLeft(1), 4, 2) % construct(self % Nf(1), self % NfLeft(1), offset(1), s(2), 2)
-              ! write(*,*)'tset 3 and 4, offset :', offset, 'scale:',s
-               !write(*,*) "TsetM 3 1 ", TsetM(self % NfLeft(1), self % Nf(1), 3, 1)%T
-               !write(*,*) "TsetM 3 2 ", TsetM(self % Nf(1), self % NfLeft(1), 3, 2)%T
-               !write(*,*) "TsetM 4 1 ", TsetM(self % NfLeft(1), self % Nf(1), 4, 1)%T
-               !write(*,*) "TsetM 4 2 ", TsetM(self % Nf(1), self % NfLeft(1), 4, 2)%T 
             end if 
          end if 
          
-         call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
-         call Tset(self % Nf(1), self % NfRight(1)) % construct(self % Nf(1), self % NfRight(1))
-         
-         call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
-         call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
-
 
       
    !
@@ -410,20 +400,7 @@
          else
              prolongQdot = .FALSE.
          end if
-        ! write(*,*) 'self % Nf(2)', self % Nf(2)
-        ! write(*,*) 'self % NfLeft(1)', self % NfLeft(1)
-        ! write(*,*) 'self % Nf(1)', self % Nf(1)
-        ! write(*,*) 'Qe in conf 1', SIZE(Qe(:,1,1))
-         !(*,*) 'Qe in conf 2', SIZE(Qe(1,:,1))
-         !write(*,*) 'Qe in conf 3', SIZE(Qe(1,1,:))
-         ! if (prolongQdot) then
-         !     print *, "side: ", side
-         !     ! print *, "projectionType 1: ",  self % projectionType(1)
-         !     ! print *, "projectionType 2: ",  self % projectionType(2)
-         !     print *, "projectionType side: ",  self % projectionType(side)
-         ! end if
-         !write(*,*) "proj sol toface", self % ID 
-      !if (self % isMortar==0 .OR. self % isMortar==2 ) then
+  
          select case (side)
          case(1)
             if (self % IsMortar==2) then 
@@ -468,8 +445,6 @@
    
             select case ( self % projectionType(2) )
             case (0)
-                  !write(*,*) 'facetype before crashing', self % IsMortar
-               !write(*,*) 'size Qf', size(Qf), 'size Qe_rot', size(Qe_rot)
                Qf = Qe_rot
             case (1)
                Qf = 0.0_RP
@@ -526,10 +501,7 @@
          Qe_rot=0.0_rp
          dSrot=0.0_rp
          xx=0.0_rp 
-        ! write(*,*) 'adapting sol to mortar face'
-            !if(side .ne. 1) then 
-               !write(*,*)'problem big mortar on wrong side'
-            !end if 
+  
             if ((fma % IsMortar.ne.2) .and. .not.present(sliding)) then 
                write(*,*) 'problem mortar slave projection sol to face'
             end if 
@@ -538,30 +510,17 @@
             case (1)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
-              !write(*,*)'fma%pos==1, corresponding element:', fma%elementIDs
             case (2)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
-               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)  
-               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T)
-
-              ! write(*,*)'fma%pos==2, corresponding element:', fma%elementIDs
             case (3)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
-               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
-!write(*,*)'fma%pos==3, corresponding element:', fma%elementIDs
             case (4)
                 MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
                 MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
-               !MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)  
-               !MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)
-!write(*,*)'fma%pos==4, corresponding element:', fma%elementIDs
             end select 
-         else 
+         else !sliding
             if (fma%Mortarpos==0) then 
                MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)   !1;1!!!!!!!
                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)   !2;1
@@ -571,64 +530,7 @@
                MInt(:,:,2)=(TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T)   !4;1
             end if 
          end if 
-        ! write(*,*) 'mortar proj MInt(:,:,1)',MInt(:,:,1)
-        ! write(*,*) 'mortar proj MInt(:,:,2)',MInt(:,:,2)
 
-         !if (present(sliding)) then 
-         !    if ((self%elementIDs(1)==43) )then 
-        !     !if (side==1) then 
-        !        xx=0.0_RP
-       !         write(*,*) 'we are in faceclass, self%elementIDs(1)=',self%elementIDs(1), 'side==',side, 'fma%Mortarpos',fma%Mortarpos
-        !!        write(*,*) 'fma%elementIDs=',fma%elementIDs
-         !       do j = 0, fma %Nf(2)  ; do i = 0, fma %Nf(2)
-         !         write(*,*) 'before adapting self % x(:,i,j) with the mortar projection', self%geom%x(:,i,j)
-         !       end do ;end do 
-          !     xxrot=0.0_RP
-         !!       do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
-         !         do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-         !           xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 3, 1) % T(j,l)*self%geom%x(:,i,l)
-         !         end do                  ; end do                   ; end do
-         !         do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
-         !            write(*,*) 'after TsetM(3,1) adapting  self % x(:,i,j) with the mortar projection', xx(:,i,j)
-         !          end do ;end do 
-         !     xx=0.0_RP
-              !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
-         !!     do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-          !      xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T(j,l)*self%geom%x(:,i,l)
-         !!     end do                  ; end do                   ; end do
-         !     do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
-          !       write(*,*) 'after  TsetM(1,1) adapting with  % x(:,i,j) with the mortar projection', xx(:,i,j)
-          !     end do ;end do 
-          !end if 
-          !end if 
- 
-          !if (present(sliding)) then 
-          !   if (self%elementIDs(1)==38) then 
-          !     ! if (side==2) then 
-          !      xx=0.0_RP
-          !      write(*,*) 'we are in faceclass, self%elementIDs(1)=',self%elementIDs(1), 'side==',side, 'fma%Mortarpos',fma%Mortarpos
-          !      write(*,*) 'fma%elementIDs=',fma%elementIDs
-          !      do j = 0, fma %Nf(2)  ; do i = 0, fma %Nf(2)
-          !        write(*,*) 'before adapting self % x(:,i,j) with the mortar projection', self%geom%x(:,i,j)
-          !      end do ;end do 
-          !      xx=0.0_RP
-          !      !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
-          !      do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-          !         xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T(j,l)*self%geom%x(:,i,l)
-          !       end do                  ; end do                   ; end do
-          !       do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
-          !          write(*,*) 'after adapting TsetM(2,1) self % x(:,i,j) with the mortar projection', xx(:,i,j)
-          !        end do ;end do 
-          !   xx=0.0_RP
-          !   do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
-         !    !do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-          !      xx(:,i,j)= xx(:,i,j) + TsetM(fma % NfLeft(1), fma % Nf(1), 4, 1) % T(j,l)*self%geom%x(:,i,l)
-          !    end do                  ; end do                   ; end do
-          !   do j = 0,fma %Nf(2)   ; do i = 0, fma %Nf(2)
-          !       write(*,*) 'after adapting TsetM(4,1) self % x(:,i,j) with the mortar projection', xx(:,i,j)
-           !    end do ;end do 
-           ! end if 
-          !end if 
          if (.not.present(sliding)) then 
             associate(Qf => fma % storage(1) % Q)
                 Qf=0.0_RP
@@ -641,12 +543,10 @@
              end do                  ; end do
              end associate 
   
-         else
-            !write(*,*)'prolong sol to moratr face line 672, side=', side 
+         else !sliding mortars
             if (side==1) then 
                associate(Qf => fma % storage(1) % Q)
                   Qf=0.0_RP
-
                !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
                   do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
                   Qf(:,i,j) = Qf(:,i,j)  + MInt(j,l,1) * Qe(:,i,l)
@@ -654,23 +554,20 @@
                end associate
             else 
     
-                  do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                     !if (self % rotation .NE. 7) write(*,*) 'line 592 rotation nn equal 7...', self % rotation
-                    ! call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-                     call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
-                     Qe_rot(:,i,j) = Qe(:,ii,jj) 
-                  end do                        ; end do
-               !end associate 
-               associate(Qf => fma % storage(2) % Q)
-                  Qf=0.0_RP
-               !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
-                  do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
-                  Qf(:,i,j) = Qf(:,i,j)  + MInt(j,l,2) *  Qe_rot(:,i,l)
-               end do                  ; end do                   ; end do
-               end associate
-            end if 
-         end if  
-      end subroutine Face_AdaptSolutionToMortarFace
+               do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                  call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), fma % rotation, ii, jj)
+                  Qe_rot(:,i,j) = Qe(:,ii,jj) 
+               end do                        ; end do
+            associate(Qf => fma % storage(2) % Q)
+               Qf=0.0_RP
+            !do j = 0, fma %Nf(2)  ; do l = 0, fma %NfLeft(1)   ; do i = 0,fma %Nf(1)
+               do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               Qf(:,i,j) = Qf(:,i,j)  + MInt(j,l,2) *  Qe_rot(:,i,l)
+            end do                  ; end do                   ; end do
+            end associate
+         end if 
+      end if  
+   end subroutine Face_AdaptSolutionToMortarFace
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
@@ -956,7 +853,6 @@
          integer       :: i, j, k, l, m, ii, jj, lm, a, b 
          real(kind=RP) :: AVn_e_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
 
-      if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
             associate(AVf => self % storage(1) % AviscFlux)
@@ -1022,7 +918,6 @@
             AVf = -AVf
             end associate
          end select
-      end if 
    
       end subroutine Face_AdaptAviscFluxToFace
 
@@ -1151,12 +1046,7 @@
                         end do                 ; end do
                      end do                  ; end do
                   end select
-                 ! if ((self%elementIDs(1)==170) .OR. self%elementIDs(2)==170) write(*,*) 'fstar of 170',fStar
-                 ! if ((self%elementIDs(1)==172)  .OR. self%elementIDs(2)==172) write(*,*) 'fstar of 172',fStar
-                 ! if ((self%elementIDs(1)==49)  .OR. self%elementIDs(2)==49) write(*,*) 'fstar of 49',fStar
-                 ! if ((self%elementIDs(1)==171) .OR. self%elementIDs(2)==171) write(*,*) 'fstar of 171 **',fStar
-                 ! if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
-                 ! if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
+
                   end associate
                end if
                
@@ -1210,12 +1100,6 @@
          !
                      
                      fStar = -fStar
-                    ! if ((self%elementIDs(1)==170) .OR. self%elementIDs(2)==170) write(*,*) 'fstar of 170',fStar
-                    ! if ((self%elementIDs(1)==172)  .OR. self%elementIDs(2)==172) write(*,*) 'fstar of 172',fStar
-                    ! if ((self%elementIDs(1)==49)  .OR. self%elementIDs(2)==49) write(*,*) 'fstar of 49',fStar
-                    !! if ((self%elementIDs(1)==171) .OR. self%elementIDs(2)==171) write(*,*) 'fstar of 171 **',fStar
-                    ! if ((self%elementIDs(1)==173) .OR. self%elementIDs(2)==173) write(*,*) 'fstar of 173 **',fStar
-                    ! if ((self%elementIDs(1)==78) .OR. self%elementIDs(2)==78) write(*,*) 'fstar of 78 **',fStar
                      end associate
                   end if 
    
