@@ -7609,12 +7609,6 @@ ROT(2,1)=SIN(theta)
        XR(j,:)=NODES2 (j,:)
        NODES2(j,:)= MATMUL(ROT, XR(j,:))
    END DO        
-   !rota=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
-   !write(*,*) 'i=,',i
-   !write(*,*) 'l=,',l
-   !if (rota .NE. Mat(i,7)) write(*,*) 'problem rot .NE. MAT:, rot=', rota, 'MAT=', Mat(i,7)
-   !if (rota .EQ. Mat(i,7)) write(*,*) 'no problem', rota, 'MAT=', Mat(i,7)
-   !  self % mortar_faces(l) % rotation=rota
 
    l=l+1
 end do 
