@@ -986,7 +986,7 @@ module SpatialDiscretization
                associate ( e => mesh % elements(mesh % HO_Elements(eID)) )
                ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
                ! different contributions and not accumulate each call
-               e % storage % S_NS = 0.0_RP
+               !e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
@@ -1253,7 +1253,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
-               e % storage % S_NS = 0.0_RP
+               !e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
@@ -1346,8 +1346,15 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
-!
+          if (mesh%slidingflux .and. e%sliding) then 
+!         call SlidingMeshFluxCalculation(e, SlidingMeshFlux)
+          call contravariantSMFlux ( e , inviscidContravariantFlux )
+            ! print*, SlidingMeshFlux/inviscidContravariantFlux 
+!            inviscidContravariantFlux = inviscidContravariantFlux - SlidingMeshFlux
+         else 
+            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
+         end if 
+        !
 !        Compute viscous contravariant flux
 !        ----------------------------------
          if (flowIsNavierStokes) then
@@ -1422,7 +1429,7 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP) :: SlidingMeshFlux           ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         !real(kind=RP) :: SlidingMeshFlux           ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          integer :: i,j,k
 
 !
@@ -1432,12 +1439,16 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
-         if (mesh%sliding) then 
-         call SlidingMeshFluxCalculation(e, SlidingMeshFlux)
+!         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
+         if (mesh%slidingflux .and. e%sliding) then 
+!         call SlidingMeshFluxCalculation(e, SlidingMeshFlux)
+          call contravariantSMFlux ( e , inviscidContravariantFlux )
             ! print*, SlidingMeshFlux/inviscidContravariantFlux 
-            inviscidContravariantFlux = inviscidContravariantFlux - SlidingMeshFlux
+!            inviscidContravariantFlux = inviscidContravariantFlux - SlidingMeshFlux
+         else 
+            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
          end if 
+        
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -1887,29 +1898,65 @@ module SpatialDiscretization
          implicit none
          type(element), intent(in)  :: e
          real(kind=RP), intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)              :: omega(IX:IZ)
-         integer :: i,j,k,eq      
-             omega(IX) = 0.0_RP
-             omega(IY) = 0.0_RP
-             omega(IZ) = 0.0_RP / refValues%V
-            do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1); do eq = 1,5
+         real(kind=RP)              :: omega(IX:IZ), u_g, v_g, w_g, u, v, w, p
+         real(kind=RP)              :: F(1:NCONS,IX:IZ)
+         
+         integer :: i,j,k
+            ! define angular velocity
+            omega(1) = 0.0_RP
+            omega(2) = PI/20.0_RP
+      !     omega(2) = 0.0_RP
+            omega(3) = 0.0_RP
+            ! loop inside the element 
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+         ! compute the velocity of the grid (adimensional)
+            u_g = (e % geom % x(IZ,i,j,k)*omega(2)-omega(3)*e % geom % x(IY,i,j,k))!/refValues%V
+            v_g = (e % geom % x(IX,i,j,k)*omega(3)-omega(1)*e % geom % x(IZ,i,j,k))!/refValues%V
+            w_g = (e % geom % x(IY,i,j,k)*omega(1)-omega(2)*e % geom % x(IX,i,j,k))!/refValues%V
+
+            u = e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k)
+            v = e % storage % Q(IRHOV,i,j,k) / e % storage % Q(IRHO,i,j,k)
+            w = e % storage % Q(IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
+            p = thermodynamics % gammaMinus1 * (e % storage % Q(IRHOE,i,j,k) - 0.5_RP * ( e % storage % Q(IRHOU,i,j,k) * u + e % storage % Q(IRHOV,i,j,k) * v + e % storage % Q(IRHOW,i,j,k) * w ) )
+   !
+   !        X-Flux
+   !        ------         
+            F(IRHO , IX ) = e % storage % Q(IRHOU,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * u_g)
+            F(IRHOU, IX ) = e % storage % Q(IRHOU,i,j,k) * u + p - (e % storage % Q(IRHOU,i,j,k) * u_g)
+            F(IRHOV, IX ) = e % storage % Q(IRHOU,i,j,k) * v - (e % storage % Q(IRHOV,i,j,k) * u_g)
+            F(IRHOW, IX ) = e % storage % Q(IRHOU,i,j,k) * w - (e % storage % Q(IRHOW,i,j,k) * u_g)
+            F(IRHOE, IX ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * u - (e % storage % Q(IRHOE,i,j,k) * u_g)
+   !
+   !        Y-Flux
+   !        ------
+            F(IRHO , IY ) = e % storage % Q(IRHOV,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * v_g)
+            F(IRHOU ,IY ) = F(IRHOV,IX) - (e % storage % Q(IRHOU,i,j,k) * v_g)
+            F(IRHOV ,IY ) = e % storage % Q(IRHOV,i,j,k) * v + p - (e % storage % Q(IRHOV,i,j,k) * v_g)
+            F(IRHOW ,IY ) = e % storage % Q(IRHOV,i,j,k) * w - (e % storage % Q(IRHOW,i,j,k) * v_g)
+            F(IRHOE ,IY ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * v - (e % storage % Q(IRHOE,i,j,k) * v_g)
+   !
+   !        Z-Flux
+   !        ------
+            F(IRHO ,IZ) = e % storage % Q(IRHOW,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * w_g)
+            F(IRHOU,IZ) = F(IRHOW,IX) - (e % storage % Q(IRHOU,i,j,k) * w_g)
+            F(IRHOV,IZ) = F(IRHOW,IY) - (e % storage % Q(IRHOV,i,j,k) * w_g)
+            F(IRHOW,IZ) = e % storage % Q(IRHOW,i,j,k) * w + p - (e % storage % Q(IRHOW,i,j,k) * w_g)
+            F(IRHOE,IZ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * w - (e % storage % Q(IRHOE,i,j,k) * w_g)
+
+            contravariantFlux(:,i,j,k,IX) =    F(:,IX) * e % geom % jGradXi(IX,i,j,k)   &
+                                             + F(:,IY) * e % geom % jGradXi(IY,i,j,k)   &
+                                             + F(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
    
-                   contravariantFlux(eq,i,j,k,IX) = (e % storage % Q(eq,i,j,k)) * &
-                   ((((omega(IY) * e % geom % x(IZ,i,j,k)) - (omega(IZ) * e % geom % x(IY,i,j,k))) * e % geom % jGradXi(IX,i,j,k)) &
-                   +(((omega(IZ) * e % geom % x(IX,i,j,k)) - (omega(IX) * e % geom % x(IZ,i,j,k))) * e % geom % jGradXi(IY,i,j,k)) &
-                   +(((omega(IX) * e % geom % x(IY,i,j,k)) - (omega(IY) * e % geom % x(IX,i,j,k))) * e % geom % jGradXi(IZ,i,j,k))) 
+            contravariantFlux(:,i,j,k,IY) =    F(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                             + F(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                             + F(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
    
-                   contravariantFlux(eq,i,j,k,IY) = (e % storage % Q(eq,i,j,k)) * &
-                   ((((omega(IY) * e % geom % x(IZ,i,j,k)) - (omega(IZ) * e % geom % x(IY,i,j,k))) * e % geom % jGradEta(IX,i,j,k)) &
-                   +(((omega(IZ) * e % geom % x(IX,i,j,k)) - (omega(IX) * e % geom % x(IZ,i,j,k))) * e % geom % jGradEta(IY,i,j,k)) &
-                   +(((omega(IX) * e % geom % x(IY,i,j,k)) - (omega(IY) * e % geom % x(IX,i,j,k))) * e % geom % jGradEta(IZ,i,j,k)))
-   
-                   contravariantFlux(eq,i,j,k,IZ) = (e % storage % Q(eq,i,j,k)) * &
-                   ((((omega(IY) * e % geom % x(IZ,i,j,k)) - (omega(IZ) * e % geom % x(IY,i,j,k))) * e % geom % jGradZeta(IX,i,j,k)) &
-                   +(((omega(IZ) * e % geom % x(IX,i,j,k)) - (omega(IX) * e % geom % x(IZ,i,j,k))) * e % geom % jGradZeta(IY,i,j,k)) &
-                   +(((omega(IX) * e % geom % x(IY,i,j,k)) - (omega(IY) * e % geom % x(IX,i,j,k))) * e % geom % jGradZeta(IZ,i,j,k)))
-                  
-            end do               ; end do                ; end do;           end do
+            contravariantFlux(:,i,j,k,IZ) =    F(:,IX) * e % geom % jGradZeta(IX,i,j,k) &
+                                             + F(:,IY) * e % geom % jGradZeta(IY,i,j,k) &
+                                             + F(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+
+         enddo;enddo;enddo
+
         end subroutine contravariantSMFlux
         subroutine SlidingMeshFluxCalculation(e,  contravariantFlux)
          type(element), intent(in)  :: e
@@ -1918,7 +1965,8 @@ module SpatialDiscretization
          integer :: i,j,k
          ! define angular velocity
          omega(1) = 0.0_RP
-         omega(2) = -4.0_RP*DATAN(1.0_RP)/20.0_RP 
+         omega(2) = PI/20.0_RP
+    !     omega(2) = 0.0_RP
          omega(3) = 0.0_RP
          ! loop inside the element 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
@@ -1968,4 +2016,8 @@ module SpatialDiscretization
    
       enddo;enddo;enddo
       end subroutine SlidingMeshFluxCalculation
+
+      
+
+
 end module SpatialDiscretization

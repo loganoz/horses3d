@@ -85,6 +85,7 @@ MODULE HexMeshClass
          integer,                     allocatable  :: HO_ElementsSequential(:) !List of sequential elements with polynomial order greater than 1
          logical                                   :: nonconforming= .FALSE. 
          logical                                   :: sliding= .FALSE.
+         logical                                   :: slidingflux= .FALSE.
          real(kind=RP)                             :: omega=0
          !!!!!
          integer :: numBFacePoints
