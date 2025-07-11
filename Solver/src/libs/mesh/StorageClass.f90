@@ -107,6 +107,9 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliary storage
 #endif
+#ifdef MULTIPHASE
+      real(kind=RP),           allocatable :: invMa2(:,:,:)        !Storage for the density artificial compressibility factor
+#endif
       contains
          procedure   :: Assign              => ElementStorage_Assign
          generic     :: assignment(=)       => Assign
@@ -191,6 +194,9 @@ module StorageClass
       real(kind=RP), dimension(:,:),       allocatable :: wallNodeDistance ! for BC walls, distance to the first fluid node
 #ifdef ACOUSTIC
       real(kind=RP), dimension(:,:,:),     allocatable :: Qbase ! Base flow State vector
+#endif
+#ifdef MULTIPHASE
+      real(kind=RP), dimension(:,:),       allocatable :: invMa2
 #endif
 !
 !     Inviscid Jacobians
@@ -858,6 +864,8 @@ module StorageClass
                allocate(self % RKSteps(k) % hatK(1:NCONS,0:Nx, 0:Ny, 0:Nz))
             enddo
          end if
+
+         allocate ( self % invMa2   (0:Nx,0:Ny,0:Nz) )
 #endif
 !
 !        -----------------
@@ -905,6 +913,9 @@ module StorageClass
          self % v     = 0.0_RP
 #endif
 
+#ifdef MULTIPHASE
+         self % invMa2     = 0.0_RP
+#endif
          self % first_sensed = huge(1)
          self % prev_sensor = 1.0_RP
          self % sensor = 1.0_RP  ! Activate the sensor by default (first time-step when SC is on)
@@ -1121,6 +1132,11 @@ module StorageClass
          safedeallocate(self % G_CH)
          safedeallocate(self % v)
 #endif
+
+#ifdef MULTIPHASE
+         safedeallocate(self % invMa2)
+#endif
+
          safedeallocate(self % PrevQ)
 
       end subroutine ElementStorage_Destruct
@@ -1390,6 +1406,10 @@ module StorageClass
 !        -----------------------------------------------------------------------
          interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCOMP*nDIM*product(Nf+1))
 #endif
+
+#ifdef MULTIPHASE
+         allocate( self % invMa2       (0:Nf(1),0:Nf(2)) )
+#endif
 !
 !        Reserve memory for the interface fluxes
 !        ---------------------------------------
@@ -1447,6 +1467,11 @@ module StorageClass
          self % mu_z  = 0.0_RP
          self % v     = 0.0_RP
 #endif
+
+#ifdef MULTIPHASE
+         self % invMa2    = 0.0_RP
+#endif 
+
          self % constructed = .TRUE.
       end subroutine FaceStorage_Construct
 !
@@ -1539,6 +1564,11 @@ module StorageClass
          safedeallocate(self % mu_z)
          safedeallocate(self % v)
 #endif
+
+#ifdef MULTIPHASE
+         safedeallocate(self % invMa2 )
+#endif
+
          safedeallocate(self % genericInterfaceFluxMemory)
 
          self % Q      => NULL()
@@ -1706,6 +1736,9 @@ module StorageClass
          to % mu_y = from % mu_y
          to % mu_z = from % mu_z
          to % v = from % v
+#endif
+#ifdef MULTIPHASE
+         to % invMa2 = from % invMa2
 #endif
          call to % PointStorage
       end subroutine FaceStorage_Assign

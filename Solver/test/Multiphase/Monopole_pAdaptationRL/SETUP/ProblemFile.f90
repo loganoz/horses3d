@@ -708,11 +708,11 @@ end module ProblemFileFunctions
 !           -----------------------------------------------------------------
 !
 #if defined(MULTIPHASE)
-            real(kind=RP), parameter :: residuals(5) = [ 6.7612332904056904E+00_RP, &
-                                                         1.3126856239198450E+00_RP, &
-                                                         1.3630698469480864E+00_RP, &
+            real(kind=RP), parameter :: residuals(5) = [ 6.7612328583940799E+00_RP, &
+                                                         0.9763199093778634E+00_RP, &
+                                                         1.2899466187989059E+00_RP, &
                                                          4.5116531519710653E-15_RP, &
-                                                         7.2809447388229482E+03_RP]
+                                                         7.3914022702220409E+03_RP]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

@@ -192,9 +192,26 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu Convergence.control
         if: ('!cancelled()' && matrix.compiler == 'ifort')
-
 #
-# 2) RisingBubble
+# 2) Convergence_cs
+# ----------------------------
+# This test case is skipped with gfortran as the result is slightly different
+
+      - name: Build MultiphaseConvergence_cs
+        working-directory: ./Solver/test/Multiphase/Convergence_cs/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: ('!cancelled()' && matrix.compiler == 'ifort')
+
+      - name: Run MultiphaseConvergence_cs
+        working-directory: ./Solver/test/Multiphase/Convergence_cs
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu Convergence_cs.control
+        if: ('!cancelled()' && matrix.compiler == 'ifort')
+#
+# 3) RisingBubble
 # ----------------------------
 # This test case is skipped with gfortran as the result is slightly different
 
@@ -213,7 +230,7 @@ jobs:
         if: ('!cancelled()' && matrix.compiler == 'ifort')
 
 #
-# 3) Pipe
+# 4) Pipe
 # ----------------------------
 
       - name: Build MultiphasePipe
@@ -231,7 +248,7 @@ jobs:
         if: '!cancelled()'
 
 #
-# 4) Entropy conserving test
+# 5) Entropy conserving test
 # ----------------------------
 
       - name: Build MultiphaseEntropyConservingTest
@@ -249,7 +266,7 @@ jobs:
         if: '!cancelled()'
 
 #
-# 5) RisingBubbleVreman
+# 6) RisingBubbleVreman
 # ----------------------------
 # This test case is skipped with gfortran as the result is slightly different
 
@@ -268,7 +285,7 @@ jobs:
         if: ('!cancelled()')
 
 #
-# 6) Mu AL
+# 7) Mu AL
 # -------------------------------
 
       - name: Build Mu-AL
@@ -286,7 +303,7 @@ jobs:
         if: '!cancelled()'
 
 #
-# 7) Multiphase monopole with acoustics, sponge, and Reinforcement Learning p-adaptation
+# 8) Multiphase monopole with acoustics, sponge, and Reinforcement Learning p-adaptation
 # --------------------------------------------
       - name: Build Multiphase_Monopole_pAdaptationRL
         working-directory: ./Solver/test/Multiphase/Monopole_pAdaptationRL/SETUP
@@ -303,7 +320,7 @@ jobs:
         if: '!cancelled()'
 
 #
-# 8) Snell
+# 9) Snell
 # ----------------------------
       - name: Build MultiphaseSnell
         working-directory: ./Solver/test/Multiphase/Snell/SETUP
@@ -320,7 +337,7 @@ jobs:
         if: ('!cancelled()')
 
 #
-# 9) Mixed RK
+# 10) Mixed RK
 # ----------------------------
       - name: Build MultiphaseMixedRK
         working-directory: ./Solver/test/Multiphase/MixedRK/SETUP
