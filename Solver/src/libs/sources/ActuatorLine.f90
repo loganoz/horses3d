@@ -413,7 +413,7 @@ contains
     element_loop:do eID = 1, mesh%no_of_elements
         do k=1, self%num_turbines
             tolerance = self%tolerance_factor*self%turbine_t(k)%radius
-            r_square = POW2(minval(mesh%elements(eID)%geom%x(2,:,:,:))-self%turbine_t(k)%hub_cood_y) + POW2(minval(mesh%elements(eID)%geom%x(3,:,:,:))-self%turbine_t(k)%hub_cood_z)
+            r_square = minval(POW2(mesh%elements(eID)%geom%x(2,:,:,:)-self%turbine_t(k)%hub_cood_y)) + minval(POW2(mesh%elements(eID)%geom%x(3,:,:,:)-self%turbine_t(k)%hub_cood_z))
             if( r_square <= POW2(self%turbine_t(k)%radius+tolerance) &
                 .and. minval(mesh%elements(eID)%geom%x(1,:,:,:)) < self%turbine_t(k)%hub_cood_x+tolerance &
                 .and. maxval(mesh%elements(eID)%geom%x(1,:,:,:)) >self%turbine_t(k)%hub_cood_x-tolerance) then
@@ -428,7 +428,7 @@ contains
     element_loop2:do eID = 1, mesh%no_of_elements
         do k=1, self%num_turbines
             tolerance = self%tolerance_factor*self%turbine_t(k)%radius
-            r_square = POW2(minval(mesh%elements(eID)%geom%x(2,:,:,:))-self%turbine_t(k)%hub_cood_y) + POW2(minval(mesh%elements(eID)%geom%x(3,:,:,:))-self%turbine_t(k)%hub_cood_z)
+            r_square = minval(POW2(mesh%elements(eID)%geom%x(2,:,:,:)-self%turbine_t(k)%hub_cood_y)) + minval(POW2(mesh%elements(eID)%geom%x(3,:,:,:)-self%turbine_t(k)%hub_cood_z))
             if( r_square <= POW2(self%turbine_t(k)%radius+tolerance) &
                 .and. minval(mesh%elements(eID)%geom%x(1,:,:,:)) < self%turbine_t(k)%hub_cood_x+tolerance &
                 .and. maxval(mesh%elements(eID)%geom%x(1,:,:,:)) >self%turbine_t(k)%hub_cood_x-tolerance) then
