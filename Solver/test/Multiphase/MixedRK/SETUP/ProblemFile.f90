@@ -542,38 +542,38 @@ END DO
             CHARACTER(LEN=29)                  :: testName           = "Multiphase:: MixedRK"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter           :: residuals_saved(5) = [2.8665833841075737E-06_RP, &
-                                                                        1.9361250101172587E-03_RP, &
-                                                                        5.2814258414213508E-11_RP, &
+            real(kind=RP), parameter           :: residuals_saved(5) = [2.8665833841448300E-06_RP, &
+                                                                        1.9361250102237703E-03_RP, &
+                                                                        5.9347820202367154E-11_RP, &
                                                                         2.3047237097072765E-17_RP, &
-                                                                        7.1908221779661385E-01_RP]
+                                                                        7.1908221803287242E-01_RP]
 
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = residuals_saved(1)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals_saved(1), &
+                               actualValue   = monitors % residuals % values(1,1), &
                                tol           = 1.d-11, &
                                msg           = "Continuity Residual")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(2)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals_saved(2), &
+                               actualValue   = monitors % residuals % values(2,1), &
                                tol           = 1.d-11, &
                                msg           = "X-Momentum Residual")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(3)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals_saved(3), &
+                               actualValue   = monitors % residuals % values(3,1), &
                                tol           = 1.d-11, &
                                msg           = "Y-Momentum Residual")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(4)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals_saved(4), &
+                               actualValue   = monitors % residuals % values(4,1), &
                                tol           = 1.d-11, &
                                msg           = "Z-Momentum Residual")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(5)+1.0_RP, &
-                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals_saved(5), &
+                               actualValue   = monitors % residuals % values(5,1), &
                                tol           = 1.d-11, &
                                msg           = "Div Residual")
 
