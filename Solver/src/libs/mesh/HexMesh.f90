@@ -247,6 +247,13 @@ MODULE HexMeshClass
                call self% IBM% destruct( .false. )
             end if
          end if
+		 
+!
+!        ----------------
+!        MLRK Library 
+!        ----------------
+! 
+        call self % MLRK % destruct	
          
       END SUBROUTINE HexMesh_Destruct
 !

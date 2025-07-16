@@ -344,8 +344,6 @@ module SpatialDiscretization
          else
             locLevel = 1
          end if
-		 
-		 call self % mesh % MLRK % construct(self % mesh, locLevel) ! default 1 level
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
