@@ -239,7 +239,7 @@ module SpatialDiscretization
          class(Element), pointer :: e
          logical                 :: compute_element
 		 logical, allocatable    :: face_mask(:)
-         real(kind=RP)           :: mu_smag, delta, c, c1, c2
+         real(kind=RP)           :: mu_smag, delta
 
 		 if (present(Level)) then
             locLevel = Level
@@ -474,20 +474,19 @@ module SpatialDiscretization
 !        Get the density and invMa2 in faces and elements
 !        -------------------------------------
 !
-!$omp do schedule(runtime) private(eID,c)
+!$omp do schedule(runtime) private(eID)
          do lID = 1, MLIter(locLevel,1)
 		    eID = MLIter_eID(lID)
             compute_element = .true.
             if (present(element_mask)) compute_element = element_mask(eID)
             
             if (compute_element) then
-			   c = min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP)
 
-               mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*c   ! mesh % elements(eID) % storage % Q(IMC,:,:,:)
-               !mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
+               mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) mesh % elements(eID) % storage % Q(IMC,:,:,:)
+               mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
 
                if (use_non_constant_speed_of_sound ) then
-                  mesh % elements(eID) % storage % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * c + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - c))**2 
+                  mesh % elements(eID) % storage % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP)))**2 
                   mesh % elements(eID) % storage % invMa2 = mesh % elements(eID) % storage % invMa2*mesh % elements(eID) % storage % rho 
                else
                   mesh % elements(eID) % storage % invMa2 = dimensionless % invMa2(1)
@@ -498,26 +497,24 @@ module SpatialDiscretization
          end do
 !$omp end do nowait
 
-!$omp do schedule(runtime) private(fID, c1, c2)
+!$omp do schedule(runtime) private(fID)
          do lID = 1, MLIter(locLevel,2)
 			fID = MLIter_fID(lID)
             compute_element = .true.
             if (present(element_mask)) compute_element = face_mask(fID)
             
             if (compute_element) then
-               c1 = min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP)
-			   c2 = min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP)
 			   
-               mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* c1 !mesh % faces(fID) % storage(1) % Q(IMC,:,:)
-               mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* c2 !mesh % faces(fID) % storage(2) % Q(IMC,:,:)
+               mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* mesh % faces(fID) % storage(1) % Q(IMC,:,:)
+               mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* mesh % faces(fID) % storage(2) % Q(IMC,:,:)
 
-               !mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, dimensionless % rho_min),dimensionless % rho_max)
-               !mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, dimensionless % rho_min),dimensionless % rho_max)
+               mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, dimensionless % rho_min),dimensionless % rho_max)
+               mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, dimensionless % rho_min),dimensionless % rho_max)
 
 
                if (use_non_constant_speed_of_sound ) then
-                  mesh % faces(fID) % storage(1) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * c1 + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - c1))**2
-                  mesh % faces(fID) % storage(2) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * c2 + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - c2))**2 
+                  mesh % faces(fID) % storage(1) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2
+                  mesh % faces(fID) % storage(2) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2 
 
                   mesh % faces(fID) % storage(1) % invMa2 = mesh % faces(fID) % storage(1) % invMa2*mesh % faces(fID) % storage(1) % rho
                   mesh % faces(fID) % storage(2) % invMa2 = mesh % faces(fID) % storage(2) % invMa2*mesh % faces(fID) % storage(2) % rho
