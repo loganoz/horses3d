@@ -577,7 +577,7 @@ module LESModels
 #elif defined (INCNS)
          rho = Q(INSRHO)
 #elif defined (MULTIPHASE)
-         rho = dimensionless_%rho(1) * Q(IMC) + dimensionless_%rho(2) * (1.0 - Q(IMC))
+         rho = dimensionless_%rho(1) * max(min(Q(IMC),1.0_RP),0.0_RP) + dimensionless_%rho(2) * (1.0 - max(min(Q(IMC),1.0_RP),0.0_RP))
 ! #else
 !          print *, "Error: rho computation not valid for physics "
 !          stop

@@ -234,15 +234,13 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         INTEGER                 :: k, eID, fID, i, j
+         INTEGER                 :: k, eID, fID, i, j, ierr, locLevel, lID
          real(kind=RP)           :: sqrtRho, invMa2
          class(Element), pointer :: e
          logical                 :: compute_element
 		 logical, allocatable    :: face_mask(:)
          real(kind=RP)           :: mu_smag, delta
-		 
-		
-		 
+
 		 if (present(Level)) then
             locLevel = Level
          else
@@ -954,7 +952,7 @@ module SpatialDiscretization
 !for the sponge, loops are in the internal subroutine as values are precalculated
 !The scale with sqrtRho is done in the subroutines, not done againg here
          call addSourceSponge(sponge,mesh)
-         call ForcesFarm(farm, mesh, t, , Level=locLevel)
+         call ForcesFarm(farm, mesh, t, Level=locLevel)
 
 ! Add all the source terms
 !$omp do schedule(runtime) private(i,j,k, Source, eID)

@@ -377,6 +377,7 @@ module SpatialDiscretization
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
+		 integer, intent(in), optional   :: Level
          procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ---------------
