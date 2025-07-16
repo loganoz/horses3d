@@ -448,7 +448,7 @@ Module DGSEMClass
 !     ------------------------------------------------------------------
 !     Construct MLRK Library with Level 1(Include all elements and faces) 
 !     ------------------------------------------------------------------
-      call self % mesh % MLRK % construct(sem % mesh, 1) ! default 1 level
+      call self % mesh % MLRK % construct(self % mesh, 1) ! default 1 level
 
 ! #if defined(NAVIERSTOKES)
 ! !
