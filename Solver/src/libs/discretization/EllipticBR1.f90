@@ -68,7 +68,7 @@ module EllipticBR1
 
       end subroutine BR1_Describe
 
-      subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask)
+      subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask, Level)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -80,13 +80,14 @@ module EllipticBR1
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: HO_Elements
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional    :: Level
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                :: i, j, k
-         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
+         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl, locLevel
          logical                :: set_mu
          logical                :: HOElements
          logical                :: compute_element
@@ -95,6 +96,12 @@ module EllipticBR1
             HOElements = HO_Elements
          else
             HOElements = .false.
+         end if
+		 
+		 if (present(Level)) then
+            locLevel = Level
+         else
+            locLevel = 1
          end if
 !
 !        ************
@@ -126,8 +133,9 @@ module EllipticBR1
 !$omp end do nowait
          call self % LiftGradientsHO(nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
       else
-!$omp do schedule(runtime)
-         do eID = 1 , size(mesh % elements)
+!$omp do schedule(runtime) private(eID)
+         do iEl = 1 , mesh % MLRK % MLIter(locLevel,8) 
+		    eID = mesh % MLRK % MLIter_eIDN(iEl)
             compute_element = .true.
             if (present(element_mask)) compute_element = element_mask(eID)
             
@@ -136,7 +144,7 @@ module EllipticBR1
             endif
          end do
 !$omp end do nowait
-         call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
+         call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients, element_mask, locLevel)
       end if
    
       end subroutine BR1_ComputeGradient
@@ -148,7 +156,7 @@ module EllipticBR1
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
+      subroutine BR1_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask, Level)
 !
          use HexMeshClass
          use PhysicsStorage
@@ -160,15 +168,24 @@ module EllipticBR1
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional        :: Level
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                :: i, j, k
-         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
+         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl, locLevel, locLevelm1
          logical                :: compute_element
          logical, allocatable   :: face_mask(:)
+
+		 if (present(Level)) then
+            locLevel = Level
+         else
+            locLevel = 1
+         end if
+		 
+		 locLevelm1 = max(locLevel-1,1)
 
          if (present(element_mask)) then
             allocate(face_mask(size(mesh % faces)))
@@ -189,8 +206,8 @@ module EllipticBR1
 !        *******************************************
 !
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, size(mesh % faces_interior)
-            fID = mesh % faces_interior(iFace)
+         do iFace = 1, mesh % MLRK % MLIter(locLevelm1,3)
+            fID = mesh % MLRK % MLIter_fID_Interior(iFace)
             compute_element = .true.
             if (present(element_mask)) compute_element = face_mask(fID)
             
@@ -201,8 +218,8 @@ module EllipticBR1
 !$omp end do nowait
 
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, size(mesh % faces_boundary)
-            fID = mesh % faces_boundary(iFace)
+         do iFace = 1, mesh % MLRK % MLIter(locLevelm1,4)
+            fID = mesh % MLRK %  MLIter_fID_Boundary(iFace)
             compute_element = .true.
             if (present(element_mask)) compute_element = face_mask(fID)
             
@@ -213,8 +230,8 @@ module EllipticBR1
 !$omp end do 
 !
 !$omp do schedule(runtime) private(eID)
-         do iEl = 1, size(mesh % elements_sequential)
-            eID = mesh % elements_sequential(iEl)
+         do iEl = 1, mesh % MLRK % MLIter(locLevel,9) 
+            eID = mesh % MLRK % MLIter_eIDN_Seq(iEl)
             compute_element = .true.
             if (present(element_mask)) compute_element = element_mask(eID)
             
@@ -248,15 +265,15 @@ module EllipticBR1
 !$omp end single
 
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, size(mesh % faces_mpi)
-            fID = mesh % faces_mpi(iFace)
+         do iFace = 1, mesh % MLRK % MLIter(locLevelm1,7)
+            fID = mesh % MLRK % MLIter_fID_MPI(iFace)
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do 
 !
 !$omp do schedule(runtime) private(eID) 
-         do iEl = 1, size(mesh % elements_mpi)
-            eID = mesh % elements_mpi(iEl)
+         do iEl = 1, mesh % MLRK % MLIter(locLevel,10)
+            eID = mesh % MLRK % MLIter_eIDN_MPI(iEl)
             associate(e => mesh % elements(eID))
 !
 !           Add the surface integrals
@@ -279,7 +296,7 @@ module EllipticBR1
 
       end subroutine BR1_LiftGradients
 
-      subroutine BR1_LiftGradientsHO(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
+      subroutine BR1_LiftGradientsHO(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask, Level)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -290,6 +307,7 @@ module EllipticBR1
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional        :: Level
 !
 !        ---------------
 !        Local variables

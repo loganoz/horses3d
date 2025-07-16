@@ -224,7 +224,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements, element_mask)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements, element_mask, Level)
          IMPLICIT NONE
 !
 !        ---------
@@ -237,12 +237,13 @@ module SpatialDiscretization
          integer, intent(in)             :: mode
          logical, intent(in), optional   :: HO_Elements
          logical, intent(in), optional   :: element_mask(:)
+		 integer, intent(in), optional   :: Level
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k
+         INTEGER :: k, locLevel
          logical :: HOElements
 
          if (present(HO_Elements)) then
@@ -258,7 +259,7 @@ module SpatialDiscretization
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces(NCONS, HO_Elements)
+         call mesh % ProlongSolutionToFaces(NCONS, HO_Elements=HO_Elements, Level=locLevel)
 
 !        ----------------
 !        Update MPI Faces
@@ -275,7 +276,7 @@ module SpatialDiscretization
 !        -----------------
 !
          if ( computeGradients ) then
-            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, GetGradients, HO_Elements)
+            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, GetGradients, HO_Elements=HO_Elements, Level=locLevel)
          end if
 
 #ifdef _HAS_MPI_
@@ -298,7 +299,7 @@ module SpatialDiscretization
          else 
             call TimeDerivative_ComputeQDot(mesh = mesh , &
                                           particles = particles, &
-                                          t    = time)
+                                          t    = time, Level=locLevel)
          end if
 !$omp end parallel
 !
@@ -309,7 +310,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements, element_mask)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements, element_mask, Level)
          use EllipticDiscretizationClass
          IMPLICIT NONE
 !
@@ -323,30 +324,37 @@ module SpatialDiscretization
          integer,             intent(in)  :: mode
          logical,   intent(in), optional  :: HO_Elements
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional    :: Level
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k
+         INTEGER :: k, locLevel
+		 
+		 if (present(Level)) then
+            locLevel = Level
+         else
+            locLevel = 1
+         end if
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces(NCONS)
+         call mesh % ProlongSolutionToFaces(NCONS, Level=locLevel)
 !
 !        -----------------------------------------------------
 !        Compute LOCAL gradients and prolong them to the faces
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , GetGradients)
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , GetGradients, Level=locLevel)
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
-            call mesh % ProlongGradientsToFaces(NGRAD)
+            call mesh % ProlongGradientsToFaces(NGRAD, Level=locLevel)
          end if
 
 !
@@ -360,7 +368,7 @@ module SpatialDiscretization
 !
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
-      subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+      subroutine TimeDerivative_ComputeQDot( mesh , particles, t, Level)
       use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
          use ActuatorLine, only: farm, ForcesFarm
@@ -375,18 +383,35 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n 
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n , locLevel, lID
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
          real(kind=RP), allocatable :: Source_HO(:,:,:,:)
          integer,       allocatable :: i_(:), j_(:), k_(:)
+		 
+		 if (present(Level)) then
+            locLevel = Level
+         else
+            locLevel = 1
+         end if
+		 
+		 associate ( MLRK => mesh % MLRK)
+	     associate ( MLIter_eID      => MLRK % MLIter_eID, &
+                     MLIter          => MLRK % MLIter,      &
+                     MLIter_eID_Seq  => MLRK % MLIter_eID_Seq, &
+                     MLIter_eID_MPI  => MLRK % MLIter_eID_MPI,  &
+					 MLIter_fID      => MLRK % MLIter_fID,  &
+					 MLIter_fID_Interior => MLRK %  MLIter_fID_Interior, &
+					 MLIter_fID_Boundary => MLRK %  MLIter_fID_Boundary, & 
+					 MLIter_fID_MPI      => MLRK %  MLIter_fID_MPI )
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
 !        ***********************************************
 !
          if (flowIsNavierStokes) then
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, size(mesh % elements)
+!$omp do schedule(runtime) private(i,j,k,eID)
+            do lID = 1, MLIter(locLevel,1)
+			   eID = MLIter_eID(lID)
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call get_laminar_mu_kappa(e % storage % Q(:,i,j,k), e % storage % mu_NS(1,i,j,k), e % storage % mu_NS(2,i,j,k))
@@ -398,8 +423,9 @@ module SpatialDiscretization
 
 
          if ( LESModel % active) then
-!$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
-            do eID = 1, size(mesh % elements)
+!$omp do schedule(runtime) private(i,j,k,delta,mu_smag,eID)
+            do lID = 1, MLIter(locLevel,1)
+			   eID = MLIter_eID(lID)
                associate(e => mesh % elements(eID))
                delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -421,15 +447,16 @@ module SpatialDiscretization
 !
 !        Compute viscosity at interior and boundary faces
 !        ------------------------------------------------
-         call compute_viscosity_at_faces(size(mesh % faces_interior), 2, mesh % faces_interior, mesh)
-         call compute_viscosity_at_faces(size(mesh % faces_boundary), 1, mesh % faces_boundary, mesh)
+         call compute_viscosity_at_faces(MLIter(locLevel,3), 2, MLIter_fID_Interior(1:MLIter(locLevel,3)), mesh)
+         call compute_viscosity_at_faces(MLIter(locLevel,4), 1, MLIter_fID_Boundary(1:MLIter(locLevel,4)), mesh)
 !
 !        ****************
 !        Volume integrals
 !        ****************
 !
-!$omp do schedule(runtime)
-         do eID = 1 , size(mesh % elements)
+!$omp do schedule(runtime) private(eID)
+         do lID = 1, MLIter(locLevel,1)
+			eID = MLIter_eID(lID)
             call TimeDerivative_VolumetricContribution( mesh, mesh % elements(eID) , t)
          end do
 !$omp end do
@@ -447,15 +474,15 @@ module SpatialDiscretization
 !        ******************************************
 !
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, size(mesh % faces_interior)
-            fID = mesh % faces_interior(iFace)
+         do iFace = 1, MLIter(locLevel,3)
+            fID = MLIter_fID_Interior(iFace)
             call computeElementInterfaceFlux(mesh % faces(fID))
          end do
 !$omp end do nowait
 
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, size(mesh % faces_boundary)
-            fID = mesh % faces_boundary(iFace)
+         do iFace = 1, MLIter(locLevel,4)
+            fID = MLIter_fID_Boundary(iFace)
             call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
 !$omp end do
@@ -465,8 +492,8 @@ module SpatialDiscretization
 !        ***************************************************************
 !
 !$omp do schedule(runtime) private(i,j,k,eID)
-         do iEl = 1, size(mesh % elements_sequential)
-            eID = mesh % elements_sequential(iEl)
+         do iEl = 1, MLIter(locLevel,5)
+            eID = MLIter_eID_Seq(iEl)
             associate(e => mesh % elements(eID))
             call TimeDerivative_FacesContribution(e, t, mesh)
 
@@ -493,7 +520,7 @@ module SpatialDiscretization
 !
 !           Compute viscosity at MPI faces
 !           ------------------------------
-            call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
+            call compute_viscosity_at_faces(MLIter(locLevel,7), 2, MLIter_fID_MPI(1:MLIter(locLevel,7)), mesh)
 
 !$omp single
             if ( flowIsNavierStokes ) then
@@ -509,8 +536,8 @@ module SpatialDiscretization
 !           **************************************
 !
 !$omp do schedule(runtime) private(fID)
-            do iFace = 1, size(mesh % faces_mpi)
-               fID = mesh % faces_mpi(iFace)
+            do iFace = 1, MLIter(locLevel,7)
+               fID = MLIter_fID_MPI(iFace)
                call computeMPIFaceFlux(mesh % faces(fID))
             end do
 !$omp end do
@@ -520,8 +547,8 @@ module SpatialDiscretization
 !           ***********************************************************
 !
 !$omp do schedule(runtime) private(i,j,k,eID)
-            do iEl = 1, size(mesh % elements_mpi)
-               eID = mesh % elements_mpi(iEl)
+            do iEl = 1, MLIter(locLevel,6)
+               eID = MLIter_eID_MPI(iEl)
                associate(e => mesh % elements(eID))
                call TimeDerivative_FacesContribution(e, t, mesh)
 
@@ -549,8 +576,9 @@ module SpatialDiscretization
 !
 !           Add physical source term
 !           ************************
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, mesh % no_of_elements
+!$omp do schedule(runtime) private(i,j,k,eID)
+            do lID = 1, MLIter(locLevel,1)
+			   eID = MLIter_eID(lID)
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                ! All terms are calculated indepentenly and overwritten in case one gauss point has more than one contribution
@@ -562,17 +590,18 @@ module SpatialDiscretization
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
             call addSourceSponge(sponge,mesh)
-            call ForcesFarm(farm, mesh, t)
+            call ForcesFarm(farm, mesh, t, Level=locLevel)
 !
 !           Add Particles source
 !           ********************
             if ( particles % active ) then
-!$omp do schedule(runtime)
-               do eID = 1, mesh % no_of_elements
+!$omp do schedule(runtime) private(eID)
+               do lID = 1, MLIter(locLevel,1)
+				  eID = MLIter_eID(lID)
                   associate ( e => mesh % elements(eID) )
                      e % storage % S_NSP = 0.0_RP
                   end associate
-               enddo
+               end do
 !$omp end do
 
 !$omp do schedule(runtime)
@@ -599,12 +628,13 @@ module SpatialDiscretization
                   endif
                end do
 !$omp end do
-!$omp do schedule(runtime)
-               do eID = 1, mesh % no_of_elements
+!$omp do schedule(runtime) private(eID)
+               do lID = 1, MLIter(locLevel,1)
+				  eID = MLIter_eID(lID)
                   associate ( e => mesh % elements(eID) )
                      e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
                   end associate
-               enddo
+               end do
 !$omp end do
             end if
          end if !(.not. mesh % child)
@@ -612,8 +642,9 @@ module SpatialDiscretization
 !        ***********************
 !        Now add the source term
 !        ***********************
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, mesh % no_of_elements
+!$omp do schedule(runtime) private(i,j,k,eID)
+		 do lID = 1, MLIter(locLevel,1)
+		    eID = MLIter_eID(lID)
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
@@ -627,8 +658,9 @@ module SpatialDiscretization
 !        *********************
          if( mesh% IBM% active ) then
             if( .not. mesh% IBM% semiImplicit ) then 
-!$omp do schedule(runtime) private(i,j,k,Source,Q_target)
-                  do eID = 1, mesh % no_of_elements  
+!$omp do schedule(runtime) private(i,j,k,Source,Q_target,eID)
+                  do lID = 1, MLIter(locLevel,1)
+					 eID = MLIter_eID(lID)
                      associate ( e => mesh % elements(eID) ) 
                      do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                         if( e% isInsideBody(i,j,k) ) then
@@ -665,6 +697,9 @@ module SpatialDiscretization
                end if 
             end if 
          end if
+		 
+		 end associate
+		 end associate
 
       end subroutine TimeDerivative_ComputeQDot
 
