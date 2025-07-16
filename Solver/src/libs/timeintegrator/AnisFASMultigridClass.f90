@@ -582,6 +582,7 @@ module AnisFASMultigridClass
 !
       p_sem => this % MGStorage(Dir) % p_sem
       Var   => this % MGStorage(Dir) % Var
+	  call p_sem % mesh % MLRK % construct(p_sem % mesh, 1) ! default 1 level
 !
 !     -----------------------
 !     Pre-smoothing procedure
@@ -727,6 +728,8 @@ module AnisFASMultigridClass
       Var        => this % MGStorage(Dir) % Var          
       Childp_sem => this % Child % MGStorage(Dir) % p_sem
       ChildVar   => this % Child % MGStorage(Dir) % Var  
+	  call p_sem % mesh % MLRK % construct(p_sem % mesh, 1) ! default 1 level
+	  call Childp_sem % mesh % MLRK % construct(Childp_sem % mesh, 1) ! default 1 level
       
 !$omp parallel do private(N1,N2) schedule(runtime)
       do iEl = 1, nelem
