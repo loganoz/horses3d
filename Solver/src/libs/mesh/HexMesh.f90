@@ -247,13 +247,6 @@ MODULE HexMeshClass
                call self% IBM% destruct( .false. )
             end if
          end if
-		 
-!
-!        ----------------
-!        ML-RK storage
-!        ----------------
-! 
-        call self % MLRK % destruct	
          
       END SUBROUTINE HexMesh_Destruct
 !
