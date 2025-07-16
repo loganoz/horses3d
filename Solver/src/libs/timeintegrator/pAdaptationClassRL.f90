@@ -52,6 +52,7 @@ module pAdaptationClassRL
       logical                  :: error_estimation = .false.
       logical                  :: avg_error_type = .true. !True for average error, false for max error
       integer                  :: error_variable !1:u, 2:v, 3:w, 4:rho*u, 5:rho*v, 6:rho*w, 7:p (only for Navier-Stokes), 8:rho
+	  integer                  :: pJump
       logical                  :: acoustics = .false.
       real(kind=RP)            :: acoustic_tol = 1e-4_RP
       integer                  :: acoustic_variable !7:p, 8:rho
@@ -95,7 +96,7 @@ module pAdaptationClassRL
       character(LINE_LENGTH)         :: in_label
       character(LINE_LENGTH)         :: agentFile
       character(20*BC_STRING_LENGTH) :: confBoundaries, R_acoustic_sources
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd, R_ErrorType, R_ErrorVariable, R_observer, R_acoustic_variable
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_Jump, cwd, R_ErrorType, R_ErrorVariable, R_observer, R_acoustic_variable
       logical      , allocatable     :: R_increasing, reorganize_z, R_restart, R_ErrorEstimation, R_acoustics
       real(kind=RP), allocatable     :: R_tolerance, R_threshold, R_acoustic_tol, R_acoustic_distance
       ! Extra vars
@@ -132,6 +133,7 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
+	  call readValueInRegion ( trim ( paramFile )  , "max polynomial diff"    , R_Jump             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "agent file"             , agentFile          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "threshold"              , R_threshold        , in_label , "# end" )
@@ -292,6 +294,14 @@ module pAdaptationClassRL
       if ( allocated(R_restart) ) then
          this % restartFiles = R_restart
       end if
+	  
+!     Maximum polynomial difference between neighbour elements
+!     --------------------------------------------------------
+      if ( R_Jump /= "" ) then
+	    this % pJump = GetIntValue(R_Jump)
+	  else
+		this % pJump = 1 
+	  end if 
 
 !     Acoustics
 !     ---------------
@@ -373,6 +383,19 @@ module pAdaptationClassRL
             call this % overenriching(i) % initialize (i)
          end do
       end if
+	  
+!     Adaptation based on variable value
+!     **********************************
+      
+      call getNoOfpAdaptVariables(no_of_overen_boxes)
+         
+      if (no_of_overen_boxes > 0) then
+         allocate ( this % adaptVariable(no_of_overen_boxes) )
+         
+         do i = 1, no_of_overen_boxes
+            call this % adaptVariable(i) % initialize (i)
+         end do
+      end if
 
 !     Policy definition for the RL agent
 !     **********************************
@@ -441,6 +464,7 @@ module pAdaptationClassRL
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
       integer                    :: Ndir = 3, Ndir_acoustics = 4
+	  integer                    :: maxPGlob, minPGlob, maxP, minP
       ! integer                    :: pressure_var = 7, rho_var = 8
       !-mpi-variables-------------------------
       integer                    :: ierr
@@ -565,6 +589,34 @@ module pAdaptationClassRL
 !     ----------------------------
 !
       call OverEnrichRegions(this % overenriching, sem % mesh, NNew, this % NxyzMax, NMIN)
+!
+!     ----------------------------
+!     Adaptation based on variable
+!     ----------------------------
+!
+      call pAdaptVariableRange(this % adaptVariable, sem % mesh, NNew)
+!
+!     --------------------------------------------------------------------------
+!     Restrict polynomial order jump between elements to be pJump (Default is 1)
+!     --------------------------------------------------------------------------
+!
+	  maxP=maxval(NNew)
+	  minP=minval(NNew) 
+	  maxPGlob = maxP
+	  minPGlob = minP
+	  
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+          call mpi_allreduce(maxP, maxPGlob, 1, MPI_INT, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+          call mpi_allreduce(minP, minPGlob, 1, MPI_INT, MPI_MIN, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
+
+	  do i=maxPGlob,minPGlob+2,-1
+		call pAdapt_CheckNeighbour(sem % mesh, i, this % pJump, NNew)
+	  end do 
 
 !
 !     ---------------------------------------------------------------
@@ -694,7 +746,10 @@ module pAdaptationClassRL
 !     Initialization of NNew
 !     -------------------------------
       NNew = -1 ! Initialized to negative value
-
+	  
+	  if (maxval(Pxyz).gt.6) then ! The RL only allow pMax .le.6 - This is to bypass the process should higher p is assign by other refinement method
+		NNew = Pxyz
+	  else
 !     --------------------------------
 !     Select the polynomial order in Direction 1
 !     --------------------------------
@@ -1065,6 +1120,8 @@ module pAdaptationClassRL
             e % storage % sensor = max(e % storage % sensor, sqrt(error_sensor / ((Pxyz(1)+1) * (Pxyz(2)+1))))
          end if
       end if
+	  
+	  end if 
       
    end subroutine pAdaptation_pAdaptRL_SelectElemPolorders 
    
