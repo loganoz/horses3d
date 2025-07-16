@@ -444,6 +444,11 @@ Module DGSEMClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % construct(self % mesh, controlVariables)
 #endif
+!
+!     ------------------------------------------------------------------
+!     Construct MLRK Library with Level 1(Include all elements and faces) 
+!     ------------------------------------------------------------------
+      call self % mesh % MLRK % construct(sem % mesh, 1) ! default 1 level
 
 ! #if defined(NAVIERSTOKES)
 ! !

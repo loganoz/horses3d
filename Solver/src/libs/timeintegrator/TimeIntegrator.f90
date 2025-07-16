@@ -151,7 +151,7 @@
          self % RKStep         => TakeRK3Step
 
 
-		 call sem % mesh % MLRK % construct(sem % mesh, 1) ! default 1 level																  
+!		 call sem % mesh % MLRK % construct(sem % mesh, 1) ! default 1 level																  
          if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
             self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
          else
@@ -219,7 +219,7 @@
                 self % RKStep_key = ML_RK3_KEY
 				self % ML_Counter = 0
 				
-				call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! construct 3 level  
+				call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! construct nlevel  
 
             case default
                print*, "Explicit time integration method not implemented"
@@ -709,7 +709,7 @@
 				self % ML_Counter = self % ML_Counter + 1
 				if ((self % ML_Counter .eq. self % ML_ReLevel_Iteration).or.(self % ML_ReLevel)) THEN
 					CALL DetermineCFL(sem, self % dt, globalMax, globalMin, maxCFLInterf)
-					call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! reconstruct 3 level  
+					call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! reconstruct nLevel  
 					CALL sem % mesh % MLRK % update (sem % mesh, self % ML_CFL_CutOff, globalMax, globalMin, maxCFLInterf)
 					self % ML_ReLevel = .false. 
 					self % ML_Counter = 0
