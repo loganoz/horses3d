@@ -970,16 +970,16 @@ slavecoord:             DO l = 1, 4
             end do
 !$omp end do
          else
-!$omp do schedule(runtime) private(fIDs, lID)
-            do eID = 1, self % MLRK % MLIter(locLevel,8)
-			   lID = self % MLRK % MLIter_eIDN(eID)
+!$omp do schedule(runtime) private(fIDs, eID)
+            do lID = 1, self % MLRK % MLIter(locLevel,8)
+			   eID = self % MLRK % MLIter_eIDN(lID)
 
                compute_element = .true.
                if (present(element_mask)) compute_element = element_mask(eID)
 
                if (compute_element) then
-                  fIDs = self % elements(lID) % faceIDs
-                  call self % elements(lID) % ProlongSolutionToFaces(nEqn, &
+                  fIDs = self % elements(eID) % faceIDs
+                  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
                                                                      self % faces(fIDs(1)),&
                                                                      self % faces(fIDs(2)),&
                                                                      self % faces(fIDs(3)),&
@@ -1015,10 +1015,10 @@ slavecoord:             DO l = 1, 4
             locLevel = 1
          end if
 
-!$omp do schedule(runtime) private(fIDs, lID)
-         do eID = 1, self % MLRK % MLIter(locLevel,8)
-			lID = self % MLRK % MLIter_eIDN(eID)
-			fIDs = self % elements(lID) % faceIDs
+!$omp do schedule(runtime) private(fIDs, eID)
+         do lID = 1, self % MLRK % MLIter(locLevel,8)
+			eID = self % MLRK % MLIter_eIDN(lID)
+			fIDs = self % elements(eID) % faceIDs
             call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
                                                                 self % faces(fIDs(1)),&
                                                                 self % faces(fIDs(2)),&
