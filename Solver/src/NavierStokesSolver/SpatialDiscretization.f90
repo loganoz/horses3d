@@ -245,6 +245,13 @@ module SpatialDiscretization
 !
          INTEGER :: k, locLevel
          logical :: HOElements
+		 
+		 
+		 if (present(Level)) then
+            locLevel = Level
+         else
+            locLevel = 1
+         end if
 
          if (present(HO_Elements)) then
             HOElements = HO_Elements

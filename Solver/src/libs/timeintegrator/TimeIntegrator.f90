@@ -459,6 +459,7 @@
       use FASMultigridClass
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
+	  use ExplicitMethods	
       use StopwatchClass
       use FluidData
       use mainKeywordsModule

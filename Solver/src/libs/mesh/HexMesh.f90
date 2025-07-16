@@ -951,7 +951,7 @@ slavecoord:             DO l = 1, 4
          end if
 
          if (HOElements) then
-!$omp do schedule(runtime) private(eID, fIDs, compute_element)
+!$omp do schedule(runtime) private(eID, fIDs)
             do i = 1, size(self % HO_Elements)
                eID = self % HO_Elements(i)
                compute_element = .true.
