@@ -2,7 +2,7 @@
 #	Jacobian Makefile 		#
 #################################################
 INSTALL_DIR?=./
-FFLAGS += -cpp
+FFLAGS?=-cpp
 AR?=ar
 ARFLAGS?=cr
 RANLIB?=ranlib
