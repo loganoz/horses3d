@@ -300,7 +300,7 @@ module pAdaptationClassRL
       if ( R_Jump /= "" ) then
 	    this % pJump = GetIntValue(R_Jump)
 	  else
-		this % pJump = 1 
+		this % pJump = 10 
 	  end if 
 
 !     Acoustics

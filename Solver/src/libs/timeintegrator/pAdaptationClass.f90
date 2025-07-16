@@ -77,7 +77,6 @@ module pAdaptationClass
       real(kind=RP)     :: maxValue
       real(kind=RP)     :: minValue
       integer           :: polynomial(3)
-	  integer           :: polynomialDef(3)
       
       contains
          procedure      :: initialize => pAdaptVariable_Initialize
@@ -483,9 +482,9 @@ readloop:do
                      NNew(2,eID) = max(min(NNew(2,eID) + region % order, Nmax(2)), Nmin(2))
                      NNew(3,eID) = max(min(NNew(3,eID) + region % order, Nmax(3)), Nmin(3))
                   else if (region % mode == 2) then !Set mode
-                     NNew(1,eID) = region % polynomial(1) !max(min(region % order, Nmax(1)), Nmin(1))
-                     NNew(2,eID) = region % polynomial(2) !max(min(region % order, Nmax(2)), Nmin(2))
-                     NNew(3,eID) = region % polynomial(3) !max(min(region % order, Nmax(3)), Nmin(3))
+                     NNew(1,eID) = max(min(region % polynomial(1), Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(region % polynomial(2), Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(region % polynomial(3), Nmax(3)), Nmin(3))
                   end if
                   
                   enriched(eID) = .TRUE.
@@ -517,7 +516,7 @@ readloop:do
          character(LINE_LENGTH) :: paramFile
          character(LINE_LENGTH) :: in_label
          character(LINE_LENGTH) :: rangeValue
-         character(LINE_LENGTH) :: poly, polyDef
+         character(LINE_LENGTH) :: poly
 		 character(LINE_LENGTH) :: variable
 		 real(kind=RP)          :: minmaxValue(2)
          !----------------------------------
@@ -536,7 +535,6 @@ readloop:do
          call readValueInRegion ( trim ( paramFile )  , "variable"  , variable       , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "value range" , rangeValue      , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "polynomial " , poly      , in_label , "# end" )
-         call readValueInRegion ( trim ( paramFile )  , "polynomial default" , polyDef      , in_label , "# end" ) 		 
         
 
          if ( variable /= "" ) then
@@ -554,7 +552,6 @@ readloop:do
          
 		 minmaxValue = getRealArrayFromString(rangeValue)
 		 this % polynomial = getIntArrayFromString(poly)
-		 this % polynomialDef = getIntArrayFromString(polyDef)
 		 
          this % maxValue = maxval(minmaxValue)
          this % minValue = minval(minmaxValue)
@@ -570,7 +567,6 @@ readloop:do
 			write(STD_OUT,'(30X,A,A27,F10.4)') "->" , "Max. value: " , this % maxValue
 			write(STD_OUT,'(30X,A,A27,F10.4)') "->" , "Min. value: " , this % minValue  
 			write(STD_OUT,'(30X,A,A27,A14)') "->" , "Polynomials: " , poly  
-			write(STD_OUT,'(30X,A,A27,A14)') "->" , "Polynomials Def: " , polyDef  
          
       end subroutine pAdaptVariable_Initialize
 !
