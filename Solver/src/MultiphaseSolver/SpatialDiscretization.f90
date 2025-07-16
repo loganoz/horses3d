@@ -482,7 +482,7 @@ module SpatialDiscretization
             
             if (compute_element) then
 
-               mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) mesh % elements(eID) % storage % Q(IMC,:,:,:)
+               mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) * mesh % elements(eID) % storage % Q(IMC,:,:,:)
                mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
 
                if (use_non_constant_speed_of_sound ) then
