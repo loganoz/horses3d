@@ -140,6 +140,7 @@ module EllipticBR1
 				endif
 			 end do
 !$omp end do nowait
+             call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients, element_mask, locLevel)
          else
 !$omp do schedule(runtime) private(eID)
 			 do iEl = 1 , size(mesh % elements)
@@ -151,9 +152,8 @@ module EllipticBR1
 				endif
 			 end do
 !$omp end do nowait
+             call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
          end if
-
-         call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients, element_mask, locLevel)
       end if
    
       end subroutine BR1_ComputeGradient
