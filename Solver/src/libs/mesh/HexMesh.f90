@@ -5092,7 +5092,7 @@ call elementMPIList % destruct
 	self % MLIter(1,8)    = mesh % no_of_elements
 	self % MLIter(1,9)    = size(mesh % elements_sequential)
 	self % MLIter_eID (:) = [(i, i=1,size(mesh % elements))]
-	self % MLIter_fID (1:size(mesh % faces)) = [(i, i=1,size(mesh % faces))]
+	self % MLIter_fID (:) = [(i, i=1,size(mesh % faces))]
 	self % MLIter_fID_Interior       = mesh % faces_interior
 	self % MLIter_fID_Boundary       = mesh % faces_boundary
 	self % MLIter_eID_Seq            = mesh % elements_sequential
@@ -5439,13 +5439,10 @@ call elementMPIList % destruct
 	if( allocated(self % MLIter_eID_Seq) )  deallocate(self % MLIter_eID_Seq)
 	if( allocated(self % MLIter_eIDN) )     deallocate(self % MLIter_eIDN)
 	if( allocated(self % MLIter_eIDN_Seq) ) deallocate(self % MLIter_eIDN_Seq)
-#ifdef _HAS_MPI_
-      if ( MPI_Process % doMPIAction ) then
-         if( allocated(self % MLIter_eID_MPI)  ) deallocate(self % MLIter_eID_MPI)
-		 if( allocated(self % MLIter_fID_MPI)  ) deallocate(self % MLIter_fID_MPI)
-		 if( allocated(self % MLIter_eIDN_MPI) ) deallocate(self % MLIter_eIDN_MPI)
-      end if
-#endif 
+
+    if( allocated(self % MLIter_eID_MPI)  ) deallocate(self % MLIter_eID_MPI)
+    if( allocated(self % MLIter_fID_MPI)  ) deallocate(self % MLIter_fID_MPI)
+    if( allocated(self % MLIter_eIDN_MPI) ) deallocate(self % MLIter_eIDN_MPI)
 	
    end subroutine MultiLevel_RK_Destruct
 !
