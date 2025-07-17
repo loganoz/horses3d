@@ -146,12 +146,6 @@ module EllipticDiscretizationClass
          integer  :: eID, lID, locLevel
          logical  :: set_mu
          logical  :: compute_element
-		 
-		 if (present(Level)) then
-            locLevel = Level
-         else
-            locLevel = 1
-         end if
 
 #ifdef MULTIPHASE
          select case (self % eqName)
@@ -164,9 +158,22 @@ module EllipticDiscretizationClass
          set_mu = .false.
 #endif
 
+		 if (present(Level)) then
+             locLevel = Level
 !$omp do schedule(runtime) private(eID)
-         do lID = 1 , mesh % MLRK % MLIter(locLevel,8) 
-		    eID = mesh % MLRK % MLIter_eIDN(lID)
+			 do lID = 1 , mesh % MLRK % MLIter(locLevel,8) 
+				eID = mesh % MLRK % MLIter_eIDN(lID)
+				compute_element = .true.
+				if (present(element_mask)) compute_element = element_mask(eID)
+				
+				if (compute_element) then
+				   call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+				endif
+			 end do
+!$omp end do nowait
+         else
+!$omp do schedule(runtime)
+         do eID = 1 , size(mesh % elements)						  
             compute_element = .true.
             if (present(element_mask)) compute_element = element_mask(eID)
             
@@ -175,6 +182,7 @@ module EllipticDiscretizationClass
             endif
          end do
 !$omp end do nowait
+         end if
 
       end subroutine BaseClass_ComputeGradient
 

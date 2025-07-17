@@ -141,7 +141,7 @@ module EllipticBR2
 !
          integer :: Nx, Ny, Nz
          integer :: i, j, k
-         integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl, locLevel, locLevelm1
+         integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
          logical :: HOElements
 
          if (present(HO_Elements)) then
@@ -149,14 +149,6 @@ module EllipticBR2
          else
             HOElements = .false.
          end if
-		 
-		 if (present(Level)) then
-            locLevel = Level
-         else
-            locLevel = 1
-         end if
-		 
-		 locLevelm1 = max(locLevel-1,1)
 !
 !        ***********************
 !        Compute local gradients
@@ -182,9 +174,9 @@ module EllipticBR2
             end do
 !$omp end do    
          else
-!$omp do schedule(runtime) private(eID)
-            do iEl = 1 , mesh % MLRK % MLIter(locLevel,8) 
-			   eID = mesh % MLRK % MLIter_eIDN(iEl)
+!$omp do schedule(runtime)
+            do eID = 1, size(mesh % elements)
+										  
                associate( e => mesh % elements(eID) )
                call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
    !
@@ -216,8 +208,8 @@ module EllipticBR2
 !$omp end do nowait
          else
 !$omp do schedule(runtime) private(fID)
-            do iFace = 1, mesh % MLRK % MLIter(locLevelm1,3)
-               fID = mesh % MLRK % MLIter_fID_Interior(iFace)
+            do iFace = 1, size(mesh % faces_interior)
+               fID = mesh % faces_interior(iFace)
                call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
             end do
 !$omp end do nowait
@@ -232,8 +224,8 @@ module EllipticBR2
 !$omp end do 
          else
 !$omp do schedule(runtime) private(fID)
-            do iFace = 1, mesh % MLRK % MLIter(locLevelm1,4)
-               fID = mesh % MLRK %  MLIter_fID_Boundary(iFace)
+            do iFace = 1, size(mesh % faces_boundary)
+               fID = mesh % faces_boundary(iFace)
                call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
             end do
 !$omp end do 
@@ -252,8 +244,8 @@ module EllipticBR2
 !$omp end do
          else
 !$omp do schedule(runtime) private(eID) 
-            do iEl = 1, mesh % MLRK % MLIter(locLevel,9) 
-               eID = mesh % MLRK % MLIter_eIDN_Seq(iEl)
+            do iEl = 1, size(mesh % elements_sequential)
+               eID = mesh % elements_sequential(iEl)
                call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
             end do
 !$omp end do
@@ -275,8 +267,8 @@ module EllipticBR2
 !        *******************************
 !
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, mesh % MLRK % MLIter(locLevelm1,7)
-            fID = mesh % MLRK % MLIter_fID_MPI(iFace)
+         do iFace = 1, size(mesh % faces_mpi)
+            fID = mesh % faces_mpi(iFace)
             call BR2_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do 
@@ -294,8 +286,8 @@ module EllipticBR2
 !$omp end do
          else
 !$omp do schedule(runtime) private(eID)
-            do iEl = 1, mesh % MLRK % MLIter(locLevel,10)
-               eID = mesh % MLRK % MLIter_eIDN_MPI(iEl)
+            do iEl = 1, size(mesh % elements_mpi)
+               eID = mesh % elements_mpi(iEl)
                call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
             end do
 !$omp end do
