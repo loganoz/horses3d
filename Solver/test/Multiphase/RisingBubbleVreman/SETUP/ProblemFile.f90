@@ -491,7 +491,7 @@ end module ProblemFileFunctions
             real(kind=RP), parameter           :: residuals_saved(5) = [7.2798707116375E-01_RP, &
                                                                         4.14153741113145E+00_RP, &
                                                                         9.7885082257257918E-14_RP, &
-                                                                        3.25836947641518+00_RP, &
+                                                                        3.25836947641518E+00_RP, &
                                                                         1.5785047340470567E+02_RP]
             real(kind=RP), parameter           :: entropyRate_saved = -6.54222548413974E-03_RP
 
