@@ -582,7 +582,7 @@ module AnisFASMultigridClass
 !
       p_sem => this % MGStorage(Dir) % p_sem
       Var   => this % MGStorage(Dir) % Var
-	  call p_sem % mesh % MLRK % construct(p_sem % mesh, 1) ! default 1 level
+	  !call p_sem % mesh % MLRK % construct(p_sem % mesh, 1) ! default 1 level
 !
 !     -----------------------
 !     Pre-smoothing procedure
@@ -607,7 +607,7 @@ module AnisFASMultigridClass
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
             Childp_sem => this % Child % MGStorage(Dir) % p_sem
 					 
-		    call Childp_sem % mesh % MLRK % construct(Childp_sem % mesh, 1) ! default 1 level
+		    !call Childp_sem % mesh % MLRK % construct(Childp_sem % mesh, 1) ! default 1 level
             call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t, CTD_IGNORE_MODE)
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
@@ -624,7 +624,7 @@ module AnisFASMultigridClass
          
          Childp_sem => this % Child % MGStorage(Dir) % p_sem
          ChildVar   => this % Child % MGStorage(Dir) % Var 
-		 call Childp_sem % mesh % MLRK % construct(Childp_sem % mesh, 1) ! default 1 level
+		 !call Childp_sem % mesh % MLRK % construct(Childp_sem % mesh, 1) ! default 1 level
          
          if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
 !
@@ -728,8 +728,6 @@ module AnisFASMultigridClass
       Var        => this % MGStorage(Dir) % Var          
       Childp_sem => this % Child % MGStorage(Dir) % p_sem
       ChildVar   => this % Child % MGStorage(Dir) % Var  
-	  call p_sem % mesh % MLRK % construct(p_sem % mesh, 1) ! default 1 level
-	  call Childp_sem % mesh % MLRK % construct(Childp_sem % mesh, 1) ! default 1 level
       
 !$omp parallel do private(N1,N2) schedule(runtime)
       do iEl = 1, nelem

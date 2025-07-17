@@ -251,6 +251,10 @@ module SpatialDiscretization
             locLevel = Level
          else
             locLevel = 1
+			
+			if (.not.allocated(mesh % MLRK % MLIter)) then
+				call mesh % MLRK % construct(mesh, 1) ! default 1 level
+			end if 
          end if
 
          if (present(HO_Elements)) then
@@ -343,6 +347,10 @@ module SpatialDiscretization
             locLevel = Level
          else
             locLevel = 1
+			
+			if (.not.allocated(mesh % MLRK % MLIter)) then
+				call mesh % MLRK % construct(mesh, 1) ! default 1 level
+			end if 
          end if
 !
 !        -----------------------------------------
@@ -400,6 +408,10 @@ module SpatialDiscretization
             locLevel = Level
          else
             locLevel = 1
+			
+			if (.not.allocated(mesh % MLRK % MLIter)) then
+				call mesh % MLRK % construct(mesh, 1) ! default 1 level
+			end if 
          end if
 		 
 		 associate ( MLRK => mesh % MLRK)
