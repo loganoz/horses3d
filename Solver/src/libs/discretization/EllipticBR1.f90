@@ -336,13 +336,13 @@ module EllipticBR1
 				
 				if (compute_element) then
 				   associate(e => mesh % elements(eID))
-	!
-	!              Add the surface integrals
-	!              -------------------------
+!
+!              Add the surface integrals
+!              -------------------------
 				   call BR1_GradientFaceLoop( self , nGradEqn, e, mesh)
-	!
-	!              Prolong gradients
-	!              -----------------
+!
+!              Prolong gradients
+!              -----------------
 				   fIDs = e % faceIDs
 				   call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
 													mesh % faces(fIDs(2)),&
@@ -783,7 +783,8 @@ module EllipticBR1
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call GetViscosity(e % storage % Q(IMC,i,j,k), mu(i,j,k))      
          end do                ; end do                ; end do
-
+	
+         mu = mu + e % storage % mu_NS(1,:,:,:) ! Add Subgrid Viscosity
          kappa = 0.0_RP
          beta  = multiphase % M0_star
 

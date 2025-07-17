@@ -1633,6 +1633,7 @@ module SpatialDiscretization
 !
 !        Compute contravariant flux
 !        --------------------------
+         e % storage % mu_NS(1,:,:,:) = 0.0_RP ! Need to zero out for Laplacian ComputeInnerFluxes
          call CHDiscretization  % ComputeInnerFluxes (NCOMP, NCOMP, CHDivergenceFlux, GetCHViscosity, e , contravariantFlux  ) 
 !
 !        ************************
