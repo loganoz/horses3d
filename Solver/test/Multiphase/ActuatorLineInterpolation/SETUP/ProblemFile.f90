@@ -594,8 +594,8 @@ end module ProblemFileFunctions
 
             real(kind=RP), parameter :: residuals(5) = [ 0.0000000000000000E+00_RP,&
                                                          6.6848885010291738E+01_RP,&
-                                                         0.2700344444108091E+00_RP,&
-                                                         0.2914829241166736E+00_RP,&
+                                                         0.2700348193579452E+00_RP,&
+                                                         0.2914835729530734E+00_RP,&
                                                          2.2442342918587788E+03_RP]
 
             real(kind=RP), parameter :: source(5) =    [ 0.0000000000000000E+00_RP,&
