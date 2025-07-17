@@ -493,7 +493,7 @@ end module ProblemFileFunctions
                                                                         9.7885082257257918E-14_RP, &
                                                                         3.25837253137888E+00_RP, &
                                                                         1.5785049514620010E+02_RP]
-            real(kind=RP), parameter           :: entropyRate_saved = -6.54222577767039E-03_RP
+            real(kind=RP), parameter           :: entropyRate_saved = -6.54222518444036E-03_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
