@@ -942,13 +942,6 @@ slavecoord:             DO l = 1, 4
          else
             HOElements = .false.
          end if
-		 
-		 if (present(Level)) then
-            locLevel = Level
-			HOElements = .false.
-         else
-            locLevel = 1
-         end if
 
          if (HOElements) then
 !$omp do schedule(runtime) private(eID, fIDs)
@@ -970,25 +963,49 @@ slavecoord:             DO l = 1, 4
             end do
 !$omp end do
          else
+		    ! The following differentiation is needed due to problem on AnisFAS NS
+			if (present(Level)) then
+				locLevel = Level
 !$omp do schedule(runtime) private(fIDs, eID)
-            do lID = 1, self % MLRK % MLIter(locLevel,8)
-			   eID = self % MLRK % MLIter_eIDN(lID)
+				do lID = 1, self % MLRK % MLIter(locLevel,8)
+				   eID = self % MLRK % MLIter_eIDN(lID)
 
-               compute_element = .true.
-               if (present(element_mask)) compute_element = element_mask(eID)
+				   compute_element = .true.
+				   if (present(element_mask)) compute_element = element_mask(eID)
 
-               if (compute_element) then
-                  fIDs = self % elements(eID) % faceIDs
-                  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
-                                                                     self % faces(fIDs(1)),&
-                                                                     self % faces(fIDs(2)),&
-                                                                     self % faces(fIDs(3)),&
-                                                                     self % faces(fIDs(4)),&
-                                                                     self % faces(fIDs(5)),&
-                                                                     self % faces(fIDs(6)) )
-               endif
-            end do
+				   if (compute_element) then
+					  fIDs = self % elements(eID) % faceIDs
+					  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+																		 self % faces(fIDs(1)),&
+																		 self % faces(fIDs(2)),&
+																		 self % faces(fIDs(3)),&
+																		 self % faces(fIDs(4)),&
+																		 self % faces(fIDs(5)),&
+																		 self % faces(fIDs(6)) )
+				   endif
+				end do
 !$omp end do
+			else
+!$omp do schedule(runtime) private(fIDs)
+				do eID = 1, size(self % elements)
+											  
+
+				   compute_element = .true.
+				   if (present(element_mask)) compute_element = element_mask(eID)
+
+				   if (compute_element) then
+					  fIDs = self % elements(eID) % faceIDs
+					  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+																		 self % faces(fIDs(1)),&
+																		 self % faces(fIDs(2)),&
+																		 self % faces(fIDs(3)),&
+																		 self % faces(fIDs(4)),&
+																		 self % faces(fIDs(5)),&
+																		 self % faces(fIDs(6)) )
+				   endif
+				end do
+!$omp end do
+			end if 
          end if
 
       end subroutine HexMesh_ProlongSolutionToFaces
@@ -1011,23 +1028,36 @@ slavecoord:             DO l = 1, 4
 		 
 		 if (present(Level)) then
             locLevel = Level
-         else
-            locLevel = 1
-         end if
-
+			
 !$omp do schedule(runtime) private(fIDs, eID)
-         do lID = 1, self % MLRK % MLIter(locLevel,8)
-			eID = self % MLRK % MLIter_eIDN(lID)
-			fIDs = self % elements(eID) % faceIDs
-            call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
-                                                                self % faces(fIDs(1)),&
-                                                                self % faces(fIDs(2)),&
-                                                                self % faces(fIDs(3)),&
-                                                                self % faces(fIDs(4)),&
-                                                                self % faces(fIDs(5)),&
-                                                                self % faces(fIDs(6)) )
-         end do
+			 do lID = 1, self % MLRK % MLIter(locLevel,8)
+				eID = self % MLRK % MLIter_eIDN(lID)
+				fIDs = self % elements(eID) % faceIDs
+				call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+																	self % faces(fIDs(1)),&
+																	self % faces(fIDs(2)),&
+																	self % faces(fIDs(3)),&
+																	self % faces(fIDs(4)),&
+																	self % faces(fIDs(5)),&
+																	self % faces(fIDs(6)) )
+			 end do
 !$omp end do
+
+         else
+!$omp do schedule(runtime)
+			 do eID = 1, size(self % elements)
+										   
+				fIDs = self % elements(eID) % faceIDs
+				call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+																	self % faces(fIDs(1)),&
+																	self % faces(fIDs(2)),&
+																	self % faces(fIDs(3)),&
+																	self % faces(fIDs(4)),&
+																	self % faces(fIDs(5)),&
+																	self % faces(fIDs(6)) )
+			 end do
+!$omp end do
+         end if
 
       end subroutine HexMesh_ProlongGradientsToFaces
 !
