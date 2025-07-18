@@ -27,6 +27,7 @@ Module MappedGeometryClass
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
             REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian
             real(kind=RP)                                   :: volume
+            real(kind=RP), dimension(:,:,:),    allocatable :: gpvol 
             real(kind=RP), dimension(:,:,:),    allocatable :: dWall                   ! Minimum distance to the nearest wall
             real(kind=RP), dimension(:,:,:,:),  allocatable :: normal                  ! Wall normal, needed for IB
             real(kind=RP), dimension(:,:,:,:) , allocatable :: ncXi, ncEta, ncZeta     ! Normals at the complementary grid nodes
@@ -101,6 +102,7 @@ Module MappedGeometryClass
       ALLOCATE( self % jacobian   (0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % invJacobian(0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % x        (3,0:Nx,0:Ny,0:Nz)    )
+      allocate( self % gpvol (0:Nx,0:Ny,0:Nz))
 !
 !     --------------------------
 !     Compute interior locations
@@ -135,6 +137,7 @@ Module MappedGeometryClass
 !
       self % volume = 0.0_RP
       do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
+         self % gpvol(i,j,k) = spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * self%jacobian(i,j,k)
          self % volume = self % volume + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * self % jacobian(i,j,k)
       end do         ; end do       ; end do
 

@@ -417,8 +417,11 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
-               delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+!GRC -               delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+!GRC - print*, "delta horses =", delta
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  delta =  e % geom % gpvol(i,j,k) ** (1.0_RP / 3.0_RP)
+!GRC - print*, "delta sod2d = ", delta
                   call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
                                                                                    e % storage % U_x(:,i,j,k), &
                                                                                    e % storage % U_y(:,i,j,k), &
