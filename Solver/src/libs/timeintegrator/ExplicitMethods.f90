@@ -17,9 +17,9 @@ MODULE ExplicitMethods
    IMPLICIT NONE
 
    private
-   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME, EULER_RK3_NAME, LSERK14_4_NAME, MIXED_RK_NAME
-   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY, EULER_RK3_KEY, LSERK14_4_KEY, MIXED_RK_KEY
-   public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep
+   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME, EULER_RK3_NAME, LSERK14_4_NAME, MIXED_RK_NAME, ML_RK3_NAME
+   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY, EULER_RK3_KEY, LSERK14_4_KEY, MIXED_RK_KEY, ML_RK3_KEY
+   public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep, TakeMLRK3Step
    public   TakeSSPRK33Step, TakeSSPRK43Step, TakeEulerRK3Step, TakeLSERK14_4Step, TakeMixedRKStep
    public   Enable_CTD_AFTER_STEPS, Enable_limiter, CTD_AFTER_STEPS, LIMITED, LIMITER_MIN
 
@@ -42,6 +42,7 @@ MODULE ExplicitMethods
    character(len=*), parameter :: EULER_RK3_NAME = "euler rk3"
    character(len=*), parameter :: LSERK14_4_NAME = "lserk14-4"
    character(len=*), parameter :: MIXED_RK_NAME = "mixed rk"
+   character(len=*), parameter :: ML_RK3_NAME  = "multi level rk3"
 
 
    integer, parameter :: EULER_KEY   = 1
@@ -52,7 +53,8 @@ MODULE ExplicitMethods
    integer, parameter :: SSPRK43_KEY = 6
    integer, parameter :: EULER_RK3_KEY = 7
    integer, parameter :: LSERK14_4_KEY = 8
-   integer, parameter :: MIXED_RK_KEY = 9
+   integer, parameter :: MIXED_RK_KEY  = 9
+   integer, parameter :: ML_RK3_KEY    = 10
 
 !========
  CONTAINS
@@ -1448,6 +1450,180 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
    end subroutine TakeRKOptStep
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------
+!  Routine for Multi Level RK3
+!  ------------------------------
+   SUBROUTINE TakeMLRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+!
+!     ----------------------------------
+!     Williamson's 3rd order Runge-Kutta
+!     ----------------------------------
+!
+      IMPLICIT NONE
+!
+!     -----------------
+!     Input parameters:
+!     -----------------
+!
+      type(HexMesh)      :: mesh
+#ifdef FLOW
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)      :: t, deltaT
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
+      logical, intent(in), optional :: dts
+      real(kind=RP), intent(in), optional :: global_dt
+      integer, intent(in), optional :: iter
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
+      REAL(KIND=RP), DIMENSION(4) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  ,     1.0_RP     /)
+      REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
+	  REAL(KIND=RP), DIMENSION(3) :: d 
+	  
+
+
+      INTEGER       :: i, j, id, lID, locLevel, k2, k3, k1, nLevel
+	  INTEGER, ALLOCATABLE :: k(:)
+	  REAL(KIND=RP) :: deltaStep(3), corrector, deltaTLF
+	  REAL(KIND=RP), ALLOCATABLE :: cL(:) , tk(:), deltaTL(:) ! 
+	  
+	  nLevel = mesh % MLRK % maxLevel
+	  allocate(k(nLevel), cL(nLevel), tk(nLevel), deltaTL(nLevel))
+	  k(:) = 1
+	  
+	  d(1)=1.0_RP/3.0_RP
+	  d(2)=5.0_RP/12.0_RP
+	  d(3)=1.0_RP/4.0_RP
+	 
+	  deltaStep(1) =  b(2)
+      deltaStep(2) =  b(3)-b(2)
+      deltaStep(3) =  1.0_RP-b(3)	
+	  
+	  deltaTL(:) = deltaT
+	  tk(:)      = t
+	  
+	  associate ( MLIter_eID => mesh % MLRK % MLIter_eID, MLIter => mesh % MLRK % MLIter  )
+	  
+      k(:) = 3
+      do k1 = 1,3
+            tk(:) = t + b(k1)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk(1), CTD_IGNORE_MODE)
+			locLevel = 1
+!           -------------------------------------------------------------------------------------------------------------------------------
+!           LEVEL 2-LEVEL N-1
+!           -------------------------------------------------------------------------------------------------------------------------------
+			do k2 = 1, max(3**(nLevel-2),1)
+				k(nLevel-1) = k(nLevel-1)+1
+				do i=nLevel-1,1,-1
+					if (k(i).gt.3) then
+						k(i)=1
+						if (i.ne.1) then
+							k(i-1)=k(i-1) +1
+						end if 
+					else
+						exit
+					end if						
+				end do 
+				
+				do i=2, nLevel
+					deltaTL(i) = deltaTL(i-1) * deltaStep(k(i-1))
+				end do 
+!               -------------------------------------------------------------------------------------------------------------------------------
+!               LEVEL N 
+!               -------------------------------------------------------------------------------------------------------------------------------
+				do k3 = 1,3
+					k(nLevel) = k3
+!           		Update G_NS/G_CH from QDot - Depend on level etc
+!$omp parallel do schedule(runtime)	private(id, corrector)	
+					do i = 1, MLIter(locLevel,1)
+						id = MLIter_eID(i)
+						
+						if (locLevel.eq.nLevel) then
+							corrector = a(k(nLevel))
+					    elseif(i.gt.MLIter(min(locLevel+1,nLevel),1)) then 
+							corrector = a(k(locLevel))
+						else
+							corrector = 0.0_RP
+						end if 
+						
+						associate(storage => mesh % elements(id) % storage)
+#ifdef FLOW        
+						storage % G_NS = corrector * storage % G_NS  +  storage % QDot
+#endif
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+						storage % G_CH = corrector * storage % G_CH + storage % cDot
+#endif
+						end associate
+					end do 
+!$omp end parallel do	
+				
+!           		Marching in time, all elements
+					corrector = 1.0_RP
+					do i = 1, nLevel
+						corrector = corrector * d(k(i))
+					end do 
+                    do i = 1, nLevel
+						cL(i) = c(k(i)) * corrector/d(k(i)) 
+					end do 
+
+!$omp parallel do schedule(runtime)	private(id, corrector)			
+					do i = 1, MLIter(1,1)
+						do j = nLevel, 1, -1
+						    corrector = cL(j)
+							if (i.le.MLIter(j,1)) exit
+						end do
+						
+						id = MLIter_eID(i)
+						
+						associate(storage => mesh % elements(id) % storage)
+#ifdef FLOW             
+						storage % Q    = storage % Q  + corrector * deltaT * storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+						storage % c    = storage % c + corrector * deltaT * storage % G_CH
+#endif
+						end associate
+					end do
+!$omp end parallel do	
+                    if (all(k(2:nLevel) == 3)) then
+						exit
+					else
+						do i=nLevel,2,-1
+						    locLevel =i
+							if (k(i).ne.3) exit
+						end do 
+					end if 
+					
+					tk(locLevel)=tk(locLevel-1)+b(k(locLevel)+1) * deltaTL(locLevel)
+					
+					call ComputeTimeDerivative( mesh, particles, tk(locLevel), CTD_IGNORE_MODE, Level = locLevel) ! Update Qdot
+					
+				end do 
+			end do 
+
+       end do ! k1
+	   
+	   end associate
+	   
+	   call ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE, Level = 1) ! Necessary for residual computation
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+      call checkForNan(mesh, t)
+
+   END SUBROUTINE TakeMLRK3Step
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

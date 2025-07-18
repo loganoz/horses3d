@@ -119,7 +119,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_Describe
 
-      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask)
+      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask, Level)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -137,12 +137,13 @@ module EllipticDiscretizationClass
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: HO_Elements
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional    :: Level
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: eID
+         integer  :: eID, lID, locLevel
          logical  :: set_mu
          logical  :: compute_element
 
@@ -157,8 +158,22 @@ module EllipticDiscretizationClass
          set_mu = .false.
 #endif
 
+		 if (present(Level)) then
+             locLevel = Level
+!$omp do schedule(runtime) private(eID)
+			 do lID = 1 , mesh % MLRK % MLIter(locLevel,8) 
+				eID = mesh % MLRK % MLIter_eIDN(lID)
+				compute_element = .true.
+				if (present(element_mask)) compute_element = element_mask(eID)
+				
+				if (compute_element) then
+				   call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+				endif
+			 end do
+!$omp end do nowait
+         else
 !$omp do schedule(runtime)
-         do eID = 1 , size(mesh % elements)
+         do eID = 1 , size(mesh % elements)						  
             compute_element = .true.
             if (present(element_mask)) compute_element = element_mask(eID)
             
@@ -167,10 +182,11 @@ module EllipticDiscretizationClass
             endif
          end do
 !$omp end do nowait
+         end if
 
       end subroutine BaseClass_ComputeGradient
 
-      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask)
+      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients, element_mask, Level)
 !
 !        *****************************************************
 !        Lift gradients: do nothing here
@@ -186,6 +202,15 @@ module EllipticDiscretizationClass
          real(kind=RP),        intent(in) :: time
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional    :: Level
+		 
+		 integer  :: locLevel
+		 
+		 if (present(Level)) then
+            locLevel = Level
+         else
+            locLevel = 1
+         end if
 
       end subroutine BaseClass_LiftGradients
 

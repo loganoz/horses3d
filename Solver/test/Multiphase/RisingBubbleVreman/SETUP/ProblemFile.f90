@@ -487,13 +487,13 @@ end module ProblemFileFunctions
             LOGICAL                            :: success
             real(kind=RP), parameter           :: area_saved = 2.0280805425949214E-01_RP
             real(kind=RP), parameter           :: xcog_saved = 1.014044175764861E-01_RP
-            real(kind=RP), parameter           :: risevel_saved =  3.840682144321292E-04_RP
-            real(kind=RP), parameter           :: residuals_saved(5) = [7.2798703496061990E-01_RP, &
-                                                                        4.1415341863462345E+00_RP, &
+            real(kind=RP), parameter           :: risevel_saved =  3.840682015588E-04_RP
+            real(kind=RP), parameter           :: residuals_saved(5) = [7.2798707116375E-01_RP, &
+                                                                        4.14153741113145E+00_RP, &
                                                                         9.7885082257257918E-14_RP, &
-                                                                        3.2583666451827610E+00_RP, &
-                                                                        1.5785032494113227E+02_RP]
-            real(kind=RP), parameter           :: entropyRate_saved = -6.542225158039039E-03_RP
+                                                                        3.25836947641518E+00_RP, &
+                                                                        1.5785047340470567E+02_RP]
+            real(kind=RP), parameter           :: entropyRate_saved = -6.54222548413974E-03_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

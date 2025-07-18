@@ -19,7 +19,7 @@ module Utilities
 
    private
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
-   public   toLower, Qsort, QsortWithFriend, BubblesortWithFriend, my_findloc
+   public   toLower, Qsort, QsortWithFriend, BubblesortWithFriend, my_findloc, sortAscend, sortDescendInt, sortAscendInt
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
    
@@ -487,6 +487,100 @@ pure subroutine BubblesortWithFriend(A, B)
     end do
 
 end subroutine BubblesortWithFriend
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+pure subroutine sortAscend(A)
+    implicit none
+    !--------------------------------------
+    real(RP), intent(inout) :: A(:)
+    !--------------------------------------
+    integer :: n, newn
+    integer :: i
+	real(RP):: temp
+    !--------------------------------------
+
+    n = size(A)
+    do
+        newn = 0
+        do i = 1, n-1
+            if (A(i) > A(i+1)) then
+                ! Swap A
+                temp = A(i)
+                A(i) = A(i+1)
+                A(i+1) = temp
+                ! Update number of unsorted elements
+                newn = i
+            end if
+        end do
+        n = newn
+        if (n <= 1) exit
+    end do
+
+end subroutine sortAscend
+
+pure subroutine sortAscendInt(A)
+    implicit none
+    !--------------------------------------
+    integer, intent(inout) :: A(:)
+    !--------------------------------------
+    integer :: n, newn
+    integer :: i
+	real(RP):: temp
+    !--------------------------------------
+
+    n = size(A)
+    do
+        newn = 0
+        do i = 1, n-1
+            if (A(i) > A(i+1)) then
+                ! Swap A
+                temp = A(i)
+                A(i) = A(i+1)
+                A(i+1) = temp
+                ! Update number of unsorted elements
+                newn = i
+            end if
+        end do
+        n = newn
+        if (n <= 1) exit
+    end do
+
+end subroutine sortAscendInt
+
+pure subroutine sortDescendInt(A,B)
+    implicit none
+    !--------------------------------------
+    integer, intent(inout) :: A(:)
+	integer, intent(inout) :: B(size(A))
+    !--------------------------------------
+    integer :: n, newn
+    integer :: i
+	integer :: temp
+    !--------------------------------------
+
+    n = size(A)
+    do
+        newn = 0
+        do i = 1, n-1
+            if (A(i) < A(i+1)) then
+                ! Swap A
+                temp = A(i)
+                A(i) = A(i+1)
+                A(i+1) = temp
+				! Swap B
+                temp = B(i)
+                B(i) = B(i+1)
+                B(i+1) = temp
+                ! Update number of unsorted elements
+                newn = i
+            end if
+        end do
+        n = newn
+        if (n <= 1) exit
+    end do
+
+end subroutine sortDescendInt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

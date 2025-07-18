@@ -186,7 +186,7 @@ module EllipticIP
             
       end subroutine IP_Describe
 
-      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask)
+      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients, HO_Elements, element_mask, Level)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -199,6 +199,7 @@ module EllipticIP
          procedure(GetGradientValues_f)       :: GetGradients 
          logical, intent(in), optional        :: HO_Elements
          logical, intent(in), optional        :: element_mask(:)
+		 integer, intent(in), optional        :: Level
 !
 !        ---------------
 !        Local variables

@@ -605,6 +605,7 @@ module AnisFASMultigridClass
          if (SmoothFine .AND. lvl > 1) then
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
             Childp_sem => this % Child % MGStorage(Dir) % p_sem
+					 
             call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t, CTD_IGNORE_MODE)
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
