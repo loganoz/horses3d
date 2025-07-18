@@ -115,7 +115,7 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, sem % samplings, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     ----------------------------------
 !     Export particles to VTK (temporal)
