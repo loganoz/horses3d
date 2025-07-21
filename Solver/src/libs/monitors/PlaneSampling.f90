@@ -920,8 +920,10 @@ module PlaneSampling
          safedeallocate (self % rank)
          safedeallocate (self % eID)
          safedeallocate (self % x)
+		 safedeallocate (self % xi)
          safedeallocate (self % fileName)
          safedeallocate (self % variable)
+
       end subroutine Plane_Destruct
       
       elemental subroutine Plane_Assign (to, from)

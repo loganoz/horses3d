@@ -257,10 +257,13 @@ module Samplings
          implicit none
          class(Sampling_t)        :: self
          
-         call self % surfaceSamplings % destruct
-		 call self % planeSamplings % destruct
+		 if ( self % no_of_surfaceSamplings .gt. 0)   call self % surfaceSamplings % destruct
+		 if ( self % no_of_planeSamplings   .gt. 0)   call self % planeSamplings % destruct
+		 if ( self % no_of_spatialMeanNodes .gt. 0)   call self % spatialMeanNodes % destruct
+
          safedeallocate (self % surfaceSamplings)
 		 safedeallocate (self % planeSamplings)
+		 safedeallocate (self % spatialMeanNodes)
 		 
       end subroutine
       

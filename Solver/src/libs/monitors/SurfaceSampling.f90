@@ -511,6 +511,10 @@ module SurfaceSampling
          class(SurfaceSampling_t), intent(inout) :: self
          
          safedeallocate (self % values)
+		 safedeallocate (self % nData)
+		 safedeallocate (self % fileName)
+		 safedeallocate (self % variable)
+		 
       end subroutine SurfaceSampling_Destruct
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

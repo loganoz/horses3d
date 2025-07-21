@@ -764,9 +764,13 @@ module SpatialMeanNode
          safedeallocate (self % nMultiply)
          safedeallocate (self % nMultiplyAll)
          safedeallocate (self % geom)
-         safedeallocate (self % values)
+		 safedeallocate (self % values)
+		 safedeallocate (self % meanU)
+		 safedeallocate (self % meanV)
+         safedeallocate (self % meanW)
          safedeallocate (self % fileName)
          safedeallocate (self % variable)
+
       end subroutine SpatialMeanNode_Destruct
       
       elemental subroutine SpatialMeanNode_Assign (to, from)

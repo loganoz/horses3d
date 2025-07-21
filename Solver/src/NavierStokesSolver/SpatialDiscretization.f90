@@ -243,7 +243,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, locLevel
+         INTEGER :: k
          logical :: HOElements
 
          if (present(HO_Elements)) then
@@ -308,7 +308,7 @@ module SpatialDiscretization
 			 if (present(Level)) then
 				call TimeDerivative_ComputeQDotMLRK(mesh = mesh , &
                                           particles = particles, &
-                                          t    = time, Level=locLevel)
+                                          t    = time, Level=Level)
 			 else 
 				call TimeDerivative_ComputeQDot(mesh = mesh , &
                                           particles = particles, &
@@ -713,10 +713,6 @@ module SpatialDiscretization
             locLevel = Level
          else
             locLevel = 1
-			
-			if (.not.allocated(mesh % MLRK % MLIter)) then
-				call mesh % MLRK % construct(mesh, 1) ! default 1 level
-			end if 
          end if
 		 
 		 associate ( MLRK => mesh % MLRK)
