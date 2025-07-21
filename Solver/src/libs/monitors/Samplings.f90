@@ -283,7 +283,10 @@ module Samplings
          to % dt_restriction        = from % dt_restriction
          to % write_dt_restriction  = from % write_dt_restriction
          
-
+		 if ( to % no_of_surfaceSamplings .gt. 0)   call to % surfaceSamplings % destruct
+		 if ( to % no_of_planeSamplings   .gt. 0)   call to % planeSamplings % destruct
+		 if ( to % no_of_spatialMeanNodes .gt. 0)   call to % spatialMeanNodes % destruct
+		 
          safedeallocate ( to % surfaceSamplings )
 		 safedeallocate ( to % planeSamplings )
 		 safedeallocate ( to % spatialMeanNodes )
