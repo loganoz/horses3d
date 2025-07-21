@@ -20,9 +20,9 @@ module Samplings
 !  
    type Sampling_t
       character(len=LINE_LENGTH)           :: solution_file
-      integer                              :: no_of_surfaceSamplings
-	  integer  							   :: no_of_planeSamplings
-	  integer  							   :: no_of_spatialMeanNodes
+      integer                              :: no_of_surfaceSamplings =0
+	  integer  							   :: no_of_planeSamplings   =0
+	  integer  							   :: no_of_spatialMeanNodes =0
       integer                              :: dt_restriction
       logical                              :: write_dt_restriction
       class(SurfaceSampling_t), allocatable :: surfaceSamplings(:)
