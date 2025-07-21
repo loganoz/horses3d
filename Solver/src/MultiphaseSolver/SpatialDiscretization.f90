@@ -190,17 +190,18 @@ module SpatialDiscretization
                error stop 
    
             end select
-   
+			
+            call CHDiscretization % Construct(controlVariables, ELLIPTIC_CH)
+            call CHDiscretization % Describe
+			
+			if ( .not. MPI_Process % isRoot ) return
+			
             use_non_constant_speed_of_sound = controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)
             if(use_non_constant_speed_of_sound) then
                write(STD_OUT,'(A)') "  Implementing artificial compressibility with a non-constant speed of sound in each phase"
             else
-               write(STD_OUT,'(A)') "  Implementing artificial compressibility with a constant speed of sound in each phase"
+               write(STD_OUT,'(A)') "  Implementing artificial compressibility with a constant ACM factor in each phase"
             endif
-
-            call CHDiscretization % Construct(controlVariables, ELLIPTIC_CH)
-            call CHDiscretization % Describe
-
          
          end if
 

@@ -267,7 +267,7 @@ module Samplings
 		 
       end subroutine
       
-      elemental subroutine Sampling_Assign ( to, from )
+      impure elemental subroutine Sampling_Assign ( to, from )
          implicit none
          !-arguments--------------------------------------
          class(Sampling_t), intent(inout)  :: to
@@ -290,6 +290,7 @@ module Samplings
          safedeallocate ( to % surfaceSamplings )
 		 safedeallocate ( to % planeSamplings )
 		 safedeallocate ( to % spatialMeanNodes )
+		 
          allocate ( to % surfaceSamplings ( size(from % surfaceSamplings) ) )
 		 allocate ( to % planeSamplings   ( size(from % planeSamplings  ) ) )
 		 allocate ( to % spatialMeanNodes ( size(from % spatialMeanNodes  ) ) )
