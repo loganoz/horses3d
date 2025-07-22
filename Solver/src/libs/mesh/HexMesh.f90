@@ -4460,7 +4460,8 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % elements(eID) % storage % Q_grad_CH) !CH state to calculate the gradient
 #endif
 #ifdef MULTIPHASE
-         !$acc enter data copyin(self % elements(eID) % storage % Q_grad_mu) !Multiphase state to calculate the gradient
+      !$acc enter data copyin(self % elements(eID) % storage % Q_grad_mu) ! Multiphase state to calculate the gradient
+      !$acc enter data copyin(self % elements(eID) % storage % invMa2)    ! Storage for the density*artificial compressibility factor
 #endif
 
       ENDDO
@@ -4531,6 +4532,11 @@ slavecoord:             DO l = 1, 4
          !$acc enter data copyin(self % faces(iFace) % storage(2) % mu_z)  ! CHE chemical potential z-gradient
          !$acc enter data copyin(self % faces(iFace) % storage(1) % v)     ! CHE flow field velocity
          !$acc enter data copyin(self % faces(iFace) % storage(2) % v)     ! CHE flow field velocity
+#endif
+
+#ifdef MULTIPHASE
+         !$acc enter data copyin(self % faces(iFace) % storage(1) % invMa2) ! Storage for the density*artificial compressibility factor
+         !$acc enter data copyin(self % faces(iFace) % storage(2) % invMa2) ! Storage for the density*artificial compressibility factor
 #endif
       enddo
       
@@ -4621,7 +4627,8 @@ slavecoord:             DO l = 1, 4
          !$acc exit data delete(self % elements(eID) % storage % Q_grad_CH) !CH state to calculate the gradient
 #endif
 #ifdef MULTIPHASE
-         !$acc exit data delete(self % elements(eID) % storage % Q_grad_mu) !Multiphase state to calculate the gradient
+         !$acc exit data delete(self % elements(eID) % storage % Q_grad_mu) ! Multiphase state to calculate the gradient'
+         !$acc exit data delete(self % elements(eID) % storage % invMa2)    ! Storage for the density*artificial compressibility factor
 #endif
 
          !$acc exit data delete(self % elements(eID))
@@ -4676,6 +4683,10 @@ slavecoord:             DO l = 1, 4
          !$acc exit data delete(self % faces(iFace) % storage(2) % mu_z)  ! CHE chemical potential z-gradient
          !$acc exit data delete(self % faces(iFace) % storage(1) % v)     ! CHE flow field velocity
          !$acc exit data delete(self % faces(iFace) % storage(2) % v)     ! CHE flow field velocity
+#endif
+#ifdef MULTIPHASE
+         !$acc exit data delete(self % faces(iFace) % storage(1) % invMa2) ! Storage for the density*artificial compressibility factor
+         !$acc exit data delete(self % faces(iFace) % storage(2) % invMa2) ! Storage for the density*artificial compressibility factor
 #endif
          !$acc exit data delete(self % faces(iFace))
       enddo

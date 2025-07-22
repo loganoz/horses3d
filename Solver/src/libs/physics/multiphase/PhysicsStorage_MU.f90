@@ -174,7 +174,7 @@
 
       if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) .AND.  controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY) .OR. & 
          controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) .AND.  controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY)) then
-          error stop "Error: Either define a single artificial compressibility or the speed of sound in each fluids. Not both"
+          error stop "Error: Either define a single artificial compressibility or the speed of sound in each fluid, not both"
       endif
 
       if ( controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY) ) then
@@ -295,10 +295,11 @@
          dimensionless_ % invMa2(1) = dimensionless_ % rho(1) * thermodynamics_ % c02(1) / POW2(refValues_ % V)
       endif
 
-      if(controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)) then 
+      if(controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY)) then 
          dimensionless_ % Ma2(2) = POW2(refValues_ % V)/(dimensionless_ % rho(2) * thermodynamics_ % c02(2))
          dimensionless_ % invMa2(2) = dimensionless_ % rho(2) * thermodynamics_ % c02(2) / POW2(refValues_ % V)
       endif
+      
 
 !
 !     ***************

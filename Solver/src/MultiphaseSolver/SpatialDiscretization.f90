@@ -52,9 +52,12 @@ module SpatialDiscretization
       
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
+      character(len=LINE_LENGTH), parameter  :: FLUID1_COMPRESSIBILITY_KEY = "fluid 1 sound speed square (m/s)"
+
 
       real(kind=RP), protected :: IMEX_S0 = 0.0_RP 
       real(kind=RP), protected :: IMEX_K0 = 1.0_RP
+      logical,       protected :: use_non_constant_speed_of_sound = .false.
 !
 !     ========      
       CONTAINS 
@@ -79,7 +82,7 @@ module SpatialDiscretization
          character(len=LINE_LENGTH) :: inviscidDiscretizationName
          character(len=LINE_LENGTH) :: viscousDiscretizationName
          character(len=LINE_LENGTH) :: CHDiscretizationName
-         
+
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
          
             if ( MPI_Process % isRoot ) then
@@ -144,6 +147,14 @@ module SpatialDiscretization
                   error stop 
 
                end select
+
+               use_non_constant_speed_of_sound = controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)
+               if(use_non_constant_speed_of_sound) then
+                  write(STD_OUT,'(A)') "  Implementing artificial compressibility with a non-constant speed of sound in each phase"
+               else
+                  write(STD_OUT,'(A)') "  Implementing artificial compressibility with a constant ACM factor in each phase"
+               endif
+
                
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_MU)
                call ViscousDiscretization % Describe
@@ -225,7 +236,7 @@ module SpatialDiscretization
          real(kind=RP)           :: sqrtRho, invMa2, jacobian
          class(Element), pointer :: e
          logical                 :: set_mu   
-
+         real(RP) :: cs_1, cs_2, Qclip
 
 !$omp parallel shared(mesh, time)
 !
@@ -500,9 +511,58 @@ module SpatialDiscretization
 #endif
 !
 !        -------------------------------------
-!        Get the density in faces and elements
+!        Get the density and invMa2 in faces and elements
 !        -------------------------------------
 !
+if (use_non_constant_speed_of_sound) then
+
+   cs_1 = sqrt(dimensionless % invMa2(1) / dimensionless % rho(1))
+   cs_2 = sqrt(dimensionless % invMa2(2) / dimensionless % rho(2))
+
+   !$omp do schedule(runtime)
+   !$acc parallel loop gang vector_length(128) present(mesh) async(1)
+   do eID = 1, size(mesh % elements)
+      !$acc loop vector collapse(3)
+      do k = 0, mesh % elements(eID) % Nxyz(3)
+         do j = 0, mesh % elements(eID) % Nxyz(2)
+            do i = 0, mesh % elements(eID) % Nxyz(1)
+
+               mesh % elements(eID) % storage % rho(i,j,k) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,i,j,k)
+               mesh % elements(eID) % storage % rho(i,j,k) = min(max(mesh % elements(eID) % storage % rho(i,j,k), dimensionless % rho_min),dimensionless % rho_max)
+               Qclip  = min(max(mesh % elements(eID) % storage % Q(IMC,i,j,k), 0.0_RP), 1.0_RP)          ! Clamp to [0,1]
+               mesh % elements(eID) % storage % invMa2(i,j,k) =((cs_1 * Qclip + cs_2 * (1.0_RP -  Qclip))**2) * mesh % elements(eID) % storage % rho(i,j,k) 
+
+            end do
+         end do
+      end do
+   end do
+   !$acc end parallel loop
+   !$omp end do nowait
+
+
+
+!$omp do schedule(runtime)
+         !$acc parallel loop gang vector_length(128) present(mesh) async(1)
+         do fID = 1, size(mesh % faces)
+            !$acc loop vector collapse(2)
+            do j = 0, mesh % faces(fID) % Nf(2)  ; do i = 0, mesh % faces(fID) % Nf(1)
+               mesh % faces(fID) % storage(1) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(1) % Q(IMC,i,j)
+               mesh % faces(fID) % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,i,j)
+
+               mesh % faces(fID) % storage(1) % rho(i,j) = min(max(mesh % faces(fID) % storage(1) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
+               mesh % faces(fID) % storage(2) % rho(i,j) = min(max(mesh % faces(fID) % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
+
+               Qclip  = min(max(mesh % faces(fID) % storage(1) % Q(IMC,i,j), 0.0_RP), 1.0_RP)          
+               mesh % faces(fID) % storage(1) % invMa2(i,j) =((cs_1 * Qclip + cs_2 * (1.0_RP -  Qclip))**2) * mesh % faces(fID) % storage(1) % rho(i,j) 
+               Qclip  = min(max(mesh % faces(fID) % storage(2) % Q(IMC,i,j), 0.0_RP), 1.0_RP)          
+               mesh % faces(fID) % storage(2) % invMa2(i,j) =((cs_1 * Qclip + cs_2 * (1.0_RP -  Qclip))**2) * mesh % faces(fID) % storage(2) % rho(i,j) 
+
+            end do               ; end do 
+         end do
+         !$acc end parallel loop
+!$omp end do
+
+else
 !$omp do schedule(runtime)
          !$acc parallel loop gang vector_length(128) present(mesh) async(1)
          do eID = 1, size(mesh % elements)
@@ -510,9 +570,10 @@ module SpatialDiscretization
             do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
                mesh % elements(eID) % storage % rho(i,j,k) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,i,j,k)
                mesh % elements(eID) % storage % rho(i,j,k) = min(max(mesh % elements(eID) % storage % rho(i,j,k), dimensionless % rho_min),dimensionless % rho_max)
+               mesh % elements(eID) % storage % invMa2(i,j,k) = dimensionless % invMa2(1)
             end do               ; end do                ; end do
          end do
-         !$acc end parallel loop 
+         !$acc end parallel loop
 !$omp end do nowait
 
 !$omp do schedule(runtime)
@@ -525,10 +586,16 @@ module SpatialDiscretization
 
                mesh % faces(fID) % storage(1) % rho(i,j) = min(max(mesh % faces(fID) % storage(1) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
                mesh % faces(fID) % storage(2) % rho(i,j) = min(max(mesh % faces(fID) % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
+
+               mesh % faces(fID) % storage(1) % invMa2(i,j) = dimensionless % invMa2(1)
+               mesh % faces(fID) % storage(2) % invMa2(i,j) = dimensionless % invMa2(1)
+
             end do               ; end do 
          end do
          !$acc end parallel loop
 !$omp end do
+endif
+
 !
 !        ----------------------------------------
 !        Compute local entropy variables gradient
@@ -559,7 +626,7 @@ module SpatialDiscretization
             do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
                jacobian = mesh % elements(eID) % geom % jacobian(i,j,k)
                sqrtRho = sqrt(mesh % elements(eID) % storage % rho(i,j,k))
-               invMa2 = dimensionless % invMa2(1) * min(max(mesh % elements(eID) % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP) + dimensionless % invMa2(2) * (1.0_RP - min(max(mesh % elements(eID) % storage % Q(IMC,i,j,k),0.0_RP),1.0_RP)) 
+               invMa2 = mesh % elements(eID) % storage % invMa2(i,j,k)
                mesh % elements(eID) % storage % QDot(IMC,i,j,k)      = 0.0_RP
                mesh % elements(eID) % storage % QDot(IMSQRHOU,i,j,k) = (-0.5_RP*sqrtRho*( mesh % elements(eID) % storage % Q(IMSQRHOU,i,j,k)*mesh % elements(eID) % storage % U_x(IGU,i,j,k) & 
                                                                                         + mesh % elements(eID) % storage % Q(IMSQRHOV,i,j,k)*mesh % elements(eID) % storage % U_y(IGU,i,j,k) &   
@@ -1070,7 +1137,9 @@ module SpatialDiscretization
                                            mesh % faces(fID) % geom % t1, &
                                            mesh % faces(fID) % geom % t2, &
                                            mesh % faces(fID) % storage(1) % Q_aux,&
-                                           mesh % faces(fID) % storage(2) % Q_aux)
+                                           mesh % faces(fID) % storage(2) % Q_aux,&
+                                           mesh % faces(fID) % storage(1) % invMa2, &
+                                           mesh % faces(fID) % storage(2) % invMa2)
 
 !           ------------------------
 !           Multiply by the Jacobian
@@ -1273,7 +1342,9 @@ module SpatialDiscretization
                                           mesh % faces(fID) % geom % t1, &
                                           mesh % faces(fID) % geom % t2, &
                                           mesh % faces(fID) % storage(1) % Q_aux,&
-                                          mesh % faces(fID) % storage(2) % Q_aux)
+                                          mesh % faces(fID) % storage(2) % Q_aux,&
+                                          mesh % faces(fID) % storage(1) % invMa2, &
+                                          mesh % faces(fID) % storage(2) % invMa2)
 !           ------------------------
 !           Multiply by the Jacobian
 !           ------------------------
