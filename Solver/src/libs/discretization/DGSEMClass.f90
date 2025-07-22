@@ -25,6 +25,7 @@ Module DGSEMClass
    use SpallartAlmarasTurbulence , only: Spalart_Almaras_t
 #endif
    use MonitorsClass
+   use Samplings
    use ParticlesClass
    use Physics
    use FluidData
@@ -50,6 +51,7 @@ Module DGSEMClass
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manufactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
+	  type(Sampling_t)										  :: samplings										   
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       type(FWHClass)                                          :: fwh
 #endif
@@ -432,11 +434,12 @@ Module DGSEMClass
       END IF
 #endif
 !
-!     ------------------
-!     Build the monitors
-!     ------------------
+!     --------------------------------
+!     Build the monitors and samplings
+!     --------------------------------
 !
       call self % monitors % construct (self % mesh, controlVariables)
+	  call self % samplings % construct (self % mesh, controlVariables)
 !
 !     ------------------
 !     Build the FWH general class
@@ -483,6 +486,7 @@ Module DGSEMClass
       CALL self % mesh % destruct
 
       call self % monitors % destruct
+	  call self % samplings % destruct
 
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % destruct

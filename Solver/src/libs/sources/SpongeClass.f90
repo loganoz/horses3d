@@ -28,6 +28,10 @@ Module SpongeClass  !
         real(kind=RP)                                            :: amplitude        ! amplitude of the source term
         real(kind=RP)                                            :: delta            ! temporal filter width
         real(kind=RP)                                            :: rampWidth        ! length of the ramp width
+		real(kind=RP), dimension(:), allocatable                 :: fringeStart      ! start of Fringe Region
+		real(kind=RP), dimension(:), allocatable                 :: fringeEnd        ! end of Fringe Region
+		real(kind=RP), dimension(:), allocatable                 :: deltaRise        ! rampRise of Fringe Region
+		real(kind=RP), dimension(:), allocatable                 :: deltaFall        ! rampFall of Fringe Region
         real(kind=RP), dimension(:,:),allocatable                :: x0               ! position of start of the sponge (for cylindrical in the center)
         real(kind=RP), dimension(:), allocatable                 :: radious          ! radious of the ramp zone in cylindrical/cirular sponges
         real(kind=RP), dimension(:,:) ,allocatable               :: axis             ! axis vector of the sponge. In cylindrical axis of the cylinder, in cartesian, the aligned vector
@@ -57,9 +61,10 @@ Module SpongeClass  !
     integer,                       parameter :: KEYWORD_LENGTH             = 132
     character(len=KEYWORD_LENGTH), parameter :: SPONGE_CYLINDRICAL_NAME    = "cylindrical"
     character(len=KEYWORD_LENGTH), parameter :: SPONGE_CARTESIAN_NAME      = "cartesian"   
+	character(len=KEYWORD_LENGTH), parameter :: SPONGE_FRINGE_NAME         = "fringe"   
 
     enum, bind(C)
-    enumerator :: SPONGE_CYLINDRICAL = 1, SPONGE_CARTESIAN
+    enumerator :: SPONGE_CYLINDRICAL = 1, SPONGE_CARTESIAN, FRINGE
     end enum
 
   contains
@@ -100,6 +105,7 @@ Module SpongeClass  !
         allocate(self % radious(self % numOfSponges))
         allocate(self % axis(self % numOfSponges,NDIM))
         allocate(self % x0(self % numOfSponges,NDIM))
+		allocate(self % fringeStart(self % numOfSponges),self % fringeEnd(self % numOfSponges),self % deltaRise(self % numOfSponges),self % deltaFall(self % numOfSponges))
  
         do i = 1, self% numOfSponges
             write(tmp, '("sponge shape ",I0)') i
@@ -119,23 +125,52 @@ Module SpongeClass  !
                 end if
                 self % radious(i) = controlVariables % getValueOrDefault(tmp,0.0_RP)
             endif
-            if (useNumberedKeys) then
-                write(tmp, '("sponge axis ",I0)') i
-            else
-                write(tmp, '("sponge axis")')
-            end if
-            axis = controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH)
-            self % axis(i,:) = getRealArrayFromString(trim(axis))
-            !normalize axis
-            self % axis(i,:) = self % axis(i,:)/sqrt(sum(self % axis(i,:)**2))
+            if((self % shapeType(i) == "cylindrical").OR.(self % shapeType(i) == "cartesian")) then
+				if (useNumberedKeys) then
+					write(tmp, '("sponge axis ",I0)') i
+				else
+					write(tmp, '("sponge axis")')
+				end if
+				axis = controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH)
+				self % axis(i,:) = getRealArrayFromString(trim(axis))
+				!normalize axis
+				self % axis(i,:) = self % axis(i,:)/sqrt(sum(self % axis(i,:)**2))
 
-            if (useNumberedKeys) then
-                write(tmp, '("sponge start position ",I0)') i
-            else
-                write(tmp, '("sponge start position")')
-            end if
-            coordinates = controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH)
-            self % x0(i,:) = getRealArrayFromString(trim(coordinates))
+				if (useNumberedKeys) then
+					write(tmp, '("sponge start position ",I0)') i
+				else
+					write(tmp, '("sponge start position")')
+				end if
+				coordinates = controlVariables % stringValueForKey(tmp, requestedLength = STRING_CONSTANT_LENGTH)
+				self % x0(i,:) = getRealArrayFromString(trim(coordinates))
+			end if 
+			
+			if(self % shapeType(i) == "fringe") then
+                if (useNumberedKeys) then
+                    write(tmp, '("fringe start ",I0)') i
+                else
+                    write(tmp, '("fringe start")')
+                end if
+                self % fringeStart(i) = controlVariables % getValueOrDefault(tmp,0.0_RP)
+				if (useNumberedKeys) then
+                    write(tmp, '("fringe end ",I0)') i
+                else
+                    write(tmp, '("fringe end")')
+                end if
+                self % fringeEnd(i) = controlVariables % getValueOrDefault(tmp,0.0_RP)
+				if (useNumberedKeys) then
+                    write(tmp, '("delta rise ",I0)') i
+                else
+                    write(tmp, '("delta rise")')
+                end if
+                self % deltaRise(i) = controlVariables % getValueOrDefault(tmp,0.0_RP)
+				if (useNumberedKeys) then
+                    write(tmp, '("delta fall ",I0)') i
+                else
+                    write(tmp, '("delta fall")')
+                end if
+                self % deltaFall(i) = controlVariables % getValueOrDefault(tmp,0.0_RP)
+            endif
         end do 
 
 !       Get the file name of the solution
@@ -180,8 +215,16 @@ Module SpongeClass  !
             if(self % shapeType(i) == "cylindrical") then
                write(STD_OUT,'(30X,A,A28,F10.2)') "->", "Ramp radious: ", self % radious(i)
             endif
-            write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Axis: ", self % axis(i,:)
-            write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Ramp start: ", self % x0(i,:)
+			if((self % shapeType(i) == "cylindrical").OR.(self % shapeType(i) == "cartesian")) then
+				write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Axis: ", self % axis(i,:)
+				write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Ramp start: ", self % x0(i,:)
+			end if
+			if(self % shapeType(i) == "fringe") then
+				write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Fringe Start: ", self % fringeStart(i)
+				write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "Fringe End  : ", self % fringeEnd(i)
+				write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "delta Rise  : ", self % deltaRise(i)
+				write(STD_OUT,'(30X,A,A28,3(F10.2))') "->", "delta Fall  : ", self % deltaFall(i)
+			end if 
         end do 
 
          if (self % readBaseFLowFlag) write(STD_OUT,'(30X,A,A28,A)') "->", "Initial base flow file: ", self % initialFileName
@@ -200,6 +243,10 @@ Module SpongeClass  !
         safedeallocate(self % radious)
         safedeallocate(self % axis)
         safedeallocate(self % shapeType)
+		safedeallocate(self % fringeStart)
+		safedeallocate(self % fringeEnd)
+		safedeallocate(self % deltaRise)
+		safedeallocate(self % deltaFall)
 
     End Subroutine spongeDestruct
 !
@@ -215,6 +262,7 @@ Module SpongeClass  !
         !local variables
         real(kind=RP), dimension(:,:,:), allocatable            :: xStar, sigma
         real(kind=RP), dimension(NDIM)                          :: r_vector
+		real(kind=RP)                                           :: xData(2), Sf(2)
         logical, dimension(:), allocatable                      :: hasSponge
         integer                                                 :: i, j, k, eID, counter, spongeEID, ierr
         integer, dimension(NDIM)                                :: Nxyz
@@ -237,6 +285,8 @@ Module SpongeClass  !
                 whichSponge = SPONGE_CYLINDRICAL
             case (SPONGE_CARTESIAN_NAME)
                 whichSponge = SPONGE_CARTESIAN
+			case (SPONGE_FRINGE_NAME)
+                whichSponge = FRINGE
             case default
                 print*, "Sponge name not recognized."
                 errorMessage(STD_OUT)
@@ -259,6 +309,11 @@ Module SpongeClass  !
                         case (SPONGE_CARTESIAN)
                             ! in this case xstar is the distance to the plane
                             xStar(i,j,k) = sum(r_vector(:)*self % axis(sponge_number,:))
+						case (FRINGE)
+                            ! in this case xstar is the distance to the plane
+							if ((e % geom % x(1,i,j,k).ge.self % fringeStart(sponge_number)).and.(e % geom % x(1,i,j,k).le.self % fringeEnd(sponge_number))) then
+								xStar(i,j,k) = 1.0_RP
+							end if 
                         end select
                     end do         ; end do          ; end do
                     if (any(xStar .ge. 0.0_RP) .AND. .not.hasSponge(eID)  ) then
@@ -298,6 +353,8 @@ Module SpongeClass  !
                 whichSponge = SPONGE_CYLINDRICAL
             case (SPONGE_CARTESIAN_NAME)
                 whichSponge = SPONGE_CARTESIAN
+			case (SPONGE_FRINGE_NAME)
+                whichSponge = FRINGE
             end select
 
             do spongeEID = 1, self % nElements
@@ -319,18 +376,50 @@ Module SpongeClass  !
                             xStar(i,j,k) = sqrt(abs(sum(r_vector*r_vector) - POW2(self % radious(sponge_number)))) / self % rampWidth
                         case (SPONGE_CARTESIAN)
                             xStar(i,j,k) = sum(r_vector(:)*self % axis(sponge_number,:))/(self % rampWidth)
+						case (FRINGE)
+							xData(1)=(e % geom % x(1,i,j,k)-self % fringeStart(sponge_number))/self % deltaRise(sponge_number)
+							xData(2)=((e % geom % x(1,i,j,k)-self % fringeEnd(sponge_number))/self % deltaFall(sponge_number))+1
+							
+							if (xData(1).LE.0.0_RP) then
+								Sf(1)=0.0_RP
+							else if (xData(1).GE.1.0_RP) then
+								Sf(1)=1.0_RP
+							else
+								!if (abs(xData(1) - 1.0_RP) > epsilon(xData(1)) .and. abs(xData(1)) > epsilon(xData(1))) then
+									Sf(1)=1.0_RP/(1.0_RP+exp((1.0_RP/max((xData(1)-1.0_RP),0.01_RP))+(1.0_RP/max(xData(1),0.01_RP))))
+								! else
+									! Sf(1)=1.0_RP
+								! end if 
+							end if
+							
+							if (xData(2).LE.0.0_RP) then
+								Sf(2)=0.0_RP
+							else if (xData(2).GE.1.0_RP) then
+								Sf(2)=1.0_RP
+							else
+								!if (abs(xData(2) - 1.0_RP) > epsilon(xData(2)) .and. abs(xData(2)) > epsilon(xData(2))) then
+								  Sf(2) = 1.0_RP / (1.0_RP + exp((1.0_RP / max((xData(2) - 1.0_RP),0.01_RP)) + (1.0_RP / max(xData(2),0.01_RP))))
+								! else
+								  ! Sf(2) = 1.0_RP
+								! end if
+							end if
+							
+							e % storage % intensitySponge(i,j,k)= self % amplitude*(Sf(1)-Sf(2))+e % storage % intensitySponge(i,j,k)
                         end select
                     end do         ; end do          ; end do
-                
-                    ! limit xStar to [0,1] since after 1 should be constant at the amplitude value
-                    xStar = max(0.0_RP,xStar)
-                    xStar = min(1.0_RP,xStar)
-                    ! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
-                    sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
-                    ! limit sigms <=1 since after 1 should be constant at the amplitude value
-                    sigma  = MIN(1.0_RP,sigma)
-                    ! pre computed intensity, including amplitude and ramp damping
-                    e % storage % intensitySponge(:,:,:) = max(e % storage % intensitySponge(:,:,:), self % amplitude * sigma(:,:,:))
+					if((self % shapeType(sponge_number) == "cylindrical").OR.(self % shapeType(sponge_number) == "cartesian")) then
+						if (any(xStar .ge. 0.0_RP)) then
+							! limit xStar to [0,1] since after 1 should be constant at the amplitude value
+							xStar = max(0.0_RP,xStar)
+							xStar = min(1.0_RP,xStar)
+							! Sponge Ramping Function, taken from Beck, A., and Munz, C.-D., Direct Aeroacoustic Simulations Based on High Order Discontinuous Galerkin Schemes, Springer, Cham, 2018, Vol. 579
+							sigma  = 6.0_RP*xStar**5.0_RP - 15.0_RP*xStar**4.0_RP + 10.0_RP*xStar**3.0_RP
+							! limit sigms <=1 since after 1 should be constant at the amplitude value
+							sigma  = MIN(1.0_RP,sigma)
+							! pre computed intensity, including amplitude and ramp damping
+							e % storage % intensitySponge(:,:,:) = max(e % storage % intensitySponge(:,:,:), self % amplitude * sigma(:,:,:))
+						end if
+					end if 
                 end associate
             end do 
         end do

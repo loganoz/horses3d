@@ -363,7 +363,7 @@ module pAdaptationClass
 !        -----------------------------------------------         
          write(STD_OUT,'(/)')
          call SubSection_Header("Initialize Adaptation based on Overenriching Box")
-		    write(STD_OUT,'(30X,A,A27,A20)') "->" , "ID: " , this % ID
+		    write(STD_OUT,'(30X,A,A27,I4)') "->" , "ID: " , this % ID
             write(STD_OUT,'(30X,A,A27,A20)') "->" , "x span: " , x_span
 			write(STD_OUT,'(30X,A,A27,A20)') "->" , "y span: " , y_span
 			write(STD_OUT,'(30X,A,A27,A20)') "->" , "z span: " , z_span

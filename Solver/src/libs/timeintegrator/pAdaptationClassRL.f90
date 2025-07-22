@@ -341,12 +341,12 @@ module pAdaptationClassRL
             case ("rho")
                this % acoustic_variable = 8
             case default
-               WRITE(STD_OUT,*) 'Not recognized acoustic variable. Using pressure by default.'
                this % acoustic_variable = 7
+			   if ( MPI_Process % isRoot ) WRITE(STD_OUT,*) 'Undefined acoustic variable. Using pressure by default.'
             end select
          else
-            WRITE(STD_OUT,*) 'Undefined acoustic variable. Using pressure by default.'
             this % acoustic_variable = 7
+			if ( MPI_Process % isRoot ) WRITE(STD_OUT,*) 'Undefined acoustic variable. Using pressure by default.'
          end if
 
          call mesh % DefineAcousticElements(this % observer, this % acoustic_sources, this % acoustic_distance, surfacesMesh % zones)
