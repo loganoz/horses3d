@@ -1793,7 +1793,7 @@ module StorageClass
 
       end subroutine Statistics_Construct
 
-      subroutine Statistics_Destruct(self)
+      pure subroutine Statistics_Destruct(self)
          implicit none
          class(Statistics_t)     :: self
 
