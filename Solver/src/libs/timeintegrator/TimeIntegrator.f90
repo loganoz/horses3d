@@ -318,17 +318,7 @@
 !        ----------------
 !
          call self % autosave   % Configure (controlVariables, initial_time)
-         ! Check the type input and allocate the pAdaptator
-         adaptationType = getAdaptationType()
-         select case (adaptationType)
-            case(0)
-               allocate(pAdaptationTE_t::self % pAdaptator)
-            case(1)
-               allocate(pAdaptationRL_t::self % pAdaptator)
-            case default
-               error stop 'Adaptation type not recognized'
-         end select
-         call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh)  ! If not requested, the constructor returns doing nothing
+         
          call surfacesMesh % autosaveConfig (controlVariables, initial_time)              ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)

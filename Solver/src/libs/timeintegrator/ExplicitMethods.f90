@@ -1492,7 +1492,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !  ------------------------------
 !  Routine for Multi Level RK3
 !  ------------------------------
-   SUBROUTINE TakeMLRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeMLRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -1516,6 +1516,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
