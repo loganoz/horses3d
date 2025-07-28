@@ -1795,7 +1795,7 @@ module StorageClass
 
       pure subroutine Statistics_Destruct(self)
          implicit none
-         class(Statistics_t)     :: self
+         class(Statistics_t), intent(inout) :: self
 
          safedeallocate( self % data )
 
