@@ -28,6 +28,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/AnisFASMultigridClass.o \
 		./build_ns/FASMultigridClass.o \
 		./build_ns/MultiTauEstimationClass.o \
+		./build_ns/AdaptiveTimeStepClass.o \
 		./build_ns/pAdaptationClass.o \
 		./build_ns/pAdaptationClassTE.o \
 		./build_ns/pAdaptationClassRL.o \
@@ -53,6 +54,7 @@ LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		./build_nssa/AnisFASMultigridClass.o \
 		./build_nssa/FASMultigridClass.o \
 		./build_nssa/MultiTauEstimationClass.o \
+		./build_nssa/AdaptiveTimeStepClass.o \
 		./build_nssa/pAdaptationClass.o \
 		./build_nssa/pAdaptationClassTE.o \
 		./build_nssa/pAdaptationClassRL.o \
@@ -78,6 +80,7 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/AnisFASMultigridClass.o \
 		./build_ins/FASMultigridClass.o \
 		./build_ins/MultiTauEstimationClass.o \
+		./build_ins/AdaptiveTimeStepClass.o \
 		./build_ins/pAdaptationClass.o \
 		./build_ins/pAdaptationClassTE.o \
 		./build_ins/pAdaptationClassRL.o \
@@ -104,6 +107,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/AnisFASMultigridClass.o \
 		./build_ch/FASMultigridClass.o \
 		./build_ch/MultiTauEstimationClass.o \
+		./build_ch/AdaptiveTimeStepClass.o \
 		./build_ch/pAdaptationClass.o \
 		./build_ch/pAdaptationClassTE.o \
 		./build_ch/pAdaptationClassRL.o \
@@ -129,6 +133,7 @@ LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/AnisFASMultigridClass.o \
 		./build_mu/FASMultigridClass.o \
 		./build_mu/MultiTauEstimationClass.o \
+		./build_mu/AdaptiveTimeStepClass.o \
 		./build_mu/pAdaptationClass.o \
 		./build_mu/pAdaptationClassTE.o \
 		./build_mu/pAdaptationClassRL.o \
@@ -154,6 +159,7 @@ LIBOBJS_CAA =  ./build_caa/TimeIntegratorDefinitions.o \
 		./build_caa/AnisFASMultigridClass.o \
 		./build_caa/FASMultigridClass.o \
 		./build_caa/MultiTauEstimationClass.o \
+		./build_caa/AdaptiveTimeStepClass.o \
 		./build_caa/pAdaptationClass.o \
 		./build_caa/pAdaptationClassTE.o \
 		./build_caa/pAdaptationClassRL.o \

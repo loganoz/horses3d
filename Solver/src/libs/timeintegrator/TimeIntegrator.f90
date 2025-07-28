@@ -31,6 +31,7 @@
       use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC, getAdaptationType
       use pAdaptationClassTE              , only: pAdaptationTE_t 
       use pAdaptationClassRL              , only: pAdaptationRL_t
+      use AdaptiveTimeStepClass
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
@@ -48,9 +49,10 @@
          REAL(KIND=RP)                          :: tFinal, time, initial_time
          INTEGER                                :: initial_iter, numTimeSteps, outputInterval, iter
          REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
-         LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
+         LOGICAL                                :: Compute_dt, adaptive_dt ! Is dt computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
          class(pAdaptation_t), allocatable      :: pAdaptator
+         type(adaptiveTimeStep_t)               :: adaptiveTimeStep
          type(MultiTauEstim_t)                  :: TauEstimator
          character(len=LINE_LENGTH)             :: integration_method
          integer                                :: RKStep_key
@@ -107,13 +109,59 @@
          logical                               :: limit
          real(RP)                              :: limiter_minimum
          integer                               :: adaptationType  ! 0 for Truncation Error and 1 for Reinforcement Learning (VI algorithm)
-!
+
+!        --------------------------------------------------
+!        Construct the pAdaptation object 
+!        --------------------------------------------------
+         ! Check the type input and allocate the pAdaptator
+         adaptationType = getAdaptationType()
+         select case (adaptationType)
+            case(0)
+               allocate(pAdaptationTE_t::self % pAdaptator)
+            case(1)
+               allocate(pAdaptationRL_t::self % pAdaptator)
+            case default
+               error stop 'Adaptation type not recognized'
+         end select
+         call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh, self % adaptiveTimeStep)  ! If not requested, the constructor returns doing nothing
+
+         !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
 !           If keyword "cfl" is present, the time step size is computed in every time step.
 !           If it is not, the keyword "dt" must be specified explicitly.
 !        ----------------------------------------------------------------------------------
 !
+         if (controlVariables % containsKey("adaptive dt")) then
+            self % adaptive_dt = controlVariables % logicalValueForKey("adaptive dt")
+            if (self % adaptive_dt) then
+               if (self % adaptiveTimeStep % constructed) then
+                  if (controlVariables % containsKey("dt")) then
+                     self % dt = controlVariables % doublePrecisionValueForKey("dt")
+                  else
+                     self % dt = 1e-8_RP
+                     write(STD_OUT,*) "Warning: 'dt' keyword not specified for adaptive dt. Using initial minimum value of ", self % dt
+                  end if
+                  if ( controlVariables % ContainsKey("explicit method") ) then
+                     keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
+                     call toLower(keyword)
+                     select case (keyword)
+                     case(RK3_NAME)
+                        write(STD_OUT,*) "Using 'RK3' method with adaptive dt."
+                     case default
+                        error stop "Error, only 'RK3' method is implemented for adaptive dt"
+                     end select
+                  else
+                     write(STD_OUT,*) "Using 'RK3' method with adaptive dt by default."
+                  end if
+               else
+                  error stop "Error: 'RL pAdaptation' is required for adaptive dt."
+               end if
+            end if
+         else
+            self % adaptive_dt = .FALSE.
+         end if
+
          IF (controlVariables % containsKey("cfl")) THEN
 #ifdef FLOW
             self % Compute_dt = .TRUE.
@@ -387,8 +435,8 @@
 !     ---------------
 
       sem  % numberOfTimeSteps = self % initial_iter
-      if (.not. self % Compute_dt) monitors % dt_restriction = DT_FIXED
-	  if (.not. self % Compute_dt) samplings % dt_restriction = DT_FIXED
+      if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) monitors % dt_restriction = DT_FIXED
+	  if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) samplings % dt_restriction = DT_FIXED
 
 !     Measure solver time
 !     -------------------
@@ -431,7 +479,7 @@
                call IntegrateInTime( self, sem, controlVariables, monitors, samplings, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
             end if
 
-            call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
 
          end do
@@ -515,6 +563,8 @@
 
       logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders, saveSource
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
+
+      logical                       :: dtHasToAdapt = .FALSE. ! Flag to indicate if the time step has to be adapted
 !
 !     ----------------------
 !     Read Control variables
@@ -538,6 +588,10 @@
 
       t = self % time
 
+      if (self % adaptive_dt) then
+         dt = self % dt
+      end if
+
 #if defined(NAVIERSTOKES)
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
@@ -555,10 +609,12 @@
 !     ----------------------------------
 !
       if( sem % mesh% IBM% active ) then
-         if ( self % Compute_dt ) then
-            call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
-         else
-            dt = self% dt
+         if (.not. self % adaptive_dt) then
+            if ( self % Compute_dt ) then
+               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
+            else
+               dt = self% dt
+            end if
          end if
 
          if( sem % mesh% IBM% TimePenal ) then 
@@ -596,7 +652,7 @@
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
-         call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
 		 call samplings % UpdateInterp(sem % mesh)
       end if
@@ -659,9 +715,15 @@
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 
 !
-!        CFL-bounded time step
-!        ---------------------      
-         IF ( self % Compute_dt ) then
+!        CFL-bounded time step or adaptive time step
+!        -------------------------------------------------     
+         if (self % adaptive_dt) then
+            if (dtHasToAdapt) then
+               ! Adapt the time step
+               call self % adaptiveTimeStep % update(sem % mesh, t, self % dt)            
+            end if
+            call self % adaptiveTimeStep % hasToAdapt(t, self % dt, dtHasToAdapt)
+         else IF ( self % Compute_dt ) then
            call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
          END IF
 !
@@ -718,10 +780,14 @@
 					self % ML_ReLevel = .false. 
 					self % ML_Counter = 0
 				end if 
-		    end if 
+		   end if 
+         if (self % adaptive_dt) then 
+            CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1, dtAdaptation = dtHasToAdapt)
+         else
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
+         end if
 #if defined(NAVIERSTOKES)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+         if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
 #endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
@@ -813,9 +879,9 @@
 !
 !        p- Adapt
 !        --------------
-         IF( self % pAdaptator % hasToAdapt(k+1) ) then
-            call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
-			call samplings % UpdateInterp(sem % mesh)
+         IF( self % pAdaptator % hasToAdapt(k+1) .or. dtHasToAdapt ) then
+            call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
+			   call samplings % UpdateInterp(sem % mesh)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !

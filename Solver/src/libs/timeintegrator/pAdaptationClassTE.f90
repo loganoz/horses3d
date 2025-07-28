@@ -113,13 +113,14 @@ module pAdaptationClassTE
 !  ----------------------------------------
 !  Routine for constructing the p-adaptator
 !  ----------------------------------------
-   subroutine pAdaptation_Construct(this, controlVariables, t0, mesh)
+   subroutine pAdaptation_Construct(this, controlVariables, t0, mesh, adaptiveTimeStep)
       implicit none
       !--------------------------------------
       class(pAdaptationTE_t) , intent(inout) :: this             !>  P-Adaptator
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
       class(HexMesh)         , intent(inout) :: mesh
+      type(adaptiveTimeStep_t), intent(inout):: adaptiveTimeStep
       !--------------------------------------
       ! For block reading
       character(LINE_LENGTH)         :: paramFile
@@ -416,7 +417,15 @@ module pAdaptationClassTE
             call this % overenriching(i) % initialize (i)
          end do
       end if
-      
+
+      safedeallocate(R_increasing)
+      safedeallocate(R_TEFiles)
+      safedeallocate(reorganize_z)
+      safedeallocate(R_restart)
+      safedeallocate(TruncError)
+      safedeallocate(R_pSmoothing)
+      safedeallocate(R_cTruncError)
+
    end subroutine pAdaptation_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -451,7 +460,7 @@ module pAdaptationClassTE
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptation_pAdapt(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+   subroutine pAdaptation_pAdapt(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, adaptiveTimeStep)
       use AnisFASMultigridClass
       implicit none
       !-arguments----------------------------
@@ -462,6 +471,7 @@ module pAdaptationClassTE
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input variables (that can be modified depending on the user input)
+      type(adaptiveTimeStep_t)   :: adaptiveTimeStep 
       !-local-variables----------------------
       integer                    :: eID               !   Element counter
       integer                    :: Dir               !   Direction

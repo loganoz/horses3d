@@ -79,6 +79,7 @@ module StorageClass
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)         ! NSE Particles source term
       real(kind=RP),           allocatable :: QbaseSponge(:,:,:,:)   ! Base Flow State vector for sponges
       real(kind=RP),           allocatable :: intensitySponge(:,:,:) ! Intensity for sponges
+      real(kind=RP),           allocatable :: QLowRK(:,:,:,:)        ! NSE State vector solved with a lower order RK method (required for adaptive time-stepping)
 #ifndef ACOUSTIC
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: mu_turb_NS(:,:,:)    ! mu of LES
@@ -791,6 +792,7 @@ module StorageClass
 !
 #ifdef FLOW
          allocate ( self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % QLowRK(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate (self % QbaseSponge(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate (self % intensitySponge(0:Nx,0:Ny,0:Nz) )
          allocate ( self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
@@ -877,6 +879,7 @@ module StorageClass
          self % S_NS            = 0.0_RP
          self % S_NSP           = 0.0_RP
          self % QNS             = 0.0_RP
+         self % QLowRK          = 0.0_RP
          self % QbaseSponge     = 0.0_RP
          self % intensitySponge = 0.0_RP
          self % QDotNS          = 0.0_RP
@@ -980,6 +983,7 @@ module StorageClass
 
 #ifdef FLOW
          to % QNS    = from % QNS
+         to % QLowRK = from % QLowRK
          to % QbaseSponge = from % QbaseSponge
          to % intensitySponge = from % intensitySponge
 
@@ -1076,6 +1080,7 @@ module StorageClass
          safedeallocate(self % QDotNS)
          safedeallocate(self % QbaseSponge)
          safedeallocate(self % intensitySponge)
+         safedeallocate(self % QLowRK)
 
          if ( allocated(self % PrevQ) ) then
             num_prevSol = size(self % PrevQ)
@@ -1109,6 +1114,9 @@ module StorageClass
          !if (self % anJacobian) then ! Not needed since there's only one variable (= one if)
             safedeallocate(self % dF_dgradQ)
          !end if
+
+         ! Destruct statistics
+         call self % stats % destruct()
 #endif
 
 #ifdef CAHNHILLIARD
@@ -1138,6 +1146,18 @@ module StorageClass
 #endif
 
          safedeallocate(self % PrevQ)
+
+!        Deallocate RKSteps
+!        ------------------
+#ifdef MULTIPHASE
+         if ( allocated(self % RKSteps) ) then
+            do k = 1, size(self % RKSteps)
+               safedeallocate(self % RKSteps(k) % K)
+               safedeallocate(self % RKSteps(k) % hatK)
+            end do
+            deallocate(self % RKSteps)
+         end if
+#endif
 
       end subroutine ElementStorage_Destruct
 #ifdef FLOW
@@ -1271,6 +1291,7 @@ module StorageClass
          if (all(this % Nxyz == other % Nxyz)) then
             other % Q = this % Q
             other % QbaseSponge = this % QbaseSponge
+            other % QLowRK = this % QLowRK
          else
 !$omp critical
             call NodalStorage(this  % Nxyz(1)) % construct(nodes,this  % Nxyz(1))
@@ -1318,6 +1339,15 @@ module StorageClass
 
             this % Q(1:,0:,0:,0:) => this % QbaseSponge
             other % Q(1:,0:,0:,0:) => other % QbaseSponge
+
+            call Interp3DArrays  (Nvars      = NCONS   , &
+                                  Nin        = this  % Nxyz , &
+                                  inArray    = this  % Q    , &
+                                  Nout       = other % Nxyz , &
+                                  outArray   = other % Q    )
+
+            this % Q(1:,0:,0:,0:) => this % QLowRK
+            other % Q(1:,0:,0:,0:) => other % QLowRK
 
             call Interp3DArrays  (Nvars      = NCONS   , &
                                   Nin        = this  % Nxyz , &
