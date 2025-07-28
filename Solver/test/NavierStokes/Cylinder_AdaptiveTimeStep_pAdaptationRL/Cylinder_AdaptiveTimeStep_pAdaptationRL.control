@@ -1,0 +1,84 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/cyl_circ.msh"
+Polynomial order      = 3
+Number of time steps  = 50
+Output Interval       = 1
+Convergence tolerance = 1.d-10
+mach number           = 0.2
+Reynolds number       = 200.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+solution file name    = "RESULTS/Cylinder_Re200_test.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/Cylinder_Re200_test.hsol"
+riemann solver        = roe
+
+simulation type       = time-accurate
+final time            = 1.0d0
+time integration      = explicit
+explicit method       = RK3
+
+adaptive dt           = .true. 
+dt                    = 5.d-4 
+dt adaptation step    = 5.d-3
+minimum dt            = 1.d-5
+maximum dt            = 1.d-2
+
+#define boundary cylinder
+  type = NoSlipWall
+#end
+
+#define boundary left__right
+  type = FreeSlipWall
+#end
+
+#define boundary inlet
+  type = Inflow
+#end
+
+#define boundary outlet
+  type = Outflow
+#end
+
+!-Adaptation-----------------------------------
+save sensor with solution = .true.
+
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 5d-3
+   Nmax                  = [6, 6, 6]
+   Nmin                  = [2, 2, 2]
+   adjust nz             = .FALSE.
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 1000
+   threshold             = 5 !Values higher than 100 leads to never adapting
+   error estimation      = .true.
+   error type            = avg
+   error variable        = u
+#end
+!---------------------------------------------
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = cylinder
+   Variable = drag
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = cylinder
+   Variable = lift
+   Direction = [0.0,1.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define volume monitor 1
+   Name = sensor
+   Variable = sensor range
+#end

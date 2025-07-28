@@ -78,6 +78,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/VirtualSurfaces_acoustics_pAdaptationRL \
             ./NavierStokes/ActuatorLineInterpolation \
             ./NavierStokes/ActuatorLineProjection \
+            ./NavierStokes/Cylinder_AdaptiveTimeStep_pAdaptationRL \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
