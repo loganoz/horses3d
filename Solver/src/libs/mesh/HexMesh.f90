@@ -5677,5 +5677,12 @@ call elementMPIList % destruct
       call acousticElementList % destruct
       call aerodynamicElementList % destruct
 
+      safedeallocate(x)
+      safedeallocate(y)
+      safedeallocate(z)
+      safedeallocate(total_x)
+      safedeallocate(total_y)
+      safedeallocate(total_z)
+
    end subroutine HexMesh_DefineAcousticElements
 END MODULE HexMeshClass

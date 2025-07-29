@@ -551,14 +551,14 @@ end module ProblemFileFunctions
 !           -----------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            real(kind=RP), parameter :: final_time = 2.1612033407693628E-02_RP
+            real(kind=RP), parameter :: final_time = 2.1411671281894955E-02_RP
             real(kind=RP), parameter :: residuals(5) = [3.6915729442307963E+01_RP, &
-                                                      9.986932111274236E+01_RP, &
+                                                      9.9869321112742355E+01_RP, &
                                                       6.6650865615117439E+01_RP, &
-                                                      4.6033500893652303E-10_RP, &
+                                                      4.6926110637335003E-10_RP, &
                                                       9.8887738522589393E+02_RP ]
             real(kind=RP), parameter :: cd = 6.3218210532607147E+04_RP
-            real(kind=RP), parameter :: sensor(2) = [0.0E+00_RP, 1.3783879038143E-03_RP]
+            real(kind=RP), parameter :: sensor(2) = [2.2766387006039312E-06_RP, 1.3793624835056054E-03_RP]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

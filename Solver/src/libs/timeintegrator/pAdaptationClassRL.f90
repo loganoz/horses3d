@@ -82,7 +82,7 @@ module pAdaptationClassRL
 !  ----------------------------------------
 !  Routine for constructing the p-adaptator
 !  ----------------------------------------
-   subroutine pAdaptation_Construct(this, controlVariables, t0, mesh)
+   subroutine pAdaptation_Construct(this, controlVariables, t0, mesh, adaptiveTimeStep)
       use SurfaceMesh, only: surfacesMesh
       implicit none
       !--------------------------------------
@@ -90,6 +90,7 @@ module pAdaptationClassRL
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
       class(HexMesh)         , intent(inout) :: mesh
+      type(adaptiveTimeStep_t), intent(inout):: adaptiveTimeStep
       !--------------------------------------
       ! For block reading
       character(LINE_LENGTH)         :: paramFile
@@ -102,6 +103,7 @@ module pAdaptationClassRL
       ! Extra vars
       integer                        :: i      ! Element counter
       integer                        :: no_of_overen_boxes
+      logical                        :: adaptive_dt = .FALSE.
       !--------------------------------------
       
       this % Adapt  = pAdaptationIsDefined()
@@ -133,7 +135,7 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
-	  call readValueInRegion ( trim ( paramFile )  , "max polynomial diff"    , R_Jump             , in_label , "# end" )
+	   call readValueInRegion ( trim ( paramFile )  , "max polynomial diff"    , R_Jump             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "agent file"             , agentFile          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "threshold"              , R_threshold        , in_label , "# end" )
@@ -352,6 +354,20 @@ module pAdaptationClassRL
          call mesh % DefineAcousticElements(this % observer, this % acoustic_sources, this % acoustic_distance, surfacesMesh % zones)
 
       end if
+
+!     Adaptive dt
+!     -----------
+      if (controlVariables % containsKey("adaptive dt")) then
+         adaptive_dt = controlVariables % logicalValueForKey("adaptive dt")
+         if (adaptive_dt) then
+            if (this % error_estimation) then
+               call adaptiveTimeStep % construct(controlVariables, t0) ! Construct the adaptive time step
+               adaptiveTimeStep % error_variable = this % error_variable ! Set the error variable for the adaptive time step
+            else
+               error stop 'Adaptive dt is only available with error estimation'
+            end if
+         end if
+      end if 
       
 !
 !     Stopwatch events
@@ -410,7 +426,17 @@ module pAdaptationClassRL
       else
          error stop 'Keyword agentFile is mandatory for p-adaptation with RL'
       end if
-      
+
+      safedeallocate(R_increasing)
+      safedeallocate(reorganize_z)
+      safedeallocate(R_restart)
+      safedeallocate(R_ErrorEstimation)
+      safedeallocate(R_acoustics)
+      safedeallocate(R_tolerance)
+      safedeallocate(R_threshold)
+      safedeallocate(R_acoustic_tol)
+      safedeallocate(R_acoustic_distance)
+
    end subroutine pAdaptation_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -438,7 +464,7 @@ module pAdaptationClassRL
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the Value Iteration RL agent
 !  ------------------------------------------------------------------------
-   subroutine pAdaptation_pAdapt(this, sem, itera, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+   subroutine pAdaptation_pAdapt(this, sem, itera, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, adaptiveTimeStep)
       use AnisFASMultigridClass
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       use SpongeClass, only: sponge
@@ -452,19 +478,17 @@ module pAdaptationClassRL
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input variables (that can be modified depending on the user input)
+      type(adaptiveTimeStep_t)   :: adaptiveTimeStep  !<> Adaptive time step class
       !-local-variables----------------------
       integer                    :: eID                                     !   Element counter
       integer                    :: Dir                                     !   Direction
       integer                    :: NNew(3,sem % mesh % no_of_elements)     !   New polynomial orders of mesh (after adaptation!)
       integer, save              :: Stage = 0                               !   Stage of p-adaptation for the increasing method
-      CHARACTER(LEN=LINE_LENGTH) :: newInput                                !   Variable used to change the input in controlVariables after p-adaptation 
-      character(len=LINE_LENGTH) :: RegfileName
       integer                    :: i                                       !   Counters
-      TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
       integer                    :: Ndir = 3, Ndir_acoustics = 4
-	  integer                    :: maxPGlob, minPGlob, maxP, minP
+	   integer                    :: maxPGlob, minPGlob, maxP, minP
       ! integer                    :: pressure_var = 7, rho_var = 8
       !-mpi-variables-------------------------
       integer                    :: ierr
@@ -533,16 +557,15 @@ module pAdaptationClassRL
       else
          adaptationPercentage = 100.0_RP * adaptedElements / sem % mesh % no_of_elements
       end if  
-
-      ! Only adapt once
-      this % Adapt = .FALSE.
       
 !
 !     -----------------------------------------------------------------------------
 !     Adapt only if the percentage of elements to be adapted is above the threshold
 !     -----------------------------------------------------------------------------
 !
-      if (adaptationPercentage > this % threshold) then
+      if (adaptationPercentage > this % threshold .and. this % Adapt) then
+
+         adaptiveTimeStep % pAdapted = .TRUE. ! Set the pAdapted flag to true for the adaptive time step
 
          if (  MPI_Process % doMPIAction ) then
 #ifdef _HAS_MPI_
@@ -707,6 +730,9 @@ module pAdaptationClassRL
    ! End of adapting
    end if
 
+   ! Only adapt once
+   this % Adapt = .FALSE.
+
 !End NAVIERSTOKES
 #endif 
    end subroutine pAdaptation_pAdapt
@@ -736,8 +762,9 @@ module pAdaptationClassRL
       real(kind=RP)              :: Q_dir1(Ndir, 0:e % Nxyz(1)), Q_dir2(Ndir, 0:e % Nxyz(2)), Q_dir3(Ndir, 0:e % Nxyz(3))
       real(kind=RP)              :: Q_error1(0:e % Nxyz(1)), Q_error2(0:e % Nxyz(2)), Q_error3(0:e % Nxyz(3))
       real(kind=RP)              :: minQ, maxQ, min_errorQ, max_errorQ
-      real(kind=RP)              :: error_sensor
+      real(kind=RP)              :: error_sensor, min_error_sensor
       !--------------------------------------------
+      min_error_sensor = 1e-10_RP
       
 !     Initialization of P
 !     ---------------------------
@@ -754,7 +781,7 @@ module pAdaptationClassRL
 !     Select the polynomial order in Direction 1
 !     --------------------------------
       action = -1 ! Initialized to minimum value
-      error_sensor = 0.0_RP
+      error_sensor = min_error_sensor ! Initialized to minimum value
 
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(2)
@@ -843,7 +870,7 @@ module pAdaptationClassRL
                   indices_error1(:) = this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(1) > 2) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   ! else if (Pxyz(1) > 1) then
                   !    error_sensor = error_sensor + 0.0_RP
                   ! else
@@ -854,9 +881,9 @@ module pAdaptationClassRL
                   indices_error1(:) = nint(2 * this % agent % smax * (Q_error1(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(1) > 2) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   else if (Pxyz(1) > 1) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   else
                      error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   end if
@@ -875,7 +902,7 @@ module pAdaptationClassRL
 !     Select the polynomial order in Direction 2
 !     --------------------------------
       action = -1 ! Initialized to minimum value
-      error_sensor = 0.0_RP
+      error_sensor = min_error_sensor
 
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(1)
@@ -964,7 +991,7 @@ module pAdaptationClassRL
                   indices_error2(:) = this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(2) > 2) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   ! else if (Pxyz(2) > 1) then
                   !    error_sensor = error_sensor + 0.0_RP
                   ! else
@@ -975,9 +1002,9 @@ module pAdaptationClassRL
                   indices_error2(:) = nint(2 * this % agent % smax * (Q_error2(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(2) > 2) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   else if (Pxyz(2) > 1) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   else
                      error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   end if
@@ -999,7 +1026,7 @@ module pAdaptationClassRL
 !     Select the polynomial order in Direction 3
 !     --------------------------------
       action = -1 ! Initialized to minimum value
-      error_sensor = 0.0_RP
+      error_sensor = min_error_sensor
 
       do i = 0, Pxyz(2)
          do j = 0, Pxyz(1)
@@ -1088,7 +1115,7 @@ module pAdaptationClassRL
                   indices_error3(:) = this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(3) > 2) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   ! else if (Pxyz(3) > 1) then
                   !    error_sensor = error_sensor + 0.0_RP
                   ! else
@@ -1099,9 +1126,9 @@ module pAdaptationClassRL
                   indices_error3(:) = nint(2 * this % agent % smax * (Q_error3(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(3) > 2) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   else if (Pxyz(3) > 1) then
-                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), 0.0_RP) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
+                     error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   else
                      error_sensor = error_sensor + 1.0_RP * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
                   end if

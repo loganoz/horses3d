@@ -64,7 +64,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking an explicit Euler - RK3 step depending on the polynomial order of each element.
 !  ------------------------------
- SUBROUTINE TakeEulerRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+ SUBROUTINE TakeEulerRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -88,6 +88,7 @@ MODULE ExplicitMethods
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -207,7 +208,7 @@ MODULE ExplicitMethods
    END SUBROUTINE TakeEulerRK3Step
 
 
-SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !        *****************************************************************************************
 !          Uses RK3 in phase1 and LSERK14-4 in phase2, think phase1 is air and phase2 is water. Of course, this will only yield an advantage if: 
@@ -232,6 +233,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -604,7 +606,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -628,6 +630,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -639,6 +642,13 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
 
       INTEGER :: i, j, k, id
+      logical :: updateQLowRK
+
+      if (present(dtAdaptation)) then
+         updateQLowRK = dtAdaptation
+      else
+         updateQLowRK = .false.
+      end if
 
       if (present(dt_vec)) then   
          
@@ -647,6 +657,16 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+            if (k==1 .and. updateQLowRK) then
+!$omp parallel do schedule(runtime)
+               do id = 1, SIZE( mesh % elements )
+#ifdef FLOW 
+                  mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + dt_vec(id)*mesh % elements(id) % storage % QDot
+#endif
+               end do ! id
+!$omp end parallel do
             end if
 
 !$omp parallel do schedule(runtime)
@@ -674,6 +694,16 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
 
+            if (k==1 .and. updateQLowRK) then
+!$omp parallel do schedule(runtime)
+               do id = 1, SIZE( mesh % elements )
+#ifdef FLOW 
+                  mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+#endif
+               end do ! id
+!$omp end parallel do
+            end if
+
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
 #ifdef FLOW
@@ -699,7 +729,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
    END SUBROUTINE TakeRK3Step
 
-   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -719,6 +749,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -792,7 +823,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
    end subroutine TakeRK5Step
 
-   SUBROUTINE TakeLSERK14_4Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeLSERK14_4Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !        *****************************************************************************************
 !           This 14 stage LSRK scheme has been extracted from the paper: 
@@ -812,6 +843,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -890,7 +922,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !  ------------------------------
 !  Routine for taking a SSP-RK 3-stage 3rd-order step.
 !  ------------------------------
-   subroutine TakeSSPRK33Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+   subroutine TakeSSPRK33Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter, dtAdaptation)
       implicit none
 !
 !     ----------------
@@ -910,6 +942,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical,               optional, intent(in) :: dts
       real(RP),              optional, intent(in) :: global_dt
       integer,               optional, intent(in) :: iter
+      logical,               intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -1015,7 +1048,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !  ------------------------------
 !  Routine for taking a SSP-RK 4-stage 3rd-order step.
 !  ------------------------------
-   subroutine TakeSSPRK43Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+   subroutine TakeSSPRK43Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter, dtAdaptation)
       implicit none
 !
 !     ----------------
@@ -1035,6 +1068,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical,               optional, intent(in) :: dts
       real(RP),              optional, intent(in) :: global_dt
       integer,               optional, intent(in) :: iter
+      logical,               intent(in), optional :: dtAdaptation
       
 !
 !     ---------------
@@ -1137,7 +1171,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
    END SUBROUTINE TakeSSPRK43Step
 
-   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -1157,6 +1191,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -1339,7 +1374,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !        *****************************************************************************************
 !       Optimal RK coefficients from Bassi2009
@@ -1359,6 +1394,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
@@ -1456,7 +1492,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !  ------------------------------
 !  Routine for Multi Level RK3
 !  ------------------------------
-   SUBROUTINE TakeMLRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter)
+   SUBROUTINE TakeMLRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt, iter, dtAdaptation)
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -1480,6 +1516,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       logical, intent(in), optional :: dts
       real(kind=RP), intent(in), optional :: global_dt
       integer, intent(in), optional :: iter
+      logical, intent(in), optional :: dtAdaptation
 !
 !     ---------------
 !     Local variables
