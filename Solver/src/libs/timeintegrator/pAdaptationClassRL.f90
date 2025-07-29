@@ -135,7 +135,7 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
-	  call readValueInRegion ( trim ( paramFile )  , "max polynomial diff"    , R_Jump             , in_label , "# end" )
+	   call readValueInRegion ( trim ( paramFile )  , "max polynomial diff"    , R_Jump             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "agent file"             , agentFile          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "threshold"              , R_threshold        , in_label , "# end" )
@@ -484,8 +484,6 @@ module pAdaptationClassRL
       integer                    :: Dir                                     !   Direction
       integer                    :: NNew(3,sem % mesh % no_of_elements)     !   New polynomial orders of mesh (after adaptation!)
       integer, save              :: Stage = 0                               !   Stage of p-adaptation for the increasing method
-      CHARACTER(LEN=LINE_LENGTH) :: newInput                                !   Variable used to change the input in controlVariables after p-adaptation 
-      character(len=LINE_LENGTH) :: RegfileName
       integer                    :: i                                       !   Counters
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
@@ -559,9 +557,6 @@ module pAdaptationClassRL
       else
          adaptationPercentage = 100.0_RP * adaptedElements / sem % mesh % no_of_elements
       end if  
-
-      ! Only adapt once
-      this % Adapt = .FALSE.
       
 !
 !     -----------------------------------------------------------------------------

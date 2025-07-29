@@ -184,7 +184,9 @@
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
          ELSE
-            error stop '"cfl" or "dt" keyword must be specified for the time integrator'
+            if (.not. self % adaptive_dt) then
+               error stop '"cfl", "dt" or "adaptive dt=.true." keywords must be specified for the time integrator'
+            end if
          END IF
 !
 !        ----------------------
