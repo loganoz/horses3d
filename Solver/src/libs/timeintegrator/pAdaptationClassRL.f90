@@ -466,8 +466,8 @@ module pAdaptationClassRL
 !  ------------------------------------------------------------------------
    subroutine pAdaptation_pAdapt(this, sem, itera, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, adaptiveTimeStep)
       use AnisFASMultigridClass
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      use SpongeClass, only: sponge
+#if defined(FLOW) 
+      use SpongeClass, only: sponge, creatRampSponge
 #endif
       implicit none
       !-arguments----------------------------
@@ -667,8 +667,8 @@ module pAdaptationClassRL
 !     Reconstruct sponge
 !     ----------------------------------
 !
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      call sponge % creatRamp(sem % mesh)
+#if defined(FLOW) 
+      call creatRampSponge(sponge, sem % mesh)
 #endif
       
       ! Reconstruct probes
