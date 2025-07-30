@@ -119,7 +119,7 @@ module EllipticBR2
 #endif
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients, HO_Elements, element_mask)
+      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients, HO_Elements, element_mask, Level)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -133,6 +133,7 @@ module EllipticBR2
          procedure(GetGradientValues_f)   :: GetGradients
          logical, intent(in), optional    :: HO_Elements
          logical, intent(in), optional    :: element_mask(:)
+		 integer, intent(in), optional    :: Level
 !
 !        ---------------
 !        Local variables
@@ -175,6 +176,7 @@ module EllipticBR2
          else
 !$omp do schedule(runtime)
             do eID = 1, size(mesh % elements)
+										  
                associate( e => mesh % elements(eID) )
                call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
    !

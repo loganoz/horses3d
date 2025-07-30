@@ -20,6 +20,11 @@ LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
 		./build_ns/VolumeMonitor.o \
 		./build_ns/LoadBalancingMonitor.o \
 		./build_ns/Monitors.o \
+		./build_ns/SamplingOperator.o \
+		./build_ns/SurfaceSampling.o \
+		./build_ns/PlaneSampling.o \
+		./build_ns/SpatialMeanNode.o \
+		./build_ns/Samplings.o \
 		./build_ns/FWHDefinitions.o \
 		./build_ns/FWHObseverClass.o \
 		./build_ns/FWHGeneralClass.o
@@ -33,7 +38,12 @@ LIBOBJS_NSSA = 	./build_nssa/MonitorDefinitions.o \
 		./build_nssa/SurfaceMonitor.o \
 		./build_nssa/VolumeMonitor.o \
 		./build_nssa/LoadBalancingMonitor.o \
-		./build_nssa/Monitors.o
+		./build_nssa/Monitors.o \
+		./build_nssa/SamplingOperator.o \
+		./build_nssa/SurfaceSampling.o \
+		./build_nssa/PlaneSampling.o \
+		./build_nssa/SpatialMeanNode.o \
+		./build_nssa/Samplings.o 
 
 LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
 		./build_ins/Probe.o \
@@ -44,7 +54,12 @@ LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
 		./build_ins/SurfaceMonitor.o \
 		./build_ins/VolumeMonitor.o \
 		./build_ins/LoadBalancingMonitor.o \
-		./build_ins/Monitors.o
+		./build_ins/Monitors.o \
+		./build_ins/SamplingOperator.o \
+		./build_ins/SurfaceSampling.o \
+		./build_ins/PlaneSampling.o \
+		./build_ins/SpatialMeanNode.o \
+		./build_ins/Samplings.o 
 
 LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
 		./build_ch/Probe.o\
@@ -55,7 +70,12 @@ LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
 		./build_ch/SurfaceMonitor.o \
 		./build_ch/VolumeMonitor.o \
 		./build_ch/LoadBalancingMonitor.o \
-		./build_ch/Monitors.o
+		./build_ch/Monitors.o \
+		./build_ch/SamplingOperator.o \
+		./build_ch/SurfaceSampling.o \
+		./build_ch/PlaneSampling.o \
+		./build_ch/SpatialMeanNode.o \
+		./build_ch/Samplings.o 
 
 LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
 		./build_mu/Probe.o\
@@ -66,7 +86,12 @@ LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
 		./build_mu/SurfaceMonitor.o \
 		./build_mu/VolumeMonitor.o \
 		./build_mu/LoadBalancingMonitor.o \
-		./build_mu/Monitors.o
+		./build_mu/Monitors.o \
+		./build_mu/SamplingOperator.o \
+		./build_mu/SurfaceSampling.o \
+		./build_mu/PlaneSampling.o \
+		./build_mu/SpatialMeanNode.o \
+		./build_mu/Samplings.o 
 
 LIBOBJS_CAA = 	./build_caa/MonitorDefinitions.o \
 		./build_caa/Probe.o\
@@ -77,7 +102,12 @@ LIBOBJS_CAA = 	./build_caa/MonitorDefinitions.o \
 		./build_caa/SurfaceMonitor.o \
 		./build_caa/VolumeMonitor.o \
 		./build_caa/LoadBalancingMonitor.o \
-		./build_caa/Monitors.o
+		./build_caa/Monitors.o \
+		./build_caa/SamplingOperator.o \
+		./build_caa/SurfaceSampling.o \
+		./build_caa/PlaneSampling.o \
+		./build_caa/SpatialMeanNode.o \
+		./build_caa/Samplings.o 
 
 LIB = monitors
 

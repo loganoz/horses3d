@@ -144,35 +144,35 @@
 !
       SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
       
-      USE SMConstants
-      USE PhysicsStorage_MU
-      use FluidData_MU,          only: Thermodynamics
+	  use SMConstants
+      use PhysicsStorage_MU
+      use VariableConversion_MU
+      use FluidData_MU
       IMPLICIT NONE
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=Rp), DIMENSION(NCONS) :: Q
-      REAL(KIND=Rp), DIMENSION(3)     :: eigen
+      REAL(KIND=RP), DIMENSION(NCONS) :: Q
+      REAL(KIND=RP), DIMENSION(3)     :: eigen
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=Rp) :: u, v, w, p, a
-print*, "Get eigenvalues!!"
-errorMessage(STD_OUT)
-error stop
-!      
-!      u = ABS( Q(IMSQRHOU)/Q(IMSQRHO) )
-!      v = ABS( Q(IMSQRHOV)/Q(IMSQRHO) )
-!      w = ABS( Q(IMSQRHOW)/Q(IMSQRHO) )
-!      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(IMSQRHO))
+      REAL(KIND=RP) :: u, v, w, p, a, invSqrtRho, sqrtRho
+	  
+      sqrtRho = sqrt(dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* (min(max(Q(1),0.0_RP),1.0_RP)))
+	  invSqrtRho = 1.0_RP / sqrtRho
+	   
+      u = ABS( Q(IMSQRHOU)*invSqrtRho )
+      v = ABS( Q(IMSQRHOV)*invSqrtRho )
+      w = ABS( Q(IMSQRHOW)*invSqrtRho )
+	  a = sqrt(thermodynamics % c02(2)+( thermodynamics % c02(1)-thermodynamics % c02(2))* (min(max(Q(1),0.0_RP),1.0_RP)))/ refValues % V
       
-!      eigen(1) = 0.5_RP * (u + a)
-!      eigen(2) = 0.5_RP * (v + a)
-!      eigen(3) = 0.5_RP * (w + a)
-       eigen = 0.0_RP
+      eigen(1) = (u + a)
+      eigen(2) = (v + a)
+      eigen(3) = (w + a)
       
       END SUBROUTINE ComputeEigenvaluesForState

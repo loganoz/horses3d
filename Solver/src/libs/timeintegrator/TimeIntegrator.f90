@@ -23,6 +23,7 @@
       use MPI_Process_Info
       use TimeIntegratorDefinitions
       use MonitorsClass
+      use Samplings
       use ParticlesClass
       use Utilities                       , only: ToLower, AlmostEqual
       use FileReadingUtilities            , only: getFileName
@@ -30,6 +31,7 @@
       use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC, getAdaptationType
       use pAdaptationClassTE              , only: pAdaptationTE_t 
       use pAdaptationClassRL              , only: pAdaptationRL_t
+      use AdaptiveTimeStepClass
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
@@ -47,12 +49,16 @@
          REAL(KIND=RP)                          :: tFinal, time, initial_time
          INTEGER                                :: initial_iter, numTimeSteps, outputInterval, iter
          REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
-         LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
+         LOGICAL                                :: Compute_dt, adaptive_dt ! Is dt computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
          class(pAdaptation_t), allocatable      :: pAdaptator
+         type(adaptiveTimeStep_t)               :: adaptiveTimeStep
          type(MultiTauEstim_t)                  :: TauEstimator
          character(len=LINE_LENGTH)             :: integration_method
          integer                                :: RKStep_key
+		 REAL(KIND=RP)                          :: ML_CFL_CutOff
+		 INTEGER                                :: ML_ReLevel_Iteration, ML_Counter, ML_nLevel
+		 logical                                :: ML_ReLevel	
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========
@@ -103,13 +109,59 @@
          logical                               :: limit
          real(RP)                              :: limiter_minimum
          integer                               :: adaptationType  ! 0 for Truncation Error and 1 for Reinforcement Learning (VI algorithm)
-!
+
+!        --------------------------------------------------
+!        Construct the pAdaptation object 
+!        --------------------------------------------------
+         ! Check the type input and allocate the pAdaptator
+         adaptationType = getAdaptationType()
+         select case (adaptationType)
+            case(0)
+               allocate(pAdaptationTE_t::self % pAdaptator)
+            case(1)
+               allocate(pAdaptationRL_t::self % pAdaptator)
+            case default
+               error stop 'Adaptation type not recognized'
+         end select
+         call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh, self % adaptiveTimeStep)  ! If not requested, the constructor returns doing nothing
+
+         !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
 !           If keyword "cfl" is present, the time step size is computed in every time step.
 !           If it is not, the keyword "dt" must be specified explicitly.
 !        ----------------------------------------------------------------------------------
 !
+         if (controlVariables % containsKey("adaptive dt")) then
+            self % adaptive_dt = controlVariables % logicalValueForKey("adaptive dt")
+            if (self % adaptive_dt) then
+               if (self % adaptiveTimeStep % constructed) then
+                  if (controlVariables % containsKey("dt")) then
+                     self % dt = controlVariables % doublePrecisionValueForKey("dt")
+                  else
+                     self % dt = 1e-8_RP
+                     write(STD_OUT,*) "Warning: 'dt' keyword not specified for adaptive dt. Using initial minimum value of ", self % dt
+                  end if
+                  if ( controlVariables % ContainsKey("explicit method") ) then
+                     keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
+                     call toLower(keyword)
+                     select case (keyword)
+                     case(RK3_NAME)
+                        write(STD_OUT,*) "Using 'RK3' method with adaptive dt."
+                     case default
+                        error stop "Error, only 'RK3' method is implemented for adaptive dt"
+                     end select
+                  else
+                     write(STD_OUT,*) "Using 'RK3' method with adaptive dt by default."
+                  end if
+               else
+                  error stop "Error: 'RL pAdaptation' is required for adaptive dt."
+               end if
+            end if
+         else
+            self % adaptive_dt = .FALSE.
+         end if
+
          IF (controlVariables % containsKey("cfl")) THEN
 #ifdef FLOW
             self % Compute_dt = .TRUE.
@@ -132,7 +184,9 @@
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
          ELSE
-            error stop '"cfl" or "dt" keyword must be specified for the time integrator'
+            if (.not. self % adaptive_dt) then
+               error stop '"cfl", "dt" or "adaptive dt=.true." keywords must be specified for the time integrator'
+            end if
          END IF
 !
 !        ----------------------
@@ -146,7 +200,7 @@
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
-
+															  
          if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
             self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
          else
@@ -191,6 +245,30 @@
             case(MIXED_RK_NAME)
                self % RKStep => TakeMixedRKStep
                self % RKStep_key = MIXED_RK_KEY
+			case(ML_RK3_NAME)
+				if ( controlVariables % ContainsKey("cfl cut-off") ) then
+				     self % ML_CFL_CutOff = controlVariables % doublePrecisionValueForKey("cfl cut-off")
+					 self % ML_CFL_CutOff = min(max(self % ML_CFL_CutOff,0.0001_RP),10.0_RP)
+				else 
+					 self % ML_CFL_CutOff = 0.5_RP
+			    end if 
+				if ( controlVariables % ContainsKey("relevel iteration") ) then
+				     self % ML_ReLevel_Iteration = controlVariables % integerValueForKey ("relevel iteration")
+				else 
+					 self % ML_ReLevel_Iteration = 1000000000
+			    end if
+				if ( controlVariables % ContainsKey("number of level") ) then
+				     self % ML_nLevel = controlVariables % integerValueForKey ("number of level")
+				else 
+					 self % ML_nLevel = 3
+			    end if
+				self % ML_ReLevel = .true. 
+				
+                self % RKStep => TakeMLRK3Step
+                self % RKStep_key = ML_RK3_KEY
+				self % ML_Counter = 0
+				
+				call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! construct nlevel  
 
             case default
                print*, "Explicit time integration method not implemented"
@@ -242,17 +320,7 @@
 !        ----------------
 !
          call self % autosave   % Configure (controlVariables, initial_time)
-         ! Check the type input and allocate the pAdaptator
-         adaptationType = getAdaptationType()
-         select case (adaptationType)
-            case(0)
-               allocate(pAdaptationTE_t::self % pAdaptator)
-            case(1)
-               allocate(pAdaptationRL_t::self % pAdaptator)
-            case default
-               error stop 'Adaptation type not recognized'
-         end select
-         call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh)  ! If not requested, the constructor returns doing nothing
+         
          call surfacesMesh % autosaveConfig (controlVariables, initial_time)              ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)
@@ -290,6 +358,13 @@
                write(STD_OUT,'(A)') "Euler-RK3"
             case (MIXED_RK_KEY)
                write(STD_OUT,'(A)') "Mixed rk"
+			case (ML_RK3_KEY)
+               write(STD_OUT,'(A)') "Multi-Level RK3"
+			   write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Number of Level: ", self % ML_nLevel
+			   write(STD_OUT,'(35X,A,A23,F7.4)') "->" , "CFL Cut-Off: ", self % ML_CFL_CutOff
+			   write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Update Iteration: ", self % ML_ReLevel_Iteration
+			   write(STD_OUT,'(35X,A,A23,A)')  "->" , "Cut-Off Level 1: ","CFL Cut-Off"
+			   write(STD_OUT,'(35X,A,A23,A)')  "->" , "Cut-Off Level N: ","CFL Cut-Off x 2.5^(N-1) "
             end select
 
             write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
@@ -323,7 +398,7 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, samplings, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       USE FASMultigridClass
       IMPLICIT NONE
 !
@@ -335,6 +410,7 @@
       TYPE(DGSem)                                  :: sem
       TYPE(FTValueDictionary)                      :: controlVariables
       class(Monitor_t)                             :: monitors
+      class(Sampling_t)                            :: samplings	
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
 
@@ -351,7 +427,8 @@
 !     ---------------
 
       sem  % numberOfTimeSteps = self % initial_iter
-      if (.not. self % Compute_dt) monitors % dt_restriction = DT_FIXED
+      if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) monitors % dt_restriction = DT_FIXED
+	  if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) samplings % dt_restriction = DT_FIXED
 
 !     Measure solver time
 !     -------------------
@@ -391,10 +468,10 @@
 !              Lower the residual to 0.1 * truncation error threshold
 !              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
 !              ------------------------------------------------------
-               call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
+               call IntegrateInTime( self, sem, controlVariables, monitors, samplings, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
             end if
 
-            call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
 
          end do
@@ -402,7 +479,7 @@
 
 !     Finish time integration
 !     -----------------------
-      call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated )
+      call IntegrateInTime( self, sem, controlVariables, monitors, samplings, ComputeTimeDerivative, ComputeTimeDerivativeIsolated )
 
 !     Measure solver time
 !     -------------------
@@ -417,12 +494,13 @@
 !  -> If "tolerance" is provided, the value in controlVariables is ignored.
 !     This is only relevant for STEADY_STATE computations.
 !  ------------------------------------------------------------------------
-   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear)
+   subroutine IntegrateInTime( self, sem, controlVariables, monitors, samplings, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear)
 
       use BDFTimeIntegrator
       use FASMultigridClass
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
+	  use ExplicitMethods	
       use StopwatchClass
       use FluidData
       use mainKeywordsModule
@@ -432,8 +510,10 @@
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
+#if defined(FLOW) 
+      use SpongeClass, only: sponge, ConstructSponge, DestructSponge, UpdateBaseFlowSponge, WriteBaseFlowSponge
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      use SpongeClass, only: sponge
       use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
 #endif
 
@@ -449,6 +529,7 @@
       TYPE(DGSem)                                  :: sem
       TYPE(FTValueDictionary), intent(in)          :: controlVariables
       class(Monitor_t)                             :: monitors
+      class(Sampling_t)                            :: samplings
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
       real(kind=RP), optional, intent(in)          :: tolerance   !< ? tolerance to integrate down to
@@ -463,8 +544,10 @@
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
+	  REAL(KIND=RP)                 :: globalMax, globalMin, maxCFLInterf
       integer                       :: k
       integer                       :: eID
+	  logical                       :: updatelevel
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -474,6 +557,8 @@
 
       logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders, saveSource
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
+
+      logical                       :: dtHasToAdapt = .FALSE. ! Flag to indicate if the time step has to be adapted
 !
 !     ----------------------
 !     Read Control variables
@@ -497,6 +582,10 @@
 
       t = self % time
 
+      if (self % adaptive_dt) then
+         dt = self % dt
+      end if
+
 #if defined(NAVIERSTOKES)
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
@@ -506,7 +595,9 @@
           call ConstructFarm(farm, controlVariables, t, sem % mesh)
           call UpdateFarm(farm, t, sem % mesh)
       end if
-      call sponge % construct(sem % mesh,controlVariables)
+#endif
+#if defined(FLOW) 
+      call ConstructSponge(sponge,sem % mesh,controlVariables)
 #endif
 !
 !     ----------------------------------
@@ -514,10 +605,12 @@
 !     ----------------------------------
 !
       if( sem % mesh% IBM% active ) then
-         if ( self % Compute_dt ) then
-            call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
-         else
-            dt = self% dt
+         if (.not. self % adaptive_dt) then
+            if ( self % Compute_dt ) then
+               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
+            else
+               dt = self% dt
+            end if
          end if
 
          if( sem % mesh% IBM% TimePenal ) then 
@@ -550,12 +643,14 @@
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false., dt )
+	  call Samplings % UpdateValues( sem % mesh, t)
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
-         call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         call self % pAdaptator % pAdapt(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+		 call samplings % UpdateInterp(sem % mesh)
       end if
 
       call monitors % WriteToFile(sem % mesh)
@@ -616,9 +711,15 @@
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 
 !
-!        CFL-bounded time step
-!        ---------------------      
-         IF ( self % Compute_dt ) then
+!        CFL-bounded time step or adaptive time step
+!        -------------------------------------------------     
+         if (self % adaptive_dt) then
+            if (dtHasToAdapt) then
+               ! Adapt the time step
+               call self % adaptiveTimeStep % update(sem % mesh, t, self % dt)            
+            end if
+            call self % adaptiveTimeStep % hasToAdapt(t, self % dt, dtHasToAdapt)
+         else IF ( self % Compute_dt ) then
            call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
          END IF
 !
@@ -666,9 +767,23 @@
 #if defined(NAVIERSTOKES)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
 #endif
+			if (self % RKStep_key .eq. ML_RK3_KEY) then
+				self % ML_Counter = self % ML_Counter + 1
+				if ((self % ML_Counter .eq. self % ML_ReLevel_Iteration).or.(self % ML_ReLevel)) THEN
+					CALL DetermineCFL(sem, self % dt, globalMax, globalMin, maxCFLInterf)
+					call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! reconstruct nLevel  
+					CALL sem % mesh % MLRK % update (sem % mesh, self % ML_CFL_CutOff, globalMax, globalMin, maxCFLInterf)
+					self % ML_ReLevel = .false. 
+					self % ML_Counter = 0
+				end if 
+		   end if 
+         if (self % adaptive_dt) then 
+            CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1, dtAdaptation = dtHasToAdapt)
+         else
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
+         end if
 #if defined(NAVIERSTOKES)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+         if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
 #endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
@@ -687,7 +802,9 @@
 
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k)
-         call sponge % updateBaseFlow(sem % mesh,dt)
+#endif
+#if defined(FLOW) 
+         call UpdateBaseFlowSponge(sponge,sem % mesh,dt)
 #endif
 !
 !        Compute the new time
@@ -711,6 +828,10 @@
 !        Update monitors
 !        ---------------
          call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual, self% autosave% Autosave(k+1), dt )
+!
+!        Update samplings
+!        ----------------
+         call Samplings % UpdateValues( sem % mesh, t )
 !
 !        Exit if the target is reached
 !        -----------------------------
@@ -747,10 +868,7 @@
                   call sem % particles % inject( sem % mesh )
                endif
             endif
-
          endif
-
-
 #endif
 !
 !        Print monitors
@@ -759,8 +877,9 @@
 !
 !        p- Adapt
 !        --------------
-         IF( self % pAdaptator % hasToAdapt(k+1) ) then
-            call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         IF( self % pAdaptator % hasToAdapt(k+1) .or. dtHasToAdapt ) then
+            call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
+			   call samplings % UpdateInterp(sem % mesh)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
@@ -791,20 +910,23 @@
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
-
+		 call samplings % WriteToFile(sem % mesh)
          sem % numberOfTimeSteps = k + 1
       END DO
 !
-!     Flush the remaining information in the monitors
-!     -----------------------------------------------
+!     Flush the remaining information in the monitors and samplings
+!     -------------------------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile(sem % mesh, force = .true. )
+         call Samplings % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
-         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
+#endif
+#if defined(FLOW) 
+         call WriteBaseFlowSponge(sponge, sem % mesh, k, t, last=.true.)
 #endif
       end if
 
@@ -835,8 +957,10 @@
          if (useTrip) call randomTrip % destruct
 #endif
 
+#if defined(FLOW) 
+         call DestructSponge(sponge)
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-         call sponge % destruct()
          if(ActuatorLineFlag) call DestructFarm(farm)
 #endif
       if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)
@@ -891,8 +1015,8 @@
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource)
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      use SpongeClass, only: sponge
+#if defined(FLOW) 
+      use SpongeClass, only: sponge, WriteBaseFlowSponge
 #endif
       IMPLICIT NONE
 !
@@ -917,8 +1041,8 @@
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource)
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      call sponge % writeBaseFlow(sem % mesh, k, t)
+#if defined(FLOW) 
+      call WriteBaseFlowSponge(sponge, sem % mesh, k, t)
 #endif
    END SUBROUTINE SaveRestart
 !

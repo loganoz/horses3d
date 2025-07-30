@@ -173,7 +173,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements, element_mask)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements, element_mask, Level)
          IMPLICIT NONE 
 !
 !        ---------
@@ -186,6 +186,7 @@ module SpatialDiscretization
          integer,             intent(in) :: mode
          logical, intent(in), optional   :: HO_Elements
          logical, intent(in), optional   :: element_mask(:)
+		 integer, intent(in), optional   :: Level
 !
 !        ---------------
 !        Local variables
@@ -263,7 +264,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements, element_mask)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements, element_mask, Level)
          use EllipticDiscretizationClass
          IMPLICIT NONE 
 !
@@ -277,6 +278,7 @@ module SpatialDiscretization
          integer,             intent(in) :: mode
          logical, intent(in), optional   :: HO_Elements
          logical, intent(in), optional   :: element_mask(:)
+		 integer, intent(in), optional   :: Level
 !
 !        ---------------
 !        Local variables

@@ -21,6 +21,11 @@ module pAdaptationClass
    use HexMeshClass                    , only: HexMesh
    use ElementConnectivityDefinitions  , only: neighborFaces
    use ReadMeshFile                    , only: NumOfElemsFromMeshFile
+   use Headers
+   use AdaptiveTimeStepClass 
+#ifdef _HAS_MPI_
+      use mpi
+#endif
    implicit none
    
 #include "Includes.h"
@@ -59,10 +64,25 @@ module pAdaptationClass
       real(kind=RP)     :: y_span(2)
       real(kind=RP)     :: z_span(2)
       integer           :: mode
+	   integer           :: polynomial(3)
+      integer           :: region
       
       contains
          procedure      :: initialize => OverEnriching_Initialize
    end type overenriching_t
+   !-----------------------------------------------------------------
+   ! Type for storing the adaptation based on range value of variable
+   !-----------------------------------------------------------------
+   type :: pAdaptVariable_t
+      integer           :: ID
+      integer           :: variable
+      real(kind=RP)     :: maxValue
+      real(kind=RP)     :: minValue
+      integer           :: polynomial(3)
+      
+      contains
+         procedure      :: initialize => pAdaptVariable_Initialize
+   end type pAdaptVariable_t
    
    !-------------------------------------------------------
    ! Main base type for performing a p-adaptation procedure
@@ -84,6 +104,7 @@ module pAdaptationClass
       real(kind=RP)                     :: nextAdaptationTime = huge(1._RP)
       character(len=BC_STRING_LENGTH), allocatable :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(overenriching_t)  , allocatable :: overenriching(:)
+	   type(pAdaptVariable_t) , allocatable :: adaptVariable(:)
       
       contains
          procedure(constructInterface), deferred :: pAdaptation_Construct
@@ -100,11 +121,12 @@ module pAdaptationClass
 !  Interface for constructing the p-adaptator
 !  ------------------------------------------
    interface
-   subroutine constructInterface(this, controlVariables, t0, mesh)
+   subroutine constructInterface(this, controlVariables, t0, mesh, adaptiveTimeStep)
       import pAdaptation_t
       import FTValueDictionary
       import RP
       import HexMesh
+      import adaptiveTimeStep_t
       !-------------------------------------------------
       implicit none
       !-------------------------------------------------
@@ -112,6 +134,7 @@ module pAdaptationClass
       type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
       real(kind=RP)          , intent(in)    :: t0
       class(HexMesh)         , intent(inout) :: mesh
+      type(adaptiveTimeStep_t), intent(inout):: adaptiveTimeStep
    end subroutine constructInterface
    end interface
 
@@ -132,12 +155,13 @@ module pAdaptationClass
 !  Main interface for adapting the polynomial order in all elements 
 !  -----------------------------------------------------------------
    interface
-   subroutine pAdaptInterface(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+   subroutine pAdaptInterface(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, adaptiveTimeStep)
       import pAdaptation_t
       import DGSem
       import FTValueDictionary
       import RP
       import ComputeTimeDerivative_f
+      import adaptiveTimeStep_t
       !--------------------------------------
       implicit none
       !--------------------------------------
@@ -148,6 +172,7 @@ module pAdaptationClass
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input variables (that can be modified depending on the user input)
+      type(adaptiveTimeStep_t)   :: adaptiveTimeStep 
    end subroutine pAdaptInterface
    end interface 
 
@@ -245,7 +270,7 @@ module pAdaptationClass
          deallocate (Nx_r , Ny_r , Nz_r )
       end if
       
-      Nmax = max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
+      Nmax = 12 ! not a good practice but necessary - old: max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
       
 !
 !     *****************************************************************************
@@ -274,6 +299,7 @@ module pAdaptationClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine OverEnriching_Initialize(this,oID)
+	     use MPI_Process_Info
          implicit none
          !----------------------------------
          class(overenriching_t) :: this
@@ -284,7 +310,8 @@ module pAdaptationClass
          character(LINE_LENGTH) :: x_span
          character(LINE_LENGTH) :: y_span
          character(LINE_LENGTH) :: z_span
-         character(LINE_LENGTH) :: mode
+         character(LINE_LENGTH) :: mode, poly
+         character(LINE_LENGTH) :: region
          integer, allocatable   :: order
          !----------------------------------
          
@@ -299,11 +326,13 @@ module pAdaptationClass
          write(in_label , '(A,I0)') "#define overenriching box " , this % ID
          
          call get_command_argument(1, paramFile) !
-         call readValueInRegion ( trim ( paramFile )  , "order"  , order       , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "x span" , x_span      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "y span" , y_span      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "z span" , z_span      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "mode"   , mode        , in_label , "# end" )
+         call readValueInRegion ( trim ( paramFile )  , "order"       , order     , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "x span"      , x_span    , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "y span"      , y_span    , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "z span"      , z_span    , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "mode"        , mode      , in_label , "# end" )
+		   call readValueInRegion ( trim ( paramFile )  , "polynomial " , poly      , in_label , "# end" )
+         call readValueInRegion ( trim ( paramFile )  , "region"      , region    , in_label , "# end" )
          
          if (allocated(order)) then
             this % order = order
@@ -317,18 +346,57 @@ module pAdaptationClass
                   this % mode = 1
                case ("set")
                   this % mode = 2
+               case ("max")
+                  this % mode = 3
+               case ("min")
+                  this % mode = 4
+               case ("freeze")
+                  this % mode = 5
                case default
                   this % mode = 1
             end select
          else
             this % mode = 1
          end if
+		 
+         if ( poly /= "" ) then
+            this % polynomial = getIntArrayFromString(poly)
+         else
+            this % polynomial(1) = this % order
+            this % polynomial(2) = this % order
+            this % polynomial(3) = this % order
+         end if 
+
+         if ( region /= "" ) then
+            select case ( trim (region) )
+               case ("inside")
+                  this % region = 1
+               case ("outside")
+                  this % region = 2
+               case default
+                  this % region = 1
+            end select
+         else
+            this % region = 1
+         end if
          
          this % x_span = getRealArrayFromString(x_span)
          this % y_span = getRealArrayFromString(y_span)
          this % z_span = getRealArrayFromString(z_span)
+		 
+         if ( .not. MPI_Process % isRoot ) return		 
+!
+!        Write Information 
+!        -----------------------------------------------         
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Initialize Adaptation based on Overenriching Box")
+		    write(STD_OUT,'(30X,A,A27,I4)') "->" , "ID: " , this % ID
+            write(STD_OUT,'(30X,A,A27,A20)') "->" , "x span: " , x_span
+			write(STD_OUT,'(30X,A,A27,A20)') "->" , "y span: " , y_span
+			write(STD_OUT,'(30X,A,A27,A20)') "->" , "z span: " , z_span
+			write(STD_OUT,'(30X,A,A27,A14)') "->" , "Polynomials: " , poly  
          
-         deallocate(order)
+         safedeallocate(order)
          
       end subroutine OverEnriching_Initialize
 !
@@ -413,6 +481,7 @@ readloop:do
       integer :: eID       ! Element counter
       integer :: cornerID  ! Corner counter
       logical :: enriched(mesh % no_of_elements)
+      logical :: is_inside
       !---------------------------------------
       
       if (.not. allocated(overenriching) ) return
@@ -420,7 +489,7 @@ readloop:do
       enriched = .FALSE.
       
       do oID = 1, size(overenriching)
-         associate (region => overenriching(oID) )
+         associate (box => overenriching(oID) )
          
          element_loop: do eID=1, mesh % no_of_elements
             
@@ -432,18 +501,33 @@ readloop:do
 !           Enrich element if any of the corners is inside the region
 !           ---------------------------------------------------------
             corner_loop: do cornerID=1, 8
-               if( (corners(1,cornerID) > region % x_span(1) .and. corners(1,cornerID) < region % x_span(2)) .and. &
-                   (corners(2,cornerID) > region % y_span(1) .and. corners(2,cornerID) < region % y_span(2)) .and. &
-                   (corners(3,cornerID) > region % z_span(1) .and. corners(3,cornerID) < region % z_span(2)) ) then
 
-                  if (region % mode == 1) then !Increase mode
-                     NNew(1,eID) = max(min(NNew(1,eID) + region % order, Nmax(1)), Nmin(1))
-                     NNew(2,eID) = max(min(NNew(2,eID) + region % order, Nmax(2)), Nmin(2))
-                     NNew(3,eID) = max(min(NNew(3,eID) + region % order, Nmax(3)), Nmin(3))
-                  else if (region % mode == 2) then !Set mode
-                     NNew(1,eID) = max(min(region % order, Nmax(1)), Nmin(1))
-                     NNew(2,eID) = max(min(region % order, Nmax(2)), Nmin(2))
-                     NNew(3,eID) = max(min(region % order, Nmax(3)), Nmin(3))
+               is_inside = ( (corners(1,cornerID) > box % x_span(1) .and. corners(1,cornerID) < box % x_span(2)) .and. &
+                     (corners(2,cornerID) > box % y_span(1) .and. corners(2,cornerID) < box % y_span(2)) .and. &
+                     (corners(3,cornerID) > box % z_span(1) .and. corners(3,cornerID) < box % z_span(2)) )
+
+               if( (box % region == 1 .and. is_inside) .or. (box % region == 2 .and. (.not. is_inside))) then
+
+                  if (box % mode == 1) then !Increase mode
+                     NNew(1,eID) = max(min(NNew(1,eID) + box % order, Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(NNew(2,eID) + box % order, Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(NNew(3,eID) + box % order, Nmax(3)), Nmin(3))
+                  else if (box % mode == 2) then !Set mode
+                     NNew(1,eID) = max(min(box % polynomial(1), Nmax(1)), Nmin(1))
+                     NNew(2,eID) = max(min(box % polynomial(2), Nmax(2)), Nmin(2))
+                     NNew(3,eID) = max(min(box % polynomial(3), Nmax(3)), Nmin(3))
+                  else if (box % mode == 3) then !Max mode
+                     NNew(1,eID) = min(max(NNew(1,eID), box % polynomial(1)), Nmax(1))
+                     NNew(2,eID) = min(max(NNew(2,eID), box % polynomial(2)), Nmax(2))
+                     NNew(3,eID) = min(max(NNew(3,eID), box % polynomial(3)), Nmax(3))
+                  else if (box % mode == 4) then !Min mode
+                     NNew(1,eID) = max(min(NNew(1,eID), box % polynomial(1)), Nmin(1))
+                     NNew(2,eID) = max(min(NNew(2,eID), box % polynomial(2)), Nmin(2))
+                     NNew(3,eID) = max(min(NNew(3,eID), box % polynomial(3)), Nmin(3))
+                  else if (box % mode == 5) then !Freeze mode
+                     NNew(1,eID) = mesh % elements(eID) % Nxyz(1)
+                     NNew(2,eID) = mesh % elements(eID) % Nxyz(2)
+                     NNew(3,eID) = mesh % elements(eID) % Nxyz(3)
                   end if
                   
                   enriched(eID) = .TRUE.
@@ -461,17 +545,272 @@ readloop:do
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!     ROUTINES FOR p Adaptation based on variable
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine pAdaptVariable_Initialize(this,oID)
+	     use MPI_Process_Info
+         implicit none
+         !----------------------------------
+         class(pAdaptVariable_t) :: this
+         integer, intent(in)     :: oID
+         !----------------------------------
+         character(LINE_LENGTH) :: paramFile
+         character(LINE_LENGTH) :: in_label
+         character(LINE_LENGTH) :: rangeValue
+         character(LINE_LENGTH) :: poly
+		 character(LINE_LENGTH) :: variable
+		 real(kind=RP)          :: minmaxValue(2)
+         !----------------------------------
+         
+         call get_command_argument(1, paramFile)
+!
+!        Get adaptation variable ID
+!        ---------------------------
+         this % ID = oID
+!
+!        Search for the parameters in the case file
+!        ------------------------------------------
+         write(in_label , '(A,I0)') "#define adapt variable " , this % ID
+         
+         call get_command_argument(1, paramFile) !
+         call readValueInRegion ( trim ( paramFile )  , "variable"    , variable    , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "value range" , rangeValue  , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "polynomial " , poly        , in_label , "# end" )
+        
+
+         if ( variable /= "" ) then
+            select case ( trim (variable) )
+               case ("rho")
+                  this % variable = 1
+			   case ("q2")
+                  this % variable = 2
+               case default
+                  this % variable = 1
+            end select
+         else
+            this % variable = 1
+         end if
+         
+		 minmaxValue = getRealArrayFromString(rangeValue)
+		 this % polynomial = getIntArrayFromString(poly)
+		 
+         this % maxValue = maxval(minmaxValue)
+         this % minValue = minval(minmaxValue)
+		
+         if ( .not. MPI_Process % isRoot ) return
+!
+!        Write Information 
+!        -----------------------------------------------         
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Initialize Adaptation based on Variable")
+		    write(STD_OUT,'(30X,A,A27,A20)') "->" , "ID: " , this % ID
+            write(STD_OUT,'(30X,A,A27,A10)') "->" , "Variable: " , variable
+			write(STD_OUT,'(30X,A,A27,F10.4)') "->" , "Max. value: " , this % maxValue
+			write(STD_OUT,'(30X,A,A27,F10.4)') "->" , "Min. value: " , this % minValue  
+			write(STD_OUT,'(30X,A,A27,A14)') "->" , "Polynomials: " , poly  
+         
+      end subroutine pAdaptVariable_Initialize
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine getNoOfpAdaptVariables(no_of_regions)
+      implicit none
+      integer, intent(out)    :: no_of_regions
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      character(len=LINE_LENGTH) :: case_name, line
+      integer                    :: fID
+      integer                    :: io
+!
+!     Initialize
+!     ----------
+      no_of_regions = 0
+!
+!     Get case file name
+!     ------------------
+      call get_command_argument(1, case_name)
+
+!
+!     Open case file
+!     --------------
+      open ( newunit = fID , file = case_name , status = "old" , action = "read" )
+
+!
+!     Read the whole file to find overenriching regions
+!     -------------------------------------------------
+readloop:do 
+         read ( fID , '(A)' , iostat = io ) line
+
+         if ( io .lt. 0 ) then
+!
+!           End of file
+!           -----------
+            line = ""
+            exit readloop
+
+         elseif ( io .gt. 0 ) then
+!
+!           Error
+!           -----
+            errorMessage(STD_OUT)
+            error stop "error stopped."
+
+         else
+!
+!           Succeeded
+!           ---------
+            line = getSquashedLine( line )
+
+            if ( index ( line , '#defineadaptvariable' ) .gt. 0 ) then
+               no_of_regions = no_of_regions + 1
+            end if
+            
+         end if
+         
+      end do readloop
+!
+!     Close case file
+!     ---------------
+      close(fID)                             
+
+   end subroutine getNoOfpAdaptVariables
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine pAdaptVariableRange(adaptVar,mesh,NNew)
+      implicit none
+      !---------------------------------------
+      type(pAdaptVariable_t), allocatable :: adaptVar(:)
+      type(HexMesh), intent(in)          :: mesh
+      integer                            :: NNew(:,:)
+      !---------------------------------------
+      integer :: eID, oID       ! Element counter
+      real(kind=RP) :: maxQ, minQ
+	  
+      !---------------------------------------
+      
+      if (.not. allocated(adaptVar) ) return
+      
+      do oID = 1, size(adaptVar)
+!$omp parallel shared(adaptVar,mesh,NNew, oID) default(private)
+!$omp do schedule(runtime)	
+         do eID=1, mesh % no_of_elements
+		    
+			maxQ = maxval(mesh % elements(eID) % storage % Q(adaptVar(oID) % variable,:,:,:))
+			minQ = minval(mesh % elements(eID) % storage % Q(adaptVar(oID) % variable,:,:,:))
+		    
+            if (((maxQ.lt.adaptVar(oID)%maxValue).and.(maxQ.gt.adaptVar(oID)%minValue)).or.((minQ.lt.adaptVar(oID)%maxValue).and.(minQ.gt.adaptVar(oID)%minValue))) then
+			       NNew (1,eID) =  adaptVar(oID) % polynomial(1)
+				   NNew (2,eID) =  adaptVar(oID) % polynomial(2)
+				   NNew (3,eID) =  adaptVar(oID) % polynomial(3)
+		    else if ((maxQ .gt. adaptVar(oID)%maxValue) .and. (minQ.lt.adaptVar(oID)%minValue)) then
+			       NNew (1,eID) =  adaptVar(oID) % polynomial(1)
+				   NNew (2,eID) =  adaptVar(oID) % polynomial(2)
+				   NNew (3,eID) =  adaptVar(oID) % polynomial(3)
+			end if 
+         end do
+!$omp end do
+!$omp end parallel
+      end do
+      
+   end subroutine pAdaptVariableRange
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!  This subroutine ensure no rapid jump on polynomial order between elements
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   subroutine pAdapt_CheckNeighbour(mesh, currentP, pJump, NNew)
+      use MPI_Process_Info
+      implicit none
+      !---------------------------------------
+      type(HexMesh)                      :: mesh
+	  integer      , intent(in)          :: currentP
+	  integer      , intent(in)          :: pJump
+	  integer      , intent(inout)       :: NNew(:,:)
+      !---------------------------------------
+	  integer              :: eID, i, j
+	  integer              :: ierr  
+	  integer, allocatable :: neighborID(:,:), neighborIDAll(:,:)
+	  
+	  allocate(neighborID(3, mesh % no_of_allElements), neighborIDAll(3,mesh % no_of_allElements))
+	  neighborID = 0
+	  neighborIDAll = 0
+	  
+      !---------------------------------------
+      
+!$omp parallel shared(mesh,neighborID,neighborIDAll, NNew, currentP) default(private)
+!$omp do schedule(runtime)
+	  do eID = 1, size(mesh % elements)
+	     associate(element => mesh % elements(eID))
+	     do i = 1, 3
+		    if (NNew(i,eID).eq.currentP) then
+			   do j = 1,6
+			       if ((element % Connection(j) % globID .gt. 0).and.(element % Connection(j) % globID .lt. mesh % no_of_allElements+1)) then
+					   neighborID(i,element % Connection(j) % globID) = neighborID(i,element % Connection(j) % globID) +1
+				   end if 
+			   end do 
+			end if  
+		 end do 
+		 end associate
+	  end do   
+!$omp end do
+!$omp end parallel	 
+	  neighborIDAll = neighborID
+!     Combine information on neighboring elements with other MPI
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+          ! Gather all the neigboring element (globalID)
+          call mpi_allreduce(neighborID(1,:), neighborIDAll(1,:), mesh % no_of_allElements, MPI_INT, MPI_SUM, &
+                            MPI_COMM_WORLD, ierr)
+		  call mpi_barrier(MPI_COMM_WORLD, ierr)
+          call mpi_allreduce(neighborID(2,:), neighborIDAll(2,:), mesh % no_of_allElements, MPI_INT, MPI_SUM, &
+                            MPI_COMM_WORLD, ierr)
+		  call mpi_barrier(MPI_COMM_WORLD, ierr)
+          call mpi_allreduce(neighborID(3,:), neighborIDAll(3,:), mesh % no_of_allElements, MPI_INT, MPI_SUM, &
+                            MPI_COMM_WORLD, ierr)
+		  call mpi_barrier(MPI_COMM_WORLD, ierr)
+      end if
+#endif
+
+      deallocate(neighborID)
+
+	  
+!$omp parallel shared(mesh, neighborIDAll, NNew, currentP, pJump) default(private)
+!$omp do schedule(runtime)	  
+	 ! Neighbouring elements of elements with polynomial currentP will have at least order currentP-1
+      do eID =1, SIZE(mesh % elements)
+	    associate(element => mesh % elements(eID))
+		do i =1,3
+			if ((NNew(i,eID).lt.(currentP-pJump))) then
+				if (neighborIDAll(i,element % globID).gt.0) then
+					NNew(i,eID) = currentP-pJump
+				end if 
+			end if 
+		end do 
+		end associate
+	  end do 
+!$omp end do
+!$omp end parallel
+   
+   end subroutine pAdapt_CheckNeighbour
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !     ROUTINES FOR ADAPTATION
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   pure function pAdaptation_hasToAdapt(this,iter) result(hasToAdapt)
+   function pAdaptation_hasToAdapt(this,iter) result(hasToAdapt)
       implicit none
-      class(pAdaptation_t), intent(in) :: this
-      integer             , intent(in) :: iter
-      logical                          :: hasToAdapt
+      class(pAdaptation_t), intent(inout) :: this
+      integer             , intent(in)    :: iter
+      logical                             :: hasToAdapt
       
       select case (this % adaptation_mode)
          
@@ -491,6 +830,8 @@ readloop:do
          case default
             hasToAdapt = .FALSE.
       end select
+
+      this % Adapt = hasToAdapt
       
    end function pAdaptation_hasToAdapt
 !

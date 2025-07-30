@@ -8,7 +8,7 @@ module TimeIntegratorDefinitions
    public JACOBIAN_MATRIX_NONE, JACOBIAN_MATRIX_DENSE, JACOBIAN_MATRIX_CSR
 
    abstract interface
-      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation)
          use SMConstants
          use HexMeshClass
          use DGSEMClass
@@ -30,6 +30,7 @@ module TimeIntegratorDefinitions
          logical, intent(in), optional :: dts 
          real(kind=RP), intent(in), optional :: global_dt 
          integer, intent(in), optional :: iter
+         logical, intent(in), optional :: dtAdaptation ! Flag for adaptive time step
       end subroutine TimeStep_FCN
    end interface
 

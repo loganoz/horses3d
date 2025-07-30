@@ -680,7 +680,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ForcesFarm(self, mesh, time)
+   subroutine ForcesFarm(self, mesh, time, Level)
    use PhysicsStorage
    use HexMeshClass
    use fluiddata
@@ -689,12 +689,13 @@ contains
    class(Farm_t) , intent(inout)     :: self
    type(HexMesh), intent(in)         :: mesh
    real(kind=RP),intent(in)          :: time
+   integer, intent(in), optional     :: Level		
 
 ! local vars
    real(kind=RP)                     :: Non_dimensional, t, interp
    integer                           :: ii,jj, kk
    integer                           :: i,j, k
-   integer                           :: eID, eIndex
+   integer                           :: eID, eIndex, locLevel
    real(kind=RP), dimension(NDIM)    :: actuator_source
    real(kind=RP)                     :: local_angle
    real(kind=RP)                     :: local_velocity
@@ -706,6 +707,12 @@ contains
 #endif
 
     if (.not. self % active) return
+	
+	if (present(Level)) then
+		locLevel = Level
+	else
+		locLevel = 1
+	end if  
 
     Non_dimensional = POW2(refValues % V) * refValues % rho / Lref
     t = time * Lref / refValues % V
@@ -714,6 +721,7 @@ contains
 
         do eIndex = 1, size(elementsActuated)
             eID = elementsActuated(eIndex)
+			if (mesh % elements(eID) % MLevel .eq. locLevel) then
             kk = turbineOfElement(eIndex)
 
             do k = 0, mesh % elements(eID) % Nxyz(3)   ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
@@ -759,13 +767,15 @@ contains
                 mesh % elements(eID) % storage % S_NS(IMSQRHOW,i,j,k) = actuator_source(3)*invSqrtRho
 #endif
             end do                  ; end do                ; end do
+		  end if 
         end do
     
     else ! no projection
 
 !$omp do schedule(runtime) private(i,j,k,ii,jj,kk,actuator_source,eID,interp)
         do eIndex = 1, size(elementsActuated)
-            eID = elementsActuated(eIndex)
+          eID = elementsActuated(eIndex)
+		  if (mesh % elements(eID) % MLevel .eq. locLevel) then
             ! only one turbine is associated for one element
             kk = turbineOfElement(eIndex)
 
@@ -801,6 +811,7 @@ contains
                 mesh % elements(eID) % storage % S_NS(IMSQRHOW,i,j,k) = actuator_source(3)*invSqrtRho
 #endif
             end do                  ; end do                ; end do
+		  end if 
         end do
 !$omp end do
 

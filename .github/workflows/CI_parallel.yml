@@ -930,6 +930,23 @@ jobs:
           mpiexec -n 64 ./horses3d.ns Actuator.control
         if: '!cancelled()'
 
+#
+# 33) Cylinder with Adaptive Time Step and Reinforcement Learning p-adaptation
+# --------------------------------------------
+      - name: Build Cylinder_AdaptiveTimeStep_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_AdaptiveTimeStep_pAdaptationRL/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        if: '!cancelled()'
+
+      - name: Run Cylinder_AdaptiveTimeStep_pAdaptationRL
+        working-directory: ./Solver/test/NavierStokes/Cylinder_AdaptiveTimeStep_pAdaptationRL
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.ns Cylinder_AdaptiveTimeStep_pAdaptationRL.control
+        if: '!cancelled()'
+
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################

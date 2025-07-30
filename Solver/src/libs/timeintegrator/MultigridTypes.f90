@@ -31,7 +31,7 @@ module MultigridTypes
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter)
+      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation )
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeTimeDerivative_f
@@ -52,6 +52,7 @@ module MultigridTypes
          logical, intent(in), optional :: dts
          real(kind=RP), intent(in), optional :: global_dt
          integer, intent(in), optional :: iter
+         logical, intent(in), optional :: dtAdaptation
       end subroutine SmoothIt_t
    end interface
 

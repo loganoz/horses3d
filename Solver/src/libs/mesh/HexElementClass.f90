@@ -66,6 +66,8 @@
          INTEGER                         :: nodeIDs(8)
          integer                         :: faceIDs(6)
          integer                         :: faceSide(6)
+		 integer                         :: MLevel            ! RK Level
+		 real(kind=RP)                   :: ML_CFL            ! CFL storage for Multi Level RK	
          INTEGER, DIMENSION(3)           :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
          real(kind=RP)                   :: hn                ! Ratio of size and polynomial order
          TYPE(MappedGeometry)            :: geom
@@ -122,6 +124,7 @@
          self % boundaryName        = emptyBCName
          self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
+		 self % MLevel              = 1
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately

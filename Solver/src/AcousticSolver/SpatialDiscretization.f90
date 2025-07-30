@@ -111,7 +111,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements, element_mask)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode, HO_Elements, element_mask, Level)
          IMPLICIT NONE
 !
 !        ---------
@@ -124,6 +124,7 @@ module SpatialDiscretization
          integer, intent(in)             :: mode
          logical, intent(in), optional   :: HO_Elements
          logical, intent(in), optional   :: element_mask(:)
+		 integer, intent(in), optional   :: Level
 !
 !        ---------------
 !        Local variables
@@ -167,7 +168,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements, element_mask)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode, HO_Elements, element_mask, Level)
          IMPLICIT NONE
 !
 !        ---------
@@ -179,7 +180,8 @@ module SpatialDiscretization
          REAL(KIND=RP)                    :: time
          integer,             intent(in)  :: mode
          logical,   intent(in), optional  :: HO_Elements
-         logical, intent(in), optional    :: element_mask(:)         
+         logical, intent(in), optional    :: element_mask(:)    
+		 integer, intent(in), optional    :: Level
 !
 !        ---------------
 !        Local variables
@@ -206,7 +208,7 @@ module SpatialDiscretization
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
          ! use ActuatorLine, only: farm
-         ! use SpongeClass, only: sponge
+         use SpongeClass, only: sponge, addSourceSponge
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -330,7 +332,7 @@ module SpatialDiscretization
             end do
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
-            ! call sponge % addSource(mesh)
+            call addSourceSponge(sponge,mesh)
 !
 !        ***********************
 !        Now add the source term
