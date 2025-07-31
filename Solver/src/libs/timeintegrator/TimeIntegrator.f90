@@ -143,6 +143,7 @@
                      if (MPI_Process % isRoot ) then
                         write(STD_OUT,*) "Warning: 'dt' keyword not specified for adaptive dt. Using initial minimum value of ", self % dt
                      end if
+                  end if
                   if ( controlVariables % ContainsKey("explicit method") ) then
                      keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
                      call toLower(keyword)
