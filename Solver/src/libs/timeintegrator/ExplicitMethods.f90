@@ -1529,10 +1529,18 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 	  
 
 
-      INTEGER       :: i, j, id, lID, locLevel, k2, k3, k1, nLevel
+     INTEGER       :: i, j, id, lID, locLevel, k2, k3, k1, nLevel
 	  INTEGER, ALLOCATABLE :: k(:)
 	  REAL(KIND=RP) :: deltaStep(3), corrector, deltaTLF
-	  REAL(KIND=RP), ALLOCATABLE :: cL(:) , tk(:), deltaTL(:) ! 
+	  REAL(KIND=RP), ALLOCATABLE :: cL(:) , tk(:), deltaTL(:)
+
+     logical :: updateQLowRK
+
+     if (present(dtAdaptation)) then
+         updateQLowRK = dtAdaptation
+     else
+         updateQLowRK = .false.
+     end if
 	  
 	  nLevel = mesh % MLRK % maxLevel
 	  allocate(k(nLevel), cL(nLevel), tk(nLevel), deltaTL(nLevel))
@@ -1543,8 +1551,8 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 	  d(3)=1.0_RP/4.0_RP
 	 
 	  deltaStep(1) =  b(2)
-      deltaStep(2) =  b(3)-b(2)
-      deltaStep(3) =  1.0_RP-b(3)	
+     deltaStep(2) =  b(3)-b(2)
+     deltaStep(3) =  1.0_RP-b(3)	
 	  
 	  deltaTL(:) = deltaT
 	  tk(:)      = t
@@ -1553,8 +1561,19 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 	  
       k(:) = 3
       do k1 = 1,3
-            tk(:) = t + b(k1)*deltaT
-            call ComputeTimeDerivative( mesh, particles, tk(1), CTD_IGNORE_MODE)
+         tk(:) = t + b(k1)*deltaT
+         call ComputeTimeDerivative( mesh, particles, tk(1), CTD_IGNORE_MODE)
+
+         if (k1==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
+!$omp parallel do schedule(runtime)
+            do id = 1, SIZE( mesh % elements )
+#ifdef FLOW 
+               mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+#endif
+            end do ! id
+!$omp end parallel do
+         end if
+
 			locLevel = 1
 !           -------------------------------------------------------------------------------------------------------------------------------
 !           LEVEL 2-LEVEL N-1

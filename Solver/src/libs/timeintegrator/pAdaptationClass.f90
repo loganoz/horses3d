@@ -482,64 +482,122 @@ readloop:do
       integer :: cornerID  ! Corner counter
       logical :: enriched(mesh % no_of_elements)
       logical :: is_inside
+      integer :: i
       !---------------------------------------
       
       if (.not. allocated(overenriching) ) return
       
       enriched = .FALSE.
       
-      do oID = 1, size(overenriching)
-         associate (box => overenriching(oID) )
-         
-         element_loop: do eID=1, mesh % no_of_elements
+      if (.not. allocated(mesh % elements_aerodynamics)) then
+         do oID = 1, size(overenriching)
+            associate (box => overenriching(oID) )
             
-            if ( enriched(eID) ) cycle element_loop
-            
-            associate ( corners => mesh % elements(eID) % hexMap % corners )
-            
-!
-!           Enrich element if any of the corners is inside the region
-!           ---------------------------------------------------------
-            corner_loop: do cornerID=1, 8
+            element_loop: do eID=1, mesh % no_of_elements
+               
+               if ( enriched(eID) ) cycle element_loop
+               
+               associate ( corners => mesh % elements(eID) % hexMap % corners )
+               
+   !
+   !           Enrich element if any of the corners is inside the region
+   !           ---------------------------------------------------------
+               corner_loop: do cornerID=1, 8
 
-               is_inside = ( (corners(1,cornerID) > box % x_span(1) .and. corners(1,cornerID) < box % x_span(2)) .and. &
-                     (corners(2,cornerID) > box % y_span(1) .and. corners(2,cornerID) < box % y_span(2)) .and. &
-                     (corners(3,cornerID) > box % z_span(1) .and. corners(3,cornerID) < box % z_span(2)) )
+                  is_inside = ( (corners(1,cornerID) > box % x_span(1) .and. corners(1,cornerID) < box % x_span(2)) .and. &
+                        (corners(2,cornerID) > box % y_span(1) .and. corners(2,cornerID) < box % y_span(2)) .and. &
+                        (corners(3,cornerID) > box % z_span(1) .and. corners(3,cornerID) < box % z_span(2)) )
 
-               if( (box % region == 1 .and. is_inside) .or. (box % region == 2 .and. (.not. is_inside))) then
+                  if( (box % region == 1 .and. is_inside) .or. (box % region == 2 .and. (.not. is_inside))) then
 
-                  if (box % mode == 1) then !Increase mode
-                     NNew(1,eID) = max(min(NNew(1,eID) + box % order, Nmax(1)), Nmin(1))
-                     NNew(2,eID) = max(min(NNew(2,eID) + box % order, Nmax(2)), Nmin(2))
-                     NNew(3,eID) = max(min(NNew(3,eID) + box % order, Nmax(3)), Nmin(3))
-                  else if (box % mode == 2) then !Set mode
-                     NNew(1,eID) = max(min(box % polynomial(1), Nmax(1)), Nmin(1))
-                     NNew(2,eID) = max(min(box % polynomial(2), Nmax(2)), Nmin(2))
-                     NNew(3,eID) = max(min(box % polynomial(3), Nmax(3)), Nmin(3))
-                  else if (box % mode == 3) then !Max mode
-                     NNew(1,eID) = min(max(NNew(1,eID), box % polynomial(1)), Nmax(1))
-                     NNew(2,eID) = min(max(NNew(2,eID), box % polynomial(2)), Nmax(2))
-                     NNew(3,eID) = min(max(NNew(3,eID), box % polynomial(3)), Nmax(3))
-                  else if (box % mode == 4) then !Min mode
-                     NNew(1,eID) = max(min(NNew(1,eID), box % polynomial(1)), Nmin(1))
-                     NNew(2,eID) = max(min(NNew(2,eID), box % polynomial(2)), Nmin(2))
-                     NNew(3,eID) = max(min(NNew(3,eID), box % polynomial(3)), Nmin(3))
-                  else if (box % mode == 5) then !Freeze mode
-                     NNew(1,eID) = mesh % elements(eID) % Nxyz(1)
-                     NNew(2,eID) = mesh % elements(eID) % Nxyz(2)
-                     NNew(3,eID) = mesh % elements(eID) % Nxyz(3)
-                  end if
-                  
-                  enriched(eID) = .TRUE.
-                  exit corner_loop
-               end if 
-            end do corner_loop
+                     if (box % mode == 1) then !Increase mode
+                        NNew(1,eID) = max(min(NNew(1,eID) + box % order, Nmax(1)), Nmin(1))
+                        NNew(2,eID) = max(min(NNew(2,eID) + box % order, Nmax(2)), Nmin(2))
+                        NNew(3,eID) = max(min(NNew(3,eID) + box % order, Nmax(3)), Nmin(3))
+                     else if (box % mode == 2) then !Set mode
+                        NNew(1,eID) = max(min(box % polynomial(1), Nmax(1)), Nmin(1))
+                        NNew(2,eID) = max(min(box % polynomial(2), Nmax(2)), Nmin(2))
+                        NNew(3,eID) = max(min(box % polynomial(3), Nmax(3)), Nmin(3))
+                     else if (box % mode == 3) then !Max mode
+                        NNew(1,eID) = min(max(NNew(1,eID), box % polynomial(1)), Nmax(1))
+                        NNew(2,eID) = min(max(NNew(2,eID), box % polynomial(2)), Nmax(2))
+                        NNew(3,eID) = min(max(NNew(3,eID), box % polynomial(3)), Nmax(3))
+                     else if (box % mode == 4) then !Min mode
+                        NNew(1,eID) = max(min(NNew(1,eID), box % polynomial(1)), Nmin(1))
+                        NNew(2,eID) = max(min(NNew(2,eID), box % polynomial(2)), Nmin(2))
+                        NNew(3,eID) = max(min(NNew(3,eID), box % polynomial(3)), Nmin(3))
+                     else if (box % mode == 5) then !Freeze mode
+                        NNew(1,eID) = mesh % elements(eID) % Nxyz(1)
+                        NNew(2,eID) = mesh % elements(eID) % Nxyz(2)
+                        NNew(3,eID) = mesh % elements(eID) % Nxyz(3)
+                     end if
+                     
+                     enriched(eID) = .TRUE.
+                     exit corner_loop
+                  end if 
+               end do corner_loop
+               
+               end associate
+            end do element_loop
             
             end associate
-         end do element_loop
-         
-         end associate
-      end do
+         end do
+      else
+         do oID = 1, size(overenriching)
+            associate (box => overenriching(oID) )
+            
+            element_loop: do i = 1, size(mesh % elements_aerodynamics)
+
+               eID = mesh % elements_aerodynamics(i)
+               
+               if ( enriched(eID) ) cycle element_loop
+               
+               associate ( corners => mesh % elements(eID) % hexMap % corners )
+               
+   !
+   !           Enrich element if any of the corners is inside the region
+   !           ---------------------------------------------------------
+               corner_loop: do cornerID=1, 8
+
+                  is_inside = ( (corners(1,cornerID) > box % x_span(1) .and. corners(1,cornerID) < box % x_span(2)) .and. &
+                        (corners(2,cornerID) > box % y_span(1) .and. corners(2,cornerID) < box % y_span(2)) .and. &
+                        (corners(3,cornerID) > box % z_span(1) .and. corners(3,cornerID) < box % z_span(2)) )
+
+                  if( (box % region == 1 .and. is_inside) .or. (box % region == 2 .and. (.not. is_inside))) then
+
+                     if (box % mode == 1) then !Increase mode
+                        NNew(1,eID) = max(min(NNew(1,eID) + box % order, Nmax(1)), Nmin(1))
+                        NNew(2,eID) = max(min(NNew(2,eID) + box % order, Nmax(2)), Nmin(2))
+                        NNew(3,eID) = max(min(NNew(3,eID) + box % order, Nmax(3)), Nmin(3))
+                     else if (box % mode == 2) then !Set mode
+                        NNew(1,eID) = max(min(box % polynomial(1), Nmax(1)), Nmin(1))
+                        NNew(2,eID) = max(min(box % polynomial(2), Nmax(2)), Nmin(2))
+                        NNew(3,eID) = max(min(box % polynomial(3), Nmax(3)), Nmin(3))
+                     else if (box % mode == 3) then !Max mode
+                        NNew(1,eID) = min(max(NNew(1,eID), box % polynomial(1)), Nmax(1))
+                        NNew(2,eID) = min(max(NNew(2,eID), box % polynomial(2)), Nmax(2))
+                        NNew(3,eID) = min(max(NNew(3,eID), box % polynomial(3)), Nmax(3))
+                     else if (box % mode == 4) then !Min mode
+                        NNew(1,eID) = max(min(NNew(1,eID), box % polynomial(1)), Nmin(1))
+                        NNew(2,eID) = max(min(NNew(2,eID), box % polynomial(2)), Nmin(2))
+                        NNew(3,eID) = max(min(NNew(3,eID), box % polynomial(3)), Nmin(3))
+                     else if (box % mode == 5) then !Freeze mode
+                        NNew(1,eID) = mesh % elements(eID) % Nxyz(1)
+                        NNew(2,eID) = mesh % elements(eID) % Nxyz(2)
+                        NNew(3,eID) = mesh % elements(eID) % Nxyz(3)
+                     end if
+                     
+                     enriched(eID) = .TRUE.
+                     exit corner_loop
+                  end if 
+               end do corner_loop
+               
+               end associate
+            end do element_loop
+            
+            end associate
+         end do
+      end if
       
    end subroutine OverEnrichRegions
 !
