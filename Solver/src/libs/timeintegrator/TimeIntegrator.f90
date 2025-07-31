@@ -510,8 +510,10 @@
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
+#if defined(FLOW) 
+      use SpongeClass, only: sponge, ConstructSponge, DestructSponge, UpdateBaseFlowSponge, WriteBaseFlowSponge
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      use SpongeClass, only: sponge
       use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
 #endif
 
@@ -593,7 +595,9 @@
           call ConstructFarm(farm, controlVariables, t, sem % mesh)
           call UpdateFarm(farm, t, sem % mesh)
       end if
-      call sponge % construct(sem % mesh,controlVariables)
+#endif
+#if defined(FLOW) 
+      call ConstructSponge(sponge,sem % mesh,controlVariables)
 #endif
 !
 !     ----------------------------------
@@ -798,7 +802,9 @@
 
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k)
-         call sponge % updateBaseFlow(sem % mesh,dt)
+#endif
+#if defined(FLOW) 
+         call UpdateBaseFlowSponge(sponge,sem % mesh,dt)
 #endif
 !
 !        Compute the new time
@@ -918,7 +924,9 @@
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
-         call sponge % writeBaseFlow(sem % mesh, k, t, last=.true.)
+#endif
+#if defined(FLOW) 
+         call WriteBaseFlowSponge(sponge, sem % mesh, k, t, last=.true.)
 #endif
       end if
 
@@ -949,8 +957,10 @@
          if (useTrip) call randomTrip % destruct
 #endif
 
+#if defined(FLOW) 
+         call DestructSponge(sponge)
+#endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-         call sponge % destruct()
          if(ActuatorLineFlag) call DestructFarm(farm)
 #endif
       if (saveOrders) call sem % mesh % ExportOrders(SolutionFileName)
@@ -1005,8 +1015,8 @@
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource)
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      use SpongeClass, only: sponge
+#if defined(FLOW) 
+      use SpongeClass, only: sponge, WriteBaseFlowSponge
 #endif
       IMPLICIT NONE
 !
@@ -1031,8 +1041,8 @@
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource)
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      call sponge % writeBaseFlow(sem % mesh, k, t)
+#if defined(FLOW) 
+      call WriteBaseFlowSponge(sponge, sem % mesh, k, t)
 #endif
    END SUBROUTINE SaveRestart
 !
