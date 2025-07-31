@@ -140,14 +140,22 @@
                      self % dt = controlVariables % doublePrecisionValueForKey("dt")
                   else
                      self % dt = 1e-8_RP
-                     write(STD_OUT,*) "Warning: 'dt' keyword not specified for adaptive dt. Using initial minimum value of ", self % dt
+                     if (MPI_Process % isRoot ) then
+                        write(STD_OUT,*) "Warning: 'dt' keyword not specified for adaptive dt. Using initial minimum value of ", self % dt
+                     end if
                   end if
                   if ( controlVariables % ContainsKey("explicit method") ) then
                      keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
                      call toLower(keyword)
                      select case (keyword)
                      case(RK3_NAME)
-                        write(STD_OUT,*) "Using 'RK3' method with adaptive dt."
+                        if (MPI_Process % isRoot ) then
+                           write(STD_OUT,*) "Using 'RK3' method with adaptive dt."
+                        end if
+                     case(ML_RK3_NAME)
+                        if (MPI_Process % isRoot ) then
+                           write(STD_OUT,*) "Using 'ML-RK3' method with adaptive dt."
+                        end if
                      case default
                         error stop "Error, only 'RK3' method is implemented for adaptive dt"
                      end select

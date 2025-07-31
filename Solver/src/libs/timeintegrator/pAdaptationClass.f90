@@ -482,6 +482,7 @@ readloop:do
       integer :: cornerID  ! Corner counter
       logical :: enriched(mesh % no_of_elements)
       logical :: is_inside
+      integer :: i
       !---------------------------------------
       
       if (.not. allocated(overenriching) ) return

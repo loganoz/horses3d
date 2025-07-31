@@ -101,15 +101,15 @@ contains
 !  -----------------------------------------------
    subroutine adaptiveTimeStep_Update(this, mesh, t, dt)
       implicit none
-      class(adaptiveTimeStep_t) , intent(inout) :: this
-      class(HexMesh)            , intent(in)    :: mesh
-      real(kind=RP)             , intent(in)    :: t
-      real(kind=RP)             , intent(inout) :: dt
+      class(adaptiveTimeStep_t) , intent(inout)    :: this
+      class(HexMesh)            , intent(inout)    :: mesh
+      real(kind=RP)             , intent(in)       :: t
+      real(kind=RP)             , intent(inout)    :: dt
 !!     ---------------
 !     Local variables
 !!     ---------------
       integer                                :: eID, ierr, i
-      real(kind=RP)                          :: dt_weight, sum_dt_weight, dt_lim, min_dt_lim, max_dt_lim
+      real(kind=RP)                          :: dt_weight, sum_dt_weight, avg_sum_dt_weight, dt_lim, min_dt_lim, max_dt_lim
 
       min_dt_lim = 0.5_RP ! Minimum limit for the time step
       max_dt_lim = 1.3_RP ! Maximum limit for the time step
@@ -117,6 +117,7 @@ contains
       this % lastAdaptationTime = t
       dt_weight = 0.0_RP
       sum_dt_weight = 0.0_RP
+      avg_sum_dt_weight = 0.0_RP
 !$omp parallel shared(dt_weight, mesh, this)
 !$omp do reduction(+:dt_weight) schedule(runtime)
       do eID = 1, mesh % no_of_elements
@@ -133,10 +134,18 @@ contains
          sum_dt_weight = dt_weight
       end if  
 
+      avg_sum_dt_weight = sum_dt_weight / mesh % no_of_allElements
+
+!$omp parallel do schedule(runtime)
+      do eID = 1, mesh % no_of_elements
+         mesh % elements(eID) % ML_error_ratio = mesh % elements(eID) % ML_error_ratio / avg_sum_dt_weight
+      end do
+!$omp end parallel do
+
       if (isnan(sum_dt_weight)) then
          this % dt_eps(3) = 1e-10_RP
       else
-         this % dt_eps(3) = 1.0_RP / max(sqrt(sum_dt_weight / mesh % no_of_allElements), 1e-10_RP)
+         this % dt_eps(3) = 1.0_RP / max(sqrt(avg_sum_dt_weight), 1e-10_RP)
       end if
 
       if ((this % dt_eps(1) == this % dt_eps(2)) .and. (this % dt_eps(2) == 1.0_RP)) then
@@ -208,9 +217,9 @@ contains
 
    function adaptiveTimeStep_ComputeWeights(this, e) result(dt_weight)
       implicit none 
-      class(adaptiveTimeStep_t), intent(in) :: this
-      type(Element)         , intent(in)    :: e
-      real(kind=RP)                         :: dt_weight
+      class(adaptiveTimeStep_t), intent(in)    :: this
+      type(Element)         , intent(inout)    :: e
+      real(kind=RP)                            :: dt_weight
 !!     ---------------
       integer               :: i, j, k, dir, Ndir
       integer               :: Pxyz(3)
@@ -220,7 +229,7 @@ contains
 !     Initialization of P
       Pxyz = e % Nxyz
 
-      Ndir = 7 !Number of available error variables
+      Ndir = 3
 
       dt_weight = 0.0_RP
 
@@ -247,6 +256,10 @@ contains
                         Q_error(k, j, i) = e % storage % QNS(IMP,k,j,i)
                         QLowRK_error(k, j, i) = e % storage % QLowRK(IMP,k,j,i)
 #endif
+                     else if (this % error_variable == 8) then
+                        !Density
+                        Q_error(k, j, i) = e % storage % Q(1,k,j,i)
+                        QLowRK_error(k, j, i) = e % storage % QLowRK(1,k,j,i)
                      end if
                   end if
                end do
@@ -257,6 +270,9 @@ contains
 
       dt_weight = dt_weight / (e % storage % sensor)**2.0_RP
       dt_weight = dt_weight / ((Pxyz(1)+1) * (Pxyz(2)+1) * (Pxyz(3)+1)) !Average over all Gauss points
+      ! MLRK correction
+      dt_weight = dt_weight / (3.0_RP ** (e % MLevel - 1))**2.0_RP
+      e % ML_error_ratio = dt_weight
 #endif
    end function adaptiveTimeStep_ComputeWeights
 
