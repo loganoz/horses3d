@@ -169,7 +169,6 @@
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call Finalize_InterpolationMatrices
-      call DestructBoundaryConditions
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       
