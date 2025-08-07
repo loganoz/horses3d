@@ -414,7 +414,8 @@ module MPI_Face_Class
             end do
             safedeallocate(facesSet % faces)
          end if
-
+		 
+		 facesSet % constructed = .false.
       end subroutine DestructMPIFaces
 
       type(MPI_Face_t) function Construct_MPI_Face()

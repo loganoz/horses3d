@@ -21,7 +21,7 @@ module Utilities
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
    public   toLower, Qsort, QsortWithFriend, BubblesortWithFriend, my_findloc, sortAscend, sortDescendInt, sortAscendInt
    public   logarithmicMean, dot_product
-   public   LeastSquaresLinRegression
+   public   LeastSquaresLinRegression, reindexIntegerList, combine_partitions
    
    interface dot_product
       module procedure dot_product_3Tensor_Vec
@@ -581,6 +581,166 @@ pure subroutine sortDescendInt(A,B)
     end do
 
 end subroutine sortDescendInt
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! Subroutine to reindexIntegerList as such it is compactly renumbered from 0 to totalNodes-1 (for METIS operation in MLRK reconstruct)
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+subroutine reindexIntegerList(Node, totalNodes, oldID)
+    implicit none
+    integer, intent(inout) :: Node(:)           ! Array to reindex (modified in place)
+    integer, intent(out)   :: totalNodes        ! Total unique nodes after reindexing
+    integer, allocatable, intent(out) :: oldID(:)      ! Map: newID -> original value
+
+    ! Internals
+    integer, allocatable :: map_old_to_new(:)
+    integer              :: i, counter, max_val, nVertexSize
+    logical, allocatable :: seen(:)
+	
+	nVertexSize = size(Node)
+
+    ! Find maximum value in the input Node array
+    max_val = maxval(Node)
+
+    ! Allocate helper arrays
+    allocate(seen(0:max_val))
+    seen = .false.
+
+    ! Mark which values are used
+    do i = 1, nVertexSize
+      seen(Node(i)) = .true.
+    end do
+
+    ! Count unique values and allocate map
+    totalNodes = count(seen)
+    allocate(map_old_to_new(0:max_val))
+    allocate(oldID(1:totalNodes))
+
+    ! Assign new compact IDs and build reverse map
+    counter = 0
+    do i = 0, max_val
+      if (seen(i)) then
+        map_old_to_new(i) = counter
+        oldID(counter+1) = i+1
+        counter = counter + 1
+      end if
+    end do
+
+    ! Replace old values in Node with new compact IDs
+    do i = 1, nVertexSize
+      Node(i) = map_old_to_new(Node(i))
+    end do
+
+    ! Cleanup
+    deallocate(seen, map_old_to_new)
+end subroutine reindexIntegerList
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+! Subroutine to combine_partitions between MLRK levels as such it has minimum MPI faces
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+subroutine combine_partitions(nElement, nLevel, nPartition, refMap, inputMap, finalMap)
+    implicit none
+    integer, intent(in) :: nElement, nLevel, nPartition
+    integer, intent(in) :: refMap(nElement)
+    integer, intent(in) :: inputMap(nElement, nLevel)
+    integer, intent(out):: finalMap(nElement)
+
+    integer :: i, l, label, refLabel, indexOrderMax(nPartition)
+    integer, allocatable :: levelMap(:), newMap(:,:), matchCount(:,:)
+    integer :: bestLabel, maxMatch
+    logical, allocatable :: used(:)
+
+    allocate(levelMap(nElement))
+    allocate(newMap(nPartition, nLevel))
+    allocate(matchCount(nPartition, nPartition))
+    allocate(used(nPartition))
+
+    finalMap = 0
+    newMap = 0
+
+    do l = 1, nLevel
+        matchCount = 0
+        ! Count matches between each input label and reference label
+        do i = 1, nElement
+            if (inputMap(i,l) > 0) then
+                label = inputMap(i,l)
+                refLabel = refMap(i)
+                matchCount(label, refLabel) = matchCount(label, refLabel) + 1
+            end if
+        end do
+		
+		call SortRowIndicesByRowMaxDescending(nPartition, matchCount, indexOrderMax)
+
+        ! For each label, find the best matching refMap label
+        used = .false.
+        do i = 1, nPartition
+		    label = indexOrderMax(i)
+            maxMatch = -1
+            bestLabel = 0
+            do refLabel = 1, nPartition
+                if (.not. used(refLabel)) then
+                    if (matchCount(label, refLabel) > maxMatch) then
+                        maxMatch = matchCount(label, refLabel)
+                        bestLabel = refLabel
+                    end if
+                end if
+            end do
+            if (bestLabel > 0) then
+                newMap(label,l) = bestLabel
+                used(bestLabel) = .true.
+            else
+                newMap(label,l) = label
+            end if
+        end do
+    end do
+
+    ! Build finalMap using relabeled inputMap
+    do i = 1, nElement
+        do l = 1, nLevel
+            if (inputMap(i,l) > 0) then
+                finalMap(i) = newMap(inputMap(i,l), l)
+                exit
+            end if
+        end do
+    end do
+	
+    deallocate(levelMap, newMap, matchCount, used)
+	
+end subroutine combine_partitions
+
+Subroutine SortRowIndicesByRowMaxDescending(m, A, row_order)
+  implicit none
+  integer, intent(in) :: m
+  integer, intent(in) :: A(m, m)
+  integer, intent(out) :: row_order(m)
+
+  integer :: i, j, tmp_idx, tmp_val
+  integer :: row_max(m)
+
+  ! Compute max value for each row
+  do i = 1, m
+     row_max(i) = maxval(A(i, :))
+     row_order(i) = i
+  end do
+
+  ! Sort row_order based on descending row_max values
+  do i = 1, m-1
+     do j = i+1, m
+        if (row_max(i) < row_max(j)) then
+           ! Swap max values
+           tmp_val = row_max(i)
+           row_max(i) = row_max(j)
+           row_max(j) = tmp_val
+           ! Swap row indices
+           tmp_idx = row_order(i)
+           row_order(i) = row_order(j)
+           row_order(j) = tmp_idx
+        end if
+     end do
+  end do
+end subroutine SortRowIndicesByRowMaxDescending
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -20,7 +20,7 @@ MODULE HexMeshClass
       use FileReadingUtilities            , only: RemovePath, getFileName
       use FTValueDictionaryClass          , only: FTValueDictionary
       use SolutionFile
-      use BoundaryConditions,               only: BCs
+      use BoundaryConditions,               only: BCs, DestructBoundaryConditions
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
       use PartitionedMeshClass            , only: mpi_partition
       use IBMClass
@@ -66,6 +66,7 @@ MODULE HexMeshClass
 		 contains
 			procedure :: construct      => MultiLevel_RK_Construct
 			procedure :: update			=> MultiLevel_RK_Update
+	        procedure :: sendGlobalID   => MultiLevel_RK_SendGlobID
 			procedure :: destruct       => MultiLevel_RK_Destruct
 	  end type MultiLevel_RK
       type HexMesh
@@ -214,14 +215,25 @@ MODULE HexMeshClass
 !        Zones
 !        -----
 !
-         if (allocated(self % zones)) DEALLOCATE( self % zones )
+         if (allocated(self % zones)) then
+			call DestructBoundaryConditions()
+			DEALLOCATE( self % zones )
+		 end if 
 !
 !        ----------------
 !        Solution storage
 !        ----------------
 !
          call self % storage % destruct
-
+!
+!        --------
+!        MPIfaces
+!        --------
+!        
+         !call DestructMPIFaces(self % MPIfaces)
+         self % MPIfaces % constructed = .false.
+		 safedeallocate(self % MPIfaces % faces)
+		 
          safedeallocate(self % elements_sequential)
          safedeallocate(self % elements_mpi)
          safedeallocate(self % faces_interior)
@@ -1573,9 +1585,10 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_PrepareForIO(self)
+      subroutine HexMesh_PrepareForIO(self, onlyRoot)
          implicit none
          class(HexMesh)    :: self
+		 logical, optional :: onlyRoot
 !
 !        ---------------
 !        Local variables
@@ -1585,11 +1598,11 @@ slavecoord:             DO l = 1, 4
          integer, allocatable :: elementSizes(:)
          integer, allocatable :: allElementSizes(:)
          integer, allocatable :: allElementsOffset(:)
+		 logical              :: isRootOnly
 !
 !        Get each element size
 !        ---------------------
          allocate(elementSizes(self % no_of_allElements))
-
          elementSizes = 0     ! Default value 0 to use allreduce with SUM
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
@@ -1602,7 +1615,12 @@ slavecoord:             DO l = 1, 4
          allocate(allElementSizes(self % no_of_allElements))
 
          allElementSizes = 0
-         if ( (MPI_Process % doMPIAction) ) then
+		 if (present(onlyRoot)) then
+			isRootOnly = onlyRoot
+		 else
+		    isRootOnly = .false.
+		 end if 
+         if ( (MPI_Process % doMPIAction) .and. (.not.isRootOnly)) then
 #ifdef _HAS_MPI_
             call mpi_allreduce(elementSizes, allElementSizes, &
                                self % no_of_allElements, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
@@ -3511,7 +3529,7 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------------
 !     Subroutine to load a solution for restart using the information in the control file
 !     -----------------------------------------------------------------------------------
-      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA )
+      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA, onlyRoot )
          use mainKeywordsModule, only: restartFileNameKey
          use FileReaders       , only: ReadOrderFile
          implicit none
@@ -3521,6 +3539,7 @@ slavecoord:             DO l = 1, 4
          logical                , intent(in)  :: loadFromNSSA
          integer                , intent(out) :: initial_iteration
          real(kind=RP)          , intent(out) :: initial_time
+		 logical, optional                    :: onlyRoot
          !-local-variables-----------------------------------------
          character(len=LINE_LENGTH)           :: fileName
          character(len=LINE_LENGTH)           :: orderFileName
@@ -3528,13 +3547,19 @@ slavecoord:             DO l = 1, 4
          type(HexMesh), target                :: auxMesh
          integer                              :: NDOF, eID
          logical                              :: with_gradients
+		 logical                              :: isRootOnly
 #if (!defined(NAVIERSTOKES)) || (!defined(INCNS)) || (!defined(MULTIPHASE))
          logical                          :: computeGradients = .true.
 #endif
          !---------------------------------------------------------
 
          fileName = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH)
-
+		 
+		 if (present(onlyRoot)) then
+			isRootOnly = onlyRoot
+		 else
+		    isRootOnly = .false.
+		 end if 
 !
 !        *****************************************************
 !        The restart polynomial orders are different to self's
@@ -3591,7 +3616,7 @@ slavecoord:             DO l = 1, 4
                end associate
             end do
 
-            call auxMesh % PrepareForIO
+            call auxMesh % PrepareForIO(isRootOnly)
             call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.)
             call auxMesh % storage % pointStorage
             do eID = 1, auxMesh % no_of_elements
@@ -3600,12 +3625,10 @@ slavecoord:             DO l = 1, 4
 
 !           Read the solution in the auxiliary mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
-
             call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA )
             do eID=1, self % no_of_elements
                call auxMesh % storage % elements (eID) % InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
             end do
-
 !           Clean up
 !           --------
 
@@ -5175,7 +5198,7 @@ call elementMPIList % destruct
 !
 !     Initialize
 !     ------------------------------------------------------------
-	  dtRatio = 0.8_RP ! estimated maximum local timestep ratio in RK3 (5/12)
+	  dtRatio = 2.5_RP ! estimated maximum local timestep ratio in RK3 (5/12)
 	  self % CFL_CutOff = CFL_Cut
 	  self % MLIter = 0
 	
@@ -5191,7 +5214,7 @@ call elementMPIList % destruct
 	  cfl_cutoff(1) = self % CFL_CutOff	  
 	  
 	  do i = 2, self % nLevel-1
-		cfl_cutoff(i) = cfl_cutoff(i-1)*2.0_RP/dtRatio
+		cfl_cutoff(i) = cfl_cutoff(i-1)*dtRatio
 	  end do
 !
 !     Determine the level of each element
@@ -5205,7 +5228,7 @@ call elementMPIList % destruct
 	     ! For multiphase, the interface elements have homogenous level, represented by the highest CFL along interface elements
 		 maxc = min(maxval(mesh % elements(eID) % storage % Q(1,:,:,:)),1.0_RP)
 		 minc = max(minval(mesh % elements(eID) % storage % Q(1,:,:,:)),0.0_RP)
-		 if ((maxc.gt.0.001).and.(minc.lt.0.999)) then
+		 if ((maxc.gt.0.01).and.(minc.lt.0.99)) then
 			cfl = maxCFLInterf
 		 end if 
 #endif		
@@ -5218,7 +5241,8 @@ call elementMPIList % destruct
 			end if 
 		 end do 
 		 counterOMP(level,eID) = 1
-		 mesh % elements(eID) % MLevel = level
+		 mesh % elements(eID) % MLevel   = level
+		 mesh % elements(eID) % MLevelwN = level
 		 Level_eID(eID) = level
 	  end do 
 !$omp end do
@@ -5438,7 +5462,8 @@ call elementMPIList % destruct
 				element % MLevel = level-1
 				counterOMP (:,eID) = 0
 				counterOMP (level-1,eID) = 1
-				Level_eID_wN(eID) = level
+				element % MLevelwN = level
+				Level_eID_wN(eID)  = level
 				Level_eID(eID) = element % MLevel
 				counterOMPN (:,eID)= 0
 				counterOMPN (level,eID) = 1
@@ -5451,7 +5476,30 @@ call elementMPIList % destruct
 
    end subroutine MultiLevel_RK_CheckNeighbour
 !------------------------------------------------------------------------
-!  Update 
+!  Send Global Element ID Level
+!------------------------------------------------------------------------
+   subroutine MultiLevel_RK_SendGlobID(self, mesh, globIDLevelPartition, nElementLevelPartition)
+    use MPI_Process_Info
+	implicit none
+	!-arguments-----------------------------------------
+	class(MultiLevel_RK), target  , intent(inout)   :: self
+	type (HexMesh)                                  :: mesh 
+	integer                       , intent(out)     :: globIDLevelPartition(mesh % no_of_allElements)
+	integer                       , intent(out)     :: nElementLevelPartition(self % nLevel)
+	
+	!-local variable-----------------------------------------
+	integer          :: eID
+
+	nElementLevelPartition=0
+	do eID=1,mesh % no_of_elements
+		globIDLevelPartition(mesh % elements (eID) % globID) = mesh % elements (eID) % MLevelwN
+		nElementLevelPartition(mesh % elements (eID) % MLevelwN) = nElementLevelPartition(mesh % elements (eID) % MLevelwN) + 1
+	end do 
+
+   end subroutine MultiLevel_RK_SendGlobID
+   
+!------------------------------------------------------------------------
+!  Destruct 
 !------------------------------------------------------------------------
    subroutine MultiLevel_RK_Destruct(self)
 	implicit none

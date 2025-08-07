@@ -20,6 +20,7 @@
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
       use BoundaryConditions        , only: DestructBoundaryConditions
+	  use PartitionedMeshClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -34,12 +35,14 @@
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       LOGICAL                             :: success, saveGradients, saveSensor, saveLES, saveSource
+	  logical                             :: generateMonitor = .TRUE.
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
+
 
       call SetSolver(NAVIERSTOKES_SOLVER)
 !
@@ -96,21 +99,39 @@
       call InitializeNodalStorage (controlVariables ,Nmax)
       call Initialize_InterpolationMatrices(Nmax)
 
+      if ((MPI_Process % doMPIAction).and.(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'multi level rk3')) then
+          generateMonitor =.FALSE.
+	  end if 
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
-                                 success           = success)
-
-      call Initialize_SpaceAndTimeMethods(controlVariables, sem)
-
-      IF(.NOT. success)   error stop "Mesh reading error"
-      IF(.NOT. success)   error stop "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
+                                 success           = success, generateMonitor =generateMonitor)
 !
 !     -------------------------
 !     Set the initial condition
 !     -------------------------
 !
-      call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
+      call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)  
+!
+!     ----------------------------------------------
+!     Reconstruct for MLRK explicit time step method
+!     ----------------------------------------------
+!
+      if ((MPI_Process % doMPIAction).and.(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'multi level rk3')) then
+         call sem % reconstruct (  controlVariables  = controlVariables,                                         &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+                                 success           = success)
+		 call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
+	  end if 
+!
+!     -----------------------------
+!     Initialize the discretization
+!     -----------------------------
+!
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem)
+
+      IF(.NOT. success)   error stop "Mesh reading error"
+      IF(.NOT. success)   error stop "Boundary condition specification error"
+      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)																		   
       !
       !     -------------------
       !     Build the particles

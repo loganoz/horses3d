@@ -887,7 +887,7 @@
 !        --------------
          IF( self % pAdaptator % hasToAdapt(k+1) .or. dtHasToAdapt ) then
             call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
-			   call samplings % UpdateInterp(sem % mesh)
+			call samplings % UpdateInterp(sem % mesh)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !

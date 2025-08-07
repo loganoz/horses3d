@@ -22,6 +22,7 @@ module ZoneClass
       contains
          procedure   :: Initialize       => Zone_Initialize
          procedure   :: copy             => Zone_Assign
+		 procedure   :: destruct         => Zone_Destruct
          generic     :: assignment(=)    => copy
          procedure   :: CreateFictitious => Zone_CreateFictitious
    end type Zone_t
@@ -131,6 +132,16 @@ module ZoneClass
          self % no_of_faces = 0
 
       end subroutine Zone_Initialize
+!     ------------------------------------------
+!     Destruct Zone
+!     ------------------------------------------	  
+      subroutine Zone_Destruct ( self) 
+         implicit none
+         class(Zone_t)           :: self
+
+         safedeallocate(self % faces)
+
+      end subroutine Zone_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

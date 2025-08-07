@@ -9,7 +9,7 @@
 #include "Includes.h"
 Module DGSEMClass
    use SMConstants
-   use Utilities                 , only: sortAscend
+   use Utilities                 , only: sortDescendInt, sortAscendInt, sortAscend
    USE NodalStorageClass         , only: CurrentNodes, NodalStorage, NodalStorage_t
    use MeshTypes                 , only: HOPRMESH
    use ElementClass
@@ -64,8 +64,9 @@ Module DGSEMClass
       logical                                                 :: particles
 #endif
       contains
-         procedure :: construct => ConstructDGSem
-         procedure :: destruct  => DestructDGSem
+         procedure :: construct   => ConstructDGSem
+         procedure :: destruct    => DestructDGSem
+		 procedure :: reconstruct => ReConstructDGSemMLRK
          procedure :: SaveSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
          procedure :: copy                => DGSEM_Assign
@@ -97,7 +98,8 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
-                                 polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
+                                 polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem, generateMonitor, &
+								 eID_Order, nElementLevel)
       use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -120,6 +122,9 @@ Module DGSEMClass
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
+	  logical, optional, intent(in)      :: generateMonitor
+	  integer, optional, intent(in)      :: eID_Order(:)
+	  integer, optional, intent(in)      :: nElementLevel(:)
 !
 !     ---------------
 !     Local variables
@@ -135,21 +140,31 @@ Module DGSEMClass
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       logical                     :: useRelaxPeriodic                   ! The periodic construction in direction z use a relative tolerance
       logical                     :: useWeightsPartition                ! Partitioning mesh using DOF of elements as weights
-      real(kind=RP)               :: QbaseUniform(1:NCONS)
+      logical                     :: genMonitor
+	  logical                     :: isReconstruct=.false.
+	  real(kind=RP)               :: QbaseUniform(1:NCONS)
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
 #endif
-
+      if ( present(generateMonitor) ) then
+         genMonitor = generateMonitor
+	  else 
+		 genMonitor = .TRUE.
+      end if
+	  
       if ( present(ChildSem) ) then
          if ( ChildSem ) self % mesh % child = .TRUE.
       end if
-
+	  
+   	  if (present(eID_Order) .and. present(nElementLevel)) then
+	     isReconstruct = .true.
+	  end if
 !
 !     Measure preprocessing time
 !     --------------------------
-      if (.not. self % mesh % child) then
+      if ((.not. self % mesh % child).and.(.not.isReconstruct)) then
          call Stopwatch % CreateNewEvent("Preprocessing")
          call Stopwatch % Start("Preprocessing")
       end if
@@ -195,7 +210,6 @@ Module DGSEMClass
       END IF
 
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
-
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh
@@ -241,7 +255,6 @@ Module DGSEMClass
          MeshInnerCurves = .true.
       end if
 
-
       useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
       useWeightsPartition = controlVariables % getValueOrDefault("partitioning with weights", .true.)
 !
@@ -268,26 +281,36 @@ Module DGSEMClass
 !           -------------------------
             call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
 
-!           initialize the solution if the time stepping scheme is mixed RK, since Q is needed in the METIS partitioning  
+!           Initialize the solution if the time stepping scheme is mixed RK or multi level rk3, since Q is needed in the METIS partitioning  
+!           -------------------------------------------------------------------------------------------------------------------------------
             if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'mixed rk') then
                call self % mesh % CheckIfMeshIs2D(.true.)
                call self % mesh % ConstructGeometry()
                call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
                call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
             end if
+			
+			if (.not.isReconstruct) then 
 !
-!           Perform the partitioning
-!           ------------------------
-            call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, controlVariables)
+!               Perform the partitioning
+!               ------------------------
+				call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, controlVariables)
 !
-!           Send the partitions
-!           -------------------
-            call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
+!               Send the partitions
+!               -------------------
+				call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
+			else
+				call PerformMeshPartitioning (self % mesh, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, controlVariables, &
+											 eID_Order=eID_Order, nElementLevel=nElementLevel)
+!
+!               Send the partitions
+!               -------------------
+				call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
+			end if 
 !
 !           Destruct the full mesh
 !           ----------------------
             call self % mesh % Destruct()
-
          end if
 
       end if
@@ -303,7 +326,7 @@ Module DGSEMClass
 !     Immersed boundary method parameter
 !     -----------------------------------
 
-      call self% mesh% IBM% read_info( controlVariables )
+      if (genMonitor) call self% mesh% IBM% read_info( controlVariables )
 !
 !     Compute wall distances
 !     ----------------------
@@ -312,7 +335,7 @@ Module DGSEMClass
 #endif
       IF(.NOT. success) RETURN
 !
-!     construct surfaces mesh
+!     Construct surfaces mesh
 !     -----------------------
       call surfacesMesh % construct(controlVariables, self % mesh)
 !
@@ -344,7 +367,7 @@ Module DGSEMClass
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
 !
-      if( self% mesh% IBM% active ) then
+      if( ( self% mesh% IBM% active ).and.(genMonitor)) then
          if( .not. self % mesh % child ) then
             call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
             call self% mesh% IBM% construct( controlVariables )
@@ -438,8 +461,10 @@ Module DGSEMClass
 !     Build the monitors and samplings
 !     --------------------------------
 !
-      call self % monitors % construct (self % mesh, controlVariables)
-	  call self % samplings % construct (self % mesh, controlVariables)
+      if (genMonitor) then
+        call self % monitors % construct (self % mesh, controlVariables)
+	    call self % samplings % construct (self % mesh, controlVariables)
+      end if 
 !
 !     ------------------
 !     Build the FWH general class
@@ -471,23 +496,30 @@ Module DGSEMClass
 !     Stop measuring preprocessing time
 !     ----------------------------------
       if (.not. self % mesh % child) call Stopwatch % Pause("Preprocessing")
-
       END SUBROUTINE ConstructDGSem
 
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructDGSem( self )
+      SUBROUTINE DestructDGSem( self, destructMonitor)
       use SurfaceMesh, only: surfacesMesh
       IMPLICIT NONE
-      CLASS(DGSem) :: self
+      CLASS(DGSem)      :: self
+	  logical, optional :: destructMonitor
       INTEGER      :: k      !Counter
+	  logical      :: destMonitor
+	  
+	  if ( present(destructMonitor) ) then
+         destMonitor = destructMonitor
+	  else 
+		 destMonitor = .TRUE.
+      end if
 
       CALL self % mesh % destruct
-
-      call self % monitors % destruct
-	  call self % samplings % destruct
-
+      if ( destMonitor) then
+		call self % monitors % destruct
+		call self % samplings % destruct
+      end if 
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % destruct
 #endif
@@ -498,6 +530,118 @@ Module DGSEMClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
+
+      SUBROUTINE ReConstructDGSemMLRK( self, meshFileName_, controlVariables, &
+                                 polynomialOrder, Nx_, Ny_, Nz_, success )
+      use ReadMeshFile
+      use FTValueDictionaryClass
+      use mainKeywordsModule
+      use StopwatchClass
+      use MPI_Process_Info
+      use PartitionedMeshClass
+      use MeshPartitioning
+      use SurfaceMesh, only: surfacesMesh
+
+      IMPLICIT NONE
+!
+!     --------------------------
+!     Constructor for the class.
+!     --------------------------
+!
+      CLASS(DGSem)                       :: self                               !<> Class to be constructed
+      character(len=*),         optional :: meshFileName_
+      class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
+      INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
+      INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
+      LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+	  real(kind=RP)                      :: ML_CFL_CutOff, dt, globalMax, globalMin, maxCFLInterf
+	  integer                            :: ML_nLevel
+	  integer                            :: ierr, i, nElements
+	  integer                            :: globIDLevelPartition( self % mesh % no_of_allElements)
+	  integer                            :: globIDLevel( self % mesh % no_of_allElements)
+	  integer, allocatable               :: nElementLevelPartition(:), nElementLevel(:)
+	  integer                            :: eID_Order(self % mesh % no_of_allElements)
+!       ---------------------------------------------
+!       Read MLRK Setup - No time integration storage
+!       ---------------------------------------------
+		if ( controlVariables % ContainsKey("cfl cut-off") ) then
+			 ML_CFL_CutOff = controlVariables % doublePrecisionValueForKey("cfl cut-off")
+			 ML_CFL_CutOff = min(max(ML_CFL_CutOff,0.0001_RP),10.0_RP)
+		else 
+			 ML_CFL_CutOff = 0.5_RP
+		end if 
+		if ( controlVariables % ContainsKey("number of level") ) then
+			 ML_nLevel = controlVariables % integerValueForKey ("number of level")
+		else 
+			 ML_nLevel = 3
+		end if
+		
+		allocate(nElementLevelPartition(ML_nLevel), nElementLevel(ML_nLevel))
+		nElementLevelPartition = 0
+		nElementLevel          = 0 
+		globIDLevelPartition   = 0
+		globIDLevel            = 0 
+		nElements              = self % mesh % no_of_allElements
+		
+!       Initialize MLRK library in the mesh 
+!       -----------------------------------
+	    call self % mesh % MLRK % construct(self % mesh, ML_nLevel)
+!       Compute CFL and Level
+!       ---------------------
+	    dt         = controlVariables % doublePrecisionValueForKey("dt")
+	    call DetermineCFL(self, dt, globalMax, globalMin, maxCFLInterf,.true.)
+	    call self % mesh % MLRK % update (self % mesh, ML_CFL_CutOff, globalMax, globalMin, maxCFLInterf)
+		
+		call self % mesh % MLRK % sendGlobalID ( self % mesh, globIDLevelPartition, nElementLevelPartition)
+		globIDLevel   = globIDLevelPartition
+		nElementLevel = nElementLevelPartition
+		
+!       MPI Operation		
+#ifdef _HAS_MPI_
+		if ( MPI_Process % doMPIAction ) then
+			! Gather all data 
+			call mpi_allreduce(globIDLevelPartition, globIDLevel, self % mesh % no_of_allElements, MPI_INT, MPI_SUM, &
+								MPI_COMM_WORLD, ierr)
+			call mpi_allreduce(nElementLevelPartition, nElementLevel, ML_nLevel, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+		end if
+#endif
+!       Reorder the globIDLevel(level) and eID_Order(element ID)
+        eID_Order = [(i, i=1,self % mesh % no_of_allElements)]
+		call sortDescendInt(globIDLevel,eID_Order) ! Higher level first
+		call sortAscendInt(eID_Order(1:nElementLevel(ML_nLevel)))
+		do i=ML_nLevel-1,1,-1
+			call sortAscendInt(eID_Order(sum(nElementLevel(ML_nLevel:i+1))+1:sum(nElementLevel(ML_nLevel:i))))
+		end do 
+!       Destruct DGSEM Library and partitions
+!       -------------------------------------
+        if (MPI_Process % isRoot) THEN
+			write(STD_OUT,'(/,5X,A)') "Destructing DGSEM library for MLRK reconstruct based on level information..."
+	    end if 
+		call self % destruct(.FALSE.)
+#ifdef _HAS_MPI_
+		if ( MPI_Process % doMPIRootAction ) then
+			do i=1, MPI_Process % nProcs
+				call mpi_allPartitions(i) % destruct()
+			end do 
+		end if
+		call mpi_partition % destruct()
+#endif	  
+       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reconstructing DGSEM library..."
+	   call self % construct (  controlVariables  = controlVariables,         &
+                                 Nx_ = Nx_,     Ny_ = Ny_,     Nz_ = Nz_,     &
+                                 success           = success,                 &
+								 eID_Order = eID_Order, nElementLevel=nElementLevel)
+	 
+	   if (allocated(nElementLevelPartition)) deallocate(nElementLevelPartition)
+	   if (allocated(nElementLevel)) deallocate(nElementLevel)
+	   
+      END SUBROUTINE ReConstructDGSemMLRK		
+	  
       SUBROUTINE SaveSolutionForRestart( self, fUnit )
          IMPLICIT NONE
          CLASS(DGSem)     :: self
@@ -510,7 +654,7 @@ Module DGSEMClass
 
       END SUBROUTINE SaveSolutionForRestart
 
-      subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time )
+      subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time, onlyRoot)
          use FTValueDictionaryClass
          USE mainKeywordsModule
          use SurfaceMesh, only: surfacesMesh
@@ -520,14 +664,21 @@ Module DGSEMClass
          integer                                :: restartUnit
          integer,       intent(out)             :: initial_iteration
          real(kind=RP), intent(out)             :: initial_time
+		 logical, optional                      :: onlyRoot
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients, loadFromNSSA, withSensor, saveLES
+         logical                                :: saveGradients, loadFromNSSA, withSensor, saveLES, isRootOnly
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
+		 
+		 if (present(onlyRoot)) then
+			isRootOnly = onlyRoot
+		 else
+		    isRootOnly = .false.
+		 end if 
 
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
@@ -537,7 +688,7 @@ Module DGSEMClass
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             loadFromNSSA = controlVariables % logicalValueForKey("ns from nssa")
             if (loadFromNSSA .and. MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "NS restarting from RANS"
-            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
+            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA,isRootOnly)
          ELSE
 
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
@@ -557,7 +708,7 @@ Module DGSEMClass
             END IF 
          END IF
 
-         IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN
+         IF((controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none").and.(.not.isRootOnly))     THEN
             write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
             call self % mesh % Export( trim(solutionName) )
 
@@ -739,6 +890,7 @@ Module DGSEMClass
 !     ---------------
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
+	  
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
@@ -869,7 +1021,7 @@ Module DGSEMClass
 !  -------------------------------------------------------------------
 !  Determine the max advective CFL at each element 
 !  -------------------------------------------------------------------
-   subroutine DetermineCFL(self, deltat, globalMax, globalMin, globalMaxCFLInterf)
+   subroutine DetermineCFL(self, deltat, globalMax, globalMin, globalMaxCFLInterf, onlyRoot)
       use VariableConversion
       use MPI_Process_Info
       implicit none
@@ -879,6 +1031,7 @@ Module DGSEMClass
 	  real(kind=RP),intent(out)  :: globalMax
 	  real(kind=RP),intent(out)  :: globalMin
 	  real(kind=RP),intent(out)  :: globalMaxCFLInterf
+	  logical, optional          :: onlyRoot
 #ifdef FLOW
       !------------------------------------------------
       integer                       :: i, j, k, eID                     ! Coordinate and element counters
@@ -893,7 +1046,8 @@ Module DGSEMClass
       real(kind=RP)                 :: Q(NCONS)                         ! The conservative variable
       real(kind=RP)                 :: cfl                              ! cfl - Advective
 	  real(kind=RP)                 :: maxCFL, minCFL, maxCFLInterface
-	  real(kind=RP), allocatable    :: elementCFL(:), maxCFLInterfaceID(:)                         
+	  real(kind=RP), allocatable    :: elementCFL(:), maxCFLInterfaceID(:)              
+      logical                       :: isRootOnly	  
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalue
 #if defined(INCNS) || defined(MULTIPHASE)
@@ -907,6 +1061,13 @@ Module DGSEMClass
 !--------------------------------------------------------
 !     Initializations
 !     ---------------
+
+	  if (present(onlyRoot)) then
+	     isRootOnly = onlyRoot
+      else
+		 isRootOnly = .false.
+	  end if 
+		 
 	  allocate(elementCFL(1:SIZE(self % mesh % elements)), maxCFLInterfaceID(1:SIZE(self % mesh % elements)))
 	  maxCFLInterfaceID(:) = 0.0_RP
 
@@ -1013,7 +1174,7 @@ Module DGSEMClass
 
 #ifdef _HAS_MPI_
 
-      if ( MPI_Process % doMPIAction ) then
+      if ( ( MPI_Process % doMPIAction ).and.(.not.isRootOnly)) then
 	     call mpi_allreduce(maxCFL, globalMax, 1, MPI_DOUBLE, MPI_MAX, &
                             MPI_COMM_WORLD, ierr)
 		 call mpi_allreduce(maxCFLInterface, globalMaxCFLInterf, 1, MPI_DOUBLE, MPI_MAX, &
@@ -1024,7 +1185,8 @@ Module DGSEMClass
       end if
 #endif
 
-#endif
+#endif	  
+
    end subroutine DetermineCFL
 !
 !////////////////////////////////////////////////////////////////////////
