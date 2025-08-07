@@ -24,6 +24,7 @@ Module DGSEMClass
    use ManufacturedSolutionsNSSA
    use SpallartAlmarasTurbulence , only: Spalart_Almaras_t
 #endif
+   use BoundaryConditions        , only: DestructBoundaryConditions
    use MonitorsClass
    use Samplings
    use ParticlesClass
@@ -514,8 +515,9 @@ Module DGSEMClass
 	  else 
 		 destMonitor = .TRUE.
       end if
-
-      CALL self % mesh % destruct
+	  ! Destruct Mesh 
+      call self % mesh % destruct
+	  
       if ( destMonitor) then
 		call self % monitors % destruct
 		call self % samplings % destruct
@@ -622,6 +624,8 @@ Module DGSEMClass
         if (MPI_Process % isRoot) THEN
 			write(STD_OUT,'(/,5X,A)') "Destructing DGSEM library for MLRK reconstruct based on level information..."
 	    end if 
+        
+		call DestructBoundaryConditions()
 		call self % destruct(.FALSE.)
 #ifdef _HAS_MPI_
 		if ( MPI_Process % doMPIRootAction ) then

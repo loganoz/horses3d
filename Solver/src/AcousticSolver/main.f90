@@ -161,6 +161,7 @@
       call Stopwatch % destruct
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call DestructBoundaryConditions
       call Finalize_SpaceAndTimeMethods
       call Finalize_InterpolationMatrices
       call DestructGlobalNodalStorage()

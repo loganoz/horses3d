@@ -20,7 +20,7 @@ MODULE HexMeshClass
       use FileReadingUtilities            , only: RemovePath, getFileName
       use FTValueDictionaryClass          , only: FTValueDictionary
       use SolutionFile
-      use BoundaryConditions,               only: BCs, DestructBoundaryConditions
+      use BoundaryConditions,               only: BCs
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
       use PartitionedMeshClass            , only: mpi_partition
       use IBMClass
@@ -215,10 +215,7 @@ MODULE HexMeshClass
 !        Zones
 !        -----
 !
-         if (allocated(self % zones)) then
-			call DestructBoundaryConditions()
-			DEALLOCATE( self % zones )
-		 end if 
+         if (allocated(self % zones)) DEALLOCATE( self % zones )
 !
 !        ----------------
 !        Solution storage
