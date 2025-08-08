@@ -102,6 +102,7 @@
 !     Set the initial condition
 !     -------------------------
 !
+	  call UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
 !
 !     ----------------------------------------------
@@ -112,6 +113,7 @@
          call sem % reconstruct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
+		 call UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
 		 call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
 	  end if 
 !
@@ -123,7 +125,6 @@
                            
       IF(.NOT. success)   error stop "Mesh reading error"
       IF(.NOT. success)   error stop "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
 
 !
 !     -----------------------------
