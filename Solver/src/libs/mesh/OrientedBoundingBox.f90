@@ -848,6 +848,8 @@ contains
       end do
          
       call convPoints% destruct()
+	  
+	  nullify(p, p1)
 
    end subroutine ConvexHull
 !

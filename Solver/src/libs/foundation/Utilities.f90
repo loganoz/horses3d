@@ -21,7 +21,7 @@ module Utilities
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
    public   toLower, Qsort, QsortWithFriend, BubblesortWithFriend, my_findloc, sortAscend, sortDescendInt, sortAscendInt
    public   logarithmicMean, dot_product
-   public   LeastSquaresLinRegression, reindexIntegerList, combine_partitions
+   public   LeastSquaresLinRegression, reindexIntegerList, combine_partitions, log_mem
    
    interface dot_product
       module procedure dot_product_3Tensor_Vec
@@ -770,4 +770,29 @@ integer function my_findloc(arr, val, dim)
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+    subroutine log_mem(tag)
+        ! Logs current memory usage (VmRSS) and timestamp with a custom tag
+        character(*), intent(in) :: tag
+        character(len=256) :: line
+        integer :: unit, ios
+        integer :: vals(8)
+        character(len=20) :: timestr
+
+        ! Get time for correlation
+        call date_and_time(values=vals)
+		write(timestr, '(I2.2,":",I2.2,":",I2.2,".",I3.3)') vals(5), vals(6), vals(7), vals(8)
+
+        ! Read /proc/self/status for VmRSS
+        open(newunit=unit, file="/proc/self/status", status="old", action="read", iostat=ios)
+        if (ios /= 0) return
+        do
+            read(unit, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            if (line(1:6) == 'VmRSS:') then
+                print '(A,1X,A,1X,A)', timestr, trim(tag), trim(line)
+                exit
+            end if
+        end do
+        close(unit)
+    end subroutine log_mem
 end module Utilities

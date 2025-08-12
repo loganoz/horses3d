@@ -74,6 +74,7 @@ module ZoneClass
          call ConstructBoundaryConditions(no_of_markers, zoneNames)
          
          deallocate (zoneNames)
+		 nullify(zoneNames)
       end subroutine ConstructZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,6 +115,7 @@ module ZoneClass
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
          
          deallocate (zoneNames)
+		 nullify(zoneNames)
       end subroutine ReassignZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

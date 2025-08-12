@@ -52,7 +52,9 @@ module MPI_Face_Class
 
    type MPI_FacesSet_t
       logical                          :: constructed = .false.
+	  integer                          :: nDomainShared
       type(MPI_Face_t), allocatable    :: faces(:)
+	  integer         , allocatable    :: listDomain(:)
    end type MPI_FacesSet_t
 
    interface MPI_Face_t
@@ -73,9 +75,14 @@ module MPI_Face_Class
 
          if ( MPI_Process % doMPIAction ) then
             allocate(facesSet % faces(MPI_Process % nProcs))
-
+			allocate(facesSet % listDomain(MPI_Process % nProcs))
+			
+			facesSet % nDomainShared = MPI_Process % nProcs
+			
             do domain = 1, MPI_Process % nProcs
                facesSet % faces(domain) = MPI_Face_t()
+			   facesSet % faces(domain) % no_of_faces = 0
+			   facesSet % listDomain (domain) = domain
             end do
          end if
 
@@ -101,7 +108,7 @@ module MPI_Face_Class
 !        ---------------
 !
          integer  :: domain
-
+		 
          do domain = 1, MPI_Process % nProcs
             facesSet % faces(domain) % nDOFs         = NDOFS(domain)
             facesSet % faces(domain) % sizeQ         = NCONS * NDOFS(domain)
@@ -109,6 +116,7 @@ module MPI_Face_Class
             facesSet % faces(domain) % sizeAviscFlux = NCONS * NDOFS(domain)
 
             if ( NDOFS(domain) .gt. 0 ) then
+			   
                safedeallocate(facesSet % faces(domain) % Qsend)
                safedeallocate(facesSet % faces(domain) % U_xyzsend)
                safedeallocate(facesSet % faces(domain) % Qrecv)
@@ -124,7 +132,6 @@ module MPI_Face_Class
                allocate( facesSet % faces(domain) % AviscFluxRecv(NCONS * NDOFS(domain)) )
             end if
          end do
-
       end subroutine ConstructMPIFacesStorage
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,177 +139,179 @@ module MPI_Face_Class
 !     ---------------------------------------
 !     Subroutine to send the polynomial order
 !     ---------------------------------------
-      subroutine MPI_Face_SendN(self, domain)
+      subroutine MPI_Face_SendN(self, domain, req)
          implicit none
          !-arguments-----------------------------------------------
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
+		 integer, intent(out)   :: req
          !-local-variables-----------------------------------------
-         integer  :: ierr, dummyreq
+         integer  :: ierr
          !---------------------------------------------------------
-
+		 req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % Nsend, 6 * self % no_of_faces, MPI_INT, domain-1, DEFAULT_TAG, &
-                           MPI_COMM_WORLD, dummyreq, ierr)
-            call mpi_request_free(dummyreq, ierr)
+                           MPI_COMM_WORLD, req, ierr)
          end if
 #endif
-
       end subroutine MPI_Face_SendN
 !     ------------------------------------------
 !     Subroutine to receive the polynomial order
 !     ------------------------------------------
-      subroutine MPI_Face_RecvN(self, domain)
+      subroutine MPI_Face_RecvN(self, domain, req)
          implicit none
          !-arguments-----------------------------------------------
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
+		 integer, intent(out)   :: req
          !-local-variables-----------------------------------------
-         integer  :: ierr, dummyreq
+         integer  :: ierr
          !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % Nrecv, 6 * self % no_of_faces, MPI_INT, domain-1, MPI_ANY_TAG, &
-                           MPI_COMM_WORLD, self % Nrecv_req, ierr)
+                           MPI_COMM_WORLD, req, ierr)
+			self % Nrecv_req = req
          end if
 #endif
-
       end subroutine MPI_Face_RecvN
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine MPI_Face_SendQ(self, domain, nEqn)
+!     ---------------------------------
+!     Subroutine to send the variable Q
+!     ---------------------------------
+      subroutine MPI_Face_SendQ(self, domain, nEqn, req)
          implicit none
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
-         integer,    intent(in) :: nEqn
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: ierr, dummyreq
-
+         integer, intent(in)    :: nEqn
+		 integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, DEFAULT_TAG, &
-                           MPI_COMM_WORLD, dummyreq, ierr)
-            call mpi_request_free(dummyreq, ierr)
+            call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, DEFAULT_TAG, &
+                           MPI_COMM_WORLD, req, ierr)
          end if
 #endif
-
       end subroutine MPI_Face_SendQ
-
-      subroutine MPI_Face_RecvQ(self, domain, nEqn)
+!     ------------------------------------
+!     Subroutine to receive the variable Q
+!     ------------------------------------
+      subroutine MPI_Face_RecvQ(self, domain, nEqn, req)
          implicit none
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
-         integer,    intent(in) :: nEqn
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: ierr, dummyreq
-
+         integer, intent(in)    :: nEqn
+		 integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
+		 self % Qrecv_req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
-                           MPI_COMM_WORLD, self % Qrecv_req, ierr)
+            call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, MPI_ANY_TAG, &
+                           MPI_COMM_WORLD, req, ierr)
+			self % Qrecv_req = req
          end if
 #endif
-
       end subroutine MPI_Face_RecvQ
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine MPI_Face_SendU_xyz(self, domain, nEqn)
+!     -------------------------------------
+!     Subroutine to send the variable gradQ
+!     -------------------------------------
+      subroutine MPI_Face_SendU_xyz(self, domain, nEqn, req)
          implicit none
-         class(MPI_Face_t)    :: self
-         integer, intent(in)  :: domain
-         integer, intent(in)  :: nEqn
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: ierr, dummyreq
-
+         class(MPI_Face_t)      :: self
+         integer, intent(in)    :: domain
+         integer, intent(in)    :: nEqn
+		 integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_isend(self % U_xyzsend, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
-                           DEFAULT_TAG, MPI_COMM_WORLD, dummyreq, ierr)
-            call mpi_request_free(dummyreq, ierr)
+            call mpi_isend(self % U_xyzsend, nEqn * NDIM * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
+                           DEFAULT_TAG, MPI_COMM_WORLD, req, ierr)
          end if
 #endif
-
       end subroutine MPI_Face_SendU_xyz
-
-      subroutine MPI_Face_RecvU_xyz(self, domain, nEqn)
+!     ----------------------------------------
+!     Subroutine to receive the variable gradQ
+!     ----------------------------------------
+      subroutine MPI_Face_RecvU_xyz(self, domain, nEqn, req)
          implicit none
-         class(MPI_Face_t)    :: self
-         integer, intent(in)  :: domain
-         integer, intent(in)  :: nEqn
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: ierr, dummyreq
-
+         class(MPI_Face_t)      :: self
+         integer, intent(in)    :: domain
+         integer, intent(in)    :: nEqn
+		 integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
+		 self % gradQrecv_req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_irecv(self % U_xyzrecv, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
-                           DEFAULT_TAG, MPI_COMM_WORLD, self % gradQrecv_req, ierr)
+            call mpi_irecv(self % U_xyzrecv, nEqn * NDIM * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
+                           DEFAULT_TAG, MPI_COMM_WORLD, req, ierr)
+			self % gradQrecv_req = req
          end if
 #endif
-
       end subroutine MPI_Face_RecvU_xyz
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine MPI_Face_SendAviscFlux(self, domain, nEqn)
+!     --------------------------------
+!     Subroutine to send the AviscFlux
+!     --------------------------------
+      subroutine MPI_Face_SendAviscFlux(self, domain, nEqn, req)
          implicit none
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
-         integer,    intent(in) :: nEqn
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: ierr, dummyreq
-
+         integer, intent(in)    :: nEqn
+		 integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_isend(self % AviscFluxSend, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, &
-                           DEFAULT_TAG, MPI_COMM_WORLD, dummyreq, ierr)
-            call mpi_request_free(dummyreq, ierr)
+            call mpi_isend(self % AviscFluxSend, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
+                           DEFAULT_TAG, MPI_COMM_WORLD, req, ierr)
          end if
 #endif
 
       end subroutine MPI_Face_SendAviscFlux
-
-      subroutine MPI_Face_RecvAviscFlux(self, domain, nEqn)
+!     -----------------------------------
+!     Subroutine to receive the AviscFlux
+!     -----------------------------------
+      subroutine MPI_Face_RecvAviscFlux(self, domain, nEqn, req)
          implicit none
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
-         integer,    intent(in) :: nEqn
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: ierr, dummyreq
-
+         integer, intent(in)    :: nEqn
+		 integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+		 req = MPI_REQUEST_NULL
+		 self % AviscFluxRecv_req = MPI_REQUEST_NULL
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_irecv(self % AviscFluxRecv, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, &
+            call mpi_irecv(self % AviscFluxRecv, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
                            MPI_ANY_TAG, MPI_COMM_WORLD, self % AviscFluxRecv_req, ierr)
+			self % AviscFluxRecv_req = req
          end if
 #endif
-
       end subroutine MPI_Face_RecvAviscFlux
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -408,14 +417,15 @@ module MPI_Face_Class
 !
          integer  :: domain
 
-         if ( MPI_Process % doMPIAction ) then
+         if ( MPI_Process % doMPIAction .and. (allocated(facesSet % faces))) then
             do domain = 1, MPI_Process % nProcs
                call facesSet % faces(domain) % Destruct()
             end do
             safedeallocate(facesSet % faces)
+			safedeallocate(facesSet % listDomain)
          end if
-		 
-		 facesSet % constructed = .false.
+		 facesSet % constructed = .FALSE.
+
       end subroutine DestructMPIFaces
 
       type(MPI_Face_t) function Construct_MPI_Face()

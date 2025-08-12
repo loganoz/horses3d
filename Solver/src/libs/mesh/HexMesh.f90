@@ -227,9 +227,11 @@ MODULE HexMeshClass
 !        MPIfaces
 !        --------
 !        
-         !call DestructMPIFaces(self % MPIfaces)
-         self % MPIfaces % constructed = .false.
-		 safedeallocate(self % MPIfaces % faces)
+#ifdef _HAS_MPI_
+         if ( MPI_Process % doMPIAction  ) then 
+			call DestructMPIFaces( self % MPIfaces)
+		 end if 
+#endif
 		 
          safedeallocate(self % elements_sequential)
          safedeallocate(self % elements_mpi)
@@ -1092,105 +1094,158 @@ slavecoord:             DO l = 1, 4
          class(HexMesh)         :: self
 #ifdef _HAS_MPI_
          !-local-variables----------------------------------------------------
-         integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
+         integer            :: mpifID, fID, thisSide, domain, ierr
+         integer            :: i, j, k, counter
+		 integer 			:: nShared, nreqs, idx_send
+		 integer, allocatable :: all_reqs(:)
          !--------------------------------------------------------------------
 
-         if ( .not. MPI_Process % doMPIAction ) return
+         if ( .not. MPI_Process % doMPIAction .or. .not. (self % MPIfaces % constructed)  ) return
+
+		 nShared = self % MPIfaces % nDomainShared
+		 ! Return when no faces are shared
+		 if (nShared <= 0) return
+
+		associate (MPIfaces => self % MPIfaces)
+		
+		 ! Allocate and initialize combined request array (recv slots first, then send slots)
+		 nreqs = 2 * nShared
+		 allocate(all_reqs(nreqs))
+		 all_reqs = MPI_REQUEST_NULL
 !
 !        ***************************
 !        Perform the receive request
 !        ***************************
 !
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvN(domain)
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			if (MPIfaces % faces(domain) % no_of_faces > 0) then
+				call MPIfaces % faces(domain) % RecvN(domain, all_reqs(k))
+			end if 
          end do
 !
-!        *************
-!        Send solution
-!        *************
+!        *********************
+!        Send faces polynomial
+!        *********************
 !
-         do domain = 1, MPI_Process % nProcs
+		 idx_send = nShared + 1
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			
+			if (MPIfaces % faces(domain) % no_of_faces <= 0) then
+				idx_send = idx_send + 1
+				cycle
+			end if
 !
-!           ---------------
-!           Gather solution
-!           ---------------
+!           -----------------------
+!           Gather faces polynomial
+!           -----------------------
 !
             counter = 1
-            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
-
-            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
-               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
-               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+			
+            do mpifID = 1, MPIfaces % faces(domain) % no_of_faces
+               fID = MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = MPIfaces % faces(domain) % elementSide(mpifID)
+			   
                associate( f => self % faces(fID))
                associate( e => self % elements(maxval(f % elementIDs)) )
-
-
-               self % MPIfaces % faces(domain) % Nsend(counter:counter+1  ) = e % Nxyz(axisMap(:,f % elementSide(thisSide)))
-               self % MPIfaces % faces(domain) % Nsend(counter+2:counter+4) = e % Nxyz
-               self % MPIfaces % faces(domain) % Nsend(counter+5)           = e % globID
+               MPIfaces % faces(domain) % Nsend(counter:counter+1  ) = e % Nxyz(axisMap(:,f % elementSide(thisSide)))
+               MPIfaces % faces(domain) % Nsend(counter+2:counter+4) = e % Nxyz
+               MPIfaces % faces(domain) % Nsend(counter+5)           = e % globID
 
                counter = counter + 6
-
                end associate
                end associate
             end do
 !
-!           -------------
-!           Send solution
-!           -------------
+!           ---------------------
+!           Send faces polynomial
+!           ---------------------
 !
-            call self % MPIfaces % faces(domain) % SendN(domain)
+            call self % MPIfaces % faces(domain) % SendN(domain, all_reqs(idx_send))
+			idx_send = idx_send + 1
          end do
+!
+!        ********************************************
+!        Wait for all posted operations (recv + send)
+!        ********************************************
+!
+		 call MPI_Waitall(nreqs, all_reqs, MPI_STATUSES_IGNORE, ierr)
+		 
+		 deallocate(all_reqs)
+		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesPolynomial
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!     -----------------------------------------------------------------------
+!     Subroutine to update the MPIFaces solution Q (MPI Receive and MPI Send)
+!     -----------------------------------------------------------------------
       subroutine HexMesh_UpdateMPIFacesSolution(self, nEqn)
          use MPI_Face_Class
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)         :: self
          integer,    intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
-         integer, parameter :: otherSide(2) = (/2,1/)
+         !-local-variables----------------------------------------------------
+		 integer :: k, domain, mpifID, fID, thisSide
+		 integer :: i, j, counter, ierr
+		 integer, parameter :: otherSide(2) = (/2,1/)
+		 integer :: nShared, nreqs, idx_send
+		 integer, allocatable :: all_reqs(:)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
+		 
+		 nShared = self % MPIfaces % nDomainShared
+		 ! Return when no faces are shared
+		 if (nShared <= 0) return
+
+		associate (MPIfaces => self % MPIfaces)
+		
+		 ! Allocate and initialize combined request array (recv slots first, then send slots)
+		 nreqs = 2 * nShared
+		 allocate(all_reqs(nreqs))
+		 all_reqs = MPI_REQUEST_NULL
 !
 !        ***************************
 !        Perform the receive request
 !        ***************************
 !
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			if (MPIfaces % faces(domain) % no_of_faces > 0) then
+				call MPIfaces % faces(domain) % RecvQ(domain, nEqn, all_reqs(k))
+			end if 
          end do
 !
 !        *************
 !        Send solution
 !        *************
 !
-         do domain = 1, MPI_Process % nProcs
+		 idx_send = nShared + 1
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			
+			if (MPIfaces % faces(domain) % no_of_faces <= 0) then
+				idx_send = idx_send + 1
+				cycle
+			end if
 !
 !           ---------------
 !           Gather solution
 !           ---------------
 !
             counter = 1
-            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
-
-            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
-               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
-               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+			
+            do mpifID = 1, MPIfaces % faces(domain) % no_of_faces
+               fID = MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Q(:,i,j)
+                  MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Q(1:nEqn,i,j)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -1200,117 +1255,199 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+            call MPIfaces % faces(domain) % SendQ(domain, nEqn, all_reqs(idx_send))
+			idx_send = idx_send + 1
          end do
+!
+!        ********************************************
+!        Wait for all posted operations (recv + send)
+!        ********************************************
+!
+		 call MPI_Waitall(nreqs, all_reqs, MPI_STATUSES_IGNORE, ierr)
+		 
+		 deallocate(all_reqs)
+		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
-
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------------------------------------------------------
+!     Subroutine to update the MPIFaces solution gradQ (MPI Receive and MPI Send)
+!     ---------------------------------------------------------------------------
       subroutine HexMesh_UpdateMPIFacesGradients(self, nEqn)
          use MPI_Face_Class
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)      :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
-         integer, parameter :: otherSide(2) = (/2,1/)
+         !-local-variables----------------------------------------------------
+		 integer :: k, domain, mpifID, fID, thisSide
+		 integer :: i, j, counter, ierr
+		 integer, parameter :: otherSide(2) = (/2,1/)
+		 integer :: nShared, nreqs, idx_send, token
+		 integer, allocatable :: all_reqs(:)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
+		 
+		 nShared = self % MPIfaces % nDomainShared
+		 ! Return when no faces are shared
+		 if (nShared <= 0) then
+			! Add token to sync (necessary for MU with MLRK and very big case)
+			call MPI_Allreduce(1, token, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+			return
+		 end if
+
+		associate (MPIfaces => self % MPIfaces)
+		 
+		 ! Allocate and initialize combined request array (recv slots first, then send slots)
+		 nreqs = 2 * nShared
+		 allocate(all_reqs(nreqs))
+		 all_reqs = MPI_REQUEST_NULL
 !
 !        ***************************
 !        Perform the receive request
 !        ***************************
 !
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvU_xyz(domain, nEqn)
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			if (MPIfaces % faces(domain) % no_of_faces > 0) then
+				call MPIfaces % faces(domain) % RecvU_xyz(domain, nEqn, all_reqs(k))
+			end if
          end do
 !
 !        ***************
-!        Gather gradients
+!        Send gradients
 !        ***************
 !
-         do domain = 1, MPI_Process % nProcs
-            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
-
+		 idx_send = nShared + 1
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			
+			if (MPIfaces % faces(domain) % no_of_faces <= 0) then
+				idx_send = idx_send + 1
+				cycle
+			end if
+!
+!           ---------------
+!           Gather gradients
+!           ---------------
+!
             counter = 1
 
-            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
-               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
-               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+            do mpifID = 1, MPIfaces % faces(domain) % no_of_faces
+               fID = MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  self % MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_x(:,i,j)
+                  MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_x(1:nEqn,i,j)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  self % MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_y(:,i,j)
+                  MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_y(1:nEqn,i,j)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  self % MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_z(:,i,j)
+                  MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_z(1:nEqn,i,j)
                   counter = counter + nEqn
                end do               ; end do
                end associate
             end do
-
-            call self % MPIfaces % faces(domain) % SendU_xyz(domain, nEqn)
+!
+!           -------------
+!           Send gradients
+!           -------------
+!
+            call MPIfaces % faces(domain) % SendU_xyz(domain, nEqn, all_reqs(idx_send))
+			idx_send = idx_send + 1
          end do
+!
+!        ********************************************
+!        Wait for all posted operations (recv + send)
+!        ********************************************
+!
+		 call MPI_Waitall(nreqs, all_reqs, MPI_STATUSES_IGNORE, ierr)
+		 
+		 deallocate(all_reqs)
+		 ! Add token to sync (necessary for MU with MLRK and very big case)
+		 call MPI_Allreduce(1, token, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!     -------------------------------------------------------------------------------
+!     Subroutine to update the MPIFaces solution AviscFlux (MPI Receive and MPI Send)
+!     -------------------------------------------------------------------------------
       subroutine HexMesh_UpdateMPIFacesAviscFlux(self, nEqn)
          use MPI_Face_Class
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)         :: self
          integer,    intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
-         integer, parameter :: otherSide(2) = (/2,1/)
+         !-local-variables----------------------------------------------------
+		 integer :: k, domain, mpifID, fID, thisSide
+		 integer :: i, j, counter, ierr
+		 integer, parameter :: otherSide(2) = (/2,1/)
+		 integer :: nShared, nreqs, idx_send
+		 integer, allocatable :: all_reqs(:)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
+		 
+		 nShared = self % MPIfaces % nDomainShared
+		 ! Return when no faces are shared
+		 if (nShared <= 0) return
+
+		associate (MPIfaces => self % MPIfaces)
+		
+		 ! Allocate and initialize combined request array (recv slots first, then send slots)
+		 nreqs = 2 * nShared
+		 allocate(all_reqs(nreqs))
+		 all_reqs = MPI_REQUEST_NULL
 !
 !        ***************************
 !        Perform the receive request
 !        ***************************
 !
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvAviscFlux(domain, nEqn)
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			if (MPIfaces % faces(domain) % no_of_faces > 0) then
+				call MPIfaces % faces(domain) % RecvAviscFlux(domain, nEqn, all_reqs(k))
+			end if 
          end do
 !
 !        ***********
 !        Send H flux
 !        ***********
 !
-         do domain = 1, MPI_Process % nProcs
+		 idx_send = nShared + 1
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			
+			if (MPIfaces % faces(domain) % no_of_faces <= 0) then
+				idx_send = idx_send + 1
+				cycle
+			end if
 !
 !           ---------------
 !           Gather solution
 !           ---------------
 !
             counter = 1
-            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
 
-            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
-               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
-               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+            do mpifID = 1, MPIfaces % faces(domain) % no_of_faces
+               fID = MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  self % MPIfaces % faces(domain) % AviscFluxSend(counter:counter+nEqn-1) = &
+                  MPIfaces % faces(domain) % AviscFluxSend(counter:counter+nEqn-1) = &
                      f % storage(thisSide) % AviscFlux(:,i,j)
                   counter = counter + nEqn
                end do               ; end do
@@ -1321,51 +1458,84 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call self % MPIfaces % faces(domain) % SendAviscFlux(domain, nEqn)
+            call MPIfaces % faces(domain) % SendAviscFlux(domain, nEqn, all_reqs(idx_send))
+			idx_send = idx_send + 1
          end do
+!
+!        ********************************************
+!        Wait for all posted operations (recv + send)
+!        ********************************************
+!
+		 call MPI_Waitall(nreqs, all_reqs, MPI_STATUSES_IGNORE, ierr)
+		 
+		 deallocate(all_reqs)
+		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesAviscFlux
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!     ----------------------------------------------------------------------------
+!     Subroutine to update the MPIFaces base solution Q (MPI Receive and MPI Send)
+!     ----------------------------------------------------------------------------
 #if defined(ACOUSTIC)
       subroutine HexMesh_UpdateMPIFacesBaseSolution(self, nEqn)
          use MPI_Face_Class
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)         :: self
          integer,    intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
-         integer, parameter :: otherSide(2) = (/2,1/)
+         !-local-variables----------------------------------------------------
+		 integer :: k, domain, mpifID, fID, thisSide
+		 integer :: i, j, counter, ierr
+		 integer, parameter :: otherSide(2) = (/2,1/)
+		 integer :: nShared, nreqs, idx_send
+		 integer, allocatable :: all_reqs(:)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
+		 
+		 nShared = self % MPIfaces % nDomainShared
+		 ! Return when no faces are shared
+		 if (nShared <= 0) return
+
+		associate (MPIfaces => self % MPIfaces)
+		
+		 ! Allocate and initialize combined request array (recv slots first, then send slots)
+		 nreqs = 2 * nShared
+		 allocate(all_reqs(nreqs))
+		 all_reqs = MPI_REQUEST_NULL
 !
 !        ***************************
 !        Perform the receive request
 !        ***************************
-!
-         do domain = 1, MPI_Process % nProcs
-            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
+!		 
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			if (MPIfaces % faces(domain) % no_of_faces > 0) then
+				call MPIfaces % faces(domain) % RecvQ(domain, nEqn, all_reqs(k))
+			end if 
          end do
 !
 !        *************
 !        Send solution
 !        *************
 !
-         do domain = 1, MPI_Process % nProcs
+		 idx_send = nShared + 1
+         do k = 1, nShared
+			domain = MPIfaces % listDomain(k)
+			
+			if (MPIfaces % faces(domain) % no_of_faces <= 0) then
+				idx_send = idx_send + 1
+				cycle
+			end if
 !
 !           ---------------
 !           Gather solution
 !           ---------------
 !
             counter = 1
-            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
 
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
@@ -1382,27 +1552,38 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
+            call MPIfaces % faces(domain) % SendQ(domain, nEqn, all_reqs(idx_send))
+			idx_send = idx_send + 1
          end do
+!
+!        ********************************************
+!        Wait for all posted operations (recv + send)
+!        ********************************************
+!
+		 call MPI_Waitall(nreqs, all_reqs, MPI_STATUSES_IGNORE, ierr)
+		 
+		 deallocate(all_reqs)
+		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesBaseSolution
 #endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!     --------------------------------------------------------------------------------
+!     Subroutine to gather the MPIFaces solution Q (From MPI Storage to Faces Storage)
+!     --------------------------------------------------------------------------------
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)    :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
+         !-local-variables----------------------------------------------------
          integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
+         integer            :: i, j, k, counter
          integer, parameter :: otherSide(2) = (/2,1/)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -1410,21 +1591,18 @@ slavecoord:             DO l = 1, 4
 !        Gather solution
 !        ***************
 !
-         do domain = 1, MPI_Process % nProcs
-!
-!           **************************************
-!           Wait until messages have been received
-!           **************************************
-!
-            call self % MPIfaces % faces(domain) % WaitForSolution
-
+         do k = 1, self % MPIfaces % nDomainShared
+			domain = self % MPIfaces % listDomain(k)
             counter = 1
+			
+			if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
+			
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % Q(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % Q(1:nEqn,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -1432,20 +1610,23 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_GatherMPIFacesSolution
-
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------------------------------------------------------
+!     Subroutine to gather the MPIFaces gradQ (From MPI Storage to Faces Storage)
+!     ---------------------------------------------------------------------------
       subroutine HexMesh_GatherMPIFacesGradients(self, nEqn)
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)      :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
+         !-local-variables----------------------------------------------------
          integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
+         integer            :: i, j, k, counter
          integer, parameter :: otherSide(2) = (/2,1/)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -1453,32 +1634,28 @@ slavecoord:             DO l = 1, 4
 !        Gather solution
 !        ***************
 !
-         do domain = 1, MPI_Process % nProcs
-
-!
-!           **************************************
-!           Wait until messages have been received
-!           **************************************
-!
-            call self % MPIfaces % faces(domain) % WaitForGradients
-
+         do k = 1, self % MPIfaces % nDomainShared
+			domain = self % MPIfaces % listDomain(k)
             counter = 1
+
+			if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
+			
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % U_x(1:nEqn,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % U_y(1:nEqn,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % U_z(1:nEqn,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -1489,19 +1666,20 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!     -------------------------------------------------------------------------------
+!     Subroutine to gather the MPIFaces Aviscflux (From MPI Storage to Faces Storage)
+!     -------------------------------------------------------------------------------
       subroutine HexMesh_GatherMPIFacesAviscflux(self, nEqn)
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)      :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
+         !-local-variables----------------------------------------------------
          integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
-         integer, parameter :: otherSide(2) = [2, 1]
+         integer            :: i, j, k, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -1509,15 +1687,12 @@ slavecoord:             DO l = 1, 4
 !        Gather solution
 !        ***************
 !
-         do domain = 1, MPI_Process % nProcs
-!
-!           **************************************
-!           Wait until messages have been received
-!           **************************************
-!
-            call self % MPIfaces % faces(domain) % WaitForAviscflux
-
+         do k = 1, self % MPIfaces % nDomainShared
+			domain = self % MPIfaces % listDomain(k)
             counter = 1
+			
+			if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
+			
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
@@ -1535,20 +1710,21 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!     -------------------------------------------------------------------------------------
+!     Subroutine to gather the MPIFaces solution base Q (From MPI Storage to Faces Storage)
+!     -------------------------------------------------------------------------------------
 #if defined(ACOUSTIC)
       subroutine HexMesh_GatherMPIFacesBaseSolution(self, nEqn)
          implicit none
+         !-arguments----------------------------------------------------------
          class(HexMesh)    :: self
          integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
+         !-local-variables----------------------------------------------------
          integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, counter
+         integer            :: i, j, k, counter
          integer, parameter :: otherSide(2) = (/2,1/)
+         !--------------------------------------------------------------------
 
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -1556,15 +1732,12 @@ slavecoord:             DO l = 1, 4
 !        Gather solution
 !        ***************
 !
-         do domain = 1, MPI_Process % nProcs
-!
-!           **************************************
-!           Wait until messages have been received
-!           **************************************
-!
-            call self % MPIfaces % faces(domain) % WaitForSolution
-
+         do k = 1, self % MPIfaces % nDomainShared
+			domain = self % MPIfaces % listDomain(k)
             counter = 1
+
+			if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
+			
             do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
@@ -2222,7 +2395,7 @@ slavecoord:             DO l = 1, 4
          integer  :: globID
          integer  :: Nxyz(NDIM)
          integer  :: domain, MPI_NDOFS(MPI_Process % nProcs), mpifID
-         integer  :: num_of_Faces, ii
+         integer  :: num_of_Faces, ii, k
          integer, parameter :: other(2) = [2, 1]
          !--------------------------------------------------------------
 
@@ -2306,15 +2479,13 @@ slavecoord:             DO l = 1, 4
 !
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction .and. mpi_partition % Constructed  )  then
-
-            do domain = 1, MPI_Process % nProcs
-!
-!              Wait until messages have been received
-!              --------------------------------------
-!
-               call self % MPIfaces % faces(domain) % WaitForN
-
+		 
+			do k = 1, self % MPIfaces % nDomainShared
+			   domain = self % MPIfaces % listDomain(k)
                counter = 1
+			   
+			   if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
+			   
                do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                   fID  = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                   side = self % MPIfaces % faces(domain) % elementSide(mpifID)   ! face side 1/2
@@ -2354,6 +2525,8 @@ slavecoord:             DO l = 1, 4
             MPI_NDOFS = 0
 
             do domain = 1, MPI_Process % nProcs
+			   if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
+			   
                do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                   fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                   associate( fc => self % faces(fID) )
@@ -2401,6 +2574,7 @@ slavecoord:             DO l = 1, 4
 !
          integer  :: k, eID, bFace, side, eSide, fID, domain
          integer  :: no_of_mpifaces(MPI_Process % nProcs)
+		 integer  :: sharedDomain(MPI_Process % nProcs)
          integer, parameter  :: otherSide(2) = (/2,1/)
          integer, parameter  :: invRot(1:4,0:7) = reshape( (/ 1, 2, 3, 4, &
                                                               4, 1, 2, 3, &
@@ -2419,15 +2593,24 @@ slavecoord:             DO l = 1, 4
             no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
          end do
 !
-!        ---------------
-!        Allocate memory
-!        ---------------
+!        -------------------------------------------------------------------
+!        Allocate memory MPIfaces and update the domain with shared mpifaces
+!        -------------------------------------------------------------------
 !
+		 self % MPIfaces % nDomainShared =  0
+		 sharedDomain = 0
          do domain = 1, MPI_Process % nProcs
             if ( no_of_mpifaces(domain) .ne. 0 ) then
                call self % MPIfaces % faces(domain) % Construct(no_of_mpifaces(domain))
+			   
+			   self % MPIfaces % nDomainShared = self % MPIfaces % nDomainShared+1
+			   sharedDomain(self % MPIfaces % nDomainShared) = domain
             end if
          end do
+		 ! Reallocate listDomain
+		 safedeallocate(self % MPIfaces % listDomain)
+		 allocate(self % MPIfaces % listDomain(self % MPIfaces % nDomainShared))
+		 self % MPIfaces % listDomain    = sharedDomain(1:self % MPIfaces % nDomainShared)
 !
 !        -------------
 !        Assign values
@@ -2859,6 +3042,7 @@ slavecoord:             DO l = 1, 4
          DEALLOCATE(hex8Map)
          CALL genHexMap % destruct()
          DEALLOCATE(genHexMap)
+		 nullify(hexMap)
 
       end subroutine HexMesh_ConstructGeometry
 
