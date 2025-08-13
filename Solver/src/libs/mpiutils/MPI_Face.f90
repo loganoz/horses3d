@@ -149,6 +149,7 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % Nsend, 6 * self % no_of_faces, MPI_INT, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, req, ierr)
@@ -168,6 +169,7 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % Nrecv, 6 * self % no_of_faces, MPI_INT, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, req, ierr)
@@ -191,6 +193,7 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, req, ierr)
@@ -210,6 +213,8 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
+		 self % Qrecv_req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, req, ierr)
@@ -233,6 +238,7 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % U_xyzsend, nEqn * NDIM * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, req, ierr)
@@ -252,6 +258,8 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
+		 self % gradQrecv_req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % U_xyzrecv, nEqn * NDIM * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, req, ierr)
@@ -275,6 +283,7 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % AviscFluxSend, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, req, ierr)
@@ -295,9 +304,11 @@ module MPI_Face_Class
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
+		 req = MPI_REQUEST_NULL
+		 self % AviscFluxRecv_req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % AviscFluxRecv, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, &
-                           MPI_ANY_TAG, MPI_COMM_WORLD, self % AviscFluxRecv_req, ierr)
+                           MPI_ANY_TAG, MPI_COMM_WORLD, req, ierr)
 			self % AviscFluxRecv_req = req
          end if
 #endif

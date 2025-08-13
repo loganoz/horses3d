@@ -29,6 +29,8 @@
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       LOGICAL                             :: success, saveGradients, saveSource
 	  logical                             :: generateMonitor = .TRUE.
+	  logical                             :: optimizePartitionLevel=.TRUE.
+	  logical                             :: isMLRK=.FALSE.
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
@@ -89,13 +91,22 @@
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(controlVariables, Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-
-      if ((MPI_Process % doMPIAction).and.(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'multi level rk3')) then
-          generateMonitor =.FALSE.
-	  end if 
-      
+	  
+	  ! MPI Partition option for MLRK time integeration
+	  if ((MPI_Process % doMPIAction).and.(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'multi level rk3')) then
+		  
+		  isMLRK = .TRUE. ! The time integration is Multi-Level RK
+		  
+		  if ( controlVariables % ContainsKey("optimized partition") ) then
+			 optimizePartitionLevel = controlVariables % LogicalValueForKey ("optimized partition")
+		  end if
+		  
+		  if (optimizePartitionLevel) generateMonitor =.FALSE.  ! Do not generate monitor for the first construction of sem as it will be reconstruct
+	  end if
+		
+      ! Construct DGSEM library
       call sem % construct (  controlVariables  = controlVariables,                                         &
-                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                      &
                                  success           = success, generateMonitor =generateMonitor)
 !
 !     -------------------------
@@ -109,9 +120,9 @@
 !     Reconstruct for MLRK explicit time step method
 !     ----------------------------------------------
 !
-      if ((MPI_Process % doMPIAction).and.(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'multi level rk3')) then
+      if (isMLRK .and. optimizePartitionLevel .and. MPI_Process % doMPIAction) then
          call sem % reconstruct (  controlVariables  = controlVariables,                                         &
-                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                           &
                                  success           = success)
 		 call UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
 		 call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
