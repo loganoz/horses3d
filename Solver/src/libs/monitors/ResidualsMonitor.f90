@@ -277,7 +277,7 @@ module ResidualsMonitorClass
                
 			   if (self % memory) then 
 					write(fID, 111, advance = "no") self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
-					write(fID , '(2X,ES12.8)') self % totMemory(i)
+					write(fID , '(2X,ES16.8)') self % totMemory(i)
 			   else
 					write(fID, 111) self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
 			   end if 
@@ -291,7 +291,9 @@ module ResidualsMonitorClass
 
          if ( no_of_lines .ne. 0 ) then
             self % values(1:NCONS,1) = self % values(1:NCONS,no_of_lines)
-			self % totMemory(1)      = self % totMemory(no_of_lines)
+			if (self % memory) then 
+				self % totMemory(1)      = self % totMemory(no_of_lines)
+			end if
          end if
 
 #if defined(FLOW)
@@ -307,8 +309,10 @@ module ResidualsMonitorClass
          
          safedeallocate (self % values)
          safedeallocate (self % CPUtime)
+		 safedeallocate (self % totMemory)
          self % fileName = ""
          self % active   = .FALSE.
+		 self % memory   = .FALSE.
          
       end subroutine Residuals_Destruct
       
@@ -326,8 +330,14 @@ module ResidualsMonitorClass
          safedeallocate (to % CPUtime)
          allocate ( to % CPUtime( size(from % CPUtime) ) )
          to % CPUtime = from % CPUtime
+		 
+		 safedeallocate (to % totMemory)
+         allocate ( to % totMemory( size(from % totMemory) ) )
+         to % totMemory = from % totMemory
          
          to % fileName = from % fileName
+		 
+		 to % memory = from % memory
          
       end subroutine Residuals_Assign
 end module ResidualsMonitorClass
