@@ -332,8 +332,10 @@ module ResidualsMonitorClass
          to % CPUtime = from % CPUtime
 		 
 		 safedeallocate (to % totMemory)
-         allocate ( to % totMemory( size(from % totMemory) ) )
-         to % totMemory = from % totMemory
+		 if (allocated(from % totMemory)) then
+			allocate ( to % totMemory( size(from % totMemory) ) )
+			to % totMemory = from % totMemory
+	     end if 
          
          to % fileName = from % fileName
 		 
