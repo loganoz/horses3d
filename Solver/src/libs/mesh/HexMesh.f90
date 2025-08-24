@@ -5409,8 +5409,8 @@ call elementMPIList % destruct
 	     ! For multiphase, the interface elements have homogenous level, represented by the highest CFL along interface elements
 		 maxc = min(maxval(mesh % elements(eID) % storage % Q(1,:,:,:)),1.0_RP)
 		 minc = max(minval(mesh % elements(eID) % storage % Q(1,:,:,:)),0.0_RP)
-		 if ((maxc.gt.0.01).and.(minc.lt.0.99)) then
-			cfl = maxCFLInterf
+		 if ((maxc.gt.0.001).and.(minc.lt.0.999)) then
+			cfl = maxCFLInterf * 100
 		 end if 
 #endif		
          ! Determine Level of element based on its cfl

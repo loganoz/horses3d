@@ -29,7 +29,7 @@
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       LOGICAL                             :: success, saveGradients, saveSource
 	  logical                             :: generateMonitor = .TRUE.
-	  logical                             :: optimizePartitionLevel=.TRUE.
+	  logical                             :: optimizePartitionLevel=.FALSE.
 	  logical                             :: isMLRK=.FALSE.
       integer                             :: initial_iteration
       INTEGER                             :: ierr
