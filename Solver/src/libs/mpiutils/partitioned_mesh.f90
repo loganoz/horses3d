@@ -60,7 +60,9 @@ module PartitionedMeshClass
 !        -------------------------------------------------      
          if ( MPI_Process % doMPIRootAction ) then
 #ifdef _HAS_MPI_
-            allocate(mpi_allPartitions(MPI_Process % nProcs))
+            if (.not. allocated(mpi_allPartitions)) THEN
+				allocate(mpi_allPartitions(MPI_Process % nProcs))
+			end if 
 #endif
             do domain = 1, MPI_Process % nProcs
                mpi_allPartitions(domain) = PartitionedMesh_t(domain)

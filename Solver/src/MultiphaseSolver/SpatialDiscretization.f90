@@ -238,7 +238,6 @@ module SpatialDiscretization
 !
          INTEGER                 :: k, eID, fID, i, j, ierr, locLevel, lID
          real(kind=RP)           :: sqrtRho, invMa2
-         class(Element), pointer :: e
          logical                 :: compute_element
 		 logical, allocatable    :: face_mask(:)
          real(kind=RP)           :: mu_smag, delta
@@ -280,7 +279,6 @@ module SpatialDiscretization
             end do
 !$omp end do         
          end select
-
 !
 !        -------------------------------
 !        Set memory to Cahn-Hilliard (C)
@@ -550,7 +548,7 @@ module SpatialDiscretization
 !        Add the Non-Conservative term to QDot
 !        -------------------------------------
 !
-!$omp do schedule(runtime) private(i,j,k,e,sqrtRho,invMa2,eID)
+!$omp do schedule(runtime) private(i,j,k,sqrtRho,invMa2,eID)
 		 do lID = 1, MLIter(locLevel,1) ! 
 		    eID = MLIter_eID(lID)
             compute_element = .true.
