@@ -209,10 +209,6 @@ $(TARGET_MU): FORCE ./ProblemFile_MU.o
 ./ProblemFile_MU.o: FORCE ./ProblemFile.f90
 	$(FC) -fPIC -shared -DMULTIPHASE -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu -c ./ProblemFile.f90 -o $@
 
-# Rule for creating the shared libraries
-# libproblemfile_ns.so: ProblemFile_NS.o geompack2.o precursor.o
-# 	$(FC) -shared -o $@ ProblemFile_NS.o geompack2.o precursor.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
-
 clean: FORCE
 	rm -f ./ProblemFile_NS.o ./ProblemFile_NSSA.o ./ProblemFile_iNS.o ./ProblemFile_CH.o ./ProblemFile_MU.o ./geompack2.o ./*.mod
 	rm -f ./*__genmod.f90
