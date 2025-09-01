@@ -17,11 +17,11 @@
 !
 #if defined(NAVIERSTOKES)
   
-            real(kind=RP), parameter :: residuals(5) = [ 1.872E-02_RP,&
-                                                         6.192E-01_RP,&
-                                                         2.055E-01_RP,&
-                                                         1.874E-01_RP,&
-                                                         4.027E+01_RP]
+            real(kind=RP), parameter :: residuals(5) = [ 1.8717942432603787E-02_RP,&
+                                                         6.1924200283676079E-01_RP,&
+                                                         2.0551467228810535E-01_RP,&
+                                                         1.8735359196539711E-01_RP,&
+                                                         4.0269118814176508E+01_RP]
         
 
             CALL initializeSharedAssertionsManager
@@ -29,27 +29,27 @@
 
             CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-11, &
                                msg           = "Continuity residual")
 
             CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
                                actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-11, &
                                msg           = "X-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-11, &
                                msg           = "Y-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
                                actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-11, &
                                msg           = "Z-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
                                actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-11, &
                                msg           = "Energy residual")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)

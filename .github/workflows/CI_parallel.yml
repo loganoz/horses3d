@@ -947,6 +947,32 @@ jobs:
           mpiexec -n 64 ./horses3d.ns Cylinder_AdaptiveTimeStep_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 34) Atmospheric Boundary Layer (ABL) mapping to boundary
+# --------------------------------------------
+
+      - name: Build ABL_BoundaryMapping
+        working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          TEST_HOME_DIR=$(grep '^HOME_DIR=' Makefile | cut -d'=' -f2)
+          rm Makefile
+          wget https://people.math.sc.edu/Burkardt/f_src/geompack2/geompack2.f90
+          cp -r ../../../../../utils/ABLBoundaryMapping/SETUP/* .
+          mv Makefile.iABL Makefile
+          cp -r ../../../../../utils/ABLBoundaryMapping/PRECURSOR ../
+          sed -i "s|^HOME_DIR=.*|HOME_DIR=$TEST_HOME_DIR|" Makefile
+          awk '/END SUBROUTINE UserDefinedFinalize/{system("cat testchecks"); print ""; print; next}1' ProblemFile.f90 > temp && mv temp ProblemFile.f90
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run ABL_BoundaryMapping
+        working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns ABLBoundaryMapping.control
+        if: '!cancelled()'
+
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################
