@@ -846,6 +846,8 @@ contains
          Hull% Points(i) = p
          p => p% next
       end do
+	  
+	  nullify(p, p1)
          
       call convPoints% destruct()
 

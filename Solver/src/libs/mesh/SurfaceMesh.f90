@@ -917,6 +917,7 @@ Module SurfaceMesh
 !    Close the file
 !    --------------
      call SealSolutionFile(trim(name))
+	 nullify(f)
 !
    End Subroutine SurfaceSaveSolution
 !         
@@ -1126,6 +1127,7 @@ Module SurfaceMesh
 !     Free memory
 !     -----------
       deallocate(facesSizes, allfacesSizes, allFacesOffset)
+	  nullify(faces)
 !
    End Subroutine SurfacePrepareForIO
 !

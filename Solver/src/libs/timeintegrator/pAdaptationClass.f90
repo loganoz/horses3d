@@ -64,7 +64,7 @@ module pAdaptationClass
       real(kind=RP)     :: y_span(2)
       real(kind=RP)     :: z_span(2)
       integer           :: mode
-	   integer           :: polynomial(3)
+	  integer           :: polynomial(3)
       integer           :: region
       
       contains
@@ -104,7 +104,7 @@ module pAdaptationClass
       real(kind=RP)                     :: nextAdaptationTime = huge(1._RP)
       character(len=BC_STRING_LENGTH), allocatable :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(overenriching_t)  , allocatable :: overenriching(:)
-	   type(pAdaptVariable_t) , allocatable :: adaptVariable(:)
+	  type(pAdaptVariable_t) , allocatable :: adaptVariable(:)
       
       contains
          procedure(constructInterface), deferred :: pAdaptation_Construct
@@ -796,6 +796,8 @@ readloop:do
 	  end do 
 !$omp end do
 !$omp end parallel
+	  
+	  deallocate(neighborIDAll)
    
    end subroutine pAdapt_CheckNeighbour
 !
