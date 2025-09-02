@@ -162,11 +162,10 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 !       -----------
 !
 		deallocate (eptr, eind, opts)
+		if (associated(vwgt)) nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
 		if (allocated(weights)) deallocate(weights)
 		if (allocated(tpwgt)) deallocate(tpwgt)
 		if (allocated(vsize)) deallocate(vsize)
-		if (associated(vwgt)) nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
-
 	  end if 
 !
 !     Perform METIS partitioning based on the element's level - if not MLRK then nLevel=1
@@ -275,14 +274,13 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 !       -----------
 !
 		deallocate (nodesDomainLevel, elementsDomainLevel, mapToOld, eptr, eind, opts)
+		if (associated(vwgt)) 	nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
 		if (allocated(weights)) deallocate(weights)
 		if (allocated(tpwgt)) 	deallocate(tpwgt)
 		if (allocated(vsize)) 	deallocate(vsize)
-		if (associated(vwgt)) 	nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
 	 end do
 	 
 	 nodesDomain = 0 ! Not used 
-	 !elementsDomain = inputMLRKDomain(:,1)
 	 do i=1, mesh % no_of_elements
 		elementsDomain(i) = sum(inputMLRKDomain(i,:))
 	 end do 

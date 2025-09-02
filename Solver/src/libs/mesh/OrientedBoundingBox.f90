@@ -846,10 +846,10 @@ contains
          Hull% Points(i) = p
          p => p% next
       end do
-         
-      call convPoints% destruct()
 	  
 	  nullify(p, p1)
+         
+      call convPoints% destruct()
 
    end subroutine ConvexHull
 !
