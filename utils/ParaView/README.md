@@ -7,7 +7,7 @@ This directory contains a set of `pvbatch` scripts that can serve as a guideline
 - Generating 2D slices from 3D results and writing them to disk in *.csv format for easy plotting.
 - Rendering 3D views of CFD results using thresholds and opacity schemes.
 
-Additionally, `python` scripts to perform other pre- and post-proecssing tasks are provided
+Additionally, `python` scripts to perform other pre- and post-proecssing tasks are also provided.
 
 >[!IMPORTANT]
 > These `pvbatch` scripts have been tested on ParaView versions 5.11.0-MPI, 5.12.0-MPI and 5.13.2-MPI. Using different versions might lead to unexpected issues.
@@ -19,7 +19,7 @@ Additionally, `python` scripts to perform other pre- and post-proecssing tasks a
 
 The `pvbatch` script [pv_distribute](./pv_distribute.py) redistributes the input solution file (in *.hdf, *.vtk, *.vtkhdf, or *.tec format) data to `np` MPI processes and writes the resulting partitioned data to disk in *.pvtu format for its subsequent efficient use in ParaView with MPI. Performing this preprocessing of the data is particularly adventageous when multiple ParaView postprocessing tasks are going to be executed since redistribution operations can be time consuming. Below is an example of how to use this script:
 
-To print script `help` with a brief description of its usage and arguments definition, use
+To print script `help` with a brief description of its usa and arguments definition, use
 
 ```
 <path_to_pvbatch_mpi> pv_distribute.py -h
@@ -29,7 +29,7 @@ To print script `help` with a brief description of its usage and arguments defin
 
 The `pvbatch` script [pv_slice_mpi.py](./pv_slice_mpi.py) extracts a set of 2D slices from an input 3D solution file according to the specified positional arguments (plane origin coordinates, normal vector, output fields...), having previously computed some additional fields if requested by the user. In this particular case, the script will compute the Lamb vector and its divergence if either `Lamb` or `divLamb` are specified as output fields. The auxiliary vorticity field `omega` will also be computed unless already present in the input 3D solution file (and specified via script flag). The resulting 2D slices are writen to files in ASCII *.csv format for easy postprocessing.
 
-To print script `help` with a brief description of usage and arguments definition, use 
+To print script `help` with a brief description of use and arguments definition, use 
 
 ```
 <path_to_pvbatch_mpi> pv_slice_mpi.py -h
@@ -81,8 +81,8 @@ Additionally, the following table gathers the definition of every input paramete
 | figLabelLoc | list(float), optional | Position of each subplot label ['(a)', '(b)', '(c)', ...] with respect to the bottom left corner of the plot area, [x, y] (expressed as fraction of the axis length). Labels are only included inthe figure if this argument is defined. Default is set to None |
 | xLim | list(float) or list(list(float)), optional | X-axis (or axes) limits for field representation, [xmin, xmax]. Default values are the minimum and maximum x-axis (or axes) values in the input file(s) |
 | yLim | list(float) or list(list(float)), optional | Y-axis (or axes) limits for field representation, [ymin, ymax]. Default values are the minimum and maximum y-axis (or axes) values in the input file(s) |
-| xMask | list(str), optional | List of masks to apply to the input data fields, defined as a string function of "y". If x_point < x(y), field value for that point is set to 'NaN'. Numpy functions can be used under "np.*". Default value is None.
-| yMask | list(str), optional | List of masks to apply to the input data fields, defined as a string function of "x". If y_point < y(x), field value for that point is set to 'NaN'. Numpy functions can be used under "np.*". Default value is None. 
+| xMask | list(str), optional | List of masks to apply to the input data fields, defined as a string function of "y". If x_point < x(y), field value for that point is set to 'NaN'. Numpy functions can be used under "np.*". Default value is None
+| yMask | list(str), optional | List of masks to apply to the input data fields, defined as a string function of "x". If y_point < y(x), field value for that point is set to 'NaN'. Numpy functions can be used under "np.*". Default value is None 
 
 </div>
 
@@ -93,13 +93,13 @@ Additionally, the following table gathers the definition of every input paramete
 
 The `pvbatch` script [pv_render_mpi.py](pv_render_mpi.py) serves as an example on how to obtain 3D renders of HORSES3D solutions using ParaView and MPI. Particularly, it generates a 3D representation of the vorticity of the input solution file. If the vorticity field 'omega_abs' is already included in the input file, the script flag `--omega-in-file` can be used to avoid recomputing this quantity. If not specified, ParaView's gradient operator will be used to compute all the velocity component derivatives and ultimately the vorticity magnitude. Threshold values are specified in the script (not as arguments) but can be easily identified and modified. A custom opacity map is defined via a hyperbolic tangent function for coloring the resulting threshold view. Finally, some external STL files are loaded into the view for the representation of solid closed surfaces.
 
-To print script help with a brief description of usage and arguments definition, use
+To print script help with a brief description of usa and arguments definition, use
 
 ```
 <path_to_pvbatch_mpi> pv_render_mpi.py -h
 ```
 
-## Usage example
+## Use examples
 
 Below there are two examples of how to use these `pvbatch` scripts in different HPC platforms where ParaView MPI is available. 
 
