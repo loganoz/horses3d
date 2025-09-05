@@ -80,6 +80,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/ActuatorLineProjection \
             ./NavierStokes/Cylinder_AdaptiveTimeStep_pAdaptationRL \
             ./NavierStokes/ABLBoundaryMapping \
+            ./NavierStokes/ActuatorLineController \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \

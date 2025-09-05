@@ -17,7 +17,7 @@
 !
 #if defined(NAVIERSTOKES)
   
-            real(kind=RP), parameter :: residuals(5) = [ 1.8717942432603787E-02_RP,&
+            real(kind=RP), parameter :: residuals(5) = [ 1.8717942432611871E-02_RP,&
                                                          6.1924200283676079E-01_RP,&
                                                          2.0551467228810535E-01_RP,&
                                                          1.8735359196539711E-01_RP,&

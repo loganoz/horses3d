@@ -1,0 +1,66 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/ABLBoundaryMapping.msh"
+Polynomial order      = 1
+Number of time steps  = 100
+Convergence tolerance = 1.0e-13
+Output Interval       = 1
+cfl                   = 0.25
+dcfl                  = 0.25
+mach number           = 0.03346    ! 11.4 m/s DTU10MW rated condition
+Reynolds number       = 760000.00  ! 11.4 m/s DTU10MW rated condition
+AOA theta             = 0.0
+AOA phi               = 0.0
+
+solution file name    = "RESULTS/ActuatorLineController.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/ActuatorLineController.hsol"
+
+!----------------
+! ACTUATOR LINES
+!----------------
+use actuatorline = .true.
+actuator epsilon type = 2 ! 0 -> fixed value (pre-compute and include in actuator lines file), 2 -> auto calculated
+actuator calculate with projection = .false. ! if true, uses 2nd methodology gaussian projection
+actuator save average = .true.
+actuator use controller = .true.
+actuator controller restart = .false.
+
+riemann solver         = "lax-friedrichs"
+
+!-- TIME discret--
+simulation type       = time-accurate
+final time            = 1000.0 ! Deliverately large final time so test stops via "Number of time steps"
+autosave mode         = "time" ! "time" or "iteration"
+autosave interval     = 500.0  ! Deliverately large autosave time  
+
+!---TURB---
+LES model             = Vreman
+
+!------------
+! BC
+!------------
+
+#define boundary inlet
+      type = user-defined
+#end
+
+#define boundary left__right
+      type = FreeSlipWall
+#end
+
+#define boundary top
+      type = FreeSlipWall
+#end
+
+#define boundary bottom
+      type = NoSlipWall
+#end
+
+#define boundary outlet
+      type = Outflow
+#end
+
+#define boundary towerhub
+      type = NoSlipWall
+#end

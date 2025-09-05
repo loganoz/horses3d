@@ -970,7 +970,29 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns ABLBoundaryMapping.control
+          mpiexec -n 64 ./horses3d.ns ABLBoundaryMapping.control
+        if: '!cancelled()'
+      
+#
+# 35) Actuator Line (AL) external controller module
+# --------------------------------------------
+      - name: Build ActuatorLineController
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineController/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+          cd ../ActuatorDef/controller
+          git clone git@github.com:EduardoJane/DRC_Fortran_H3D.git
+          cd DRC_Fortran_H3D/Source
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}}
+          mv ../DISCON/DISCON_glin64.so ../../
+        if: '!cancelled()'
+
+      - name: Run ActuatorLineController
+        working-directory: ./Solver/test/NavierStokes/ActuatorLineController
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 64 ./horses3d.ns ActuatorLineController.control
         if: '!cancelled()'
 
 ########################################################################
