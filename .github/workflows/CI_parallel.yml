@@ -982,7 +982,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
           cd ../ActuatorDef/controller
-          git clone git@github.com:EduardoJane/DRC_Fortran_H3D.git
+          git clone https://github.com/EduardoJane/DRC_Fortran_H3D.git
           cd DRC_Fortran_H3D/Source
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}}
           mv ../DISCON/DISCON_glin64.so ../../
