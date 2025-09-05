@@ -1,6 +1,6 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/ABLBoundaryMapping.msh"
-Polynomial order      = 3
+Polynomial order      = 1
 Number of time steps  = 50
 Convergence tolerance = 1.0e-13
 Output Interval       = 10
