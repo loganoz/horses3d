@@ -372,7 +372,7 @@ Module precursor
         real(kind=RP), allocatable, intent(out) :: field_data(:)
         integer :: i, ios, unit, num_cells, num_components, num_read
         character(len=256) :: line, field_name, field_type
-        integer :: current_index
+        integer :: current_index, remaining
         integer :: dummy_int, dummy_int_aux
         real(kind=RP) :: dummy_real
 
@@ -403,9 +403,15 @@ Module precursor
             ! Read the field data
             current_index = 1
             do
+                remaining = num_cells - current_index + 1
                 read(unit, '(A)', iostat=ios) line
                 if (ios /= 0) exit
-                read(line, *, iostat=ios) (field_data(current_index + i - 1), i = 1, 10)
+                  if (remaining >= 10) then
+                    read(line, *, iostat=ios) (field_data(current_index + i - 1), i = 1, 10)
+                  else
+                    read(line, *, iostat=ios) (field_data(current_index + i - 1), i = 1, remaining)
+                    exit
+                  end if
                 if (ios == 0) then
                     current_index = current_index + count(field_data(current_index:current_index + 9) /= 0.0)
                 else
