@@ -8,26 +8,32 @@ ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
 
-LIBOBJS_NS = ./build_ns/ActuatorLine.o \
+LIBOBJS_NS = ./build_ns/ControllerInterface.o \
+             ./build_ns/ActuatorLine.o \
 			 ./build_ns/mkl_dfti.o \
 			 ./build_ns/TripForceClass.o \
 			 ./build_ns/SpongeClass.o 
 		
-LIBOBJS_NSSA =  ./build_nssa/ActuatorLine.o \
+LIBOBJS_NSSA =  ./build_nssa/ControllerInterface.o \
+                ./build_nssa/ActuatorLine.o \
 				./build_nssa/mkl_dfti.o \
 				./build_nssa/TripForceClass.o \
 				./build_nssa/SpongeClass.o 
 		
-LIBOBJS_iNS = ./build_ins/ActuatorLine.o \
+LIBOBJS_iNS = ./build_ins/ControllerInterface.o \
+              ./build_ins/ActuatorLine.o \
 			  ./build_ins/SpongeClass.o 
 		
-LIBOBJS_CH = ./build_ch/ActuatorLine.o 
+LIBOBJS_CH = ./build_ch/ControllerInterface.o \
+             ./build_ch/ActuatorLine.o 
 
-LIBOBJS_MU = ./build_mu/ActuatorLine.o \
+LIBOBJS_MU = ./build_mu/ControllerInterface.o \
+             ./build_mu/ActuatorLine.o \
 			 ./build_mu/SpongeClass.o 
 
-LIBOBJS_CAA = ./build_caa/ActuatorLine.o \
-			 ./build_caa/SpongeClass.o 
+LIBOBJS_CAA = ./build_caa/ControllerInterface.o \
+              ./build_caa/ActuatorLine.o \
+			  ./build_caa/SpongeClass.o 
 
 LIB = sources
 
@@ -41,7 +47,7 @@ all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu
 ./build_ns/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns 
 
 ./build_nssa/%.o: %.f90
 	@echo

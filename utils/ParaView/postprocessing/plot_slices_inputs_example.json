@@ -1,0 +1,72 @@
+{
+    "fig1": 
+    {
+        "dataPathList": ["data/D10_slice_xz_0D.csv"],
+        "nx": 1000, "ny": 500,
+        "xlabel": "$x$ [m]", "ylabel": "$z$ [m]",
+        "xticks": [-356.6, 0, 356.6, 713.2, 1069.8, 1426.4, 1783.0], "yticks": [0, 178.3, 356.6],
+        "xtickLabels": ["$-2D$", "$0$", "$2D$", "$4D$", "$6D$", "$8D$", "$10D$"], "ytickLabels": ["$0$", "$1D$", "$2D$"],
+        "xCol": 1, "yCol": 3, 
+        "dataCol": 5, "dataLabel": "$u_{mean}$ [m/s]", 
+        "figwidth": 7, 
+        "outputPath": "D10_slice_xz_umean.pdf",
+        "yxRatio": 1,
+        "colorMap": "coolwarm"
+    },
+    "fig2": 
+    {
+        "dataPathList": ["data/D10_slice_yz_-2D.csv",
+                         "data/D10_slice_yz_-1.5D.csv",
+                         "data/D10_slice_yz_-1D.csv",
+                         "data/D10_slice_yz_-0.5D.csv"],
+        "nx": 500, "ny": 500,
+        "xlabel": "$y$ [m]", "ylabel": "$z$ [m]",
+        "xticks": [-356.6, -178.1, 0, 178.1, 356.6], "yticks": [0, 178.3, 356.6],
+        "xtickLabels": ["$-2D$", "$-1D$", "$0$", "$1D$", "$2D$"], "ytickLabels": ["$0$", "$1D$", "$2D$"],
+        "xCol": 1, "yCol": 2, 
+        "dataCol": 6, "dataLabel": "$u_{mean}$ [m/s]", 
+        "figwidth": 7, 
+        "outputPath": "D10_slice_yz_umean.pdf",
+        "plotArray": [4,1],
+        "yxRatio": 1,
+        "colorMap": "jet"
+    },
+    "fig3": 
+    {
+        "dataPathList": ["data/V24_c1_b0.dat",
+                         "data/V24_c-1_b0.dat"],
+        "nx": 2000, "ny": 750,
+        "xlabel": "$x/D$ [--]", "ylabel": "$z/D$ [--]",
+        "xticks": [0, 356.6, 713.2, 1069.8, 1426.4], "yticks": [0, 89.15, 178.3, 267.45],
+        "xtickLabels": ["0", "2", "4", "6", "8"], "ytickLabels": ["$0$", "$0.5$", "$1$", "$1.5$"],
+        "xCol": 0, "yCol": 1, 
+        "dataCol": 2, "dataLabel": "RSPLD [dB]", 
+        "figwidth": 7, 
+        "outputPath": "D10_s8c_RSPLD_xz.pdf",
+        "yxRatio": 1,
+        "colorMap": "jet", "colorMapMin": -30.0, "colorMapMax": 10.0, "colorBarTicks": [-30, -20, -10, 0, 10],
+        "figLabelLoc": [-0.1, 0.985],
+        "fontsize": 9,
+        "xLim": [0, 1604.7], "yLim": [-30.0, 267.45],
+        "yMask": ["15.24/2 * np.cos(2*np.pi*x/451.09727) * (1-np.tanh((x-8*178.3)/178.3)) / 2", "-15.24/2 * np.cos(2*np.pi*x/451.09727) * (1-np.tanh((x-8*178.3)/178.3)) / 2"]
+    },
+    "fig4":
+    {
+        "dataPathList": ["data/D10_br_turb_Post_xz_0D_slice.csv",
+                         "data/D10_br_turb_Post_xy_zHub_slice.csv"],
+        "nx": 2000, "ny": 1500,
+        "xlabel": "$x/D$ [--]", "ylabel": ["$z/D$ [--]", "$y/D$ [--]"],
+        "xticks": [-356.6, 0, 356.6, 713.2, 1069.8, 1426.4, 1783.0], "yticks": [[0, 178.3, 356.6], [-356.6, -178.3, 0, 178.3, 356.6]],
+        "xtickLabels": ["$-2$", "$0$", "$2$", "$4$", "$6$", "$8$", "$10$"], "ytickLabels": [["$0$", "$1$", "$2$"], ["$-2$", "$-1$", "$0$", "$1$", "$2$"]],
+        "xCol": [1,1], "yCol": [3,2], 
+        "dataCol": 9, "dataLabel": "$U$ [m/s]", 
+        "figwidth": 7, 
+        "outputPath": "D10_br_Ufinal_slice_xz_xy.pdf",
+        "yxRatio": 1,
+        "colorMap": "coolwarm",
+        "colorMapMin": 0.0,
+        "colorMapMax": 16.0,
+        "figLabelLoc": [-0.065, 0.975],
+        "fontsize": 9
+    }
+}

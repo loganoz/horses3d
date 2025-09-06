@@ -1,0 +1,69 @@
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CHARACTER(LEN=29)                  :: testName           = "ABL Boundary Mapping"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+            LOGICAL                            :: success
+!
+!           --------------------------------------------------
+!           Expected Solutions: Volume integral of source term
+!           --------------------------------------------------
+!
+#if defined(NAVIERSTOKES)
+  
+            real(kind=RP), parameter :: residuals(5) = [ 1.6047073114814587E-02_RP,&
+                                                         1.3283742784427324E-01_RP,&
+                                                         5.3635174450959604E-02_RP,&
+                                                         6.7573154678925967E-02_RP,&
+                                                         1.2388191857994874E+01_RP]
+        
+
+            CALL initializeSharedAssertionsManager
+            sharedManager => sharedAssertionsManager()
+
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+   
+            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+               WRITE(6,*) testName, " ... Passed"
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 50 iterations."
+            ELSE
+               WRITE(6,*) testName, " ... Failed"
+               WRITE(6,*) "Check latest changes in the code, including the VTK snapshots source files."
+                error stop 99
+            END IF 
+            WRITE(6,*)
+            
+            CALL finalizeSharedAssertionsManager
+            CALL detachSharedAssertionsManager
+#endif

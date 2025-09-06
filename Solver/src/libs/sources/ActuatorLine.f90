@@ -4,13 +4,14 @@ module ActuatorLine
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
     use SMConstants
     use MPI_Process_Info
+    use ControllerInterface
 #ifdef _HAS_MPI_
     use mpi
 #endif
     implicit none
 
 private
-public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForces
+public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForces, FarmUpdateControlVars, WriteControlVars, SaveControllerState
 !
 !  ******************************
 !  DEFINE TURBINE, BLADE, AIRFOIL
@@ -55,7 +56,7 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     type turbine_t
     integer                        :: num_blades=3  ! number of blades -> hardcoded 3 blades
     real(KIND=RP)                  :: radius ! turb radius in mm
-    real(KIND=RP)                  :: blade_pitch ! turb radius in rad
+    real(KIND=RP)                  :: blade_pitch ! turb blade pitch in rad
     real(KIND=RP)                  :: rot_speed ! rad/s
     real(KIND=RP)                  :: hub_cood_x,hub_cood_y,hub_cood_z ! hub height in mm
     real(KIND=RP)                  :: normal_x, normal_y, normal_z ! rotor normal pointing backward
@@ -68,6 +69,9 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     real(KIND=RP)                  :: Ct ! turbine thrust coef.
     real(KIND=RP), allocatable     :: average_conditions(:,:) ! time and blade average local variables at the blade section
     real(KIND=RP)                  :: gauss_epsil             ! force Gaussian width
+    type(controller_t)             :: controller_data ! Data to be exchanged with the external controller dll
+
+
     end type
                                    
     type Farm_t
@@ -75,6 +79,7 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     type(turbine_t), allocatable   :: turbine_t(:)
     real(KIND=RP)                  :: gauss_epsil  ! force Gaussian shape
     real(KIND=RP)                  :: time
+    real(KIND=RP)                  :: dt
     real(KIND=RP)                  :: tolerance_factor
     integer                        :: epsilon_type
     logical                        :: calculate_with_projection
@@ -82,6 +87,8 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     logical                        :: save_average = .false.
     logical                        :: save_instant = .false.
     logical                        :: verbose = .false.
+    logical                        :: useController = .false.
+    logical                        :: restartController = .false.
     character(len=LINE_LENGTH)     :: file_name
     integer                        :: number_iterations
     integer                        :: save_iterations
@@ -140,6 +147,8 @@ contains
     self % save_iterations = controlVariables % getValueOrDefault("actuator save iteration", 1)
     self % verbose = controlVariables % getValueOrDefault("actuator verbose", .false.)
     self % tolerance_factor = controlVariables % getValueOrDefault("actuator tolerance", 0.2_RP)
+    self % useController = controlVariables % getValueOrDefault("actuator use controller", .false.)
+    self % restartController = controlVariables % getValueOrDefault("actuator controller restart", .false.)
 
     restart_name = controlVariables % stringValueForKey( restartFileNameKey, requestedLength = STRING_CONSTANT_LENGTH )
     restart_name = trim(getFileName(restart_name))
@@ -269,6 +278,68 @@ contains
        self%turbine_t(k)%blade_t(1)%tip_c2 = self%turbine_t(1)%blade_t(1)%tip_c2
     end do
 
+! read controller parameters
+    if(self%useController) then
+
+        READ(fid,'(A132)') char1
+        READ(fid,'(A132)') char1
+        READ(fid,'(A132)') char1
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid, '(A132)') char1
+            self%turbine_t(k)%controller_data%controller_dll = './ActuatorDef/' // TRIM(char1)
+        enddo
+
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid, '(A132)') char1
+            self%turbine_t(k)%controller_data%controller_inputs = './ActuatorDef/' // TRIM(char1)
+        enddo
+
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid, *) self%turbine_t(k)%controller_data%drivetrain_inertia
+        enddo
+
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid, *) self%turbine_t(k)%controller_data%gear_ratio
+        enddo
+
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid, *) self%turbine_t(k)%controller_data%gen_eff
+        enddo
+
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid,*) self%turbine_t(k)%controller_data%wind_probe_coords(1), self%turbine_t(k)%controller_data%wind_probe_coords(2), self%turbine_t(k)%controller_data%wind_probe_coords(3)
+        enddo
+
+        READ(fid,'(A132)') char1
+
+        do k = 1, self%num_turbines
+            READ(fid,*) self%turbine_t(k)%controller_data%controller_t_ini
+        enddo
+
+        if (self%restartController) then
+            READ(fid,'(A132)') char1
+
+            do k = 1, self%num_turbines
+                READ(fid, '(A132)') char1
+                self%turbine_t(k)%controller_data%controller_restart = './ActuatorDef/' // TRIM(char1)
+            enddo
+        end if
+
+    end if
+    
+
     close(fid)
 
     if (self % verbose .and. MPI_Process % isRoot) then
@@ -299,6 +370,21 @@ contains
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Projection formulation: ", self % calculate_with_projection
         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save blade average values: ", self % save_average
         if (fileExists)  write(STD_OUT,'(30X,A)') 'Using restaring operations of turbines'
+        if (self%useController) then
+            write(STD_OUT,'(30X,A)') "Using external controller(s)"
+            do k = 1, self%num_turbines
+                write(STD_OUT,'(30X,A,A28,A)') "->", "Controller library: ", trim(self%turbine_t(k)%controller_data%controller_dll)
+                write(STD_OUT,'(30X,A,A28,A)') "->", "Controller inputs: ", trim(self%turbine_t(k)%controller_data%controller_inputs)
+                write(STD_OUT,'(30X,A,A39,ES10.3)') "->", "Drivetrain rotational inertia [kg m2]: ", self%turbine_t(k)%controller_data%drivetrain_inertia
+                write(STD_OUT, '(30X,A,A28,F10.3)') "->", "Drivetrain gear ratio: ", self%turbine_t(k)%controller_data%gear_ratio
+                write(STD_OUT, '(30X,A,A28,F10.3)') "->", "Generator efficiency [-]: ", self%turbine_t(k)%controller_data%gen_eff
+                write(STD_OUT,'(30X,A,A28,3F10.3)') "->", "Wind probe coordinates [m]: ", self%turbine_t(k)%controller_data%wind_probe_coords(1), self%turbine_t(k)%controller_data%wind_probe_coords(2), self%turbine_t(k)%controller_data%wind_probe_coords(3)
+                write(STD_OUT, '(30X,A,A28,F10.3)') "->", "Controller start time [s]: ", self%turbine_t(k)%controller_data%controller_t_ini
+                if (self%restartController) then
+                    write(STD_OUT,'(30X,A,A28,A)') "->", "Controller restart file: ", trim(self%turbine_t(k)%controller_data%controller_restart)
+                end if
+            end do
+        end if
     end if
 
    ! now read each airfoil, only for blade 1 of each turbine
@@ -451,34 +537,54 @@ contains
             ! EPSILON - option 3 (k is from file)
             ! eps = k*delta; k is in gauss_epsil of farm
             ! precalculate delta, for now only using element 1
-            if (MPI_Process % doMPIAction) then
-                if (nelem .gt. 0) then
-                  delta_temp = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-                  delta_count = 1
-                else
-                  delta_temp = 0.0_RP
-                  delta_count = 0
-                end if 
+        if (MPI_Process % doMPIAction) then
+            if (nelem .gt. 0) then
+              delta_temp = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+              delta_count = 1
+            else
+              delta_temp = 0.0_RP
+              delta_count = 0
+            end if 
 #ifdef _HAS_MPI_
-                call mpi_allreduce(delta_temp, delta, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
-                call mpi_allreduce(delta_count, delta_paritions, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(delta_temp, delta, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(delta_count, delta_paritions, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
-                delta = delta / real(delta_paritions,kind=RP)
-            else    
-                delta = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-            end if
-            do k = 1, self%num_turbines
+            delta = delta / real(delta_paritions,kind=RP)
+        else    
+            delta = (mesh % elements(elementsActuated(1)) % geom % Volume / product(mesh % elements(elementsActuated(1)) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+        end if
+        do k = 1, self%num_turbines
                ! e = k*delta
                self % turbine_t(k) % gauss_epsil = self % gauss_epsil * delta
-            enddo
+          enddo
 
         case default
             ! EPSILON - option 2 using Cd not implementd
             do k = 1, self%num_turbines
                self % turbine_t(k) % gauss_epsil = self % gauss_epsil
-            enddo
+        enddo
 
-        end select
+    end select
+
+    if (self%useController) then
+        do k=1, self%num_turbines
+            call ControllerInterfaceInit(self%turbine_t(k)%controller_data)
+        end do
+        if (self%restartController) then
+            call ReadControllerState(self)
+            do k = 1, self%num_turbines ! Use controller data to restart wind turbine state
+                initial_azimutal(k) = self%turbine_t(k)%controller_data%azimuth
+                self%turbine_t(k)%blade_t(1)%azimuth_angle = initial_azimutal(k)
+                self%turbine_t(k)%blade_t(2)%azimuth_angle = initial_azimutal(k) + PI*2.0_RP/3.0_RP
+                self%turbine_t(k)%blade_t(3)%azimuth_angle = initial_azimutal(k) + PI*4.0_RP/3.0_RP
+                self%turbine_t(k)%rot_speed = self%turbine_t(k)%controller_data%rotor_speed
+                self%turbine_t(k)%blade_pitch = self%turbine_t(k)%controller_data%blade_pitch_com(1) ! Restart with the commanded pitch from the controller in stored iteration
+            end do
+        else
+            call InitialiseControllerData(self)
+        end if
+    end if
+
 !
 !   Create output files
 !   -------------------
@@ -502,6 +608,14 @@ contains
             write(fid,'(6(2X,A24))') "R", "U", "AoA", "Re", "Tangential_Force", "Axial_Force"
             close(fid)
         end if
+
+        if(self%useController) then
+            write(arg , '(A,A,A,A)') trim(self%file_name), "_Actuator_Line_Controller_turb_", trim(file_id) , ".dat"
+            open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
+            write(fid,'(9(2X,A24))') "time", "rotor_speed", "wind_speed", "pitch_angle", "aero_torque", "brake_torque", "generator_torque", "rotor_power", "generator_power"
+            close(fid)
+        end if
+
       end do
     end if
 !
@@ -565,7 +679,7 @@ contains
 
    !local variables
    integer                           :: ii, jj, i, j, k, kk
-   real(kind=RP)                     :: dt, interp, delta_temp
+   real(kind=RP)                     :: interp, delta_temp
    logical                           :: found, allfound
    integer                           :: eID, ierr
    real(kind=RP), dimension(NDIM)    :: x, xi
@@ -573,10 +687,11 @@ contains
 
    if (.not. self % active) return
 
-   dt = time - self % time
+   self % dt = time - self % time
+!    self % dt = 0.007830780810705562
    self % time = time
 
-   dt = dt * Lref / refValues%V
+   self % dt = self % dt * Lref / refValues%V
    ! only for constant rot_speed
    ! theta = self%turbine_t(1)%rot_speed * t
    interp = 1.0_RP
@@ -591,7 +706,16 @@ contains
    do kk = 1, self%num_turbines
       do jj = 1, self%turbine_t(kk)%num_blades
 
-         self%turbine_t(kk)%blade_t(jj)%azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle + self%turbine_t(kk)%rot_speed*dt
+        !  if (MPI_Process % isRoot) then
+        !     print *, "Call to Update farm for ND time", time, "with dt ", self%dt
+        !     print *, "Update farm turbine ", kk, " blade ", jj, ". Azimuth angle ", self%turbine_t(kk)%blade_t(jj)%azimuth_angle, " rad and rotor speed ", self%turbine_t(kk)%rot_speed, " rad/s"
+        !  end if
+
+         self%turbine_t(kk)%blade_t(jj)%azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle + self%turbine_t(kk)%rot_speed*self%dt
+
+        !  if (MPI_Process % isRoot) then
+        !     print *, "Updated azimuth angle ", self%turbine_t(kk)%blade_t(jj)%azimuth_angle, " rad"
+        !  end if
 
          self%turbine_t(kk)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_thrust(:) = 0.0_RP
@@ -627,7 +751,16 @@ contains
     do kk = 1, self%num_turbines
       do jj = 1, self%turbine_t(kk)%num_blades
 
-         self%turbine_t(kk)%blade_t(jj)%azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle + self%turbine_t(kk)%rot_speed*dt
+        !  if (MPI_Process % isRoot) then
+        !     print *, "Call to Update farm for ND time", time, "with dt ", self%dt
+        !     print *, "Update farm turbine ", kk, " blade ", jj, ". Azimuth angle ", self%turbine_t(kk)%blade_t(jj)%azimuth_angle, " rad and rotor speed ", self%turbine_t(kk)%rot_speed, " rad/s"
+        !  end if
+        
+         self%turbine_t(kk)%blade_t(jj)%azimuth_angle = self%turbine_t(kk)%blade_t(jj)%azimuth_angle + self%turbine_t(kk)%rot_speed*self%dt
+
+        !  if (MPI_Process % isRoot) then
+        !     print *, "Updated azimuth angle ", self%turbine_t(kk)%blade_t(jj)%azimuth_angle, " rad"
+        !  end if
 
          self%turbine_t(kk)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
          self%turbine_t(kk)%blade_t(jj)%local_thrust(:) = 0.0_RP
@@ -774,7 +907,7 @@ contains
 
 !$omp do schedule(runtime) private(i,j,k,ii,jj,kk,actuator_source,eID,interp)
         do eIndex = 1, size(elementsActuated)
-          eID = elementsActuated(eIndex)
+            eID = elementsActuated(eIndex)
 		  if (mesh % elements(eID) % MLevel .eq. locLevel) then
             ! only one turbine is associated for one element
             kk = turbineOfElement(eIndex)
@@ -1098,6 +1231,7 @@ end subroutine WriteFarmForces
         !local variables
         integer                           :: ii, jj, kk
         real(kind=RP), dimension(:), allocatable  :: aoa
+        real(kind=RP)                     :: V_coefs
 !
 !       ------------------------------
 !       Save forces on the whole blade
@@ -1127,11 +1261,22 @@ end subroutine WriteFarmForces
 
     do kk = 1, self%num_turbines
 
+      if(self%useController) then
+        V_coefs = self%turbine_t(kk)%controller_data%wind_speed
+        
+        ! Handle small values to avoid dividing by zero errors
+        if (V_coefs < 1.0e-6) then
+          V_coefs = 1.0e-6
+        end if
+      else
+        V_coefs = refValues%V
+      end if
+
       self%turbine_t(kk)%Cp = 2.0_RP * (self%turbine_t(kk)%blade_torque(1)+self%turbine_t(kk)%blade_torque(2)+self%turbine_t(kk)%blade_torque(3)) * self%turbine_t(kk)%rot_speed / &
-                              (refValues%rho * POW3(refValues%V) * pi * POW2(self%turbine_t(kk)%radius))
+                              (refValues%rho * POW3(V_coefs) * pi * POW2(self%turbine_t(kk)%radius))
 
       self%turbine_t(kk)%Ct = 2.0_RP * (self%turbine_t(kk)%blade_thrust(1)+self%turbine_t(kk)%blade_thrust(2)+self%turbine_t(kk)%blade_thrust(3)) / &
-                              (refValues%rho * POW2(refValues%V) * pi * POW2(self%turbine_t(kk)%radius))
+                              (refValues%rho * POW2(V_coefs) * pi * POW2(self%turbine_t(kk)%radius))
 
     enddo
 !
@@ -1162,6 +1307,333 @@ end subroutine WriteFarmForces
     end if 
 !
     End Subroutine FarmUpdateBladeForces
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine FarmUpdateControlVars(self)!, mesh)
+        use fluiddata
+        use PhysicsStorage
+        ! use HexMeshClass
+        Implicit None
+
+        class(Farm_t), intent(inout)      :: self
+        ! type(HexMesh), intent(in)         :: mesh
+        
+        !local variables
+        integer                           :: ii, jj, kk
+        CHARACTER(LEN=LINE_LENGTH)        :: arg
+        CHARACTER(LEN=5)                  :: file_id
+        integer                           :: fid
+!
+!       ------------------------------
+!       Update pitch, rot speed based on control
+!       ------------------------------
+!
+        ! Update controller data
+        ! call UpdateControllerData(self, mesh)
+
+        do kk=1, self%num_turbines
+
+            ! if (MPI_Process % isRoot) then
+            !     ! Write output control variables 
+            !     write(file_id, '(I3.3)') kk
+                
+            !     write(arg , '(A,A,A,A)') trim(self%file_name), "_Actuator_Line_Controller_turb_", trim(file_id) , ".dat"
+            !     open( newunit = fID , file = trim(arg) , action = "write" , access = "append" , status = "old" )
+            !     write(fid,"(9(2X,ES24.16))") self%time * Lref / refValues%V, self%turbine_t(kk)%rot_speed, self%turbine_t(kk)%controller_data%wind_speed, self%turbine_t(kk)%blade_pitch, &
+            !                                  self%turbine_t(kk)%controller_data%M_aero, self%turbine_t(kk)%controller_data%M_brake, self%turbine_t(kk)%controller_data%gen_trq, &
+            !                                  self%turbine_t(kk)%controller_data%rotor_power, self%turbine_t(kk)%controller_data%gen_elec_power
+            !     close(fid)
+            ! end if
+
+            if (self%time * Lref / refValues%V .ge. self%turbine_t(kk)%controller_data%controller_t_ini) then
+        
+                call Fill_avrSWAP(REAL(self%time * Lref / refValues%V), self%turbine_t(kk)%controller_data)
+                call CallController(self%turbine_t(kk)%controller_data)
+                call Retrieve_avrSWAP(self%turbine_t(kk)%controller_data)
+        
+                ! Update rotor speed
+                self%turbine_t(kk)%rot_speed = RotorAngularMomentumConservation(self%turbine_t(kk)%rot_speed, self%turbine_t(kk)%controller_data%drivetrain_inertia, self%turbine_t(kk)%controller_data%M_aero, &
+                                                                                self%turbine_t(kk)%controller_data%gen_trq*self%turbine_t(kk)%controller_data%gear_ratio/self%turbine_t(kk)%controller_data%gen_eff, &
+                                                                                self%turbine_t(kk)%controller_data%M_brake*self%turbine_t(kk)%controller_data%gear_ratio, self%dt)
+                
+                ! Update blade pitch
+                self%turbine_t(kk)%blade_pitch = self%turbine_t(kk)%controller_data%blade_pitch_com(1) ! Use pitch from blade 1, independent pitch not yet implemented
+
+            end if
+        end do
+
+    End Subroutine FarmUpdateControlVars
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine UpdateControllerData(self, mesh)
+        use fluiddata
+        use PhysicsStorage
+        use HexMeshClass 
+        implicit none
+
+        class(Farm_t), intent(inout)      :: self
+        type(HexMesh), intent(in)         :: mesh
+        integer                           :: kk
+
+        do kk=1, self%num_turbines
+            
+            self%turbine_t(kk)%controller_data%controller_dt = self%dt                              ! DT of dll controller (s)
+         
+            self%turbine_t(kk)%controller_data%blade_pitch(1) = self%turbine_t(kk)%blade_pitch   ! Blade pitch angles (rad)
+            self%turbine_t(kk)%controller_data%blade_pitch(2) = self%turbine_t(kk)%blade_pitch 
+            self%turbine_t(kk)%controller_data%blade_pitch(3) = self%turbine_t(kk)%blade_pitch    
+ 
+            self%turbine_t(kk)%controller_data%azimuth = self%turbine_t(kk)%blade_t(1)%azimuth_angle              ! Azimuth angle (rad) (ensure it's between 0 and 2*pi)
+            if (self%turbine_t(kk)%controller_data%azimuth >= 2.0 * PI) then
+                self%turbine_t(kk)%controller_data%azimuth = MOD(self%turbine_t(kk)%controller_data%azimuth, 2.0 * PI)
+            else if (self%turbine_t(kk)%controller_data%azimuth < 0.0) then
+                self%turbine_t(kk)%controller_data%azimuth = MOD(self%turbine_t(kk)%controller_data%azimuth, 2.0 * PI) + 2.0 * PI
+            end if
+
+            self%turbine_t(kk)%controller_data%gen_trq = self%turbine_t(kk)%controller_data%gen_trq_com             ! Generator torque (Nm)
+            self%turbine_t(kk)%controller_data%rotor_speed = self%turbine_t(kk)%rot_speed
+
+            self%turbine_t(kk)%controller_data%M_aero = sum(self%turbine_t(kk)%blade_torque)
+
+            if (self%turbine_t(kk)%controller_data%brake_state == 1) then
+                self%turbine_t(kk)%controller_data%M_brake = self%turbine_t(kk)%controller_data%M_aero/self%turbine_t(kk)%controller_data%gear_ratio
+            else
+                self%turbine_t(kk)%controller_data%M_brake = 0.0
+            end if
+        
+            self%turbine_t(kk)%controller_data%rotor_power = self%turbine_t(kk)%rot_speed * self%turbine_t(kk)%controller_data%M_aero
+            self%turbine_t(kk)%controller_data%HSS_speed = self%turbine_t(kk)%rot_speed * self%turbine_t(kk)%controller_data%gear_ratio
+            self%turbine_t(kk)%controller_data%gen_elec_power = self%turbine_t(kk)%controller_data%HSS_speed * self%turbine_t(kk)%controller_data%gen_trq
+
+        end do
+        
+        ! Update wind speed and direction at probe location(s)
+        call FarmGetWindSpeedProbe(self, mesh)
+
+    End Subroutine UpdateControllerData
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine InitialiseControllerData(self)
+        implicit none
+
+        class(Farm_t), intent(inout)      :: self
+
+        integer                           :: kk
+        
+        do kk=1, self%num_turbines
+        
+            self%turbine_t(kk)%controller_data%sim_status = 0             ! Simulation status
+            self%turbine_t(kk)%controller_data%n_trq_lookup = 0            ! Number of points in the torque-speed lookup table
+            self%turbine_t(kk)%controller_data%initialized = .false.     ! Flag to indicate if the DLL has been initialized
+            self%turbine_t(kk)%controller_data%root_name = "."            ! Root name for writing output files [-]
+            self%turbine_t(kk)%controller_data%avcOUTNAME_LEN = 1024     ! Length of avcOUTNAME
+            self%turbine_t(kk)%controller_data%err_status = 0               ! Error status
+            self%turbine_t(kk)%controller_data%err_msg = ""               ! Error message
+
+            self%turbine_t(kk)%controller_data%gen_state = 0                     ! Generator state
+            self%turbine_t(kk)%controller_data%brake_state = 0   ! Shaft brake status binary flag
+            self%turbine_t(kk)%controller_data%pitch_state = 0                   ! Pitch control flag        
+
+            self%turbine_t(kk)%controller_data%gen_trq = 0.0                 ! Generator torque (Nm)
+            self%turbine_t(kk)%controller_data%gen_trq_com = 0.0              ! Generator torque command (Nm)
+
+            self%turbine_t(kk)%controller_data%controller_id = kk           ! Controller (turbine) ID (-)
+            self%turbine_t(kk)%controller_data%controller_iter = 0          ! Controller iteration (-)
+            
+        end do
+    
+    End Subroutine InitialiseControllerData
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine SaveControllerState(self, RestFileName, k, t)
+        implicit none
+
+        class(Farm_t),    intent(inout)           :: self             
+        character(len=*), intent(in)              :: RestFileName
+        integer,          intent(in),  optional   :: k              
+        real(kind=RP),    intent(in),  optional   :: t 
+
+        integer                                   :: kk
+        character(len=LINE_LENGTH)                :: FinalName 
+        character(len=5)                          :: file_id
+        integer                                   :: fid
+                                                                    
+        do kk=1, self%num_turbines
+            if (MPI_Process % isRoot) then
+
+                ! Update rotor speed and azimuth in controller data type before saving
+                self%turbine_t(kk)%controller_data%rotor_speed = self%turbine_t(kk)%rot_speed
+                self%turbine_t(kk)%controller_data%azimuth = self%turbine_t(kk)%blade_t(1)%azimuth_angle !+ self%turbine_t(kk)%rot_speed*self%dt
+
+                ! Write output control variables
+                write(file_id, '(I3.3)') kk
+                if (present(k)) then
+                    write(FinalName,'(2A,I10.10,3A)')  TRIM(RestFileName),'_',k,'_Actuator_Line_turb_',trim(file_id),'.ctrl'
+                else
+                    write(FinalName,'(4A)')  TRIM(RestFileName),'_Actuator_Line_turb_',trim(file_id),'.ctrl'
+                end if
+                if (present(t)) then
+                    write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
+                end if
+                associate(ctrl => self%turbine_t(kk)%controller_data)
+                    open(newunit=fid, file=trim(FinalName), status='replace', form='unformatted', access='stream')
+                    write(fid) ctrl%avrSWAP, ctrl%controller_dt, ctrl%sim_status, ctrl%n_trq_lookup, ctrl%initialized, &
+                               ctrl%root_name, ctrl%avcOUTNAME_LEN, ctrl%blade_pitch_com, ctrl%gen_state, &
+                               ctrl%brake_state, ctrl%pitch_state, ctrl%gen_trq_com, ctrl%yaw_rate_com, &
+                               ctrl%M_brake_com, ctrl%err_status, ctrl%err_msg, ctrl%blade_pitch, ctrl%My_blade_root, &
+                               ctrl%gen_trq, ctrl%M_aero, ctrl%M_brake, ctrl%rotor_power, ctrl%gen_elec_power, ctrl%HSS_speed, &
+                               ctrl%rotor_speed, ctrl%wind_speed, ctrl%wind_dir, ctrl%azimuth
+                    close(fid)
+                end associate
+
+                ! Write output controller state (internal variables)
+                if (present(k)) then
+                    self%turbine_t(kk)%controller_data%avrSWAP(121) = k
+                    self%turbine_t(kk)%controller_data%controller_iter = k
+                else
+                    self%turbine_t(kk)%controller_data%avrSWAP(121) = -1
+                    self%turbine_t(kk)%controller_data%controller_iter = -1
+                end if
+                self%turbine_t(kk)%controller_data%avrSWAP(1) = 3 ! Set external controller to write-state mode
+                call CallController(self%turbine_t(kk)%controller_data)
+                self%turbine_t(kk)%controller_data%avrSWAP(1) = 1
+            end if
+        end do
+
+    End Subroutine SaveControllerState
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine ReadControllerState(self)
+        implicit none
+
+        class(Farm_t),    intent(inout)   :: self
+
+        integer                           :: kk                         
+        integer                           :: fid
+        
+        ! Read input control variables
+        do kk=1, self%num_turbines
+            associate(ctrl => self%turbine_t(kk)%controller_data)
+                open(newunit=fid, file=trim(self%turbine_t(kk)%controller_data%controller_restart), status='old', form='unformatted', access='stream')
+                read(fid) ctrl%avrSWAP, ctrl%controller_dt, ctrl%sim_status, ctrl%n_trq_lookup, ctrl%initialized, &
+                          ctrl%root_name, ctrl%avcOUTNAME_LEN, ctrl%blade_pitch_com, ctrl%gen_state, &
+                          ctrl%brake_state, ctrl%pitch_state, ctrl%gen_trq_com, ctrl%yaw_rate_com, &
+                          ctrl%M_brake_com, ctrl%err_status, ctrl%err_msg, ctrl%blade_pitch, ctrl%My_blade_root, &
+                          ctrl%gen_trq, ctrl%M_aero, ctrl%M_brake, ctrl%rotor_power, ctrl%gen_elec_power, ctrl%HSS_speed, &
+                          ctrl%rotor_speed, ctrl%wind_speed, ctrl%wind_dir, ctrl%azimuth
+                close(fid)
+                ! Set sim_status to 2 -> custom restart value.
+                ctrl%sim_status = 2
+                ctrl%controller_id = kk 
+            end associate
+        end do
+        
+    End Subroutine ReadControllerState
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine WriteControlVars(self, mesh)
+        use fluiddata
+        use PhysicsStorage
+        use HexMeshClass
+        Implicit None
+
+        class(Farm_t), intent(inout)      :: self
+        type(HexMesh), intent(in)         :: mesh
+        
+        !local variables
+        integer                           :: kk
+        character(LEN=LINE_LENGTH)        :: arg
+        character(LEN=5)                  :: file_id
+        integer                           :: fid
+
+        ! Update controller data
+        call UpdateControllerData(self, mesh)
+
+        if (MPI_Process % isRoot) then
+            do kk=1, self%num_turbines
+
+                ! Write output control variables 
+                write(file_id, '(I3.3)') kk
+                
+                write(arg , '(A,A,A,A)') trim(self%file_name), "_Actuator_Line_Controller_turb_", trim(file_id) , ".dat"
+                open( newunit = fID , file = trim(arg) , action = "write" , access = "append" , status = "old" )
+                write(fid,"(9(2X,ES24.16))") self%time * Lref / refValues%V, self%turbine_t(kk)%rot_speed, self%turbine_t(kk)%controller_data%wind_speed, self%turbine_t(kk)%blade_pitch, &
+                                            self%turbine_t(kk)%controller_data%M_aero, self%turbine_t(kk)%controller_data%M_brake, self%turbine_t(kk)%controller_data%gen_trq, &
+                                            self%turbine_t(kk)%controller_data%rotor_power, self%turbine_t(kk)%controller_data%gen_elec_power
+                close(fid)
+            end do
+        end if
+    End Subroutine WriteControlVars
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine FarmGetWindSpeedProbe(self, mesh)
+        use PhysicsStorage
+        use HexMeshClass
+        use fluiddata
+        implicit none
+        
+        class(Farm_t), intent(inout)      :: self
+        type(HexMesh), intent(in)         :: mesh
+
+        integer                           :: kk, eID, ierr
+        logical                           :: found
+        real(kind=RP), dimension(NDIM)    :: xi
+        real(kind=RP), dimension(NCONS)   :: Q, Qtemp
+        real(kind=RP)                     :: u, v, w, rho, invSqrtRho
+
+        do kk=1, self%num_turbines
+
+
+            call FindActuatorPointElement(mesh, self%turbine_t(kk)%controller_data%wind_probe_coords, eID, xi, found) ! This operation should only be done at initialisation or after adaptation
+            if (found) then
+                ! interpolate state values in the element
+                Qtemp = interpolateQ(mesh,eID, xi)
+            else
+                Qtemp = 0.0_RP
+            end if
+
+            if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(Qtemp, Q, NCONS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+            else
+                Q = Qtemp
+            end if
+            if (all(Q .eq. 0.0_RP)) then
+                print*, "Wind speed/direction probe location not found in mesh, x: ", self%turbine_t(kk)%controller_data%wind_probe_coords
+                call exit(99)
+            end if
+
+            ! Compute wind speed modulus and direction (angle)
+#if defined(NAVIERSTOKES)
+            u = Q(IRHOU)/Q(IRHO) * refValues % V
+            v = Q(IRHOV)/Q(IRHO) * refValues % V
+            w = Q(IRHOW)/Q(IRHO) * refValues % V
+#elif defined(INCNS)
+            u = Q(INSRHOU)/Q(INSRHO) * refValues % V
+            v = Q(INSRHOV)/Q(INSRHO) * refValues % V
+            w = Q(INSRHOW)/Q(INSRHO) * refValues % V
+#elif defined(MULTIPHASE)
+            rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) * Q(IMC)
+            rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
+            invSqrtRho = 1.0_RP/sqrt(rho)
+            u = Q(IMSQRHOU) * invSqrtRho * refValues % V
+            v = Q(IMSQRHOV) * invSqrtRho * refValues % V
+            w = Q(IMSQRHOW) * invSqrtRho * refValues % V
+#endif
+            self%turbine_t(kk)%controller_data%wind_speed = SQRT(POW2(u) + POW2(v) + POW2(w))
+            self%turbine_t(kk)%controller_data%wind_dir = ATAN2(v, u)
+
+        end do
+    End Subroutine FarmGetWindSpeedProbe
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1314,6 +1786,13 @@ Function interpolateQ(mesh,eID,xi) result(Qe)
      nullify(spAxi,spAeta,spAzeta)
 
 END Function interpolateQ
+
+function RotorAngularMomentumConservation(omega, Ixx, M_aero, M_gen, M_brake, dt) result(omega_new)
+    real(kind=RP), intent(in) :: omega, dt
+    real(kind=RPC), intent(in) :: Ixx, M_aero, M_gen, M_brake
+    real(kind=RP) :: omega_new
+   omega_new = omega + dt / Ixx * ( M_aero - M_gen - M_brake )
+end function RotorAngularMomentumConservation
 
 #endif
 end module 
