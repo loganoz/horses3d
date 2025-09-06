@@ -118,6 +118,6 @@ controller/DISCON_DTU10MW.IN
 # Wind speed/direction probe position x,y,z
 -15.0 0.0 119.0
 # Controller startup time (s)
-0.0
+0.001
 # Controller data file for restart (only read if "actuator controller restart" is set to ".true.") absolute or relative to this file
 ../RESULTS/ActuatorLineController_Actuator_Line_turb_001.ctrl

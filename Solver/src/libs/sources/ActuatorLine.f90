@@ -1263,6 +1263,11 @@ end subroutine WriteFarmForces
 
       if(self%useController) then
         V_coefs = self%turbine_t(kk)%controller_data%wind_speed
+        
+        ! Handle small values to avoid dividing by zero errors
+        if (V_coefs < 1.0e-6) then
+          V_coefs = 1.0e-6
+        end if
       else
         V_coefs = refValues%V
       end if
@@ -1475,7 +1480,7 @@ end subroutine WriteFarmForces
                     write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
                 end if
                 associate(ctrl => self%turbine_t(kk)%controller_data)
-                    open(unit=fid, file=trim(FinalName), status='replace', form='unformatted', access='stream')
+                    open(newunit=fid, file=trim(FinalName), status='replace', form='unformatted', access='stream')
                     write(fid) ctrl%avrSWAP, ctrl%controller_dt, ctrl%sim_status, ctrl%n_trq_lookup, ctrl%initialized, &
                                ctrl%root_name, ctrl%avcOUTNAME_LEN, ctrl%blade_pitch_com, ctrl%gen_state, &
                                ctrl%brake_state, ctrl%pitch_state, ctrl%gen_trq_com, ctrl%yaw_rate_com, &
@@ -1514,7 +1519,7 @@ end subroutine WriteFarmForces
         ! Read input control variables
         do kk=1, self%num_turbines
             associate(ctrl => self%turbine_t(kk)%controller_data)
-                open(unit=fid, file=trim(self%turbine_t(kk)%controller_data%controller_restart), status='old', form='unformatted', access='stream')
+                open(newunit=fid, file=trim(self%turbine_t(kk)%controller_data%controller_restart), status='old', form='unformatted', access='stream')
                 read(fid) ctrl%avrSWAP, ctrl%controller_dt, ctrl%sim_status, ctrl%n_trq_lookup, ctrl%initialized, &
                           ctrl%root_name, ctrl%avcOUTNAME_LEN, ctrl%blade_pitch_com, ctrl%gen_state, &
                           ctrl%brake_state, ctrl%pitch_state, ctrl%gen_trq_com, ctrl%yaw_rate_com, &

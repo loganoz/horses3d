@@ -496,11 +496,11 @@ End Module oscarAbl
 !
 #if defined(NAVIERSTOKES)
   
-            real(kind=RP), parameter :: residuals(5) = [ 1.0080719192352330E-04_RP,&
-                                                         6.5166224821119351E-03_RP,&
-                                                         1.3691566968379589E-03_RP,&
+            real(kind=RP), parameter :: residuals(5) = [ 1.0080719192306057E-04_RP,&
+                                                         6.4849063073696856E-03_RP,&
+                                                         1.3641651819972784E-03_RP,&
                                                          3.1145069351486703E-03_RP,&
-                                                         2.2527522886052545E-01_RP]
+                                                         2.2527522885979795E-01_RP]
         
 
             CALL initializeSharedAssertionsManager
