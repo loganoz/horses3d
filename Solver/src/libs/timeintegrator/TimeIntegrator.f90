@@ -462,7 +462,7 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders, saveUTauWithSign
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -531,6 +531,7 @@
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
       saveLES = controlVariables % logicalValueForKey("save les with solution")
       saveSensor    = controlVariables % logicalValueForKey("save sensor with solution")
+      saveUTauWithSign = controlVariables % logicalValueForKey("save u_tau with sign")
 !
 !     -----------------------
 !     Check initial residuals
@@ -782,7 +783,7 @@
              call sem % fwh % writeToFile()
 #endif
 #if defined(NAVIERSTOKES)
-      if (.not. useWallFunc) call getU_tauInSurfaces(surfacesMesh, sem % mesh)
+      if (.not. useWallFunc) call getU_tauInSurfaces(surfacesMesh, sem % mesh, saveUTauWithSign)
 #endif
              call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
          end if
