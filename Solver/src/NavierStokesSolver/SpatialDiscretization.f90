@@ -384,7 +384,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, eq, side
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n, eq, side, Pplus1squared
          real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
          real(kind=RP), allocatable :: Source_HO(:,:,:,:)
          integer,       allocatable :: i_(:), j_(:), k_(:)
@@ -422,7 +422,8 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
             !$acc parallel loop gang present(mesh, LESModel) async(1)
             do eID = 1, size(mesh % elements)
-               delta = (mesh % elements(eID) % geom % Volume / product(mesh % elements(eID) % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+               Pplus1squared = ( product(mesh % elements(eID) % Nxyz + 1) * product(mesh % elements(eID) % Nxyz + 1) ) ** (1.0_RP / 3.0_RP)
+               delta = (mesh % elements(eID) % geom % Volume ) ** (1.0_RP / 3.0_RP) / Pplus1squared
                !$acc loop vector collapse(3)
                do k = 0, mesh % elements(eID) % Nxyz(3) ; do j = 0, mesh % elements(eID) % Nxyz(2) ; do i = 0, mesh % elements(eID) % Nxyz(1)
                   call LESModel_Selector(LESModel, delta, mesh % elements(eID) % geom % dWall(i,j,k), &
@@ -1036,7 +1037,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer       :: iFace, i, j, side, fID
+         integer       :: iFace, i, j, side, fID, Pplus1squared
          real(kind=RP) :: delta, mu_smag
 
          if (flowIsNavierStokes) then
@@ -1061,7 +1062,8 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,delta,mu_smag)
             !$acc parallel loop gang present(mesh, LESModel) async(1)
             do iFace = 1, no_of_faces
-               delta = sqrt(mesh % faces(face_ids(iFace)) % geom % surface / product(mesh % faces(face_ids(iFace)) % Nf + 1))
+               Pplus1squared = product(mesh % faces(face_ids(iFace)) % Nf + 1)
+               delta = sqrt(mesh % faces(face_ids(iFace)) % geom % surface ) / Pplus1squared
                !$acc loop vector collapse(3)
                do j = 0, mesh % faces(face_ids(iFace)) % Nf(2) ; do i = 0, mesh % faces(face_ids(iFace)) % Nf(1)
                   do side = 1, no_of_sides
