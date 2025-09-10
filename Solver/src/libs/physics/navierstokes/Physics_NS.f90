@@ -33,7 +33,7 @@
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian, ComputeEigenvaluesForState
-      public  getStressTensor, ViscousJacobian, getFrictionVelocity
+      public  getStressTensor, ViscousJacobian, getFrictionVelocity, getFrictionVelocityWithSign
 !
 !     ========
       CONTAINS 
