@@ -1,0 +1,123 @@
+############################
+# FARM, TURBINE, BLADE PARAMETERS
+############################
+# Number of turbines
+1
+# Center Hub Locations x,y,z 
+-7.07 0 119 
+# Radius 
+89.15
+# Orientation (normal pointing backward)
+1 0 0
+# Rot Speed (rad/s) 1.0053 DTU
+0.41888
+# Blade pitch Angle (rad)
+0.0
+# Blade 1 definition 
+# Number of blade sections 
+39
+# r, chord (m), twist (rad), airfoils_num, airfoil files
+2.8000 5.380000 0.252917 1
+ Cylinder_Re1000000.dat
+4.8000 5.380000 0.252917 1
+ Cylinder_Re1000000.dat
+7.5120 5.422947 0.251750 1
+ Cylinder_Re1000000.dat
+9.1190 5.503171 0.248891 1
+ Cylinder_Re1000000.dat
+10.275 5.577011 0.245112 1 
+ FFA_W3_600_Re10000000.dat
+11.685 5.678866 0.237039 1 
+ FFA_W3_600_Re10000000.dat
+13.258 5.802144 0.225300 1 
+ FFA_W3_600_Re10000000.dat
+15.068 5.937015 0.207851 1 
+ FFA_W3_600_Re10000000.dat
+17.075 6.063689 0.186408 1 
+ FFA_W3_480_Re10000000.dat
+19.267 6.157123 0.165450 1 
+ FFA_W3_480_Re10000000.dat
+21.633 6.201273 0.146348 1 
+ FFA_W3_360_Re10000000.dat
+24.156 6.191868 0.132766 1 
+ FFA_W3_360_Re10000000.dat
+26.823 6.128953 0.121440 1 
+ FFA_W3_360_Re10000000.dat
+29.617 6.013883 0.111164 1 
+ FFA_W3_301_Re10000000.dat
+32.521 5.854190 0.101389 1 
+ FFA_W3_301_Re10000000.dat
+35.519 5.657992 0.091714 1 
+ FFA_W3_301_Re10000000.dat
+38.591 5.434210 0.081877 1 
+ FFA_W3_301_Re10000000.dat
+41.720 5.190131 0.071347 1 
+ FFA_W3_241_Re12000000.dat
+44.886 4.929373 0.060133 1 
+ FFA_W3_241_Re12000000.dat
+48.072 4.658367 0.048700 1 
+ FFA_W3_241_Re12000000.dat
+51.257 4.383529 0.037091 1 
+ FFA_W3_241_Re12000000.dat
+54.423 4.110851 0.025861 1 
+ FFA_W3_241_Re12000000.dat
+57.550 3.844928 0.015155 1 
+ FFA_W3_241_Re12000000.dat
+60.620 3.588651 0.005144 1 
+ FFA_W3_241_Re12000000.dat
+63.615 3.344616 -0.003861 1 
+ FFA_W3_241_Re12000000.dat
+66.516 3.115337 -0.012302 1 
+ FFA_W3_241_Re12000000.dat
+69.306 2.902838 -0.019557 1 
+ FFA_W3_241_Re12000000.dat
+71.968 2.707497 -0.026480 1 
+ FFA_W3_241_Re12000000.dat
+74.487 2.529161 -0.032743 1 
+ FFA_W3_241_Re12000000.dat
+76.847 2.364962 -0.038580 1 
+ FFA_W3_241_Re12000000.dat
+79.034 2.200110 -0.043989 1 
+ FFA_W3_241_Re12000000.dat
+81.034 2.018238 -0.048834 1 
+ FFA_W3_241_Re12000000.dat
+82.837 1.811887 -0.052933 1 
+ FFA_W3_241_Re12000000.dat
+84.431 1.536297 -0.056217 1 
+ FFA_W3_241_Re12000000.dat
+85.806 1.138400 -0.058811 1 
+ FFA_W3_241_Re12000000.dat
+86.955 1.138400 -0.059829 1 
+ FFA_W3_241_Re12000000.dat
+87.870 1.138400 -0.059829 1 
+ FFA_W3_241_Re12000000.dat
+88.546 1.138400 -0.059829 1 
+ FFA_W3_241_Re12000000.dat
+89.150 1.138400 -0.059829 1 
+ FFA_W3_241_Re12000000.dat
+############################
+# NUMERICAL PARAMETERS
+############################
+# Gaussian parameter epsilon for k=2.5, P4 -> 1.752, if set to automatic use 2.5 (k)
+2.5
+# tip correction cosntants c1 c2
+0.125 21.0
+############################
+# CONTROLLER PARAMETERS
+############################
+# Path to external DISCON controller *.so file(s) (absolute or relative to this file)
+controller/DISCON_glin64.so
+# Path to external DISCON controller input parameter file(s) (absolute or relative to this file)
+controller/DISCON_DTU10MW.IN
+# Moment of intertia of wind turbine(s) drivetrain (rotor + hub + shaft...) around rotation axis (kg m2)
+2.0E8
+# Gear ratio from LSS to HSS (>1)
+50.0
+# Generator efficiency
+0.944
+# Wind speed/direction probe position x,y,z
+-15.0 0.0 119.0
+# Controller startup time (s)
+0.001
+# Controller data file for restart (only read if "actuator controller restart" is set to ".true.") absolute or relative to this file
+../RESULTS/ActuatorLineController_Actuator_Line_turb_001.ctrl
