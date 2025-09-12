@@ -1470,6 +1470,7 @@ Module SurfaceMesh
         
         integer                                                     :: eID, efID, i, j
         integer                                                     :: normalDirection, indexArray(2), minIndex, elementIndex
+        integer, dimension(1)                                       :: tmpIndex
         integer                                                     :: nodeStart, nodeEnd, N
         real(kind=RP), dimension(NDIM)                              :: x0, xN, xf, dWallVector
         real(kind=RP), dimension(2)                                 :: dx
@@ -1528,8 +1529,12 @@ Module SurfaceMesh
             indexArray = [nodeStart,nodeEnd]
             dx(1) = norm2(xf-x0)
             dx(2) = norm2(xf-xN)
-            minIndex = minloc(dx,dim=1)
-
+            ! Old implementation (works with gfortran but not with nvfortran)
+            !minIndex = minloc(dx,dim=1)
+            ! New implementation (works with nvfortran)
+            tmpIndex = minloc(dx)  ! returns rank-1 array
+            minIndex = tmpIndex(1)
+            
             elementIndex = indexArray(minIndex)
             ! get all min dist of the face
             select case (normalDirection)
