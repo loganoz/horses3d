@@ -95,6 +95,7 @@ MODULE HexMeshClass
             procedure :: CreateDeviceData              => HexMesh_CreateDeviceData
             procedure :: ExitDeviceData                => HexMesh_ExitDeviceData
             procedure :: UpdateHostData                => HexMesh_UpdateHostData
+            procedure :: UpdateFacesHostData           => HexMesh_UpdateFacesHostData
             procedure :: UpdateHostStatistics          => HexMesh_UpdateHostStatistics
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
@@ -4755,6 +4756,53 @@ slavecoord:             DO l = 1, 4
       !$acc wait
 
    end subroutine HexMesh_UpdateHostData
+
+   subroutine HexMesh_UpdateFacesHostData(self)
+      use Physics
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh)                  :: self
+      !-----------------------------------------------------------
+      integer :: eID
+      !-----------------------------------------------------------
+
+      !$acc wait
+
+      do fID = 1, SIZE(self % faces)
+         !$acc update self(self % faces(fID) % storage(1) % Q)
+         !$acc update self(self % faces(fID) % storage(1) % Qdot)
+         !$acc update self(self % faces(fID) % storage(2) % Q)
+         !$acc update self(self % faces(fID) % storage(2) % Qdot)
+#ifdef FLOW
+         !$acc update self(self % faces(fID) % storage(1) % U_x)
+         !$acc update self(self % faces(fID) % storage(1) % U_y)
+         !$acc update self(self % faces(fID) % storage(1) % U_z)
+         !$acc update self(self % faces(fID) % storage(2) % U_x)
+         !$acc update self(self % faces(fID) % storage(2) % U_y)
+         !$acc update self(self % faces(fID) % storage(2) % U_z)
+#endif
+#if defined(NAVIERSTOKES)
+         !$acc update self(self % faces(fID) % storage(1) % u_tau_NS)
+         !$acc update self(self % faces(fID) % storage(2) % u_tau_NS)
+         !$acc update self(self % faces(fID) % storage(1) % mu_NS)
+         !$acc update self(self % faces(fID) % storage(2) % mu_NS)
+         !$acc update self(self % faces(fID) % storage(1) % wallNodeDistance)
+         !$acc update self(self % faces(fID) % storage(2) % wallNodeDistance)
+#endif
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+         !$acc update self(self % faces(fID) % storage(1) % c_x)
+         !$acc update self(self % faces(fID) % storage(1) % c_y)
+         !$acc update self(self % faces(fID) % storage(1) % c_z)
+         !$acc update self(self % faces(fID) % storage(2) % c_x)
+         !$acc update self(self % faces(fID) % storage(2) % c_y)
+         !$acc update self(self % faces(fID) % storage(2) % c_z)
+#endif
+
+      enddo
+      
+      !$acc wait
+
+   end subroutine HexMesh_UpdateFacesHostData
 
    subroutine HexMesh_UpdateHostStatistics(self)
       use Physics
