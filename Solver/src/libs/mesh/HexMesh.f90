@@ -4782,12 +4782,12 @@ slavecoord:             DO l = 1, 4
          !$acc update self(self % faces(fID) % storage(2) % U_z)
 #endif
 #if defined(NAVIERSTOKES)
-         !$acc update self(self % faces(fID) % storage(1) % u_tau_NS)
-         !$acc update self(self % faces(fID) % storage(2) % u_tau_NS)
-         !$acc update self(self % faces(fID) % storage(1) % mu_NS)
-         !$acc update self(self % faces(fID) % storage(2) % mu_NS)
-         !$acc update self(self % faces(fID) % storage(1) % wallNodeDistance)
-         !$acc update self(self % faces(fID) % storage(2) % wallNodeDistance)
+         !!$acc update self(self % faces(fID) % storage(1) % u_tau_NS)
+         !!$acc update self(self % faces(fID) % storage(2) % u_tau_NS)
+         !!$acc update self(self % faces(fID) % storage(1) % mu_NS)
+         !!$acc update self(self % faces(fID) % storage(2) % mu_NS)
+         !!$acc update self(self % faces(fID) % storage(1) % wallNodeDistance)
+         !!$acc update self(self % faces(fID) % storage(2) % wallNodeDistance)
 #endif
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
          !$acc update self(self % faces(fID) % storage(1) % c_x)
