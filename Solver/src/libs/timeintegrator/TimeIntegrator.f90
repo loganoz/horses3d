@@ -782,7 +782,7 @@
              call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
 #endif
-             call sem % mesh % HexMesh_UpdateFacesHostData()
+             call sem % mesh % UpdateFacesHostData()
 #if defined(NAVIERSTOKES)
       if (.not. useWallFunc) call getU_tauInSurfaces(surfacesMesh, sem % mesh, saveUTauWithSign)
 #endif
