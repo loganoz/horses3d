@@ -365,7 +365,7 @@
             case (EULER_RK3_KEY)
                write(STD_OUT,'(A)') "Euler-RK3"
             case (MIXED_RK_KEY)
-               write(STD_OUT,'(A)') "Mixed rk"
+               write(STD_OUT,'(A)') "MixedRK"
 			case (ML_RK3_KEY)
                write(STD_OUT,'(A)') "Multi-Level RK3"
 			   write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Number of Level: ", self % ML_nLevel

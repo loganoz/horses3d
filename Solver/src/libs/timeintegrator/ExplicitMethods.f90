@@ -41,7 +41,7 @@ MODULE ExplicitMethods
    character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
    character(len=*), parameter :: EULER_RK3_NAME = "euler rk3"
    character(len=*), parameter :: LSERK14_4_NAME = "lserk14-4"
-   character(len=*), parameter :: MIXED_RK_NAME = "mixed rk"
+   character(len=*), parameter :: MIXED_RK_NAME = "mixedrk"
    character(len=*), parameter :: ML_RK3_NAME  = "multi level rk3"
 
 
@@ -212,10 +212,10 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !
 !        *****************************************************************************************
 !          Uses RK3 in phase1 and LSERK14-4 in phase2, think phase1 is air and phase2 is water. Of course, this will only yield an advantage if: 
-!          - you can get away with a time step using the mixed RK that is 5x times larger than that in pure RK3 scheme,
+!          - you can get away with a time step using the MixedRK that is 5x times larger than that in pure RK3 scheme,
 !          - AND if there are at LEAST 20+% air elements (aim for 50% or more)
 !          A stand-alone LSERK14-4 implimetnation is given in TakeLSERK14_4Step
-!          The mixed RK scheme is valid only for the multiphase solver and throws an error otherwise,  
+!          The MixedRK scheme is valid only for the multiphase solver and throws an error otherwise,  
 !          However, the rest of this function still has its implementation consistent
 !          with the other RK steppers in case anyone needed to extend it
 !        *****************************************************************************************
@@ -247,7 +247,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
 
 #if !defined(MULTIPHASE)
-   error stop 'Mixed RK time stepping is only implemented for the multiphase solver'
+   error stop 'MixedRK time stepping is only implemented for the multiphase solver'
 #else
 
       ! Arrays to store the original solution for all elements

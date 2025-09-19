@@ -1064,7 +1064,7 @@ The main keywords to use it are shown in Table \ref{tab:explicitKey}.
 
 \textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
 
-explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33',  'SSPRK43', 'EULER RK3', and Mixed RK. The option 'EULER RK3' is a hybrid temporal scheme thought to be used with RL p-Adaptation and BR1 as viscous discretization. & RK3 \\ \hline
+explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33',  'SSPRK43', 'EULER RK3', and MixedRK. The option 'EULER RK3' is a hybrid temporal scheme thought to be used with RL p-Adaptation and BR1 as viscous discretization. & RK3 \\ \hline
 
 rk order & \textit{INTEGER}: Order of Runge-Kutta method optimized for steady-state solver ('RKOpt'). Possible orders are from 2 to 7. & 2 \\ \hline
 
