@@ -1886,7 +1886,7 @@ slavecoord:             DO l = 1, 4
 !
       subroutine HexMesh_CheckIfMeshIs2D(self, ignore_mpi_section)
          implicit none
-         logical, optional , intent(in)    :: ignore_mpi_section !added bool to ignore the mpi section in this code. First used in relation to mixed RK stepping 
+         logical, optional , intent(in)    :: ignore_mpi_section !added bool to ignore the mpi section in this code. First used in relation to MixedRK stepping 
 
          !-arguments---------------------------------------
          class(HexMesh),   intent(inout) :: self

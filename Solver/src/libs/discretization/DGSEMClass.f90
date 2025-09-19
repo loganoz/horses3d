@@ -268,8 +268,8 @@ Module DGSEMClass
 !           -------------------------
             call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
 
-!           initialize the solution if the time stepping scheme is mixed RK, since Q is needed in the METIS partitioning  
-            if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'mixed rk') then
+!           initialize the solution if the time stepping scheme is MixedRK, since Q is needed in the METIS partitioning  
+            if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'MixedRK') then
                call self % mesh % CheckIfMeshIs2D(.true.)
                call self % mesh % ConstructGeometry()
                call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)

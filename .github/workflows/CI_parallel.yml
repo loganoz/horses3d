@@ -1172,7 +1172,7 @@ jobs:
         if: ('!cancelled()')
 
 #
-# 8) Mixed RK
+# 8) MixedRK
 # ----------------------------
       - name: Build MultiphaseMixedRK
         working-directory: ./Solver/test/Multiphase/MixedRK/SETUP

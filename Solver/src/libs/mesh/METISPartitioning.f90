@@ -2,7 +2,7 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 !
 !     *********************************************************************
 !        This subroutine performs the mesh partitioning using METIS
-!        and then manual load balancing for mixed RK used in multiphase
+!        and then manual load balancing for MixedRK used in multiphase
 !     *********************************************************************
 !        
       use HexMeshClass
@@ -57,7 +57,7 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 
       ! Check if we should do water/air counting based on explicit method
       do_water_air_count = .false.
-      if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'mixed rk') then
+      if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'MixedRK') then
           do_water_air_count = .true.
       end if
 
