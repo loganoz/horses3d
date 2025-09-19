@@ -69,7 +69,7 @@
 		 integer                         :: MLevel            ! RK Level
 		 integer                         :: MLevelwN          ! RK Level with Neighbour
 		 real(kind=RP)                   :: ML_CFL            ! CFL storage for Multi Level RK	
-         real(kind=RP)                   :: ML_error_ratio    ! Ratio between temporal and spatial error relative to the global ratio
+         real(kind=RP)                   :: ML_error_ratio(2) ! Ratio between temporal and spatial error relative to the global ratio
          INTEGER, DIMENSION(3)           :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
          real(kind=RP)                   :: hn                ! Ratio of size and polynomial order
          TYPE(MappedGeometry)            :: geom
