@@ -136,12 +136,6 @@ contains
 
       avg_sum_dt_weight = sum_dt_weight / mesh % no_of_allElements
 
-!$omp parallel do schedule(runtime)
-      do eID = 1, mesh % no_of_elements
-         mesh % elements(eID) % ML_error_ratio = mesh % elements(eID) % ML_error_ratio / avg_sum_dt_weight
-      end do
-!$omp end parallel do
-
       if (isnan(sum_dt_weight)) then
          this % dt_eps(3) = 1e-10_RP
       else
@@ -270,9 +264,9 @@ contains
 
       dt_weight = dt_weight / (e % storage % sensor)**2.0_RP
       dt_weight = dt_weight / ((Pxyz(1)+1) * (Pxyz(2)+1) * (Pxyz(3)+1)) !Average over all Gauss points
-      ! MLRK correction
-      dt_weight = dt_weight / (3.0_RP ** (e % MLevel - 1))**2.0_RP
-      e % ML_error_ratio = dt_weight
+      
+	  e % ML_error_ratio(1) = e % ML_error_ratio(2)
+      e % ML_error_ratio(2) = 1.0_RP/sqrt(dt_weight)
 #endif
    end function adaptiveTimeStep_ComputeWeights
 

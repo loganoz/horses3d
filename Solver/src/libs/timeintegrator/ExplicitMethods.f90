@@ -1527,13 +1527,11 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
 	  REAL(KIND=RP), DIMENSION(3) :: d = (/1.0_RP/3.0_RP,  5.0_RP/12.0_RP,    1.0_RP/4.0_RP /)        ! Temporal step of stages
 	  
-
-
-      INTEGER       :: i, j, id, locLevel, k2, k3, k1, nLevel
-	  INTEGER, ALLOCATABLE :: k(:)
+      INTEGER       :: i, j, j1, id, locLevel, k2, k3, k1, nLevel, eLevel, eLevelN
+	  INTEGER, ALLOCATABLE :: k(:), MLIter_eIDN(:), MLIterN(:), MLIter(:)
 	  INTEGER, parameter :: kmax = 3
-	  REAL(KIND=RP) :: corrector
-	  REAL(KIND=RP), ALLOCATABLE :: cL(:) , tk(:), deltaTL(:) ! 
+	  REAL(KIND=RP) :: corrector, corrector2, aLoc
+	  REAL(KIND=RP), ALLOCATABLE :: cLL(:) , tk(:), deltaTL(:) ! 
 
       logical :: updateQLowRK
 
@@ -1544,12 +1542,15 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       end if
 	  
 	  nLevel = mesh % MLRK % maxLevel
-	  allocate(k(nLevel), cL(nLevel), tk(nLevel), deltaTL(nLevel))
 	  
-	  deltaTL(:) = deltaT		! Local timestep, for level 1 is the deltaT
-	  tk(:)      = t
+	  allocate(k(nLevel), cLL(nLevel), tk(nLevel), deltaTL(nLevel), MLIterN(nLevel) , MLIter(nLevel+1), MLIter_eIDN(size(mesh % elements)))
 	  
-	  associate ( MLIter_eID => mesh % MLRK % MLIter_eID, MLIter => mesh % MLRK % MLIter  )
+	  MLIter_eIDN 			= mesh % MLRK % MLIter_eIDN
+	  MLIterN     			= mesh % MLRK % MLIter(:,8)
+	  MLIter      			= 0
+	  MLIter(1:nLevel)      = mesh % MLRK % MLIter(:,1)
+	  deltaTL(:) 			= deltaT		! Local timestep, for level 1 is the deltaT
+	  tk(:)      			= t
 	  
       k(:) = kmax                ! A counter array to track at which stage and level , 3 is the total number of stages
       do k1 = 1,kmax
@@ -1557,17 +1558,6 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
             tk(:) = t + b(k1)*deltaT    											! Actual time at each level 
             call ComputeTimeDerivative( mesh, particles, tk(1), CTD_IGNORE_MODE)  	! Compute Qdot all elements
 			locLevel = 1															! Level locator
-
-         if (k1==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-#ifdef FLOW 
-               mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
-#endif
-            end do ! id
-!$omp end parallel do
-         end if
-
 !           -------------------------------------------------------------------------------------------------------------------------------
 !           LEVEL 2-LEVEL N-1
 !           -------------------------------------------------------------------------------------------------------------------------------
@@ -1586,65 +1576,56 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 				
 				do i=2, nLevel 								! Update the local timestep for level 2: nLevel
 					deltaTL(i) = deltaTL(i-1) * d(k(i-1))
+					cLL(i-1)   = deltaTL(i-1) * c(k(i-1))   ! local coefficient timestep
 				end do 
 !               -------------------------------------------------------------------------------------------------------------------------------
 !               LEVEL N 
 !               -------------------------------------------------------------------------------------------------------------------------------
 				do k3 = 1,kmax
-					k(nLevel) = k3							! Update the counter level-stages for nLevel 
-!           		Update G_NS/G_CH from QDot - Depend on level etc
-!$omp parallel do schedule(runtime)	private(id, corrector)	
-					do i = 1, MLIter(locLevel,1)            ! Loop all elements at the active level to update the G / Qdot contribution
-						id = MLIter_eID(i)					! ID of true element at partition
-	  
-						if (locLevel.eq.nLevel) then		! Variable a, weight of the previous Qdot contribution
-							corrector = a(k(nLevel))		
-					    elseif(i.gt.MLIter(min(locLevel+1,nLevel),1)) then 
-							corrector = a(k(locLevel))		! If locLevel is j then all element with level > j will be on first stage corrector=0
-						else
-							corrector = 0.0_RP
-						end if 
+					k(nLevel)   = k3							! Update the counter level-stages for nLevel
+					cLL(nLevel) = deltaTL(nLevel) * c(k3)       ! local coefficient timestep
+					
+					aLoc = a(k(locLevel))
+					j = MLIter(locLevel)
+					j1= MLIter(locLevel+1)
+					
+!------------------- PARALLEL SWEEP OVER ELEMENTS -------------------------
+!$omp parallel do schedule(runtime)	private(id, corrector, corrector2, eLevel, eLevelN)	
+					do i = 1, MLIterN(locLevel)            ! Loop elements with neighbour at locLevel to update the Q / c
+
+						id      = MLIter_eIDN(i)                ! ID of element + neighbour
+						eLevel  = mesh % elements(id) % MLevel
+						eLevelN = mesh % elements(id) % MLevelwN
 						
-						associate(storage => mesh % elements(id) % storage)
+						corrector2 = cLL(eLevel)
+						if (eLevelN /= eLevel) corrector2 = corrector2 * d(k(eLevelN))
+						
+!						Update G_NS / G_CH for element with level > locLevel
+						if (i .le. j) then
+							corrector = merge(aLoc, 0.0_RP, i.gt.j1)
 #ifdef FLOW        
-						storage % G_NS = corrector * storage % G_NS  +  storage % QDot
+							mesh % elements(id) % storage % G_NS = corrector * mesh % elements(id) % storage % G_NS + mesh % elements(id) % storage % QDot
 #endif
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-						storage % G_CH = corrector * storage % G_CH + storage % cDot
+							mesh % elements(id) % storage % G_CH = corrector * mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
 #endif
-						end associate
+						end if 
+!						Update Q / c (integrate in time)		
+#ifdef FLOW             
+						if (updateQLowRK .and. all(k(eLevel:nLevel).eq.1)) then
+							if (((eLevel.gt.1) .and. all(k(1:eLevel-1).eq.kmax)).or.(eLevel.eq.1)) then
+								mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q  + deltaTL(eLevel) * mesh % elements(id) % storage % QDot		! Euler at local level (last update only)
+							end if 
+						end if 
+						mesh % elements(id) %  storage % Q    = mesh % elements(id) % storage % Q  + corrector2 * mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+						mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c + corrector2 * mesh % elements(id) % storage % G_CH
+#endif
 					end do 
 !$omp end parallel do	
 				
-!           		Marching in time, all elements
-					corrector = 1.0_RP
-					do i = 1, nLevel
-						corrector = corrector * d(k(i))
-					end do 
-                    do i = 1, nLevel
-						cL(i) = c(k(i)) * corrector/d(k(i)) ! Timestep scaling for local timesteping at level N for all level 
-					end do 
-
-!$omp parallel do schedule(runtime)	private(id, corrector)			
-					do i = 1, MLIter(1,1)
-						do j = nLevel, 1, -1
-						    corrector = cL(j)
-							if (i.le.MLIter(j,1)) exit
-						end do
-						
-						id = MLIter_eID(i)
-						
-						associate(storage => mesh % elements(id) % storage)
-#ifdef FLOW             
-						storage % Q    = storage % Q  + corrector * deltaT * storage % G_NS
-#endif
-
-#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-						storage % c    = storage % c + corrector * deltaT * storage % G_CH
-#endif
-						end associate
-					end do
-!$omp end parallel do	
                     if (all(k(2:nLevel) == kmax)) then
 						exit
 					else
@@ -1661,8 +1642,6 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
        end do ! k1
 	   
-	   end associate
-	   
 	   call ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE) ! Necessary for residual computation
 !
 !     To obtain the updated residuals
@@ -1670,7 +1649,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
       call checkForNan(mesh, t)
 	  
-	  deallocate(k, cL, tk, deltaTL)
+	  deallocate(k, cLL, tk, deltaTL, MLIter_eIDN, MLIterN, MLIter)
 
    END SUBROUTINE TakeMLRK3Step
 !

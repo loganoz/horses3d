@@ -58,6 +58,7 @@ module SpatialDiscretization
       real(kind=RP), protected :: IMEX_S0 = 0.0_RP 
       real(kind=RP), protected :: IMEX_K0 = 1.0_RP
       logical :: use_non_constant_speed_of_sound = .false.
+	  integer :: speed_of_sound_model = 1
 !
 !     ========      
       CONTAINS 
@@ -192,6 +193,11 @@ module SpatialDiscretization
             end select
    
             use_non_constant_speed_of_sound = controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY)
+		    if ( controlVariables % ContainsKey("speed of sound profile") .and. (trim(controlVariables % stringValueForKey('speed of sound profile', requestedLength = LINE_LENGTH)) == 'linear quadratic')) then
+				speed_of_sound_model = 2
+			else
+				speed_of_sound_model = 1
+			end if 
 
             call CHDiscretization % Construct(controlVariables, ELLIPTIC_CH)
             call CHDiscretization % Describe
@@ -200,6 +206,12 @@ module SpatialDiscretization
 			
             if(use_non_constant_speed_of_sound) then
                write(STD_OUT,'(A)') "  Implementing artificial compressibility with a non-constant speed of sound in each phase"
+			   if (speed_of_sound_model.eq.2) then
+				write(STD_OUT,'(A)') "         Speed of sound profile: linear quadratic	along interface"
+			   else 
+				write(STD_OUT,'(A)') "         Speed of sound profile: linear along interface"
+			   end if 
+			   
             else
                write(STD_OUT,'(A)') "  Implementing artificial compressibility with a constant ACM factor in each phase"
             endif
@@ -267,6 +279,24 @@ module SpatialDiscretization
 !
          select case (mode)
          case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
+		 
+!
+!        --------------------------------------------
+!        Prolong Cahn-Hilliard and iNS to faces
+!        --------------------------------------------
+!
+         call mesh % ProlongSolutionToFaces(NCONS, element_mask=element_mask, Level=locLevel)
+!
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % UpdateMPIFacesSolution(NCONS)
+!$omp end single
+#endif		 
+		 
 !$omp do schedule(runtime) private(eID)
             do lID = 1, MLIter(locLevel,1)
 			   eID = MLIter_eID(lID)
@@ -278,6 +308,23 @@ module SpatialDiscretization
                endif 
             end do
 !$omp end do         
+
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % GatherMPIFacesSolution(NCONS)
+!$omp end single
+#endif		
+
+! Not optimized for MLRK and MixedRK but okey
+!$omp do schedule(runtime)
+            do fID = 1, size(mesh % faces)
+				associate(f => mesh % faces(fID))
+                f % storage(1) % c(1,:,:) = f % storage(1) % QNS(IMC,:,:)
+				f % storage(2) % c(1,:,:) = f % storage(2) % QNS(IMC,:,:)
+				end associate
+            end do
+!$omp end do
+
          end select
 !
 !        -------------------------------
@@ -295,12 +342,6 @@ module SpatialDiscretization
 
          end select
 !$omp end single
-!
-!        --------------------------------------------
-!        Prolong Cahn-Hilliard concentration to faces
-!        --------------------------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCOMP, element_mask=element_mask, Level=locLevel)
 !
 !        ----------------
 !        Update MPI Faces
@@ -453,12 +494,6 @@ module SpatialDiscretization
          call SetBoundaryConditionsEqn(NS_BC)
 !$omp end single
 !
-!        -------------------------
-!        Prolong solution to faces        
-!        -------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCONS, element_mask=element_mask, Level=locLevel)
-!
 !        ----------------
 !        Update MPI Faces
 !        ----------------
@@ -466,7 +501,6 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution(NCONS)
-         call mesh % GatherMPIFacesSolution(NCONS)
 !$omp end single
 #endif
 !
@@ -486,8 +520,14 @@ module SpatialDiscretization
                mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
 
                if (use_non_constant_speed_of_sound ) then
-                  mesh % elements(eID) % storage % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP)))**2 
-                  mesh % elements(eID) % storage % invMa2 = mesh % elements(eID) % storage % invMa2*mesh % elements(eID) % storage % rho 
+				  if (speed_of_sound_model.eq.1) then
+					! Linear profile
+					mesh % elements(eID) % storage % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:),0.0_RP),1.0_RP)))**2 
+					mesh % elements(eID) % storage % invMa2 = mesh % elements(eID) % storage % invMa2*mesh % elements(eID) % storage % rho 
+				  else 
+					! Linear quadratic profile
+					mesh % elements(eID) % storage % invMa2 = dimensionless % invMa2(2) + (dimensionless % invMa2(1) - dimensionless % invMa2(2)) * min(max(mesh % elements(eID) % storage % Q(IMC,:,:,:), 0.0_RP), 1.0_RP) 
+				  end if 
                else
                   mesh % elements(eID) % storage % invMa2 = dimensionless % invMa2(1)
                endif
@@ -504,7 +544,6 @@ module SpatialDiscretization
             if (present(element_mask)) compute_element = face_mask(fID)
             
             if (compute_element) then
-			   
                mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* mesh % faces(fID) % storage(1) % Q(IMC,:,:)
                mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))* mesh % faces(fID) % storage(2) % Q(IMC,:,:)
 
@@ -513,11 +552,19 @@ module SpatialDiscretization
 
 
                if (use_non_constant_speed_of_sound ) then
-                  mesh % faces(fID) % storage(1) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2
-                  mesh % faces(fID) % storage(2) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2 
+				  if (speed_of_sound_model.eq.1) then
+				    ! Linear profile
+					mesh % faces(fID) % storage(1) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2
+					mesh % faces(fID) % storage(2) % invMa2 = (sqrt(dimensionless % invMa2(1)/dimensionless % rho(1)) * min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP) + sqrt(dimensionless % invMa2(2)/dimensionless % rho(2)) * (1.0_RP - min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:),0.0_RP),1.0_RP)))**2 
 
-                  mesh % faces(fID) % storage(1) % invMa2 = mesh % faces(fID) % storage(1) % invMa2*mesh % faces(fID) % storage(1) % rho
-                  mesh % faces(fID) % storage(2) % invMa2 = mesh % faces(fID) % storage(2) % invMa2*mesh % faces(fID) % storage(2) % rho
+					mesh % faces(fID) % storage(1) % invMa2 = mesh % faces(fID) % storage(1) % invMa2*mesh % faces(fID) % storage(1) % rho
+					mesh % faces(fID) % storage(2) % invMa2 = mesh % faces(fID) % storage(2) % invMa2*mesh % faces(fID) % storage(2) % rho
+				  
+				  else 
+					! Linear quadratic profile
+					mesh % faces(fID) % storage(1) % invMa2 = dimensionless % invMa2(2) + (dimensionless % invMa2(1) - dimensionless % invMa2(2)) * min(max(mesh % faces(fID) % storage(1) % Q(IMC,:,:), 0.0_RP), 1.0_RP) 
+					mesh % faces(fID) % storage(2) % invMa2 = dimensionless % invMa2(2) + (dimensionless % invMa2(1) - dimensionless % invMa2(2)) * min(max(mesh % faces(fID) % storage(2) % Q(IMC,:,:), 0.0_RP), 1.0_RP) 
+				  end if 
 
                else
                   mesh % faces(fID) % storage(1) % invMa2 = dimensionless % invMa2(1)
@@ -533,16 +580,6 @@ module SpatialDiscretization
 !        ----------------------------------------
 !
          call ViscousDiscretization % ComputeLocalGradients( NCONS, NCONS, mesh , time , mGradientVariables, Level = locLevel)
-!
-!        --------------------
-!        Update MPI Gradients
-!        --------------------
-!
-#ifdef _HAS_MPI_
-!$omp single
-         call mesh % UpdateMPIFacesGradients(NCONS)
-!$omp end single
-#endif
 !
 !        -------------------------------------
 !        Add the Non-Conservative term to QDot
@@ -593,7 +630,6 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         ! Not sure about the position of this w.r.t the MPI directly above
          call mesh % UpdateMPIFacesGradients(NCONS)
          call mesh % GatherMPIFacesGradients(NCONS)
 !$omp end single

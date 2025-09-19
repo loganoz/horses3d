@@ -58,7 +58,8 @@
          integer                                :: RKStep_key
 		 REAL(KIND=RP)                          :: ML_CFL_CutOff
 		 INTEGER                                :: ML_ReLevel_Iteration, ML_Counter, ML_nLevel
-		 logical                                :: ML_ReLevel	
+		 logical                                :: ML_ReLevel
+		 logical                                :: ML_adaptive_level = .false. 
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========
@@ -124,7 +125,6 @@
                error stop 'Adaptation type not recognized'
          end select
          call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh, self % adaptiveTimeStep)  ! If not requested, the constructor returns doing nothing
-
 !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
@@ -270,6 +270,12 @@
 				else 
 					 self % ML_nLevel = 3
 			    end if
+				if ( controlVariables % ContainsKey("adaptive level") ) then
+					self % ML_adaptive_level = controlVariables % logicalValueForKey("adaptive level")
+					if (self % ML_adaptive_level) self % ML_ReLevel_Iteration = 1000000000
+				else 
+					self % ML_adaptive_level =.false.
+				end if 
 				self % ML_ReLevel = .true. 
 				
                 self % RKStep => TakeMLRK3Step
@@ -370,9 +376,15 @@
                write(STD_OUT,'(A)') "Multi-Level RK3"
 			   write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Number of Level: ", self % ML_nLevel
 			   write(STD_OUT,'(35X,A,A23,F7.4)') "->" , "CFL Cut-Off: ", self % ML_CFL_CutOff
-			   write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Update Iteration: ", self % ML_ReLevel_Iteration
-			   write(STD_OUT,'(35X,A,A23,A)')  "->" , "Cut-Off Level 1: ","CFL Cut-Off"
-			   write(STD_OUT,'(35X,A,A23,A)')  "->" , "Cut-Off Level N: ","CFL Cut-Off x 2.5^(N-1) "
+			   
+			   if (self % ML_adaptive_level) then
+				write(STD_OUT,'(35X,A,A23,A50)')   "->" , "Level cut-off model: ", "based on error ratio (spatial (RL)/temporal)"
+				write(STD_OUT,'(35X,A,A23,F9.5)')   "->" , "Update timestep: ", self % adaptiveTimeStep % dtAdaptationStep
+			   else 
+			    write(STD_OUT,'(35X,A,A23,A50)')   "->" , "Level cut-off model: ", "based on local advection CFL"
+				write(STD_OUT,'(35X,A,A23,A)')  "->" , "Cut-Off Level N: ","CFL Cut-Off x 2.5^(N-1) "
+				write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Update Iteration: ", self % ML_ReLevel_Iteration
+			   end if
             end select
 
             write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
@@ -436,7 +448,7 @@
 
       sem  % numberOfTimeSteps = self % initial_iter
       if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) monitors % dt_restriction = DT_FIXED
-	   if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) samplings % dt_restriction = DT_FIXED
+	  if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) samplings % dt_restriction = DT_FIXED
 
 !     Measure solver time
 !     -------------------
@@ -508,7 +520,7 @@
       use FASMultigridClass
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
-	   use ExplicitMethods	
+	  use ExplicitMethods	
       use StopwatchClass
       use FluidData
       use mainKeywordsModule
@@ -552,10 +564,11 @@
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
-	  REAL(KIND=RP)                 :: globalMax, globalMin, maxCFLInterf
+	  REAL(KIND=RP)                 :: globalMax, globalMin, maxCFLInterf, buff
       integer                       :: k
       integer                       :: eID
 	  logical                       :: updatelevel
+	  logical                       :: adaptiveLevel = .false. 
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -652,7 +665,7 @@
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false., dt )
-	   call Samplings % UpdateValues( sem % mesh, t)
+	  call Samplings % UpdateValues( sem % mesh, t)
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
@@ -722,10 +735,18 @@
 !
 !        CFL-bounded time step or adaptive time step
 !        -------------------------------------------------     
-         if (self % adaptive_dt) then
+         if (self % adaptive_dt .or. self % ML_adaptive_level) then
             if (dtHasToAdapt) then
                ! Adapt the time step
-               call self % adaptiveTimeStep % update(sem % mesh, t, self % dt)            
+               call self % adaptiveTimeStep % update(sem % mesh, t, buff)
+			 
+			   if (self % ML_adaptive_level ) then
+				self % ML_ReLevel = .true.
+			   end if 
+			   
+			   if (self % adaptive_dt) then
+				self % dt = buff
+			   end if 
             end if
             call self % adaptiveTimeStep % hasToAdapt(t, self % dt, dtHasToAdapt)
          else IF ( self % Compute_dt ) then
@@ -781,18 +802,19 @@
 				if ((self % ML_Counter .eq. self % ML_ReLevel_Iteration).or.(self % ML_ReLevel)) THEN
 					CALL DetermineCFL(sem, self % dt, globalMax, globalMin, maxCFLInterf)
 					call sem % mesh % MLRK % construct(sem % mesh, self % ML_nLevel) ! reconstruct nLevel  
-					CALL sem % mesh % MLRK % update (sem % mesh, self % ML_CFL_CutOff, globalMax, globalMin, maxCFLInterf)
+					CALL sem % mesh % MLRK % update (sem % mesh, self % ML_CFL_CutOff, globalMax, globalMin, maxCFLInterf, adaptiveLevel)
 					self % ML_ReLevel = .false. 
 					self % ML_Counter = 0
+					adaptiveLevel = self % ML_adaptive_level
 				end if 
 		   end if 
-         if (self % adaptive_dt) then 
+         if (self % adaptive_dt .or. self % ML_adaptive_level) then 
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1, dtAdaptation = dtHasToAdapt)
          else
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
          end if
 #if defined(NAVIERSTOKES)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+         if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
 #endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
@@ -930,7 +952,7 @@
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
-		   call samplings % WriteToFile(sem % mesh)
+		 call samplings % WriteToFile(sem % mesh)
          sem % numberOfTimeSteps = k + 1
       END DO
 !

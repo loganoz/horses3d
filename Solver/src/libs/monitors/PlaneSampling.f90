@@ -340,6 +340,9 @@ module PlaneSampling
             case ("u")
             case ("v")
             case ("w")
+			case ("umean")
+            case ("vmean")
+            case ("wmean")
             case ("mach")
             case ("k")
             case ("omegax")
@@ -674,6 +677,21 @@ module PlaneSampling
             case("q5")
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
                   var(i,j,k) = Q(IRHOE,i,j,k)
+               end do            ; end do             ; end do
+			   
+            case("umean")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = e % storage % stats % data(1,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("vmean")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = e % storage % stats % data(2,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("wmean")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = e % storage % stats % data(3,i,j,k)
                end do            ; end do             ; end do
                
             end select

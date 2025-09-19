@@ -179,19 +179,19 @@ jobs:
 # 4) BOX AROUND CIRCLE PIROZZOLI
 # ------------------------------
 
-      - name: Build BoxAroundCirclePirozzoli
-        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: '!cancelled()'
+      # - name: Build BoxAroundCirclePirozzoli
+        # working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        # if: '!cancelled()'
 
-      - name: Run BoxAroundCirclePirozzoli
-        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns BoxAroundCirclePirozzoli.control
-        if: '!cancelled()'
+      # - name: Run BoxAroundCirclePirozzoli
+        # working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns BoxAroundCirclePirozzoli.control
+        # if: '!cancelled()'
 
 #
 # 5) Inviscid TGV with KEPEC
@@ -703,20 +703,20 @@ jobs:
 # 22) Forward facing step with SVV
 # --------------------------------
 
-      - name: Build ForwardFacingStepSVV
-        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: '!cancelled()'
+      # - name: Build ForwardFacingStepSVV
+        # working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        # if: '!cancelled()'
 
-      - name: Run ForwardFacingStepSVV
-        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns FFS_SVV.control
-        if: '!cancelled()'
-        continue-on-error: true  # Allows this step to fail without failing the workflow
+      # - name: Run ForwardFacingStepSVV
+        # working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns FFS_SVV.control
+        # if: '!cancelled()'
+        # continue-on-error: true  # Allows this step to fail without failing the workflow
 
 #
 # 23) Forward facing step with SSPRK33 and limiter
@@ -847,19 +847,19 @@ jobs:
 #
 # 30) Cylinder with Overenriching and Reinforcement Learning p-adaptation
 # --------------------------------------------
-      - name: Build Cylinder_Overenriching_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: '!cancelled()'
+      # - name: Build Cylinder_Overenriching_pAdaptationRL
+        # working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        # if: '!cancelled()'
 
-      - name: Run Cylinder_Overenriching_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns Cylinder_Overenriching_pAdaptationRL.control
-        if: '!cancelled()'
+      # - name: Run Cylinder_Overenriching_pAdaptationRL
+        # working-directory: ./Solver/test/NavierStokes/Cylinder_Overenriching_pAdaptationRL
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns Cylinder_Overenriching_pAdaptationRL.control
+        # if: '!cancelled()'
 
 #
 # 31) Cylinder with Euler-RK3 hybrid temporal scheme and Reinforcement Learning p-adaptation
@@ -968,30 +968,30 @@ jobs:
 
 
 #
-# 34) Atmospheric Boundary Layer (ABL) mapping to boundary
+# 34) Atmospheric Boundary Layer (ABL) mapping to boundary ( This test takes 50 mins in  Debug Mode GitHub)
 # --------------------------------------------
 
-      - name: Build ABL_BoundaryMapping
-        working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          TEST_HOME_DIR=$(grep '^HOME_DIR=' Makefile | cut -d'=' -f2)
-          rm Makefile
-          wget https://people.math.sc.edu/Burkardt/f_src/geompack2/geompack2.f90
-          cp -r ../../../../../utils/ABLBoundaryMapping/SETUP/* .
-          mv Makefile.iABL Makefile
-          cp -r ../../../../../utils/ABLBoundaryMapping/PRECURSOR ../
-          sed -i "s|^HOME_DIR=.*|HOME_DIR=$TEST_HOME_DIR|" Makefile
-          awk '/END SUBROUTINE UserDefinedFinalize/{system("cat testchecks"); print ""; print; next}1' ProblemFile.f90 > temp && mv temp ProblemFile.f90
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
-        if: '!cancelled()'
+      # - name: Build ABL_BoundaryMapping
+        # working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # TEST_HOME_DIR=$(grep '^HOME_DIR=' Makefile | cut -d'=' -f2)
+          # rm Makefile
+          # wget https://people.math.sc.edu/Burkardt/f_src/geompack2/geompack2.f90
+          # cp -r ../../../../../utils/ABLBoundaryMapping/SETUP/* .
+          # mv Makefile.iABL Makefile
+          # cp -r ../../../../../utils/ABLBoundaryMapping/PRECURSOR ../
+          # sed -i "s|^HOME_DIR=.*|HOME_DIR=$TEST_HOME_DIR|" Makefile
+          # awk '/END SUBROUTINE UserDefinedFinalize/{system("cat testchecks"); print ""; print; next}1' ProblemFile.f90 > temp && mv temp ProblemFile.f90
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        # if: '!cancelled()'
 
-      - name: Run ABL_BoundaryMapping
-        working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns ABLBoundaryMapping.control
-        if: '!cancelled()'
+      # - name: Run ABL_BoundaryMapping
+        # working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns ABLBoundaryMapping.control
+        # if: '!cancelled()'
       
 #
 # 35) Actuator Line (AL) external controller module

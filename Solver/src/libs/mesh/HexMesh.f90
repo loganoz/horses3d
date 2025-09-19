@@ -1294,11 +1294,7 @@ slavecoord:             DO l = 1, 4
 		 
 		 nShared = self % MPIfaces % nDomainShared
 		 ! Return when no faces are shared
-		 if (nShared <= 0) then
-			! Add token to sync (necessary for MU with MLRK and very big case)
-			call MPI_Allreduce(1, token, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
-			return
-		 end if
+		 if (nShared <= 0) return
 
 		associate (MPIfaces => self % MPIfaces)
 		 
@@ -1373,8 +1369,6 @@ slavecoord:             DO l = 1, 4
 		 call MPI_Waitall(nreqs, all_reqs, MPI_STATUSES_IGNORE, ierr)
 		 
 		 deallocate(all_reqs)
-		 ! Add token to sync (necessary for MU with MLRK and very big case)
-		 call MPI_Allreduce(1, token, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
 		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
@@ -5354,7 +5348,7 @@ call elementMPIList % destruct
 !------------------------------------------------------------------------
 !  Update 
 !------------------------------------------------------------------------
-   subroutine MultiLevel_RK_Update(self, mesh, CFL_Cut, globalMax, globalMin, maxCFLInterf)
+   subroutine MultiLevel_RK_Update(self, mesh, CFL_Cut, globalMax, globalMin, maxCFLInterf, adaptiveLevel)
     use MPI_Process_Info
 	implicit none
 	!-arguments-----------------------------------------
@@ -5364,15 +5358,16 @@ call elementMPIList % destruct
 	real (kind=RP)                , intent(in)      :: globalMax
 	real (kind=RP)                , intent(in)      :: globalMin
 	real (kind=RP)                , intent(in)      :: maxCFLInterf
+	logical                       , intent(in)      :: adaptiveLevel
 	
 	!-local variable-----------------------------------------
-	integer          :: eID, level, levelOld, i, j, fID, sideID
+	integer          :: eID, level, levelOld, i, j, fID, sideID, token, allToken
     integer          :: counter(1:self%nLevel), nInterior, nBoundary, nFace, nMPIface
 	integer          :: Level_eID(mesh % no_of_elements), Level_eID_wN(mesh % no_of_elements), Level_eID_wN_BUFF(mesh % no_of_elements)
 	integer          :: faceFlag(size(mesh % faces),2)
-	integer          :: iterations(self%nLevel+1,10)
+	integer          :: iterations(self%nLevel+1,10), indexN(2*self%nLevel)
 	integer          :: ierr                     ! Error for MPI calls
-	real(kind=RP)    :: perLevel, cflLevel, dtRatio, cfl
+	real(kind=RP)    :: tempGrowth, dtRatio, cfl, perLevel, cflLevel
 	real(kind=RP)    :: maxc, minc
 	real(kind=RP)    :: cfl_cutoff(self%nLevel-1)
 	integer, allocatable :: neighborID(:,:), neighborIDAll(:,:),counterOMP(:,:), counterOMPN(:,:)
@@ -5382,6 +5377,8 @@ call elementMPIList % destruct
 	  dtRatio = 2.5_RP ! estimated maximum local timestep ratio in RK3 (5/12)
 	  self % CFL_CutOff = CFL_Cut
 	  self % MLIter = 0
+	  
+	  token = 0
 	
 	  allocate(neighborID(self%nLevel-2,mesh % no_of_allElements), neighborIDAll(self%nLevel-2,mesh % no_of_allElements))
 	  neighborID   = 0
@@ -5400,27 +5397,42 @@ call elementMPIList % destruct
 !
 !     Determine the level of each element
 !     ------------------------------------------------------------
-!$omp parallel shared(self,mesh,neighborID,neighborIDAll,CFL_Cut, dtRatio, counter, counterOMP, counterOMPN, maxCFLInterf, cfl_cutoff, Level_eID, Level_eID_wN) default(private)
+!$omp parallel shared(self,mesh,neighborID,neighborIDAll,CFL_Cut, dtRatio, counter, counterOMP, counterOMPN, maxCFLInterf, cfl_cutoff, Level_eID, Level_eID_wN, adaptiveLevel, token) default(private)
 !$omp do schedule(runtime)
       do eID = 1, SIZE(mesh % elements)
-		 ! Determine level from CFL cutoff and CFL percentile. Level <= max Level
-		 cfl = mesh % elements(eID) % ML_CFL
-#ifdef MULTIPHASE
-	     ! For multiphase, the interface elements have homogenous level, represented by the highest CFL along interface elements
-		 maxc = min(maxval(mesh % elements(eID) % storage % Q(1,:,:,:)),1.0_RP)
-		 minc = max(minval(mesh % elements(eID) % storage % Q(1,:,:,:)),0.0_RP)
-		 if ((maxc.gt.0.001).and.(minc.lt.0.999)) then
-			cfl = maxCFLInterf * 100
-		 end if 
-#endif		
-         ! Determine Level of element based on its cfl
-         level = self % nLevel 
-         do i = 1, self % nLevel-1
-			if (cfl .lt. cfl_cutoff(i)) then 
-				level = i
-				exit
+		 if (adaptiveLevel) then
+			tempGrowth = (mesh % elements(eID) % ML_error_ratio(2) ** (0.2_RP/3.0_RP)) / (mesh % elements(eID) % ML_error_ratio(1) ** (0.2_RP/3.0_RP)) 
+			if (tempGrowth .gt. 1.4_RP .or. mesh % elements(eID) % ML_error_ratio(2) .lt. 0.0000001_RP) then
+				level = mesh % elements(eID) % MLevel + 1
+			elseif ((tempGrowth .lt. 0.9_RP) .and. (mesh % elements(eID) % ML_error_ratio(2) .gt. 1_RP)) then
+				level = mesh % elements(eID) % MLevel -1
 			end if 
-		 end do 
+			if (level.gt.self % nLevel) then
+				token = token + 1
+			end if 
+			level = min(max(level,1),self % nLevel)
+		 else 
+			 ! Determine level from CFL cutoff and CFL percentile. Level <= max Level
+			 cfl = mesh % elements(eID) % ML_CFL
+#ifdef MULTIPHASE
+			 ! For multiphase, the interface elements have homogenous level, represented by the highest CFL along interface elements
+			 maxc = min(maxval(mesh % elements(eID) % storage % Q(1,:,:,:)),1.0_RP)
+			 minc = max(minval(mesh % elements(eID) % storage % Q(1,:,:,:)),0.0_RP)
+			 if ((maxc.gt.0.001).and.(minc.lt.0.999)) then
+				cfl = maxCFLInterf * 100
+			 end if 
+#endif		
+			 ! Determine Level of element based on its cfl
+			 level = self % nLevel
+			 
+			 do i = 1, self % nLevel-1
+				if (cfl .lt. cfl_cutoff(i)) then 
+					level = i
+					exit
+				end if 
+			 end do 
+		 end if 
+		 
 		 counterOMP(level,eID) = 1
 		 mesh % elements(eID) % MLevel   = level
 		 mesh % elements(eID) % MLevelwN = level
@@ -5428,6 +5440,7 @@ call elementMPIList % destruct
 	  end do 
 !$omp end do
 !$omp end parallel
+	  allToken = token
       counterOMPN = counterOMP
 	  Level_eID_wN= Level_eID
       ! Check the neighbours of each element to ensure no rapid jump in level, modify level if required
@@ -5435,6 +5448,7 @@ call elementMPIList % destruct
 		call MultiLevel_RK_CheckNeighbour(self, mesh, i, Level_eID, Level_eID_wN, counterOMP, counterOMPN)
 	  end do 
 	  Level_eID_wN_BUFF = Level_eID_wN
+	  Level_eID_wN = Level_eID + Level_eID_wN_BUFF
       ! Sort decending Level_eID (Large to small level) and Level_eID_wN (neighbour included)
       call sortDescendInt(Level_eID,self % MLIter_eID) 
 	  call sortDescendInt(Level_eID_wN, self % MLIter_eIDN)
@@ -5520,11 +5534,22 @@ call elementMPIList % destruct
 		call sortAscendInt(self % MLIter_fID_Interior(iterations(i+1,3)+1:iterations(i,3)))
 		call sortAscendInt(self % MLIter_fID_Boundary(iterations(i+1,4)+1:iterations(i,4)))
 		call sortAscendInt(self % MLIter_eID_Seq(iterations(i+1,5)+1:iterations(i,5)))
-		call sortAscendInt(self % MLIter_eIDN(iterations(i+1,8)+1:iterations(i,8)))
 		call sortAscendInt(self % MLIter_eIDN_Seq(iterations(i+1,9)+1:iterations(i,9)))
 	  end do
       self % ML_GlobalLevel = self % ML_Level
 	  
+	  ! Sort MLIter_eIDN
+	  indexN (1: self % nLevel) = self % MLIter(1: self % nLevel,1)
+	  indexN (self % nLevel+1 : self % nLevel*2) = self % MLIter(1: self % nLevel,8)
+	  indexN (1) = 0
+	  call sortAscendInt(indexN)
+	  
+	  do i=1, (2*self % nLevel)-1
+	    if (indexN(i).ne.indexN(i+1)) then
+		  call sortAscendInt(self % MLIter_eIDN(indexN(i)+1:indexN(i+1)))
+		end if 
+	  end do 
+	   
 ! MPI elements and operation
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
@@ -5543,6 +5568,9 @@ call elementMPIList % destruct
           ! Global statistics level		  
           call mpi_allreduce(self % ML_Level(1:self%nLevel), self % ML_GlobalLevel(1:self%nLevel), self%nLevel, MPI_INT, MPI_SUM, &
                             MPI_COMM_WORLD, ierr)
+							
+		   ! allReduce the token for warning when more level needed
+		   call mpi_allreduce(token, allToken, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
       end if
 #endif
 
@@ -5582,6 +5610,9 @@ call elementMPIList % destruct
 				write(STD_OUT,'(30X,A,A18,I4,A4,I10)') "->" , "Level ", i," : ",self%ML_GlobalLevel(i)
             end do 
 			write(STD_OUT,'(30X,A,A27,I4)') "->" , "Number of RK3 Level: " , self % maxLevel
+			if (adaptiveLevel .and. (allToken .gt. 0 )) then
+				write(STD_OUT,'(30X,A,A27,A50)') "->" , "WARNING : " , "more level is recommended by adaptive error ratio"
+			end if 
 
    end subroutine MultiLevel_RK_Update
 !------------------------------------------------------------------------
