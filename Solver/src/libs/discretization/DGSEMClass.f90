@@ -106,6 +106,7 @@ Module DGSEMClass
       use PartitionedMeshClass
       use MeshPartitioning
       use SurfaceMesh, only: surfacesMesh
+      use FileReadingUtilities, only: getFileExtension
 
       IMPLICIT NONE
 !
@@ -271,6 +272,12 @@ Module DGSEMClass
 !           initialize the solution if the time stepping scheme is MixedRK, since Q is needed in the METIS partitioning  
             if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'MixedRK') then
                call self % mesh % CheckIfMeshIs2D(.true.)
+
+!              Contruction of face data in case of a specmesh
+               if (trim(getFileExtension(trim(self % mesh % meshFileName)))=='mesh') then
+                  call ReadInitialSurfaceData(self, success)
+               endif 
+
                call self % mesh % ConstructGeometry()
                call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
                call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
@@ -1058,4 +1065,102 @@ Module DGSEMClass
 
    end subroutine hnRange
 !
+
+   subroutine ReadInitialSurfaceData(self, success)
+
+      use Utilities, only: UnusedUnit
+      use ElementConnectivityDefinitions
+      use NodeClass
+      implicit none
+
+      class(DGSem), intent(inout)       :: self
+      logical,      intent(inout)       :: success
+
+      integer                         :: fUnit, fileStat
+      integer                         :: numberOfNodes, numberOfElements, bFaceOrder
+      integer                         :: numBFacePoints
+      integer                         :: faceFlags(FACES_PER_ELEMENT)
+      integer                         :: nodeIDs(NODES_PER_ELEMENT)
+      integer                         :: nodeMap(NODES_PER_FACE)
+      real(kind=RP)                   :: x(NDIM)
+      integer                         :: i, j, k, el
+      real(kind=RP), allocatable      :: uNodes(:), vNodes(:)
+      real(kind=RP), allocatable      :: values(:,:,:)
+      real(kind=RP)                   :: corners(NDIM, NODES_PER_ELEMENT)
+      character(len=LINE_LENGTH)      :: names
+
+      real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+      real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+      real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
+
+      fUnit = UnusedUnit()
+      open(unit = fUnit, file = self % mesh % meshFileName, iostat = fileStat)
+      if (fileStat /= 0) then
+         print *, "Error opening file: ", self % mesh % meshFileName
+         success = .false.
+         return
+      end if
+
+      read(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
+
+      numBFacePoints = bFaceOrder + 1
+      allocate(uNodes(numBFacePoints))
+      allocate(vNodes(numBFacePoints))
+      allocate(values(3,numBFacePoints,numBFacePoints))
+
+      do i = 1, numBFacePoints
+         uNodes(i) = -cos((i - 1.0_RP) * PI / (numBFacePoints - 1.0_RP))
+         vNodes(i) = -cos((i - 1.0_RP) * PI / (numBFacePoints - 1.0_RP))
+      end do
+
+      do j = 1, numberOfNodes
+         read(fUnit,*) x
+         x = x / Lref
+         call ConstructNode(self % mesh % nodes(j), x, j)
+      end do
+
+      do el = 1, size(self % mesh % elements)
+
+         read(fUnit,*) nodeIDs
+         read(fUnit,*) faceFlags
+
+         if (maxval(faceFlags) == 0) then
+            do k = 1, NODES_PER_ELEMENT
+               corners(:,k) = self % mesh % nodes(nodeIDs(k)) % x
+            end do
+            self % mesh % elements(el) % SurfInfo % IsHex8 = .true.
+            self % mesh % elements(el) % SurfInfo % corners = corners
+
+         else
+            do k = 1, FACES_PER_ELEMENT
+               if (faceFlags(k) == 0) then
+                  nodeMap           = localFaceNode(:,k)
+                  valuesFlat(:,1,1) = self % mesh % nodes(nodeIDs(nodeMap(1))) % x
+                  valuesFlat(:,2,1) = self % mesh % nodes(nodeIDs(nodeMap(2))) % x
+                  valuesFlat(:,2,2) = self % mesh % nodes(nodeIDs(nodeMap(3))) % x
+                  valuesFlat(:,1,2) = self % mesh % nodes(nodeIDs(nodeMap(4))) % x
+
+                  call self % mesh % elements(el) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+
+               else
+                  do j = 1, numBFacePoints
+                     do i = 1, numBFacePoints
+                        read(fUnit,*) values(:,i,j)
+                     end do
+                  end do
+
+                  values = values / Lref
+                  call self % mesh % elements(el) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+               end if
+            end do
+         end if
+
+         read(fUnit,*) names
+      end do
+
+      close(fUnit)
+
+   end subroutine ReadInitialSurfaceData
+
+
 end module DGSEMClass
