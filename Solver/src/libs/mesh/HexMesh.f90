@@ -189,6 +189,7 @@ MODULE HexMeshClass
       SUBROUTINE HexMesh_Destruct( self )
          IMPLICIT NONE
          CLASS(HexMesh) :: self
+         integer :: i
 
          safedeallocate (self % Nx)
          safedeallocate (self % Ny)
@@ -198,8 +199,12 @@ MODULE HexMeshClass
 !        Nodes
 !        -----
 !
-         call self % nodes % destruct
-         DEALLOCATE( self % nodes )
+         if (allocated(self % nodes)) then
+            do i=1, size(self % nodes)
+               call self % nodes(i) % destruct
+            end do
+            DEALLOCATE( self % nodes )
+         end if
          safedeallocate (self % HOPRnodeIDs)
 !
 !        --------
@@ -213,14 +218,21 @@ MODULE HexMeshClass
 !        Faces
 !        -----
 !
-         call self % faces % Destruct
+         do i=1, size(self % faces)
+            call self % faces(i) % Destruct
+         end do
          DEALLOCATE( self % faces )
 !
 !        -----
 !        Zones
 !        -----
 !
-         if (allocated(self % zones)) DEALLOCATE( self % zones )
+         if (allocated(self % zones)) then
+            do i=1, size(self % zones)
+               call self % zones(i) % Destruct
+            end do
+            DEALLOCATE( self % zones )
+         end if
 !
 !        ----------------
 !        Solution storage
@@ -253,7 +265,28 @@ MODULE HexMeshClass
                call self% IBM% destruct( .false. )
             end if
          end if
-         
+
+!        ----------------
+!        Mortars
+!        ----------------
+         if (allocated(self % mortar_faces)) then
+            do i=1, size(self % mortar_faces)
+               call self % mortar_faces(i) % Destruct
+            end do
+            DEALLOCATE( self % mortar_faces )
+         end if
+
+         safedeallocate(arr1)
+         safedeallocate(arr2)
+         safedeallocate(arr3)
+         safedeallocate(mortararr1)
+         safedeallocate(mortararr2)
+         safedeallocate(face_nodes)
+         safedeallocate(face_othernodes)
+         safedeallocate(Mat)
+         safedeallocate(Connect)
+         safedeallocate(rotmortars)
+
       END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
@@ -1267,7 +1300,12 @@ slavecoord:             DO l = 1, 4
 
       numberOfFaces = iFace
 
-      DEALLOCATE(self%faces)
+      if (allocated(self%faces)) then
+         do i=1, size(self%faces) 
+            call self % faces(i) % Destruct
+         end do
+         DEALLOCATE(self%faces)
+      end if
       ALLOCATE(self%faces(numberOfFaces))
 
       self%numberOfFaces = numberOfFaces
@@ -1289,6 +1327,13 @@ slavecoord:             DO l = 1, 4
 !     Reassign zones
 !     -----------------
       CALL ReassignZones(self % faces, self % zones)
+
+!     Destroy and deallocate dummy faces
+!     ---------------------------------
+      do i=1, size(dummy_faces) 
+         call dummy_faces(i) % Destruct
+      end do
+      DEALLOCATE(dummy_faces)
 
       END SUBROUTINE DeletePeriodicminusfaces
 !
@@ -3697,11 +3742,17 @@ if (.not.self % nonconforming) then
 !        Finish up
 !        ---------
 !
+         do i=1, self % no_of_elements
+            call SurfInfo(i) % Destruct()
+         end do
          deallocate (SurfInfo)
+         nullify (hexMap)
          CALL hex8Map % destruct()
          DEALLOCATE(hex8Map)
+         nullify (hex8Map)
          CALL genHexMap % destruct()
          DEALLOCATE(genHexMap)
+         nullify (genHexMap)
 
       end subroutine HexMesh_ConstructGeometry
 
@@ -5142,7 +5193,6 @@ if (.not.self % nonconforming) then
       logical :: Face_St, FaceComputeQdot
       character(len=LINE_LENGTH) :: time_int
       character(len=LINE_LENGTH) :: mg_smoother
-      real(kind=RP), dimension(:,:,:),     pointer :: Qff
       !-----------------------------------------------------------
 
       if ( present(Face_Storage) ) then
@@ -6055,7 +6105,7 @@ call elementMPIList % destruct
       oldnfaces=size(self%faces)
       if (.not. self%sliding) then 
          do i=1,size(self%faces)
-            call self%faces(i)%Destruct
+            call self % faces(i) % Destruct
          end do 
       end if 
       if (.not. self%sliding) then 
@@ -6065,6 +6115,9 @@ call elementMPIList % destruct
       if (.not. self%sliding) CALL ConstructFaces( self, success )
       if (.not.self%sliding) then 
          if (allocated(self % zones) ) then 
+            do i=1, size(self%zones)
+               call self % zones(i) % destruct
+            end do
             deallocate(self % zones)
          end if 
          call self % ConstructZones()
@@ -7206,6 +7259,12 @@ subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2,arr3,Mat, center, o,
               self % mortar_faces(l) % boundaryName = ""
      end do 
    end if 
+   if (allocated(new_nodes)) then 
+      do i=1, SIZE(new_nodes)
+         call new_nodes(i) % Destruct
+      end do
+      deallocate(new_nodes)
+   end if
    deallocate(new_nodes)
 end subroutine HexMesh_Modifymesh
 

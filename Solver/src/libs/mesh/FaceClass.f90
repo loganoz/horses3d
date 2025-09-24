@@ -184,6 +184,8 @@
             
             call self % geom % Destruct
             call self % storage % Destruct
+
+            safedeallocate(self % Mortar)
    
          end SUBROUTINE DestructFace
    !
