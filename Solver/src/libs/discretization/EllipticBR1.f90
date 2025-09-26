@@ -360,7 +360,7 @@ module EllipticBR1
 !
          real(kind=RP) :: uStar
          integer       :: i,j,eq, Sidearray, maxId
-         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: UL(NCONS), UR(NCONS)
 
          !$acc loop vector collapse(2) private(UL,UR)
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
