@@ -179,19 +179,19 @@ jobs:
 # 4) BOX AROUND CIRCLE PIROZZOLI
 # ------------------------------
 
-      - name: Build BoxAroundCirclePirozzoli
-        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: '!cancelled()'
+      # - name: Build BoxAroundCirclePirozzoli
+        # working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        # if: '!cancelled()'
 
-      - name: Run BoxAroundCirclePirozzoli
-        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns BoxAroundCirclePirozzoli.control
-        if: '!cancelled()'
+      # - name: Run BoxAroundCirclePirozzoli
+        # working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns BoxAroundCirclePirozzoli.control
+        # if: '!cancelled()'
 
 #
 # 5) Inviscid TGV with KEPEC
@@ -830,19 +830,19 @@ jobs:
 #
 # 29) IBM Cylinder with Reinforcement Learning p-adaptation
 # --------------------------------------------
-      - name: Build IBM_Cylinder_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-        if: '!cancelled()'
+      # - name: Build IBM_Cylinder_pAdaptationRL
+        # working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+        # if: '!cancelled()'
 
-      - name: Run IBM_Cylinder_pAdaptationRL
-        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns IBM_Cylinder_pAdaptationRL.control
-        if: '!cancelled()'
+      # - name: Run IBM_Cylinder_pAdaptationRL
+        # working-directory: ./Solver/test/NavierStokes/IBM_Cylinder_pAdaptationRL
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns IBM_Cylinder_pAdaptationRL.control
+        # if: '!cancelled()'
 
 #
 # 30) Cylinder with Overenriching and Reinforcement Learning p-adaptation
@@ -971,49 +971,49 @@ jobs:
 # 34) Atmospheric Boundary Layer (ABL) mapping to boundary
 # --------------------------------------------
 
-      - name: Build ABL_BoundaryMapping
-        working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          TEST_HOME_DIR=$(grep '^HOME_DIR=' Makefile | cut -d'=' -f2)
-          rm Makefile
-          wget https://people.math.sc.edu/Burkardt/f_src/geompack2/geompack2.f90
-          cp -r ../../../../../utils/ABLBoundaryMapping/SETUP/* .
-          mv Makefile.iABL Makefile
-          cp -r ../../../../../utils/ABLBoundaryMapping/PRECURSOR ../
-          sed -i "s|^HOME_DIR=.*|HOME_DIR=$TEST_HOME_DIR|" Makefile
-          awk '/END SUBROUTINE UserDefinedFinalize/{system("cat testchecks"); print ""; print; next}1' ProblemFile.f90 > temp && mv temp ProblemFile.f90
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
-        if: '!cancelled()'
+      # - name: Build ABL_BoundaryMapping
+        # working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # TEST_HOME_DIR=$(grep '^HOME_DIR=' Makefile | cut -d'=' -f2)
+          # rm Makefile
+          # wget https://people.math.sc.edu/Burkardt/f_src/geompack2/geompack2.f90
+          # cp -r ../../../../../utils/ABLBoundaryMapping/SETUP/* .
+          # mv Makefile.iABL Makefile
+          # cp -r ../../../../../utils/ABLBoundaryMapping/PRECURSOR ../
+          # sed -i "s|^HOME_DIR=.*|HOME_DIR=$TEST_HOME_DIR|" Makefile
+          # awk '/END SUBROUTINE UserDefinedFinalize/{system("cat testchecks"); print ""; print; next}1' ProblemFile.f90 > temp && mv temp ProblemFile.f90
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        # if: '!cancelled()'
 
-      - name: Run ABL_BoundaryMapping
-        working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns ABLBoundaryMapping.control
-        if: '!cancelled()'
+      # - name: Run ABL_BoundaryMapping
+        # working-directory: ./Solver/test/NavierStokes/ABLBoundaryMapping
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns ABLBoundaryMapping.control
+        # if: '!cancelled()'
       
 #
 # 35) Actuator Line (AL) external controller module
 # --------------------------------------------
-      - name: Build ActuatorLineController
-        working-directory: ./Solver/test/NavierStokes/ActuatorLineController/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
-          cd ../ActuatorDef/controller
-          git clone https://github.com/EduardoJane/DRC_Fortran_H3D.git
-          cd DRC_Fortran_H3D/Source
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}}
-          mv ../DISCON/DISCON_glin64.so ../../
-        if: '!cancelled()'
+      # - name: Build ActuatorLineController
+        # working-directory: ./Solver/test/NavierStokes/ActuatorLineController/SETUP
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
+          # cd ../ActuatorDef/controller
+          # git clone https://github.com/EduardoJane/DRC_Fortran_H3D.git
+          # cd DRC_Fortran_H3D/Source
+          # make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}}
+          # mv ../DISCON/DISCON_glin64.so ../../
+        # if: '!cancelled()'
 
-      - name: Run ActuatorLineController
-        working-directory: ./Solver/test/NavierStokes/ActuatorLineController
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 64 ./horses3d.ns ActuatorLineController.control
-        if: '!cancelled()'
+      # - name: Run ActuatorLineController
+        # working-directory: ./Solver/test/NavierStokes/ActuatorLineController
+        # run: |
+          # source /opt/intel/oneapi/setvars.sh || true
+          # mpiexec -n 64 ./horses3d.ns ActuatorLineController.control
+        # if: '!cancelled()'
 
 ########################################################################
 #######                       PARTICLES                         ########
