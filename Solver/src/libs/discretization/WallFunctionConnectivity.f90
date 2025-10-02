@@ -36,7 +36,7 @@ Module WallFunctionConnectivity  !
 
     logical                                                          :: useWallFunc
     character(len=BC_STRING_LENGTH), dimension(:), allocatable       :: wallFunBCs
-    integer, dimension(:), allocatable                               :: wallElemIds, wallNormalDirection, wallNormalIndex, wallFaceID
+    integer, dimension(:), allocatable                               :: wallFaceOppositeID, wallSideID, wallFaceID!wallElemIds, wallNormalDirection, wallNormalIndex, 
     real(kind=RP), dimension(:,:,:,:), allocatable                   :: meanVelocity
     real(kind=RP)                                                    :: timeCont
 
@@ -74,7 +74,7 @@ Module WallFunctionConnectivity  !
         integer                                :: numberFacesWall, numberBC
         integer, dimension(:), allocatable     :: zonesWall
         integer                                :: i, j, nz, k, fID, efID, ff
-        integer                                :: actualElementID, linkedElementID, normalIndex, oppositeIndex, oppositeNormalIndex
+        integer                                :: linkedfID, linkedFaceSide, cont, actualElementID, linkedElementID, normalIndex, oppositeIndex, oppositeNormalIndex
         integer                                :: allFaces, ierr
 
         call Initialize_Wall_Function(controlVariables, useWallFunc)
@@ -115,8 +115,8 @@ Module WallFunctionConnectivity  !
             return
         end if
 
-        allocate( wallElemIds(numberFacesWall), wallNormalIndex(numberFacesWall), wallNormalDirection(numberFacesWall), &
-                 wallFaceID(numberFacesWall) )
+        allocate( wallFaceOppositeID(numberFacesWall), wallSideID(numberFacesWall),wallFaceID(numberFacesWall) )!, wallElemIds(numberFacesWall), wallNormalIndex(numberFacesWall), wallNormalDirection(numberFacesWall), &
+                 
 
         !get for each face of the wall, the linked element, normalDirection and index
         k = 0
@@ -138,10 +138,27 @@ Module WallFunctionConnectivity  !
                     ! oppositeIndex = findloc(normalAxis,oppositeIndex,dim=1)
                     oppositeIndex = maxloc(merge(1.0, 0.0, normalAxis == oppositeIndex),dim=1)
                     linkedElementID = e % Connection(oppositeIndex) % globID
+                    linkedfID = e % faceIDs(oppositeIndex)
+                          
+                    associate ( f => mesh % faces(linkedfID))
+                        do cont =1,2
+                            write(*,'(A, I8, A, 2I8)') 'linkedElementID=', linkedElementID, ' elementIDs=', f % elementIDs(1), f % elementIDs(2)
+                            if ( linkedElementID .eq. f % elementIDs(cont) ) then
+                                linkedFaceSide = cont
+                                exit
+                            endif
+                        end do
+                    end associate
+                    write(*,'(A, I8, A, I8)') 'linkedfID=', linkedfID, ' linkedFaceSide=', linkedFaceSide
+
+
                 end associate
-                linkedElementID = getElementID(mesh, linkedElementID)
+                !linkedElementID = getElementID(mesh, linkedElementID)
                 wallFaceID(k) = fID
-                wallElemIds(k) = linkedElementID
+                !wallElemIds(k) = linkedElementID
+                wallFaceOppositeID(k) = linkedfID
+                wallSideID(k) = linkedFaceSide
+
                 !get the normalIndex of the linked element instead of actual element, needed for rotated meshes
                 do ff = 1, FACES_PER_ELEMENT
                     if (mesh % elements(linkedElementID) % Connection(ff) % globID .eq. mesh % elements(actualElementID) % globID) then
@@ -149,8 +166,8 @@ Module WallFunctionConnectivity  !
                         exit
                     end if 
                 end do
-                wallNormalDirection(k) = abs(oppositeNormalIndex)
-                wallNormalIndex(k) = getNormalIndex(mesh % faces(fID), mesh % elements(linkedElementID), wallNormalDirection(k))
+                !wallNormalDirection(k) = abs(oppositeNormalIndex)
+                !wallNormalIndex(k) = getNormalIndex(mesh % faces(fID), mesh % elements(linkedElementID), wallNormalDirection(k))
             end do
         end do
 
@@ -302,7 +319,7 @@ Module WallFunctionConnectivity  !
         real(kind=RP), dimension(:,:,:), allocatable, intent(out)        :: x
         integer, intent(out)                                             :: faceIndex
 !       Local variables
-        integer                                                         :: eID, solIndex
+        integer                                                         :: fID, side!, eID, solIndex
         ! integer                                                         :: faceIndex, eID, solIndex
 
         allocate( Q(NCONS,0:f % Nf(1),0:f % Nf(2)), x(NDIM,0:f % Nf(1),0:f % Nf(2)) )
@@ -310,27 +327,34 @@ Module WallFunctionConnectivity  !
         ! use the maxloc line if the compiler doesn't support findloc
         ! faceIndex = findloc(wallFaceID, f % ID, dim=1)
         faceIndex = maxloc(merge(1.0, 0.0, wallFaceID == f % ID),dim=1)
-        eID = wallElemIds(faceIndex)
-        solIndex = wallNormalIndex(faceIndex)
+        !eID = wallElemIds(faceIndex)
+        !solIndex = wallNormalIndex(faceIndex)
+
+        fID = wallFaceOppositeID(faceIndex)
+        side = wallSideID(faceIndex)
+
+        Q(:,:,:) = mesh % faces(fID) % storage(side) % Q(:,:,:)
+        x(:,:,:) = mesh % faces(fID) % geom % x(:,:,:)
+
 
         ! select the local coordinate directions of the face base on the definition of axisMap in HexElementConnectivityDefinitions
-        associate ( e => mesh % elements(eID) )
-            select case (wallNormalDirection(faceIndex))
-            case (1)
-                Q(:,:,:) = e % storage % Q(:,solIndex,:,:)
-                x(:,:,:) = e % geom % x(:,solIndex,:,:)
-            case (2)
-                Q(:,:,:) = e % storage % Q(:,:,solIndex,:)
-                x(:,:,:) = e % geom % x(:,:,solIndex,:)
-            case (3)
-                Q(:,:,:) = e % storage % Q(:,:,:,solIndex)
-                x(:,:,:) = e % geom % x(:,:,:,solIndex)
-            case default
-               write(STD_OUT,'(A)') "Error: wallNormalDirection not found in axisMap"
-               errorMessage(STD_OUT)
-               error stop 
-            end select
-        end associate
+!        associate ( e => mesh % elements(eID) )
+!            select case (wallNormalDirection(faceIndex))
+!            case (1)
+!                Q(:,:,:) = e % storage % Q(:,solIndex,:,:)
+!                x(:,:,:) = e % geom % x(:,solIndex,:,:)
+!            case (2)
+!                Q(:,:,:) = e % storage % Q(:,:,solIndex,:)
+!                x(:,:,:) = e % geom % x(:,:,solIndex,:)
+!            case (3)
+!                Q(:,:,:) = e % storage % Q(:,:,:,solIndex)
+!                x(:,:,:) = e % geom % x(:,:,:,solIndex)
+!            case default
+!               write(STD_OUT,'(A)') "Error: wallNormalDirection not found in axisMap"
+!               errorMessage(STD_OUT)
+!               error stop 
+!            end select
+!        end associate
 
     End Subroutine WallGetFaceConnectedQ
 
@@ -400,6 +424,7 @@ Module WallFunctionConnectivity  !
                         invRho = 1.0_RP / Q(IRHO,i,j)
                         localV(:) = Q(IRHOU:IRHOW,i,j) * invRho
                         meanVelocity(:,fIndex,i,j) = localV(:)
+                        print *, 'fIndex:', fIndex, 'i:', i, 'j:', j, 'Mean Velocity:', meanVelocity(:,fIndex,i,j)
                     end do
                 end do
             end associate

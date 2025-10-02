@@ -498,7 +498,6 @@
       t = self % time
 
 #if defined(NAVIERSTOKES)
-      if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
@@ -589,6 +588,9 @@
       call sem % fwh % writeToFile()
 #endif
       call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
+#if defined(NAVIERSTOKES)
+      if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
+#endif
 !
 !     -----------------
 !     Integrate in time

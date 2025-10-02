@@ -1,0 +1,17 @@
+!//////////////////////////////////////////////////////////////////////////////////////////////////////////!
+!/////////////////////////////////////// HORSES3D Converter addons ////////////////////////////////////////!
+!////////////////////////////////// ---------Control Input File--------- //////////////////////////////////!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////////!
+Task                = meshInterpolation/horsesMesh2OF/OF2Horses
+Mesh Filename 1     = ../MESH/
+Boundary Filename 1 = ../MESH/
+Result 1            = Result.hsol
+Mesh Filename 2     = ../MESH_2/
+Boundary Filename 2 = ../MESH_2/
+Polynomial Order    = ( 1 , 1 , 1 )
+--------------- For OF2Horses ---------------
+VTK file                   = foamToVTK.vtk
+Reynolds Number            = 
+Mach Number                = 
+Reference pressure (Pa)    = 101325
+Reference temperature (K)  = 288.889
