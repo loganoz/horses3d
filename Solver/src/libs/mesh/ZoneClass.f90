@@ -22,6 +22,7 @@ module ZoneClass
       contains
          procedure   :: Initialize       => Zone_Initialize
          procedure   :: copy             => Zone_Assign
+		 procedure   :: destruct         => Zone_Destruct
          generic     :: assignment(=)    => copy
          procedure   :: CreateFictitious => Zone_CreateFictitious
    end type Zone_t
@@ -73,6 +74,7 @@ module ZoneClass
          call ConstructBoundaryConditions(no_of_markers, zoneNames)
          
          deallocate (zoneNames)
+		 nullify(zoneNames)
       end subroutine ConstructZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,6 +115,7 @@ module ZoneClass
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
          
          deallocate (zoneNames)
+		 nullify(zoneNames)
       end subroutine ReassignZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,6 +134,16 @@ module ZoneClass
          self % no_of_faces = 0
 
       end subroutine Zone_Initialize
+!     ------------------------------------------
+!     Destruct Zone
+!     ------------------------------------------	  
+      subroutine Zone_Destruct ( self) 
+         implicit none
+         class(Zone_t)           :: self
+
+         safedeallocate(self % faces)
+
+      end subroutine Zone_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
