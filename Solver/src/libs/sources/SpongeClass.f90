@@ -222,7 +222,7 @@ Module SpongeClass  !
 !
     Subroutine DestructSponge(self)
         Implicit None
-        class(sponge_t), intent(inout)                   :: self
+        type(sponge_t), intent(inout)                    :: self
 
 !       Check if is activated
 !       ------------------------
@@ -590,7 +590,7 @@ Module SpongeClass  !
     Subroutine  WriteBaseFlowSponge(self,mesh,iter,time,last)
         use FluidData, only: thermodynamics, refValues, dimensionless
         Implicit None
-        class(sponge_t)                                         :: self
+        type(sponge_t)                                          :: self
         type(HexMesh), intent(in)                               :: mesh
         integer,             intent(in)        :: iter
         real(kind=RP),       intent(in)        :: time

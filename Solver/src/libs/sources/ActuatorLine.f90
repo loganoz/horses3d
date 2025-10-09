@@ -50,6 +50,7 @@ public farm, ConstructFarm, DestructFarm, UpdateFarm, ForcesFarm, WriteFarmForce
     real(KIND=RP), allocatable      :: local_gaussian_sum(:) ! necessary for Gaussian weighted average
     real(KIND=RP), allocatable      :: local_Re(:) ! local Re based on local conditions and the chord of the airfoil at the blade section
     real(KIND=RP), allocatable      :: local_Re_temp(:)
+    integer, allocatable            :: eID(:)    ! for different Re
     end type
 
     type turbine_t
@@ -127,7 +128,9 @@ contains
          integer        :: nelem, eID, eIndex
          real(kind=RP)  :: tolerance, r_square
          real(kind=RP)  :: delta, delta_temp
+         real(kind=RP), dimension(NDIM)  :: x, xi
          integer        :: delta_count, delta_paritions, ierr
+         logical                    :: found, allfound
 
     if (.not. controlVariables % logicalValueForKey("use actuatorline")) return
 
@@ -213,7 +216,7 @@ contains
          self%turbine_t(k)%blade_t(j)%point_xyz_loc(num_blade_sections,3),self%turbine_t(k)%blade_t(j)%local_torque(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%local_thrust(num_blade_sections),self%turbine_t(k)%blade_t(j)%local_root_bending(num_blade_sections), &
          self%turbine_t(k)%blade_t(j)%local_rotor_force(num_blade_sections),self%turbine_t(k)%blade_t(j)%local_gaussian_sum(num_blade_sections), &
-         self%turbine_t(k)%blade_t(j)%local_Re(num_blade_sections) )
+         self%turbine_t(k)%blade_t(j)%local_Re(num_blade_sections), self%turbine_t(k)%blade_t(j)%eID(num_blade_sections) )
 
          do i=1, num_blade_sections
             self%turbine_t(k)%blade_t(j)%airfoil_files(i,:)=' '
@@ -478,7 +481,41 @@ contains
                self % turbine_t(k) % gauss_epsil = self % gauss_epsil
             enddo
 
-        end select
+    end select
+!
+!   Find eID at first iteration
+!   ---------------------------
+    if (.not. self % calculate_with_projection) then
+    do k = 1, self%num_turbines
+      do j = 1, self%turbine_t(k)%num_blades
+         do i = 1, self%turbine_t(k)%num_blade_sections
+           self%turbine_t(k)%blade_t(j)%point_xyz_loc(i,2) = self%turbine_t(k)%hub_cood_y + self%turbine_t(k)%blade_t(j)%r_R(i) * cos(self%turbine_t(k)%blade_t(j)%azimuth_angle)
+           self%turbine_t(k)%blade_t(j)%point_xyz_loc(i,3) = self%turbine_t(k)%hub_cood_z + self%turbine_t(k)%blade_t(j)%r_R(i) * sin(self%turbine_t(k)%blade_t(j)%azimuth_angle)
+           x = [self%turbine_t(k)%blade_t(j)%point_xyz_loc(i,1),self%turbine_t(k)%blade_t(j)%point_xyz_loc(i,2),self%turbine_t(k)%blade_t(j)%point_xyz_loc(i,3)]
+           call FindActuatorPointElement(mesh, x, eID, xi, found)
+           if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+             call mpi_allreduce(found, allfound, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierr)
+#endif
+           else
+               allfound = found
+           end if
+
+           if (allfound) then
+               self % turbine_t(k) % blade_t(j) % eID(i) = eID
+               self % turbine_t(k) % blade_t(j) % xi(i,:) = xi
+           else
+               print*, "Actuator line point not found in mesh, x: ", x
+               print *, "i,j,k: ", i,j,k
+               call exit(99)
+           end if
+         end do
+      enddo
+    enddo
+
+    end if 
+    print *, "first done"
+
 !
 !   Create output files
 !   -------------------
@@ -644,7 +681,10 @@ contains
 !          -----------------------------------
 !
            x = [self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,1),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,2),self%turbine_t(kk)%blade_t(jj)%point_xyz_loc(ii,3)]
-           call FindActuatorPointElement(mesh, x, eID, xi, found)
+           ! call FindActuatorPointElement(mesh, x, eID, xi, found)
+           call FindActuatorPointSavedElement(self, mesh, x, ii, jj, kk, eID, xi, found)
+           ! print *, "ii,jj,kk: ", ii,jj,kk
+           ! print *, "eID, x, xi, found: ", eID, x, xi, found
            if (found) then
              ! interpolate state values in the element
              Qtemp = interpolateQ(mesh,eID, xi)
@@ -689,7 +729,7 @@ contains
    class(Farm_t) , intent(inout)     :: self
    type(HexMesh), intent(in)         :: mesh
    real(kind=RP),intent(in)          :: time
-   integer, intent(in), optional     :: Level		
+   integer, intent(in), optional     :: Level
 
 ! local vars
    real(kind=RP)                     :: Non_dimensional, t, interp
@@ -1208,10 +1248,62 @@ end subroutine WriteFarmForces
 
 !      If found in linear mesh, use FindPointWithCoords in that element
        if (found) then
-           success = mesh % elements(eID) % FindPointWithCoords(x, mesh % dir2D_ctrl, xi)
+          success = mesh % elements(eID) % FindPointWithCoords(x, mesh % dir2D_ctrl, xi)
+       else
+          eID = 0
        end if
 !
     End Subroutine FindActuatorPointElement
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+    Subroutine FindActuatorPointSavedElement(self, mesh, x, ii, jj, kk, eID, xi, success)
+       use HexMeshClass
+       use PartitionedMeshClass          , only: mpi_partition
+       use ElementConnectivityDefinitions, only: FACES_PER_ELEMENT
+       Implicit None
+
+       class(Farm_t), intent(inout)                  :: self
+       type(HexMesh), intent(in)                     :: mesh
+       real(kind=RP), dimension(NDIM), intent(in)    :: x       ! physical space
+       integer, intent(in)                           :: ii
+       integer, intent(in)                           :: jj
+       integer, intent(in)                           :: kk
+       integer, intent(out)                          :: eID 
+       real(kind=RP), dimension(NDIM), intent(out)   :: xi      ! computational space
+       logical, intent(out)                          :: success
+       !
+       logical                                       :: found
+       integer                                       :: eIndex, fID, new_eID
+       real(kind=RP), dimension(NDIM)                :: xi0      ! computational space seed
+
+       success = .false.
+       found = .false.
+!
+!      First, search in saved elements
+!      -------------------------------
+       eID = self % turbine_t(kk) %blade_t(jj) % eID(ii)
+       found = mesh % elements(eID) % FindPointInLinElement(x, mesh % nodes)
+       if (.not. found) then
+!      if not found, search in neighbours with depth 2
+           do fID = 1, FACES_PER_ELEMENT
+               new_eID = mpi_partition % global2localeID (mesh % elements(eID) % Connection(fID) % globID)
+               found = mesh % elements(new_eID) % FindPointInLinElement(x, mesh % nodes)
+               if (found) then
+                   eID = new_eID
+                   self % turbine_t(kk) %blade_t(jj) % eID(ii) = new_eID
+                   exit
+               end if
+           end do
+       end if
+!      If found in linear mesh, use FindPointWithCoords in that element
+       if (found) then
+          success = mesh % elements(eID) % FindPointWithCoords(x, mesh % dir2D_ctrl, xi)
+       else
+          eID = 0
+       end if
+!
+    End Subroutine FindActuatorPointSavedElement
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
