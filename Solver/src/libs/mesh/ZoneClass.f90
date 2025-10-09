@@ -24,6 +24,7 @@ module ZoneClass
          procedure   :: copy             => Zone_Assign
          generic     :: assignment(=)    => copy
          procedure   :: CreateFictitious => Zone_CreateFictitious
+         procedure   :: Destruct         => Zone_Destruct
    end type Zone_t
    
    contains
@@ -242,5 +243,13 @@ module ZoneClass
          self % faces = facesID
 
       End Subroutine Zone_CreateFictitious
+
+      Subroutine Zone_Destruct(self)
+         implicit none
+         class(Zone_t), intent(inout) :: self
+
+         safedeallocate(self % faces)
+
+      end Subroutine Zone_Destruct
 
 end module ZoneClass
