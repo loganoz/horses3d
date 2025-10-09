@@ -6169,6 +6169,7 @@ call elementMPIList % destruct
          end do 
       deallocate(self%mortar_faces)
      end if 
+     
     if (.NOT.present(allmesh))  call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
      
      self%sliding=.true.
