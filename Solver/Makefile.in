@@ -214,7 +214,12 @@ ifeq ($(WITH_HDF5),YES)
   else 
     $(error option WITH_HDF5 = YES requires defining path to HDF5 with HDF5_DIR)
   endif 
-endif 
+endif
+
+##########################
+## 	Link DL         ##
+##########################
+LIBS += -ldl 
 
 ##########################################
 ##  	Select HORSES libraries 	##

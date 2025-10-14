@@ -1,14 +1,16 @@
-subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables)
+subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables, &
+										nLevel, eID_Order, nElementLevel)
 !
 !     *********************************************************************
 !        This subroutine performs the mesh partitioning using METIS
-!        and then manual load balancing for mixed RK used in multiphase
+!        and then manual load balancing for MixedRK used in multiphase
 !     *********************************************************************
 !        
       use HexMeshClass
       use SMConstants
       use MPI_Process_Info
       use FTValueDictionaryClass
+	  use Utilities                   , only : reindexIntegerList, combine_partitions
       implicit none
       type(HexMesh), intent(in)              :: mesh
       integer,       intent(in)              :: no_of_domains
@@ -16,12 +18,15 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
       integer,       intent(out)             :: nodesDomain(size(mesh % nodes))
       logical,       intent(in)              :: useWeights
       type(FTValueDictionary), intent(in)    :: controlVariables
+	  integer,       intent(in)              :: nLevel 
+	  integer,       intent(in)      	     :: eID_Order(mesh % no_of_elements)
+	  integer,       intent(in)      	     :: nElementLevel(nLevel)
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      integer                :: i, j, domain_id
+      integer                :: i, j, domain_id, level, starteID
       integer                :: ielem
       integer                :: ne                    ! # elements
       integer                :: nn                    ! # nodes
@@ -29,10 +34,10 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
       integer, allocatable   :: eptr(:)               ! index in eind --> eptr(ne+1)
       integer, allocatable   :: eind(:)               ! vertices of each element   --> eind(nvertex*ne)
       integer, pointer       :: vwgt(:) => null()     ! vertices weights
-      integer, pointer       :: vsize(:) => null()    !
+      integer, allocatable   :: vsize(:) 
       integer, parameter     :: ncommon = 4           ! common faces for dual nesh (4 for hexahedrals)
-      real(kind=RP), pointer :: tpwgt(:) => null()    ! partitions' weights --> tpwgt(no_of_domains)
-      integer, pointer       :: opts(:) => null()     ! metis options
+      real(kind=RP), allocatable  :: tpwgt(:)         ! partitions' weights --> tpwgt(no_of_domains)
+      integer, allocatable   :: opts(:)               ! metis options
       integer, parameter     :: metis_noptions = 39   ! number of metis options
       integer                :: objval                ! objective calculated value
       integer, parameter     :: MIN_EDGE_CUT = -1     ! option to minimize edge-cut
@@ -45,6 +50,9 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
       integer                :: target_water, target_air, w_idx, a_idx
       logical, allocatable   :: elem_moved(:)
       logical                :: do_water_air_count    ! Flag to control water/air counting
+	  integer, allocatable   :: elementsDomainLevel(:), nodesDomainLevel(:), mapToOld(:)
+	  integer, allocatable   :: refEleDomain(:), inputMLRKDomain(:,:)
+	  
 #ifdef _HAS_METIS_
 !
 !     **************
@@ -54,10 +62,13 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
       ne = mesh % no_of_elements
       nn = size(mesh % nodes)
       nvertex = 8
-
+	  
+	  allocate(inputMLRKDomain(mesh % no_of_elements, nLevel))
+	  inputMLRKDomain = 0
+	
       ! Check if we should do water/air counting based on explicit method
       do_water_air_count = .false.
-      if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'mixed rk') then
+      if(trim(controlVariables % stringValueForKey('explicit method', requestedLength = LINE_LENGTH)) == 'MixedRK') then
           do_water_air_count = .true.
       end if
 
@@ -83,91 +94,207 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
               write(*,'(A,I6,A,I6,A)') 'Identified ', water_count, ' water elements and ', air_count, ' air elements'
           end if
       end if
+!
+!     Construct the reference element partition from single level for MLRK
+!     --------------------------------------------------------------------      
+	  if (nLevel.gt.1) then
+	    allocate(refEleDomain(ne))
+		allocate(eptr(ne+1), eind(nvertex*ne))
+		
+		refEleDomain    =0
+!
+!     	Gather each element nodes: they are stored using C indexes (starting on 0)
+!     	-------------------------
+		i = 1
+		do ielem=1,ne
+!
+!        	Save each element nodes
+!        	-----------------------
+			eind(i:i+nvertex-1) = mesh % elements(ielem) % nodeIDs - 1
+!
+!        	Save each element ID
+!        	--------------------
+			eptr(ielem) = i - 1
+			i = i + nvertex
+		end do
+!
+!     	Termination: set the last element position in the N+1 entry
+!     	-----------
+		eptr(ne+1) = i - 1
+!
+!     	*****************
+!     	Set METIS options
+!     	*****************
+!
+		allocate(opts(0:metis_noptions))
+		call METIS_SetDefaultOptions(opts)
+!
+!     	First option chooses the method: edge-cut / communication volume      
+!     	-------------------------------
+		opts(1) = MIN_EDGE_CUT
+!
+!     	Disable verbosity
+!     	-----------------
+		opts(5) = 0
+!
+!     	*******************************
+!     	Calculate weights based on NDOF
+!     	*******************************
+!
+		if (useWeights) then
+		  allocate(weights(ne))
+		  do ielem=1,ne
+			  ! Base weight from polynomial order
+			  weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
+		  end do
+		  if (maxval(weights) .ne. minval(weights)) then
+			  vwgt => weights
+		  endif
+		end if 
+	    
+		call METIS_PartMeshDual(ne, nn,  eptr, eind,  vwgt, vsize, ncommon, no_of_domains, tpwgt,  opts,  objval, refEleDomain, nodesDomain)
+!
+!     	Recover FORTRAN displacements by adding 1
+!     	-----------------------------------------
+		refEleDomain = refEleDomain + 1
+!
+!       Free memory
+!       -----------
+!
+		deallocate (eptr, eind, opts)
+		if (associated(vwgt)) nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
+		if (allocated(weights)) deallocate(weights)
+		if (allocated(tpwgt)) deallocate(tpwgt)
+		if (allocated(vsize)) deallocate(vsize)
+	  end if 
+!
+!     Perform METIS partitioning based on the element's level - if not MLRK then nLevel=1
+!     -----------------------------------------------------------------------------------
+	  starteID = 1								   ! counter of the elementID for multi level 
+	  do level =1, nLevel
+		ne = nElementLevel(level)
+		allocate(eptr(ne+1))
+		allocate(eind(nvertex*ne))
+!
+!     	Gather each element nodes: they are stored using C indexes (starting on 0)
+!     	-------------------------------------------------------------------------
+		i = 1
+		j = 0
+		do ielem=starteID, ne+starteID-1
+		    j=j+1
+!
+!        	Save each element nodes
+!        	-----------------------
+			eind(i:i+nvertex-1) = mesh % elements(eID_Order(ielem)) % nodeIDs - 1
+!
+!        	Save each element ID
+!        	--------------------
+			eptr(j) = i - 1
+			i = i + nvertex
+		end do
+!
+!     	reindexIntegerList as such it is compactly renumbered from 0 to totalNodes-1
+!     	----------------------------------------------------------------------------
+        allocate(mapToOld(size(mesh % nodes)))
+		mapToOld = [(i, i=1,size(mesh % nodes))]
+		if (nLevel.gt.1) then
+		    deallocate(mapToOld)
+			call reindexIntegerList(eind,nn,mapToOld)
+		end if
+		allocate(elementsDomainLevel(1:ne), nodesDomainLevel(1:nn))
+!
+!     	Termination: set the last element position in the N+1 entry
+!     	-----------------------------------------------------------
+		eptr(ne+1) = i - 1
+!
+!     	*****************
+!     	Set METIS options
+!     	*****************
+!
+		allocate(opts(0:metis_noptions))
+		call METIS_SetDefaultOptions(opts)
+!
+!     	First option chooses the method: edge-cut / communication volume      
+!     	----------------------------------------------------------------
+		opts(1) = MIN_EDGE_CUT
+!
+!     	Disable verbosity
+!     	-----------------
+		opts(5) = 0
+!
+!     	*******************************
+!     	Calculate weights based on NDOF
+!     	*******************************
+!
+		if (useWeights) then
+		  allocate(weights(ne))
+		  do ielem=1,ne
+			  ! Base weight from polynomial order
+			  weights(ielem) = product(mesh % elements(eID_Order(ielem+starteID-1)) % Nxyz + 1)
+			  
+			  ! Determine if this is a water element and apply weight factor only if needed
+			  if (do_water_air_count) then
+				  is_water = .false.
+				  if (associated(mesh % elements(eID_Order(ielem+starteID-1)) % storage)) then
+						  is_water = all(mesh % elements(eID_Order(ielem+starteID-1)) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP) 
+				  end if
+				  
+				  ! Apply 4.666x weight factor for water elements
+				  ! Not fully necessary because of the manual air-watter balancing done later in the function
+				  ! but this is to protect against edge cases
+				  if (is_water) then
+					  weights(ielem) = weights(ielem) * 4.6666
+				  end if
+			  end if
+		  end do
 
-      allocate(eptr(ne+1))
-      allocate(eind(nvertex*ne))
+		  if (maxval(weights) .ne. minval(weights)) then
+			  vwgt => weights
+		  endif
+		end if 
+!     	**********************
+!     	Perform the partitions
+!     	**********************
 !
-!     Gather each element nodes: they are stored using C indexes (starting on 0)
-!     -------------------------
-      i = 1
-      do ielem=1,ne
+		call METIS_PartMeshDual(ne, nn,  eptr, eind,  vwgt, vsize, ncommon, no_of_domains, tpwgt,  opts,  objval, elementsDomainLevel, nodesDomainLevel)
 !
-!        Save each element nodes
-!        -----------------------
-         eind(i:i+nvertex-1) = mesh % elements(ielem) % nodeIDs - 1
+!     	Recover FORTRAN displacements by adding 1
+!     	-----------------------------------------
+		elementsDomainLevel = elementsDomainLevel + 1
+		nodesDomainLevel    = nodesDomainLevel + 1
 !
-!        Save each element ID
-!        --------------------
-         eptr(ielem) = i - 1
-         i = i + nvertex
-      end do
+!     	Send information to inputMLRKDomain - relocate to true elementID
+!     	----------------------------------------------------------------
+        do i=1, ne
+			inputMLRKDomain(eID_Order(starteID+i-1), level) = elementsDomainLevel(i)
+		end do 
+		starteID = starteID + ne
 !
-!     Termination: set the last element position in the N+1 entry
-!     -----------
-      eptr(ne+1) = i - 1
+!       Free memory
+!       -----------
 !
-!     *****************
-!     Set METIS options
-!     *****************
+		deallocate (nodesDomainLevel, elementsDomainLevel, mapToOld, eptr, eind, opts)
+		if (associated(vwgt)) 	nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
+		if (allocated(weights)) deallocate(weights)
+		if (allocated(tpwgt)) 	deallocate(tpwgt)
+		if (allocated(vsize)) 	deallocate(vsize)
+	 end do
+	 
+	 nodesDomain = 0 ! Not used 
+	 do i=1, mesh % no_of_elements
+		elementsDomain(i) = sum(inputMLRKDomain(i,:))
+	 end do 
 !
-      allocate(opts(0:metis_noptions))
-      call METIS_SetDefaultOptions(opts)
-!
-!     First option chooses the method: edge-cut / communication volume      
-!     -------------------------------
-      opts(1) = MIN_EDGE_CUT
-!
-!     Disable verbosity
-!     -----------------
-      opts(5) = 0
-!
-!     *******************************
-!     Calculate weights based on NDOF
-!     *******************************
-!
-      if (useWeights) then
-          allocate(weights(ne))
-          do ielem=1,ne
-              ! Base weight from polynomial order
-              weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
-              
-              ! Determine if this is a water element and apply weight factor only if needed
-              if (do_water_air_count) then
-                  is_water = .false.
-                  if (associated(mesh % elements(ielem) % storage)) then
-                          is_water = all(mesh % elements(ielem) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP) 
-                  end if
-                  
-                  ! Apply 4.666x weight factor for water elements
-                  ! Not fully necessary because of the manual air-watter balancing done later in the function
-                  ! but this is to protect against edge cases
-                  if (is_water) then
-                      weights(ielem) = weights(ielem) * 4.6666
-                  end if
-              end if
-          end do
-          ! weights(ne+1) = product(mesh % elements(ielem) % Nxyz + 1)
-          ! eptr(ne+1) = i - 1
-          if (maxval(weights) .ne. minval(weights)) then
-              vwgt => weights
-          endif
-      end if 
-!     **********************
-!     Perform the partitions
-!     **********************
-!
-      call METIS_PartMeshDual(ne, nn,  eptr, eind,  vwgt, vsize, ncommon, no_of_domains, tpwgt,  opts,  objval, elementsDomain, nodesDomain)
-!
-!     Recover FORTRAN displacements by adding 1
-!     -----------------------------------------
-      elementsDomain = elementsDomain + 1
-      nodesDomain = nodesDomain + 1
-
-!     ************************************
-!     Manual balancing of water and air. 
-!     The aim is to have equal number of air and water elements in each core.
-!     ************************************
-      if (do_water_air_count .and. water_count > 0 .and. air_count > 0) then
+!    Combine_partitions between MLRK levels as such it has minimum MPI faces
+!    -----------------------------------------------------------------------
+	 if (nLevel.gt.1) then
+		call combine_partitions(mesh % no_of_elements, nLevel, no_of_domains, refEleDomain, inputMLRKDomain, elementsDomain)
+	 end if 
+!    ************************************
+!    Manual balancing of water and air. 
+!    The aim is to have equal number of air and water elements in each core.
+!    ************************************
+     if (do_water_air_count .and. water_count > 0 .and. air_count > 0) then
           ! Allocate arrays for balancing
           allocate(domain_water_count(no_of_domains), domain_air_count(no_of_domains))
           allocate(water_elems(water_count), air_elems(air_count))
@@ -261,7 +388,10 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
                   nodesDomain(mesh % elements(ielem) % nodeIDs(i)) = elementsDomain(ielem)
               end do
           end do
-          
+!
+!         Free memory
+!         -----------
+!
           deallocate(domain_water_count, domain_air_count)
           deallocate(water_elems, air_elems)
           deallocate(elem_moved)
@@ -269,12 +399,12 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
           if (MPI_Process % isRoot) then
               write(*,*) "Applied post-processing to balance water/air elements"
           end if
-      end if
+	  end if
 
 !     **********************
 !     Print domain statistics
 !     **********************
-      if (do_water_air_count .and. MPI_Process % isRoot) then
+	  if (do_water_air_count .and. MPI_Process % isRoot) then
           do domain_id = 1, no_of_domains
               water_count = 0
               air_count = 0
@@ -299,15 +429,14 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
                     ', Air elements = ', air_count, &
                     ', Total = ', water_count + air_count
           end do
-      end if
+	  end if
 !
 !     ****
 !     Free
 !     ****
 !
-      deallocate(eptr)
-      deallocate(eind)
       if (allocated(weights)) deallocate(weights)
-      if (associated(opts)) deallocate(opts)
+	  if (allocated(inputMLRKDomain)) deallocate(inputMLRKDomain)
+	  if (allocated(refEleDomain)) deallocate(refEleDomain)
 #endif
    end subroutine GetMETISElementsPartition

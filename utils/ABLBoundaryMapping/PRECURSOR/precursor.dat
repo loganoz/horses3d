@@ -1,0 +1,12 @@
+############################
+### WIND PRECURSOR TABLE ###
+############################
+# Number of directories
+2
+# File names for u (m/s), T (K), p (Pa)
+U_slice_boundary.vtk T_slice_boundary.vtk p_rgh_slice_boundary.vtk
+# File format: ascii/binary
+ascii
+# Time (s), directory
+0.0 17000
+0.25 17000.25

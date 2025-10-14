@@ -44,6 +44,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
             ./NavierStokes/Cylinder \
+			./NavierStokes/Cylinder_MLRK \
             ./NavierStokes/CylinderFAS \
             ./NavierStokes/CylinderAnisFAS \
             ./NavierStokes/CylinderBR2 \
@@ -80,6 +81,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/ActuatorLineProjection \
             ./NavierStokes/Cylinder_AdaptiveTimeStep_pAdaptationRL \
             ./NavierStokes/Cylinder_pAdaptationRL_GaussLobatto \
+            ./NavierStokes/ABLBoundaryMapping \
+            ./NavierStokes/ActuatorLineController \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
