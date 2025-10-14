@@ -125,7 +125,7 @@
          end select
          call self % pAdaptator % construct (controlVariables, initial_time, sem % mesh, self % adaptiveTimeStep)  ! If not requested, the constructor returns doing nothing
 
-         !
+!
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
 !           If keyword "cfl" is present, the time step size is computed in every time step.
@@ -212,7 +212,7 @@
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
-															  
+
          if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
             self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
          else
@@ -369,7 +369,7 @@
             case (EULER_RK3_KEY)
                write(STD_OUT,'(A)') "Euler-RK3"
             case (MIXED_RK_KEY)
-               write(STD_OUT,'(A)') "Mixed rk"
+               write(STD_OUT,'(A)') "MixedRK"
 			case (ML_RK3_KEY)
                write(STD_OUT,'(A)') "Multi-Level RK3"
 			   write(STD_OUT,'(35X,A,A23,I14)')   "->" , "Number of Level: ", self % ML_nLevel
@@ -440,7 +440,7 @@
 
       sem  % numberOfTimeSteps = self % initial_iter
       if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) monitors % dt_restriction = DT_FIXED
-	  if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) samplings % dt_restriction = DT_FIXED
+	   if ((.not. self % Compute_dt) .and. (.not. self % adaptive_dt)) samplings % dt_restriction = DT_FIXED
 
 !     Measure solver time
 !     -------------------
@@ -512,7 +512,7 @@
       use FASMultigridClass
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
-	  use ExplicitMethods	
+	   use ExplicitMethods	
       use StopwatchClass
       use FluidData
       use mainKeywordsModule
@@ -526,7 +526,7 @@
       use SpongeClass, only: sponge, ConstructSponge, DestructSponge, UpdateBaseFlowSponge, WriteBaseFlowSponge
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-      use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces
+      use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces, FarmUpdateControlVars, WriteControlVars, SaveControllerState
 #endif
 
       use IBMClass
@@ -567,7 +567,7 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES, saveOrders, saveSource
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, ActuatorLineControlFlag, saveLES, saveOrders, saveSource
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 
       logical                       :: dtHasToAdapt = .FALSE. ! Flag to indicate if the time step has to be adapted
@@ -576,10 +576,11 @@
 !     Read Control variables
 !     ----------------------
 !
-      SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
-      useTrip            = controlVariables % logicalValueForKey("use trip")
-      ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
-      saveOrders         = controlVariables % logicalValueForKey("save mesh order")
+      SolutionFileName        = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
+      useTrip                 = controlVariables % logicalValueForKey("use trip")
+      ActuatorLineFlag        = controlVariables % logicalValueForKey("use actuatorline")
+      ActuatorLineControlFlag = controlVariables % logicalValueForKey("actuator use controller")
+      saveOrders              = controlVariables % logicalValueForKey("save mesh order")
 
 !
 !     ---------------
@@ -655,7 +656,7 @@
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false., dt )
-	  call Samplings % UpdateValues( sem % mesh, t)
+	   call Samplings % UpdateValues( sem % mesh, t)
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
@@ -795,7 +796,7 @@
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative, iter=k+1)
          end if
 #if defined(NAVIERSTOKES)
-         if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
 #endif
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
@@ -813,7 +814,13 @@
          END SELECT
 
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
-         if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k)
+         if(ActuatorLineFlag) then 
+            call WriteFarmForces(farm, t, k)
+            if (ActuatorLineControlFlag) then
+               call WriteControlVars(farm, sem % mesh) 
+               call FarmUpdateControlVars(farm)
+            end if
+         end if
 #endif
 #if defined(FLOW) 
          call UpdateBaseFlowSponge(sponge,sem % mesh,dt)
@@ -891,7 +898,7 @@
 !        --------------
          IF( self % pAdaptator % hasToAdapt(k+1) .or. dtHasToAdapt ) then
             call self % pAdaptator % pAdapt(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, self % adaptiveTimeStep)
-			   call samplings % UpdateInterp(sem % mesh)
+			call samplings % UpdateInterp(sem % mesh)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
@@ -902,6 +909,11 @@
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
+            end if
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+            if(ActuatorLineFlag .and. ActuatorLineControlFlag) then ! CONTROLLER HERE
+               call SaveControllerState(farm, SolutionFileName, k+1, t)
             end if
 #endif
          end if
@@ -922,7 +934,7 @@
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
-		 call samplings % WriteToFile(sem % mesh)
+		   call samplings % WriteToFile(sem % mesh)
          sem % numberOfTimeSteps = k + 1
       END DO
 !
@@ -936,6 +948,7 @@
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag)  call WriteFarmForces(farm, t, k, last=.true.)
+         if(ActuatorLineFlag .and. ActuatorLineControlFlag) call SaveControllerState(farm, SolutionFileName)
 #endif
 #if defined(FLOW) 
          call WriteBaseFlowSponge(sponge, sem % mesh, k, t, last=.true.)

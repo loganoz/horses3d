@@ -41,7 +41,7 @@ MODULE ExplicitMethods
    character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
    character(len=*), parameter :: EULER_RK3_NAME = "euler rk3"
    character(len=*), parameter :: LSERK14_4_NAME = "lserk14-4"
-   character(len=*), parameter :: MIXED_RK_NAME = "mixed rk"
+   character(len=*), parameter :: MIXED_RK_NAME = "mixedrk"
    character(len=*), parameter :: ML_RK3_NAME  = "multi level rk3"
 
 
@@ -212,10 +212,10 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !
 !        *****************************************************************************************
 !          Uses RK3 in phase1 and LSERK14-4 in phase2, think phase1 is air and phase2 is water. Of course, this will only yield an advantage if: 
-!          - you can get away with a time step using the mixed RK that is 5x times larger than that in pure RK3 scheme,
+!          - you can get away with a time step using the MixedRK that is 5x times larger than that in pure RK3 scheme,
 !          - AND if there are at LEAST 20+% air elements (aim for 50% or more)
 !          A stand-alone LSERK14-4 implimetnation is given in TakeLSERK14_4Step
-!          The mixed RK scheme is valid only for the multiphase solver and throws an error otherwise,  
+!          The MixedRK scheme is valid only for the multiphase solver and throws an error otherwise,  
 !          However, the rest of this function still has its implementation consistent
 !          with the other RK steppers in case anyone needed to extend it
 !        *****************************************************************************************
@@ -247,7 +247,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 
 
 #if !defined(MULTIPHASE)
-   error stop 'Mixed RK time stepping is only implemented for the multiphase solver'
+   error stop 'MixedRK time stepping is only implemented for the multiphase solver'
 #else
 
       ! Arrays to store the original solution for all elements
@@ -1583,44 +1583,38 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
       REAL(KIND=RP), DIMENSION(4) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  ,     1.0_RP     /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
-	  REAL(KIND=RP), DIMENSION(3) :: d 
+	  REAL(KIND=RP), DIMENSION(3) :: d = (/1.0_RP/3.0_RP,  5.0_RP/12.0_RP,    1.0_RP/4.0_RP /)        ! Temporal step of stages
 	  
 
 
-     INTEGER       :: i, j, id, lID, locLevel, k2, k3, k1, nLevel
+      INTEGER       :: i, j, id, locLevel, k2, k3, k1, nLevel
 	  INTEGER, ALLOCATABLE :: k(:)
-	  REAL(KIND=RP) :: deltaStep(3), corrector, deltaTLF
-	  REAL(KIND=RP), ALLOCATABLE :: cL(:) , tk(:), deltaTL(:)
+	  INTEGER, parameter :: kmax = 3
+	  REAL(KIND=RP) :: corrector
+	  REAL(KIND=RP), ALLOCATABLE :: cL(:) , tk(:), deltaTL(:) ! 
 
-     logical :: updateQLowRK
+      logical :: updateQLowRK
 
-     if (present(dtAdaptation)) then
+      if (present(dtAdaptation)) then
          updateQLowRK = dtAdaptation
-     else
+      else
          updateQLowRK = .false.
-     end if
+      end if
 	  
 	  nLevel = mesh % MLRK % maxLevel
 	  allocate(k(nLevel), cL(nLevel), tk(nLevel), deltaTL(nLevel))
-	  k(:) = 1
 	  
-	  d(1)=1.0_RP/3.0_RP
-	  d(2)=5.0_RP/12.0_RP
-	  d(3)=1.0_RP/4.0_RP
-	 
-	  deltaStep(1) =  b(2)
-     deltaStep(2) =  b(3)-b(2)
-     deltaStep(3) =  1.0_RP-b(3)	
-	  
-	  deltaTL(:) = deltaT
+	  deltaTL(:) = deltaT		! Local timestep, for level 1 is the deltaT
 	  tk(:)      = t
 	  
 	  associate ( MLIter_eID => mesh % MLRK % MLIter_eID, MLIter => mesh % MLRK % MLIter  )
 	  
-      k(:) = 3
-      do k1 = 1,3
-         tk(:) = t + b(k1)*deltaT
-         call ComputeTimeDerivative( mesh, particles, tk(1), CTD_IGNORE_MODE)
+      k(:) = kmax                ! A counter array to track at which stage and level , 3 is the total number of stages
+      do k1 = 1,kmax
+!           LEVEL 1
+            tk(:) = t + b(k1)*deltaT    											! Actual time at each level 
+            call ComputeTimeDerivative( mesh, particles, tk(1), CTD_IGNORE_MODE)  	! Compute Qdot all elements
+			locLevel = 1															! Level locator
 
          if (k1==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
 !$omp parallel do schedule(runtime)
@@ -1632,14 +1626,13 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !$omp end parallel do
          end if
 
-			locLevel = 1
 !           -------------------------------------------------------------------------------------------------------------------------------
 !           LEVEL 2-LEVEL N-1
 !           -------------------------------------------------------------------------------------------------------------------------------
-			do k2 = 1, max(3**(nLevel-2),1)
-				k(nLevel-1) = k(nLevel-1)+1
-				do i=nLevel-1,1,-1
-					if (k(i).gt.3) then
+			do k2 = 1, max(kmax**(nLevel-2),1)				! loop for the intermediate levels nstages**(nLevel-2)
+				k(nLevel-1) = k(nLevel-1)+1					! Update the counter level-stages by adding by 1 for nLevel-1
+				do i=nLevel-1,1,-1							! Check if stages already exceed total number of stages
+					if (k(i).gt.kmax) then
 						k(i)=1
 						if (i.ne.1) then
 							k(i-1)=k(i-1) +1
@@ -1649,23 +1642,23 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 					end if						
 				end do 
 				
-				do i=2, nLevel
-					deltaTL(i) = deltaTL(i-1) * deltaStep(k(i-1))
+				do i=2, nLevel 								! Update the local timestep for level 2: nLevel
+					deltaTL(i) = deltaTL(i-1) * d(k(i-1))
 				end do 
 !               -------------------------------------------------------------------------------------------------------------------------------
 !               LEVEL N 
 !               -------------------------------------------------------------------------------------------------------------------------------
-				do k3 = 1,3
-					k(nLevel) = k3
+				do k3 = 1,kmax
+					k(nLevel) = k3							! Update the counter level-stages for nLevel 
 !           		Update G_NS/G_CH from QDot - Depend on level etc
 !$omp parallel do schedule(runtime)	private(id, corrector)	
-					do i = 1, MLIter(locLevel,1)
-						id = MLIter_eID(i)
-						
-						if (locLevel.eq.nLevel) then
-							corrector = a(k(nLevel))
+					do i = 1, MLIter(locLevel,1)            ! Loop all elements at the active level to update the G / Qdot contribution
+						id = MLIter_eID(i)					! ID of true element at partition
+	  
+						if (locLevel.eq.nLevel) then		! Variable a, weight of the previous Qdot contribution
+							corrector = a(k(nLevel))		
 					    elseif(i.gt.MLIter(min(locLevel+1,nLevel),1)) then 
-							corrector = a(k(locLevel))
+							corrector = a(k(locLevel))		! If locLevel is j then all element with level > j will be on first stage corrector=0
 						else
 							corrector = 0.0_RP
 						end if 
@@ -1687,7 +1680,7 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 						corrector = corrector * d(k(i))
 					end do 
                     do i = 1, nLevel
-						cL(i) = c(k(i)) * corrector/d(k(i)) 
+						cL(i) = c(k(i)) * corrector/d(k(i)) ! Timestep scaling for local timesteping at level N for all level 
 					end do 
 
 !$omp parallel do schedule(runtime)	private(id, corrector)			
@@ -1710,19 +1703,17 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 						end associate
 					end do
 !$omp end parallel do	
-                    if (all(k(2:nLevel) == 3)) then
+                    if (all(k(2:nLevel) == kmax)) then
 						exit
 					else
 						do i=nLevel,2,-1
-						    locLevel =i
-							if (k(i).ne.3) exit
+						    locLevel =i                   	! The level for next loop
+							if (k(i).ne.kmax) exit
 						end do 
 					end if 
 					
 					tk(locLevel)=tk(locLevel-1)+b(k(locLevel)+1) * deltaTL(locLevel)
-					
-					call ComputeTimeDerivative( mesh, particles, tk(locLevel), CTD_IGNORE_MODE, Level = locLevel) ! Update Qdot
-					
+					call ComputeTimeDerivative( mesh, particles, tk(locLevel), CTD_IGNORE_MODE, Level=locLevel) ! Update Qdot
 				end do 
 			end do 
 
@@ -1730,12 +1721,14 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 	   
 	   end associate
 	   
-	   call ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE, Level = 1) ! Necessary for residual computation
+	   call ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE) ! Necessary for residual computation
 !
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
 
       call checkForNan(mesh, t)
+	  
+	  deallocate(k, cL, tk, deltaTL)
 
    END SUBROUTINE TakeMLRK3Step
 !
