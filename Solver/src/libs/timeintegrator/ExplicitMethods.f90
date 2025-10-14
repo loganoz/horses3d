@@ -276,6 +276,14 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       real(kind=RP), parameter  :: b_RK14_4(N_STAGES_RK14_4) = [0.0000000000000000_RP, 0.0367762454319673_RP, 0.1249685262725025_RP, 0.2446177702277698_RP, 0.2476149531070420_RP, 0.2969311120382472_RP, 0.3978149645802642_RP, 0.5270854589440328_RP, 0.6981269994175695_RP, 0.8190890835352128_RP, 0.8527059887098624_RP, 0.8604711817462826_RP, 0.8627060376969976_RP, 0.8734213127600976_RP]
       real(kind=RP), parameter  :: c_RK14_4(N_STAGES_RK14_4) = [0.0367762454319673_RP, 0.3136296607553959_RP, 0.1531848691869027_RP, 0.0030097086818182_RP, 0.3326293790646110_RP, 0.2440251405350864_RP, 0.3718879239592277_RP, 0.6204126221582444_RP, 0.1524043173028741_RP, 0.0760894927419266_RP, 0.0077604214040978_RP, 0.0024647284755382_RP, 0.0780348340049386_RP, 5.5059777270269628_RP]
 
+      logical :: updateQLowRK
+
+      if (present(dtAdaptation)) then
+         updateQLowRK = dtAdaptation
+      else
+         updateQLowRK = .false.
+      end if
+      
       allocate(phase1_mask(size(mesh % elements)))
       allocate(phase2_mask(size(mesh % elements)))
 
@@ -287,10 +295,12 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !$omp parallel do schedule(runtime) reduction(+:phase1_count,phase2_count) private(id)
       do id = 1, size(mesh % elements)
          if ( all(mesh % elements(id) % storage % Q(1,:,:,:) > 1.0_RP - 1e-8_RP) ) then
+             mesh % elements(id) % MLevel = 1 !required for adaptive time step
              phase1_mask(id) = .true.
              phase2_mask(id) = .false.
              phase1_count = phase1_count + 1
          else
+            mesh % elements(id) % MLevel = 4 !required for adaptive time step
             phase1_mask(id) = .false.
             phase2_mask(id) = .true.
             phase2_count = phase2_count + 1
@@ -374,6 +384,18 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
 
+            if (k==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
+!$omp parallel do schedule(runtime)
+               do id = 1, SIZE( mesh % elements )
+                  if (phase1_mask(id)) then
+#ifdef FLOW 
+                     mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + dt_vec(id)*mesh % elements(id) % storage % QDot
+#endif
+                  end if
+               end do ! id
+!$omp end parallel do
+            end if
+
 !$omp parallel do schedule(runtime)
             DO id = 1, SIZE( mesh % elements )
                if (phase1_mask(id)) then
@@ -433,6 +455,18 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
 
+            if (k==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
+!$omp parallel do schedule(runtime)
+               do id = 1, SIZE( mesh % elements )
+                  if (phase2_mask(id)) then
+#ifdef FLOW 
+                     mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + dt_vec(id)*mesh % elements(id) % storage % QDot
+#endif
+                  end if
+               end do ! id
+!$omp end parallel do
+            end if
+
 !$omp parallel do schedule(runtime)
             DO id = 1, SIZE( mesh % elements )
                if (phase2_mask(id)) then
@@ -477,6 +511,18 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
             CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .false., phase1_mask)
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+            if (k==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
+!$omp parallel do schedule(runtime)
+               do id = 1, SIZE( mesh % elements )
+                  if (phase1_mask(id)) then
+#ifdef FLOW 
+                     mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+#endif
+                  end if
+               end do ! id
+!$omp end parallel do
             end if
 
 !$omp parallel do schedule(runtime)
@@ -536,6 +582,18 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
             CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE, .false., phase2_mask)
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+            if (k==1 .and. updateQLowRK) then !For adaptive time step only, update QLowRK
+!$omp parallel do schedule(runtime)
+               do id = 1, SIZE( mesh % elements )
+                  if (phase2_mask(id)) then
+#ifdef FLOW 
+                     mesh % elements(id) % storage % QLowRK = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+#endif
+                  end if
+               end do ! id
+!$omp end parallel do
             end if
 
 !$omp parallel do schedule(runtime)
