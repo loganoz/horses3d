@@ -306,7 +306,7 @@ end module ProblemFileFunctions
       
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          ny => mesh % elements(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
                   qq = 1.0_RP
@@ -549,15 +549,15 @@ end module ProblemFileFunctions
 !           ------------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            real(kind=RP), parameter :: residuals(5) = [ 1.4419720940280996E+01_RP, &
-                                                         7.6007893650634045E+01_RP, &
-                                                         4.1103312585602517E+01_RP, &
-                                                         1.2620330444784853E+00_RP, &
-                                                         8.8377151977722417E+02_RP]
+            real(kind=RP), parameter :: residuals(5) = [ 1.4416755855516170E+01_RP, &
+                                                         7.6765741302139475E+01_RP, &
+                                                         4.0715849449657171E+01_RP, &
+                                                         1.3170855002569524E+00_RP, &
+                                                         8.8387104107927928E+02_RP]
 
             real(kind=RP), parameter           :: wake_u = 9.9999999999999989E-01_RP
-            real(kind=RP), parameter           :: cd = 1.8465098543415632E+01_RP
-            real(kind=RP), parameter           :: cl = 9.2778340565757844E-11_RP
+            real(kind=RP), parameter           :: cd = 1.8446050281436591E+01_RP
+            real(kind=RP), parameter           :: cl = 8.4638296371508659E-11_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

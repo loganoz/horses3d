@@ -43,7 +43,6 @@ Discretization nodes  = Gauss-Lobatto
    tolerance             = 1d-2
    Nmax                  = [6, 6, 2]
    Nmin                  = [2, 2, 2]
-   Conforming boundaries = [cylinder]
    adjust nz             = .FALSE.
    restart files         = .FALSE.
    order across faces    = N*2/3
