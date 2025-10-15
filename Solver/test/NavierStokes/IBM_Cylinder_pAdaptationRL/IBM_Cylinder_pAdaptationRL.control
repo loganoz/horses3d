@@ -1,0 +1,78 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/IBMCylinder.msh"
+
+!--STL
+stl file name         = "MESH/cylinder.stl"
+
+Polynomial order      = 3
+Number of time steps  = 1000
+Output Interval       = 10
+autosave mode         = "iteration"
+autosave interval     = 100
+
+mach number           = 0.2d0
+Reynolds number       = 40.0d0
+
+
+solution file name    = "RESULTS/IBM_Cylinder_pAdaptationRL.hsol"
+save gradients with soluton = .false.
+restart               = .false.
+restart file name     = "RESULTS/IBM_Cylinder_pAdaptationRL.hsol"
+riemann solver         = "lax-friedrichs"
+
+viscous discretization = "BR1"
+
+convergence tolerance = 1.0d-12
+cfl                   = 0.05d0
+dcfl                  = 0.05d0
+
+
+#define IBM
+  name = cylinder
+  active = .true.
+  describe = .true.
+  number of objects = 3
+  number of interpolation points = 15
+  plot mask = .false.
+#end
+
+!-Adaptation-----------------------------------
+#define p-adaptation
+   adaptation type       = RL
+   agent file            = policy_padaptation/p_adaptation_policy
+   tolerance             = 5d-3
+   Nmax                  = [4, 4, 4]
+   Nmin                  = [1, 1, 1]
+   adjust nz             = .FALSE.
+   restart files         = .FALSE.
+   order across faces    = N*2/3
+   mode                  = iteration
+   interval              = 50
+   threshold             = 0.0
+#end
+!---------------------------------------------
+
+#define boundary inlet
+   type = InFlow
+#end 
+
+#define boundary outlet
+   type = OutFlow
+#end
+
+#define boundary up
+   type = FreeSlipWall
+#end
+
+#define boundary down
+   type = FreeSlipWall
+#end
+
+#define boundary walls
+  type = FreeSlipWall
+#end
+
+#define boundary cylinder
+  type = NoSlipWall
+#end

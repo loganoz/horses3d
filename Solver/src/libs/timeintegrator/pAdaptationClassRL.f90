@@ -3,8 +3,7 @@
 !
 !      Class cotaining routines for adapting polynomial orders based on Reinforcement Learning.
 !        -> The adaptation procedure is performed with a RL agent trined with a Value Iteration algorithm.
-!        -> The current implementation is only valid for shared memory 
-!           parallelization (OpenMP). TODO: Update to MPI.
+!        -> The current implementation is compatible with OpenMP and MPI.
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -19,6 +18,7 @@ module pAdaptationClassRL
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep, ComputeMaxResiduals
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
+   use MPI_Process_Info
    use FileReadingUtilities            , only: getFileName, getIntArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
    use ParamfileRegions                , only: readValueInRegion
    use Utilities                       , only: toLower
@@ -28,7 +28,11 @@ module pAdaptationClassRL
    use MultiTauEstimationClass         , only: MultiTauEstim_t
    use StopwatchClass                  , only: Stopwatch
    use pAdaptationClass      
-   use ReinforcementLearning           , only: pAdaptationAgent_t          
+   use ReinforcementLearning           , only: pAdaptationAgent_t   
+   
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    implicit none
    
 #include "Includes.h"
@@ -40,6 +44,7 @@ module pAdaptationClassRL
    !--------------------------------------------------
    type, extends(pAdaptation_t) :: pAdaptationRL_t
       type(pAdaptationAgent_t) :: agent
+      real(kind=RP)            :: threshold
       real(kind=RP)            :: tol = 1e-2_RP
       
       contains
@@ -54,7 +59,6 @@ module pAdaptationClassRL
 !  ----------------
 !
    integer    :: NMIN(NDIM) = 1
-   integer    :: nelem           ! number of elements in mesh
 
 !========
  contains
@@ -79,7 +83,7 @@ module pAdaptationClassRL
       character(20*BC_STRING_LENGTH) :: confBoundaries
       character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, cwd
       logical      , allocatable     :: R_increasing, reorganize_z, R_restart
-      real(kind=RP), allocatable     :: R_tolerance
+      real(kind=RP), allocatable     :: R_tolerance, R_threshold
       ! Extra vars
       integer                        :: i      ! Element counter
       integer                        :: no_of_overen_boxes
@@ -93,9 +97,7 @@ module pAdaptationClassRL
          this % Constructed = .FALSE.
          return
       end if
-
-      ! THIS DOES NOT WORK IN PARALLEL!!!
-      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )  
+ 
 !
 !     **************************************************
 !     * p-adaptation is defined - Proceed to construct *     
@@ -118,8 +120,9 @@ module pAdaptationClassRL
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "agent file"             , agentFile          , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "threshold"              , R_threshold        , in_label , "# end" )
       
-!     Conforming boundaries?
+!     Conforming boundaries
 !     ----------------------
       if ( confBoundaries /= "" ) then
          call getCharArrayFromString (confBoundaries,BC_STRING_LENGTH,this % conformingBoundaries)
@@ -128,14 +131,22 @@ module pAdaptationClassRL
          end do
       end if
       
-!     Tolerance
+!     Truncation error tolerance
 !     --------------------------
       if ( allocated(R_tolerance) ) then
          this % reqTE = R_tolerance !Required for static adaptation mode
          this % tol = R_tolerance
       end if
+
+!     Adaptation threshold
+!     ---------------------
+      if ( allocated(R_threshold) ) then
+         this % threshold = R_threshold
+      else
+         this % threshold = 0.0_RP
+      end if
       
-!     Adjust Nz?
+!     Adjust Nz
 !     ----------
       if ( allocated(reorganize_z) ) then
          reorganize_Nz = reorganize_z
@@ -276,7 +287,7 @@ module pAdaptationClassRL
 !
 !  ------------------------------------------------------------------------
 !  Main routine for adapting the polynomial order in all elements based on 
-!  the truncation error estimation
+!  the Value Iteration RL agent
 !  ------------------------------------------------------------------------
    subroutine pAdaptation_pAdapt(this, sem, itera, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
@@ -300,16 +311,83 @@ module pAdaptationClassRL
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
+      !-mpi-variables-------------------------
+      integer                    :: ierr
+      integer                    :: local_DOFs, global_DOFs
+      integer                    :: adaptedElements, allAdaptedElements
+      real(kind=RP)              :: adaptationPercentage
       !--------------------------------------
 #if defined(NAVIERSTOKES)
       
-      write(STD_OUT,*)
-      write(STD_OUT,*)
-      write(STD_OUT,'(A)') '****     Performing p-Adaptation with a VI Reinforcement Learning agent    ****'
-      write(STD_OUT,*)
+      Stage = Stage + 1    
+!
+!     -------------------------------------------------------------
+!     Find the polynomial order that fulfills the error requirement
+!     -------------------------------------------------------------
+!
       
-      Stage = Stage + 1
+      call Stopwatch % Start("pAdapt: PolOrder selection")
+      adaptedElements = 0
+!$omp parallel do schedule(runtime)
+      do eID = 1, sem % mesh % no_of_elements
+         call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID) , NNew(:,eID))
+         if ( .not. all( sem % mesh % elements(eID)  % Nxyz == NNew(:,eID)) ) then
+!$omp critical
+            adaptedElements = adaptedElements + 1
+!$omp end critical
+         end if
+      end do
+!$omp end parallel do
+      call Stopwatch % Pause("pAdapt: PolOrder selection")
+
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+         call mpi_allreduce ( adaptedElements, allAdaptedElements , 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr )
+         adaptationPercentage = 100.0_RP * allAdaptedElements / sem % mesh % no_of_allElements
+#endif
+      else
+         adaptationPercentage = 100.0_RP * adaptedElements / sem % mesh % no_of_elements
+      end if  
+
+      ! Only adapt once
+      this % Adapt = .FALSE.
       
+!
+!     -----------------------------------------------------------------------------
+!     Adapt only if the percentage of elements to be adapted is above the threshold
+!     -----------------------------------------------------------------------------
+!
+      if (adaptationPercentage > this % threshold) then
+
+         if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,*)
+               write(STD_OUT,*)
+               write(STD_OUT,'(A)') '****     Performing p-Adaptation with a VI Reinforcement Learning agent    ****'
+               write(STD_OUT,*)
+            end if
+#endif
+         else
+            write(STD_OUT,*)
+            write(STD_OUT,*)
+            write(STD_OUT,'(A)') '****     Performing p-Adaptation with a VI Reinforcement Learning agent    ****'
+            write(STD_OUT,*)
+         end if
+
+         if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,*) '****    Percentage of elements to be adapted: ', adaptationPercentage, '% ****'
+               write(STD_OUT,*)
+            end if
+#endif
+         else
+            write(STD_OUT,*) '****    Percentage of elements to be adapted: ', adaptationPercentage, '% ****'
+            write(STD_OUT,*)
+         end if  
+
+
 !
 !     --------------------------------------
 !     Write pre-adaptation mesh and solution
@@ -320,27 +398,6 @@ module pAdaptationClassRL
          call sem % mesh % Export(AdaptedMeshFile)         
          call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       end if
-      
-!
-!     -------------------------------------------------------------
-!     Find the polynomial order that fulfills the error requirement
-!     -------------------------------------------------------------
-!
-      
-      call Stopwatch % Start("pAdapt: PolOrder selection")
-      
-!$omp parallel do schedule(runtime)
-      do eID = 1, sem % mesh % no_of_elements
-      ! do eID = 1, nelem
-         call pAdaptation_pAdaptRL_SelectElemPolorders (this, sem % mesh % elements(eID), NNew(:,eID))
-      end do
-!$omp end parallel do
-      
-      call Stopwatch % Pause("pAdapt: PolOrder selection")
-
-      ! Only adapt once
-      this % Adapt = .FALSE.
-      
 !
 !     ----------------------------
 !     Overenrich specified regions
@@ -349,15 +406,15 @@ module pAdaptationClassRL
       call OverEnrichRegions(this % overenriching, sem % mesh, NNew, this % NxyzMax)
 
 !
-!     ------------------------------
-!     Restrict polynomial order jump
-!     ------------------------------
+!     ---------------------------------------------------------------
+!     Restrict polynomial order jump and make boundaries p-conforming
+!     ---------------------------------------------------------------
 !
       last = .FALSE.
       do while (.not. last)
          last = .TRUE.
-         call this % makeBoundariesPConforming(sem % mesh,NNew,last)
-         call ReorganizePolOrders(sem % mesh % faces,NNew,last)
+         call this % makeBoundariesPConforming(sem % mesh, NNew, last)
+         ! call ReorganizePolOrders(sem % mesh % faces, NNew, last)  #Not implemented for MPI, but not required if pmax<=6 and pmin>=2
       end do
 
 !
@@ -365,9 +422,8 @@ module pAdaptationClassRL
 !     Adapt sem to new polynomial orders
 !     ----------------------------------
 !
-      
       call Stopwatch % Start("pAdapt: Adaptation")
-      call sem % mesh % pAdapt (NNew, controlVariables)
+      call sem % mesh % pAdapt_MPI (NNew, controlVariables)
       call Stopwatch % Pause("pAdapt: Adaptation")
       
       ! Reconstruct probes
@@ -397,16 +453,39 @@ module pAdaptationClassRL
 !     ----------------
 !
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
-      
-      write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 
+!
+!     --------------------------------------------------------------------------
+!     Perform a reduction to know how many DOFs are in each process
+!     --------------------------------------------------------------------------
+      local_DOFs = SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1))
+
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+      call mpi_reduce ( local_DOFs, global_DOFs , 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+      if ( MPI_Process % isRoot ) then
+         write(STD_OUT,*) '****    p-Adaptation done, DOFs=', global_DOFs, '****'
+         write(STD_OUT,*)
+         write(STD_OUT,*)
+      end if
 #endif
+      else
+         write(STD_OUT,*) '****    p-Adaptation done, DOFs=', local_DOFs, '****'
+         write(STD_OUT,*)
+         write(STD_OUT,*)
+      end if
+
+   ! End of adapting
+   end if
+
+!End NAVIERSTOKES
+#endif 
    end subroutine pAdaptation_pAdapt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------
-!  pAdaptation_pAdaptTE_SelectElemPolorders:
+!  pAdaptation_pAdaptRL_SelectElemPolorders:
 !  Select the polynomial orders for one element based on the VI Reinforcement Learning agent
 !  -----------------------------------------------------------------------------------------
    subroutine pAdaptation_pAdaptRL_SelectElemPolorders (this, e, NNew)
@@ -452,12 +531,26 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir1(dir, :))
                if (maxQ - minQ < this % tol) then
                   indices_dir1(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(1) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  else if (Pxyz(1) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 1
                   indices_dir1(:) = nint(2 * this % agent % smax * (Q_dir1(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(1) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
+                  else if (Pxyz(1) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
             enddo
          enddo
       enddo
@@ -483,12 +576,26 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir2(dir, :))
                if (maxQ - minQ < this % tol) then
                   indices_dir2(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(2) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                  else if (Pxyz(2) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 2
                   indices_dir2(:) = nint(2 * this % agent % smax * (Q_dir2(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(2) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
+                  else if (Pxyz(2) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
             enddo
          enddo
       enddo
@@ -514,12 +621,26 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir3(dir, :))
                if (maxQ - minQ < this % tol) then
                   indices_dir3(:) = this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(3) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                  else if (Pxyz(3) > 1) then
+                     action = max(action, -1)
+                  else
+                     action = max(action, 0)
+                  end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 3
                   indices_dir3(:) = nint(2 * this % agent % smax * (Q_dir3(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
+                  if (Pxyz(3) > 2) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
+                  else if (Pxyz(3) > 1) then
+                     action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3), 0)
+                  else
+                     action = 1
+                  end if
                end if
-               ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
-               action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
             enddo
          enddo
       enddo
