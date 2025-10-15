@@ -156,8 +156,12 @@
                         if (MPI_Process % isRoot ) then
                            write(STD_OUT,*) "Using 'ML-RK3' method with adaptive dt."
                         end if
+                     case(MIXED_RK_NAME)
+                        if (MPI_Process % isRoot ) then
+                           write(STD_OUT,*) "Using 'MIXED-RK' method with adaptive dt."
+                        end if
                      case default
-                        error stop "Error, only 'RK3' method is implemented for adaptive dt"
+                        error stop "Error, only 'RK3'-based methods are implemented for adaptive dt"
                      end select
                   else
                      write(STD_OUT,*) "Using 'RK3' method with adaptive dt by default."

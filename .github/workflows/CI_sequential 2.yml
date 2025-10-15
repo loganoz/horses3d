@@ -804,3 +804,21 @@ jobs:
           ./horses3d.ns Cylinder_AdaptiveTimeStep_pAdaptationRL.control
         if: '!cancelled()'
 
+#
+# 34) Cylinder with Reinforcement Learning p-adaptation and Gauss-Lobatto nodes
+# --------------------------------------------
+
+      - name: Build Cylinder_pAdaptationRL_GaussLobatto
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL_GaussLobatto/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run Cylinder_pAdaptationRL_GaussLobatto
+        working-directory: ./Solver/test/NavierStokes/Cylinder_pAdaptationRL_GaussLobatto
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder_pAdaptationRL_GaussLobatto.control
+        if: '!cancelled()'
+
