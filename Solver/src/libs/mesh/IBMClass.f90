@@ -1563,7 +1563,6 @@ module IBMClass
 
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
          do i = 1, this% stl(STLNum)% NumOfObjs
-            
             do j = 1, NumOfVertices
                call this% stl(STLNum) % FSIUpdatePosition(this% stl(STLNum)% ObjectsList(i)% vertices(j))
             end do 
@@ -1591,6 +1590,65 @@ module IBMClass
          call this% build( elements, faces, MPIfaces, no_of_DoFs, STLNum, isChild, .true., iter )
          
       end do
+
+      ! ---------------------------------------------
+      !          Cycle for IBM FSI Pitching Move
+      ! ---------------------------------------------
+      if( any(this% stl(:)% FSIPitchmove) ) this% MPIfixed = .false.
+      do STLNum = 1, this% NumOfSTL
+
+         if( .not. this% stl(STLNum)% FSIPitchmove ) cycle
+
+         if ( this% iter == 0 ) then
+            call this% stl(STLNum)% FSIPitchInitialization()
+            ! print *, "FSIPitchSolver: Initialization"
+            cycle
+         else if ( this% t < this% stl(STLNum)% FSIStartTime) then
+            ! print *, "FSIPitchSolver: not start, it will start at time=", this% stl(STLNum)% FSIStartTime
+            cycle
+         else
+            call this % FSIGetPointForce (elements, STLNum)
+
+            call this% stl(STLNum)% FSIPitchMechanicsSolver( this% t, this% dt )
+            ! print *, "FSIPitchSolver: Solving"
+
+         end if
+
+         if( MPI_Process% isRoot ) then
+            call this% stl(STLNum)% FSIPitchMonitorWrite(this% iter, this% t)
+         end if
+
+         call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, GLOBAL )
+
+         do i = 1, this% stl(STLNum)% NumOfObjs
+            do j = 1, NumOfVertices
+               call this% stl(STLNum)% FSIPitchUpdatePosition(this% stl(STLNum)% ObjectsList(i)% vertices(j))
+            end do
+            call this% stl(STLNum)% updateNormals( this% stl(STLNum)% ObjectsList(i) )
+            if( this% ComputeBandRegion ) then
+               do j = 1, NumOfIntegrationVertices
+                  call this% stl(STLNum)% FSIPitchUpdatePosition(this% stl(STLNum)% ObjectsList(i)% IntegrationVertices(j))
+               end do
+            end if
+         end do
+
+         call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB, .false. )
+
+         if( autosave ) call plotSTL( this% stl(STLNum), iter )
+
+         call OBB(STLNum)% GetGLobalVertices()
+         call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )
+
+         this% plot              = autosave
+         this% plotKDtree        = .false.
+         this% stl(STLNum)% show = .false.
+
+         call this% constructSTL_KDtree( STLNum )
+
+         call this% build( elements, faces, MPIfaces, no_of_DoFs, STLNum, isChild, .true., iter )
+
+      end do
+
 
    end subroutine IBM_MoveBody
 
@@ -2141,6 +2199,8 @@ module IBMClass
          call BCsIBM(STLNum)% bc% FlowStateMoving_IBM( Q, x, t, dt, cL, cD, Qsb )
       else if (this% stl(STLNum)% FSImove) then
          call this% stl(STLNum) % FSIGetIBMSource( Q, x, Qsb)
+      else if (this% stl(STLNum)% FSIPitchmove) then
+         call this% stl(STLNum) % FSIPitchGetIBMSource( Q, x, Qsb)
       else
          call BCsIBM(STLNum)% bc% FlowState_VPIBM( Q, x, Qsb ) 
       end if 

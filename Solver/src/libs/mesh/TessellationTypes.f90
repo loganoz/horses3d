@@ -117,6 +117,9 @@ module TessellationTypes
                                                       read = .false.,                  &
                                                       BFcorrection = .false.
       character(len=LINE_LENGTH)                   :: filename, maskName
+      ! FSI
+      real(kind=RP)                                :: FSILengthScale_dimM, FSIRho_dimKgM3, FSIUinlet_dimMS
+      ! FSImove: Modal approach
       logical                                      :: FSImove,FSI_IfRigidPart
       integer                                      :: FSINumOfMode, FSIModeDIM, FSInumOfControlPoint
       real(kind=RP), allocatable                   :: FSIModefrequency_dimHz(:),FSIModedampingRatio(:), &
@@ -127,10 +130,16 @@ module TessellationTypes
                                                       FSIModeGeneralizedDisplacement_dimM(:), & ![numOfMode]
                                                       FSIModeGeneralizedVelocity_dimMS(:)       ![numOfMode]
       real(kind=RP)                                :: FSITime, &
-                                                      FSIModeDirection(NDIM), &
-                                                      FSILengthScale_dimM, FSIRho_dimKgM3, FSIUinlet_dimMS
+                                                      FSIModeDirection(NDIM)      
       character(LINE_LENGTH)                       :: FSIModefilename
       real(kind=RP)                                :: FSI_UserDefineRigidPart_dimM
+      ! FSIPitch: FSI pitching rigid-body motion
+      logical                                      :: FSIPitchmove
+      real(kind=RP)                                :: FSIStartTime
+      real(kind=RP)                                :: FSIPitch_damping, FSIPitch_stiffness, FSIPitch_inertia
+      real(kind=RP)                                :: FSIPitch_omegaO, FSIPitch_thetaO
+      real(kind=RP)                                :: FSIPitch_CofR(NDIM)
+      real(kind=RP)                                :: FSIPitch_Moment_dimNM
       
       contains
          procedure :: ReadTessellation
@@ -138,14 +147,16 @@ module TessellationTypes
          procedure :: Clip                   => STL_Clip
          procedure :: updateNormals          => STL_updateNormals
          procedure :: SetIntegration         => STL_SetIntegration
-         procedure :: ComputeVectorIntegral  => STL_ComputeVectorIntegral
          procedure :: ComputeScalarIntegral  => STL_ComputeScalarIntegral
+         procedure :: ComputeVectorIntegral  => STL_ComputeVectorIntegral
+         procedure :: ComputeMomentIntegral  => STL_ComputeMomentIntegral
          procedure :: destroy                => STLfile_destroy
          procedure :: Describe               => Describe_STLfile
          procedure :: Copy                   => STLfile_copy
          procedure :: plot                   => STLfile_plot
          procedure :: SetIntegrationPoints   => STL_SetIntegrationPoints
          procedure :: ResetIntegrationPoints => STL_ResetIntegrationPoints
+         ! FSImove: Modal approach
          procedure :: FSIReadModefile                     => STLfile_FSIReadModefile
          procedure :: FSIBuildTPSCoeffMatrix              => STL_FSIBuildTPSCoeffMatrix
          procedure :: FSIGetPointModePhi                  => STL_FSIGetPointModePhi
@@ -156,6 +167,14 @@ module TessellationTypes
          procedure :: FSIGetIBMSource                     => STL_FSIGetIBMSource
          procedure :: FSIMonitorWrite                     => STL_FSIMonitorWrite
          procedure :: FSIWriteOutputHeader                => STL_FSIWriteOutputHeader
+         ! FSIPitch: FSI pitching rigid-body motion
+         procedure :: FSIPitchGetMoment                   => STL_FSIPitchGetMoment
+         procedure :: FSIPitchInitialization              => STL_FSIPitchInitialization
+         procedure :: FSIPitchMechanicsSolver             => STL_FSIPitchMechanicsSolver
+         procedure :: FSIPitchUpdatePosition              => STL_FSIPitchUpdatePosition
+         procedure :: FSIPitchGetIBMSource                => STL_FSIPitchGetIBMSource
+         procedure :: FSIPitchMonitorWrite                => STL_FSIPitchMonitorWrite
+         procedure :: FSIPitchWriteOutputHeader           => STL_FSIPitchWriteOutputHeader
    end type
    
    type ObjsDataLinkedList_t
@@ -767,8 +786,11 @@ module TessellationTypes
          write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "Moving: " , this% move
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSImove: " , this% FSImove
+         write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSIPitchmove: " , this% FSIPitchmove
 
-         if ( (.not. this% move) .and. (.not. this% FSImove) ) write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
+         if ( (.not. this% move) .and. (.not. this% FSImove) .and.  (.not. this% FSIPitchmove)) then
+            write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
+         end if
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "BF correction: " , this% BFcorrection
          if( this% read ) then 
             write(STD_OUT,'(30X,A,A35,A)') "->" , "Mask file: " , this% maskName
@@ -791,6 +813,21 @@ module TessellationTypes
             write(STD_OUT,'(30X,A,A35,F10.6,A4)') "->", "FSIUinlet: ", this% FSIUinlet_dimMS, "m/s"
             if (this%FSI_IfRigidPart) write(STD_OUT,'(30X,A,A34,A6,F10.6,A2)') "->", "User Defined Rigid Part:"," x <= ",this%FSI_UserDefineRigidPart_dimM,"m"
          end if
+
+         if ( this% FSIPitchmove ) then
+            write(STD_OUT,'(/)')
+            call SubSection_Header("FSI: Reading rigid-body pitching motion")
+   
+            write(STD_OUT,'(30X,A,A35,F10.6)')  "->", "FSIStartTime: ", this% FSIStartTime
+            write(STD_OUT,'(30X,A,A35,F10.6)')  "->", "Damping: ", this% FSIPitch_damping
+            write(STD_OUT,'(30X,A,A35,F10.6)')  "->", "Stiffness: ", this% FSIPitch_stiffness
+            write(STD_OUT,'(30X,A,A35,F10.6)')  "->", "Inertia: ", this% FSIPitch_inertia
+            write(STD_OUT,'(30X,A,A35,A,3F10.6,A)') "->", "CofR: ", "[", this% FSIPitch_CofR, "]"
+            write(STD_OUT,'(30X,A,A35,F10.6,A2)') "->", "FSILengthScale: ", this% FSILengthScale_dimM, "m"
+            write(STD_OUT,'(30X,A,A35,F10.6,A7)') "->", "FSIRho: ", this% FSIRho_dimKgM3, "kg/m^3"
+            write(STD_OUT,'(30X,A,A35,F10.6,A4)') "->", "FSIUinlet: ", this% FSIUinlet_dimMS, "m/s"
+         end if
+   
       end if
    
    end subroutine Describe_STLfile
@@ -1147,6 +1184,13 @@ module TessellationTypes
       end if 
       this% FSImove  = logval
 
+      if ( .not. bcdict % ContainsKey("fsipitchmove") ) then
+         logval = .false.
+      else
+         logval = bcdict % logicalValueForKey("fsipitchmove")
+      end if
+      this% FSIPitchmove = logval
+
       if (this% FSImove) then
          if ( .not. bcdict % ContainsKey("fsimodedirection") ) then
             if( MPI_Process% isRoot) then
@@ -1269,6 +1313,79 @@ module TessellationTypes
 
          ! call this % FSIStructuralInitialization()
 
+      end if
+
+      if ( this% FSIPitchmove ) then
+
+         ! FSI start time (optional, default 0.0)
+         if ( .not. bcdict % ContainsKey("fsistarttime") ) then
+            this% FSIStartTime = 0.0_RP
+         else
+            this% FSIStartTime = bcdict % realValueForKey("fsistarttime")
+         end if
+
+         if ( .not. bcdict % ContainsKey("pitchtheta") ) then
+            this% FSIPitch_thetaO = 0.0_RP
+         else
+            this% FSIPitch_thetaO = bcdict % realValueForKey("pitchtheta")
+         end if
+
+         if ( .not. bcdict % ContainsKey("pitchomega") ) then
+            this% FSIPitch_omegaO = 0.0_RP
+         else
+            this% FSIPitch_omegaO = bcdict % realValueForKey("pitchomega")
+         end if
+      
+         ! damping
+         if ( .not. bcdict % ContainsKey("damping") ) then
+            this% FSIPitch_damping = 0.0_RP
+         else
+            this% FSIPitch_damping = bcdict % realValueForKey("damping")
+         end if
+      
+         ! stiffness
+         if ( .not. bcdict % ContainsKey("stiffness") ) then
+            error stop "[Error] FSIPitch: stiffness must be defined"
+         else
+            this% FSIPitch_stiffness = bcdict % realValueForKey("stiffness")
+         end if
+      
+         ! inertia
+         if ( .not. bcdict % ContainsKey("inertia") ) then
+            error stop "[Error] FSIPitch: inertia must be defined"
+         else
+            this% FSIPitch_inertia = bcdict % realValueForKey("inertia")
+         end if
+      
+         ! CofR (vector)
+         if ( .not. bcdict % ContainsKey("cofr") ) then
+            this% FSIPitch_CofR = [0._RP, 0._RP, 0._RP]
+         else
+            keyval = bcdict % stringValueForKey("cofr",requestedLength = LINE_LENGTH)
+            this% FSIPitch_CofR = getRealArrayFromString(keyval)
+         end if
+      
+         ! FSILengthScale
+         if ( .not. bcdict % ContainsKey("fsilengthscale") ) then
+            this% FSILengthScale_dimM = 1.0_RP
+         else
+            this% FSILengthScale_dimM = bcdict % realValueForKey("fsilengthscale")
+         end if
+      
+         ! FSIRho
+         if ( .not. bcdict % ContainsKey("fsirho") ) then
+            this% FSIRho_dimKgM3 = 1.0_RP
+         else
+            this% FSIRho_dimKgM3 = bcdict % realValueForKey("fsirho")
+         end if
+      
+         ! FSIUinlet
+         if ( .not. bcdict % ContainsKey("fsiuinlet") ) then
+            this% FSIUinlet_dimMS = 1.0_RP
+         else
+            this% FSIUinlet_dimMS = bcdict % realValueForKey("fsiuinlet")
+         end if
+      
       end if
 
       call bcdict % Destruct
@@ -1584,6 +1701,27 @@ module TessellationTypes
 
    end function STL_ComputeVectorIntegral
 
+   function STL_ComputeMomentIntegral(this, CofR) result(Moment)
+      implicit none
+      class(STLfile), intent(inout) :: this
+      real(kind=RP), intent(in)     :: CofR(NDIM)
+      real(kind=RP)                 :: Moment(NDIM)
+      real(kind=RP) :: VectorVar(NDIM, NumOfIntegrationVertices)
+      real(kind=RP) :: r(3), F(3)
+      integer :: i, j
+   
+      Moment = 0.0_RP
+   
+      do i = 1, this % NumOfObjs
+         associate( obj => this% ObjectsList(i) )
+            do j = 1, NumOfIntegrationVertices
+               VectorVar(:,j) = obj% IntegrationVertices(j)% VectorValue
+            end do
+            Moment = Moment + TriangleMomentIntegral(obj, VectorVar, CofR)
+         end associate
+      end do
+   end function STL_ComputeMomentIntegral   
+
    function TriangleScalarIntegral( obj, ScalarVar ) result( Val )
       use MappedGeometryClass
       implicit none 
@@ -1632,6 +1770,44 @@ module TessellationTypes
       !                      8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfIntegrationVertices-1)) )
 
    end function TriangleVectorIntegral
+
+   function TriangleMomentIntegral(obj, VectorVar, CofR) result(Moment)
+      use MappedGeometryClass
+      implicit none 
+   
+      type(object_type), intent(in) :: obj
+      real(kind=RP),     intent(in) :: VectorVar(NDIM, NumOfIntegrationVertices)
+      real(kind=RP),     intent(in) :: CofR(NDIM)
+      real(kind=RP)                 :: Moment(NDIM)
+   
+      ! local
+      real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM)
+      real(kind=RP) :: A
+      real(kind=RP) :: normal(NDIM)
+      real(kind=RP) :: r_centroid(NDIM)
+      real(kind=RP) :: F_avg(NDIM)
+      real(kind=RP) :: r_rel(NDIM)
+      real(kind=RP) :: temp(NDIM)
+   
+      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
+      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
+   
+      call vcross(AB, AC, S)
+      A = 0.5_RP * norm2(S)
+   
+      r_centroid = ( obj% IntegrationVertices(1)% coords + &
+                     obj% IntegrationVertices(2)% coords + &
+                     obj% IntegrationVertices(3)% coords ) / 3.0_RP
+   
+      F_avg = ( VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3) ) / 3.0_RP
+   
+      r_rel = r_centroid - CofR
+   
+      call vcross(r_rel, F_avg, temp)
+      Moment = A * temp
+   
+   end function TriangleMomentIntegral
+   
 
    subroutine STL_ResetIntegrationPoints( this )
    
@@ -2117,7 +2293,6 @@ module TessellationTypes
       end if
    end subroutine STL_FSIStructuralInitialization
   
-
    subroutine STL_FSIStructuralMechanicsSolver( this, time, dt )
       implicit none
       class(STLfile), intent(inout)   :: this
@@ -2285,4 +2460,198 @@ module TessellationTypes
       end do
    end subroutine STL_FSIWriteOutputHeader  
 
+   ! -----------------------------------------------------------------------
+   !  Initialize FSI Rigid-Body Pitching Motion Variables
+   ! -----------------------------------------------------------------------
+   subroutine STL_FSIPitchInitialization(this)
+      implicit none
+      class(STLfile), intent(inout) :: this
+
+      ! ! --- Default initialization ---
+      ! this% FSIPitch_omegaO = 0.0_RP
+      ! this% FSIPitch_thetaO = 0.0_RP
+      if( MPI_Process% isRoot ) then
+         print *, "FSIPitchSolver: Initialization thetaO=",this% FSIPitch_thetaO,", omegaO=",this% FSIPitch_omegaO
+      end if
+      
+   end subroutine STL_FSIPitchInitialization
+
+   subroutine STL_FSIPitchGetMoment(this)    
+      use MPI_Process_Info
+      implicit none
+      class(STLfile), intent(inout) :: this
+      ! local variables
+      real(kind=RP) :: Moment_nonDim(NDIM)
+      real(kind=RP) :: localval(NDIM)
+      real(kind=RP) :: CofR(NDIM)
+      integer :: ierr
+   
+      CofR = this% FSIPitch_CofR
+   
+      Moment_nonDim = this% ComputeMomentIntegral(CofR)
+   
+   #ifdef _HAS_MPI_
+      localval = Moment_nonDim
+      call mpi_allreduce(localval, Moment_nonDim, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+   #endif
+
+      ! store scalar moment about pitch axis (z axis -> 3rd component)
+      this% FSIPitch_Moment_dimNM = Moment_nonDim(3) & 
+         *  this % FSIRho_dimKgM3 &
+         * (this % FSIUinlet_dimMS ** 2) &
+         * (this % FSILengthScale_dimM ** 3)
+   
+   end subroutine STL_FSIPitchGetMoment
+
+   subroutine STL_FSIPitchMechanicsSolver(this, time, dt)
+      implicit none
+      class(STLfile), intent(inout) :: this
+      real(kind=RP), intent(in) :: time, dt
+      !-local-variables--------------------------------------------------
+      real(kind=RP) :: alpha, beta
+      real(kind=RP) :: C1, C2
+      real(kind=RP) :: thetaN, omegaN
+      real(kind=RP) :: moment
+      real(kind=RP) :: stiffnessTheta, dampingTheta, inertia
+      real(kind=RP) :: expTerm, cosTerm, sinTerm
+   
+      ! if( MPI_Process% isRoot) print *,'Running FSIStructuralMechanicsSolver: Time = ', time 
+      this% FSITime = time
+   
+      call this % FSIPitchGetMoment()
+      moment = this% FSIPitch_Moment_dimNM      
+   
+      inertia        = this% FSIPitch_inertia
+      dampingTheta   = this% FSIPitch_damping
+      stiffnessTheta = this% FSIPitch_stiffness
+   
+      alpha = -dampingTheta / (2.0_RP * inertia)
+      beta  = sqrt(4.0_RP * stiffnessTheta * inertia - dampingTheta**2) / (2.0_RP * inertia)
+   
+      C1 = this% FSIPitch_thetaO - moment / stiffnessTheta
+      C2 = (this% FSIPitch_omegaO - alpha * C1) / beta
+   
+      expTerm = exp(alpha * dt)
+      cosTerm = cos(beta * dt)
+      sinTerm = sin(beta * dt)
+   
+      thetaN = expTerm * (C1 * cosTerm + C2 * sinTerm) + moment / stiffnessTheta
+      omegaN = expTerm * ((C1 * alpha + C2 * beta) * cosTerm + (C2 * alpha - C1 * beta) * sinTerm)
+   
+      this% FSIPitch_thetaO = thetaN
+      this% FSIPitch_omegaO = omegaN
+   
+   end subroutine STL_FSIPitchMechanicsSolver
+
+   subroutine STL_FSIPitchUpdatePosition(this, pointVertex)
+      implicit none
+      class(STLfile), intent(inout)  :: this
+      type(point_type), intent(inout) :: pointVertex
+      !-local-variables--------------------------------------------------
+      real(kind=RP) :: theta, cosT, sinT
+      real(kind=RP) :: center(NDIM)
+      real(kind=RP) :: r_rel(NDIM)
+      real(kind=RP) :: x_new(NDIM)
+   
+      theta  = this % FSIPitch_thetaO
+      center = this % FSIPitch_CofR
+   
+      r_rel = pointVertex % FSIcoords_stl0 - center
+
+      cosT = cos(theta)
+      sinT = sin(theta)
+   
+      x_new(1) =  cosT * r_rel(1) - sinT * r_rel(2)
+      x_new(2) =  sinT * r_rel(1) + cosT * r_rel(2)
+      x_new(3) =  r_rel(3)
+   
+      pointVertex % coords = center + x_new
+   
+   end subroutine STL_FSIPitchUpdatePosition
+   
+   subroutine STL_FSIPitchGetIBMSource(this, Q, x, Qsb)
+      use VariableConversion
+      implicit none
+      class(STLfile), intent(inout) :: this
+      real(kind=RP),  intent(in)    :: Q(NCONS)
+      real(kind=RP),  intent(in)    :: x(NDIM)
+      real(kind=RP),  intent(inout) :: Qsb(NCONS)
+      !-local-variables--------------------------------------------------
+      real(kind=RP) :: P
+      real(kind=RP) :: V(NDIM)                ! nondimensional velocity
+      real(kind=RP) :: omega_dim              ! dimensional angular velocity (rad/s)
+      real(kind=RP) :: r_rel(NDIM)            ! nondimensional
+      real(kind=RP) :: CofR(NDIM)             ! nondimensional
+      real(kind=RP) :: factor
+
+      ! Dimensional angular velocity
+      omega_dim = this % FSIPitch_omegaO
+   
+      ! Nondimensional rotation center and point coordinates
+      CofR = this % FSIPitch_CofR
+      r_rel = x - CofR
+   
+      ! Convert to nondimensional velocity: V = (Lref/Uref) * (ω × r)
+      factor = this % FSILengthScale_dimM / this % FSIUinlet_dimMS
+   
+      !  pitching rotation about Z-axis (0,0,1)
+      V(1) = -factor * omega_dim * r_rel(2)
+      V(2) =  factor * omega_dim * r_rel(1)
+      V(3) =  0.0_RP
+   
+#if defined(NAVIERSTOKES)
+      associate(gammaMinus1 => thermodynamics%gammaMinus1)
+      ! Build the immersed boundary source term Qsb
+      P                = pressure(Q)
+      Qsb(IRHO)        = Q(IRHO)
+      Qsb(IRHOU:IRHOW) = Q(IRHO) * V
+      Qsb(IRHOE)       = P/gammaMinus1 + 0.5_RP * Q(IRHO) * sum(V*V)
+   
+      end associate
+#endif
+   
+   end subroutine STL_FSIPitchGetIBMSource   
+
+   subroutine STL_FSIPitchMonitorWrite(this, iter, time)
+      implicit none
+      class(STLfile), intent(inout) :: this
+      integer,        intent(in)    :: iter
+      real(kind=RP),  intent(in)    :: time
+   
+      integer :: unit
+      character(len=100) :: filename
+      logical :: header_written 
+      
+      filename = "FSI/Output_FSIPitchResults.dat"
+      inquire(file=filename, exist=header_written)
+      if (.not. header_written) then
+         open(newunit=unit, file=filename, status='replace', action='write')
+         call this% FSIPitchWriteOutputHeader(unit, 'Pitch motion: theta (rad), omega (rad/s), moment (N*m)')
+      end if
+      
+      open(newunit=unit, file=filename, status='old', position='append', action='write')
+      write(unit, '(I10,2X,ES24.16,2X,ES24.16,2X,ES24.16,2X,ES24.16)') &
+            iter, time, this% FSIPitch_thetaO, this% FSIPitch_omegaO, this% FSIPitch_Moment_dimNM
+      close(unit)
+   
+   end subroutine STL_FSIPitchMonitorWrite
+   
+   subroutine STL_FSIPitchWriteOutputHeader(this, unit, varName)
+      implicit none
+      class(STLfile),   intent(in) :: this
+      integer,          intent(in) :: unit
+      character(len=*), intent(in) :: varName
+   
+      write(unit, *) "Rigid-body Pitching Motion Output"
+      write(unit,'(A,A20,F10.6,A2)') "-","FSILengthScale: ", this% FSILengthScale_dimM, "m"
+      write(unit,'(A,A20,F10.6,A7)') "-","FSIRho: ", this% FSIRho_dimKgM3, "kg/m^3"
+      write(unit,'(A,A20,F10.6,A4)') "-","FSIUinlet: ", this% FSIUinlet_dimMS, "m/s"
+      write(unit,'(A,A20,F10.6)')    "-","Inertia:", this% FSIPitch_inertia
+      write(unit,'(A,A20,F10.6)')    "-","Stiffness: ", this% FSIPitch_stiffness
+      write(unit,'(A,A20,F10.6)')    "-","Damping: ", this% FSIPitch_damping
+      write(unit, '(A,A)') "-","Variable Type: "//trim(varName)
+      write(unit, *)
+      write(unit,'(A)') "Iteration    Time(s)                 Theta(rad)                 Omega(rad/s)              Moment(N*m)"
+   end subroutine STL_FSIPitchWriteOutputHeader
+   
 end module TessellationTypes

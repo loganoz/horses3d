@@ -25,6 +25,7 @@ module SurfaceMonitorClass
       logical                         :: isDimensionless, IBM = .false.
       integer                         :: ID
       real(kind=RP)                   :: direction(NDIM)
+      real(kind=RP)                   :: CofR(NDIM)
       integer                         :: marker
       real(kind=RP), allocatable      :: referenceSurface
       real(kind=RP), allocatable      :: values(:)
@@ -80,6 +81,7 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: fileName
          character(len=STR_LEN_MONITORS)  :: paramFile
          character(len=STR_LEN_MONITORS)  :: directionName
+         character(len=STR_LEN_MONITORS)  :: CofRName
          integer, allocatable             :: marker
          character(len=STR_LEN_MONITORS)  :: markerName
          integer                          :: pos, i, STLNum
@@ -100,7 +102,8 @@ module SurfaceMonitorClass
          call readValueInRegion ( trim ( paramFile )  , "marker"            , markerName              , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "variable"          , self % variable         , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "reference surface" , self % referenceSurface , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "direction"         , directionName        , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "direction"         , directionName           , in_label , "# end" )
+         call readValueInRegion ( trim ( paramFile )  , "cofr"              , CofRName                , in_label , "# end" )
 !
 !        Enable the monitor
 !        ------------------
@@ -257,6 +260,41 @@ module SurfaceMonitorClass
 
                self % dynamicPressure = 0.5_RP * refValues % rho * refValues % V * refValues % V * self % referenceSurface
 
+            case ("moment")
+               self % isDimensionless = .true.
+            
+               if ( .not. allocated ( self % referenceSurface ) ) then
+                  print*, "Reference surface not specified for moment surface monitor ", self % ID , "."
+                  error stop "error stopped"
+               end if
+            
+               if ( len_trim(directionName) .eq. 0 ) then
+                  print*, "Direction not specified for moment in surface monitor ", self % ID , "."
+                  print*, "    ... Using [0,0,1] as default."
+                  self % direction = [0._RP, 0._RP, 1._RP]
+               else
+                  directionValue = getRealArrayFromString(directionName)
+                  if ( size(directionValue) .ne. 3 ) then
+                     print*, "Incorrect direction for monitor ", self % ID, "."
+                  else
+                     self % direction = directionValue
+                  end if
+               end if
+            
+               if ( len_trim(CofRName) .eq. 0 ) then
+                  print*, "CofR not specified for moment surface monitor ", self % ID , "."
+                  print*, "    ... Using [0,0,0] as default."
+                  self % CofR = [0._RP, 0._RP, 0._RP]
+               else
+                  self % CofR = getRealArrayFromString(CofRName)
+                  if ( size(self % CofR) .ne. 3 ) then
+                     print*, "Incorrect CofR specification for monitor ", self % ID, "."
+                     error stop "error stopped"
+                  end if
+               end if
+               
+               self % dynamicPressure = 0.5_RP * refValues % rho * refValues % V * refValues % V * self % referenceSurface * Lref
+
             case ("pressure-average")
                self % isDimensionless = .false.
 
@@ -274,6 +312,7 @@ module SurfaceMonitorClass
                   print*, "   * force"
                   print*, "   * lift"
                   print*, "   * drag"
+                  print*, "   * moment"
                   print*, "   * pressure-average"
                   error stop "error stopped."
 
@@ -412,12 +451,26 @@ module SurfaceMonitorClass
             else
                if( self% IBM ) then 
                   STLNum = self% marker
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
+                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, PRESSURE_FORCE, iter, autosave )
                   F = IBMVectorIntegral( mesh% IBM, STLNum ) 
                else
                   F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
                end if 
             end if
+            F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
+            self % values(bufferPosition) = dot_product(F, self % direction)
+
+         case ("moment")
+            if( self% IBM ) then 
+               STLNum = self% marker
+               call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
+               F = IBMMomentIntegral( mesh% IBM, STLNum, self % CofR )
+            else
+               ! wait to be completed
+               ! F = VectorSurfaceMomentIntegral(mesh, self % marker, TOTAL_FORCE, self % CofR, iter)
+               F = 0
+            end if 
+            ! Cm = M / (0.5 * ρ * V^2 * S * Lref)
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 

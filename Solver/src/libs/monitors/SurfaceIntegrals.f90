@@ -17,7 +17,7 @@ module SurfaceIntegrals
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW_RATE, PRESSURE_DISTRIBUTION
    public   ScalarSurfaceIntegral, VectorSurfaceIntegral
-   public   ScalarDataReconstruction, VectorDataReconstruction, IBMSurfaceIntegral, IBMVectorIntegral
+   public   ScalarDataReconstruction, VectorDataReconstruction, IBMSurfaceIntegral, IBMVectorIntegral, IBMMomentIntegral
 
    integer, parameter   :: SURFACE = 1
    integer, parameter   :: TOTAL_FORCE = 2
@@ -320,6 +320,41 @@ module SurfaceIntegrals
 
       end function VectorSurfaceIntegral
 
+      ! function VectorSurfaceMomentIntegral(mesh, zoneID, integralType, CofR, iter) result(Moment)
+      !    use mpi
+      !    implicit none
+      !    class(HexMesh), intent(inout), target :: mesh
+      !    integer, intent(in)                   :: zoneID
+      !    integer, intent(in)                   :: integralType, iter
+      !    real(kind=RP), intent(in)             :: CofR(NDIM)
+      !    real(kind=RP)                         :: Moment(NDIM)
+      !    real(kind=RP)                         :: localM(NDIM), r(3), F(3), moment_f(3)
+      !    integer                               :: fID, zonefID, ierr
+      
+      !    Moment = 0.0_RP
+      
+      ! !$omp parallel private(fID,localM,r,F,moment) reduction(+:Moment)
+      !    do zonefID = 1, mesh % zones(zoneID) % no_of_faces
+      !       fID = mesh % zones(zoneID) % faces(zonefID)
+      
+      !       F = VectorSurfaceIntegral_Face(mesh % faces(fID), integralType)
+      
+      !       r = mesh % faces(fID) % centroid - CofR
+      
+      !       moment_f(1) = r(2)*F(3) - r(3)*F(2)
+      !       moment_f(2) = r(3)*F(1) - r(1)*F(3)
+      !       moment_f(3) = r(1)*F(2) - r(2)*F(1)
+      
+      !       Moment = Moment + moment_fyy
+      !    end do
+      ! !$omp end parallel
+      
+      ! #ifdef _HAS_MPI_
+      !    localM = Moment
+      !    call mpi_allreduce(localM, Moment, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+      ! #endif
+      ! end function VectorSurfaceMomentIntegral      
+
       function VectorSurfaceIntegral_Face(f, integralType) result(val)
          implicit none
          class(Face),                 intent(in)     :: f
@@ -580,7 +615,7 @@ module SurfaceIntegrals
       
       IBM% Integral(STLNum)% ListComputed = .true.
 
-      if( autosave ) call GenerateVectormonitorTECfile( IBM, STLNum, integralType, iter )
+      ! if( autosave ) call GenerateVectormonitorTECfile( IBM, STLNum, integralType, iter )
 
    end subroutine VectorDataReconstruction
 
@@ -606,6 +641,26 @@ module SurfaceIntegrals
       IBMVectorIntegral = F 
 
    end function IBMVectorIntegral
+
+   function IBMMomentIntegral(IBM, STLNum, CofR) result(Moment)
+      use IBMClass
+      use MPI_Process_Info
+      implicit none
+   
+      type(IBM_type), intent(inout) :: IBM
+      integer, intent(in)           :: STLNum
+      real(kind=RP), intent(in)     :: CofR(NDIM)
+      real(kind=RP)                 :: Moment(NDIM)
+      real(kind=RP)                 :: localval(NDIM)
+      integer                       :: ierr
+   
+      Moment = IBM % stl(STLNum) % ComputeMomentIntegral(CofR)
+   
+   #ifdef _HAS_MPI_
+      localval = Moment
+      call mpi_allreduce(localval, Moment, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+   #endif
+   end function IBMMomentIntegral   
 
 
    subroutine GetSurfaceState( IBM, IntegrationVertex, STLNum )
