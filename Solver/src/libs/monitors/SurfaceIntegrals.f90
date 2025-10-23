@@ -498,6 +498,8 @@ module SurfaceIntegrals
       call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% stl(STLNum) )
 
       if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
+      if( IBM% stl(STLNum)% FSImove ) IBM% Integral(STLNum)% ListComputed = .false.
+      if( IBM% stl(STLNum)% FSIPitchmove ) IBM% Integral(STLNum)% ListComputed = .false.
 
       do i = 1, IBM% stl(STLNum)% NumOfObjs
          associate(obj => IBM% stl(STLNum)% ObjectsList(i))
@@ -590,6 +592,8 @@ module SurfaceIntegrals
       call BandPointsState( IBM% BandRegion(STLNum), elements, NCONS, IBM% HO_IBM, IBM% zoneMask(STLNum), IBM% STL(STLNum) ) 
 
       if( IBM% stl(STLNum)% move ) IBM% Integral(STLNum)% ListComputed = .false.
+      if( IBM% stl(STLNum)% FSImove ) IBM% Integral(STLNum)% ListComputed = .false.
+      if( IBM% stl(STLNum)% FSIPitchmove ) IBM% Integral(STLNum)% ListComputed = .false.
       
       do i = 1, IBM% stl(STLNum)% NumOfObjs
          associate( obj =>  IBM% stl(STLNum)% ObjectsList(i) )
