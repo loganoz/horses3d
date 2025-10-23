@@ -394,8 +394,8 @@ module MeshPartitioning
          integer, intent(in)    			:: no_of_elements
          integer, intent(inout) 			:: elementsDomain(no_of_elements)
          logical, intent(in)    			:: useWeights
-	     integer, intent(in)                :: eID_Order(:)
-	     integer, intent(in)                :: nElementLevel(:)
+         integer, intent(in)                :: eID_Order(:)
+         integer, intent(in)                :: nElementLevel(:)
          !-local-variables--------------------------------------------
          integer :: elems_per_domain(no_of_domains)
          integer :: biggerdomains
@@ -404,83 +404,81 @@ module MeshPartitioning
          integer :: dof_per_domain(no_of_domains), start_index(no_of_domains+1)
          logical                :: needWeights =.false.
          integer, allocatable, target   :: weights(:)
-		 integer :: nLevel, i
-		 integer, allocatable :: bufferDomain(:)
+         integer :: nLevel, i
+         integer, allocatable :: bufferDomain(:)
          !------------------------------------------------------------
-	     nLevel = size(nElementLevel)
+         nLevel = size(nElementLevel)
          if (useWeights) then
-             allocate(weights(no_of_elements))
-             do ielem=1,no_of_elements
-                 weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
-             end do
-             if (maxval(weights) .eq. minval(weights)) then
-                 needWeights = .false.
-                 deallocate(weights)
-			 elseif (nLevel.gt.1) then
-				 needWeights = .false.
-                 deallocate(weights)
-             else
-                 needWeights = .true.
-                 ndof = sum(weights)
-             endif
+            allocate(weights(no_of_elements))
+            do ielem=1,no_of_elements
+               weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
+            end do
+            if (maxval(weights) .eq. minval(weights)) then
+               needWeights = .false.
+               deallocate(weights)
+            elseif (nLevel.gt.1) then
+               needWeights = .false.
+               deallocate(weights)
+            else
+               needWeights = .true.
+               ndof = sum(weights)
+            endif
          end if 
-		 first = 1
-		 do i=1,nLevel
-		    elems_per_domain = 0
-			elems_per_domain = nElementLevel(i) / no_of_domains
-			biggerdomains = mod(nElementLevel(i),no_of_domains)
-			elems_per_domain(1:biggerdomains) = elems_per_domain(1:biggerdomains) + 1
-        
-			do domain = 1, no_of_domains
-				last = first + elems_per_domain(domain) - 1
-				elementsDomain(first:last) = domain
-				first = last + 1
-			end do
-		 end do 
-		 if (nLevel.gt.1) then
-			allocate(bufferDomain(mesh % no_of_elements))
-			bufferDomain = elementsDomain
-			do i=1, mesh % no_of_elements
-				elementsDomain(eID_Order(i)) = bufferDomain(i)
-			end do 
-			deallocate(bufferDomain)
-		 end if 
+         first = 1
+         do i=1,nLevel
+            elems_per_domain = 0
+            elems_per_domain = nElementLevel(i) / no_of_domains
+            biggerdomains = mod(nElementLevel(i),no_of_domains)
+            elems_per_domain(1:biggerdomains) = elems_per_domain(1:biggerdomains) + 1
+            
+            do domain = 1, no_of_domains
+               last = first + elems_per_domain(domain) - 1
+               elementsDomain(first:last) = domain
+               first = last + 1
+            end do
+         end do 
+         if (nLevel.gt.1) then
+            allocate(bufferDomain(mesh % no_of_elements))
+            bufferDomain = elementsDomain
+            do i=1, mesh % no_of_elements
+               elementsDomain(eID_Order(i)) = bufferDomain(i)
+            end do 
+            deallocate(bufferDomain)
+         end if 
          if (needWeights) then
+            max_dof = ndof / no_of_domains
+            start_index = 1
+            do domain = 1, no_of_domains
+               start_index(domain+1) = start_index(domain) + elems_per_domain(domain)
+            end do
 
-             max_dof = ndof / no_of_domains
-             start_index = 1
-             do domain = 1, no_of_domains
-                 start_index(domain+1) = start_index(domain) + elems_per_domain(domain)
-             end do
+            do domain = 1, no_of_domains-1
+               if (start_index(domain) .ge. start_index(domain+1)) start_index(domain+1) = start_index(domain) + 1
+               dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
+               do ielem=1,no_of_elements
+                  if (dof_in_domain .lt. max_dof) then
+                     start_index(domain+1) = start_index(domain+1) + 1
+                     dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
+                     if (abs(dof_in_domain-max_dof) .le. abs(dof_in_domain-max_dof+weights(start_index(domain+1)+1))) exit
+                  else
+                     start_index(domain+1) = start_index(domain+1) - 1
+                     dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
+                     if (abs(dof_in_domain-max_dof) .le. abs(dof_in_domain-max_dof-weights(start_index(domain+1)-1))) exit
+                  end if
+               end do
+            end do
 
-             do domain = 1, no_of_domains-1
-                 if (start_index(domain) .ge. start_index(domain+1)) start_index(domain+1) = start_index(domain) + 1
-                 dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
-                 do ielem=1,no_of_elements
-                     if (dof_in_domain .lt. max_dof) then
-                         start_index(domain+1) = start_index(domain+1) + 1
-                         dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
-                         if (abs(dof_in_domain-max_dof) .le. abs(dof_in_domain-max_dof+weights(start_index(domain+1)+1))) exit
-                     else
-                         start_index(domain+1) = start_index(domain+1) - 1
-                         dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
-                         if (abs(dof_in_domain-max_dof) .le. abs(dof_in_domain-max_dof-weights(start_index(domain+1)-1))) exit
-                     end if
-                 end do
-             end do
+            dof_per_domain = 0
+            do domain = 1, no_of_domains
+               dof_per_domain(domain) = sum(weights(start_index(domain):start_index(domain+1)-1))
+            end do
 
-             dof_per_domain = 0
-             do domain = 1, no_of_domains
-                 dof_per_domain(domain) = sum(weights(start_index(domain):start_index(domain+1)-1))
-             end do
-
-             do domain = 1, no_of_domains
-                elementsDomain(start_index(domain):start_index(domain+1)-1) = domain
-             end do
-
+            do domain = 1, no_of_domains
+               elementsDomain(start_index(domain):start_index(domain+1)-1) = domain
+            end do
          end if
          
-		 if (allocated(weights)) deallocate(weights)
+         if (allocated(weights)) deallocate(weights)
       end subroutine GetSFCElementsPartition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
