@@ -10,11 +10,12 @@ module MeshPartitioning
    public   PerformMeshPartitioning
 
    contains
-      subroutine PerformMeshPartitioning(mesh, no_of_domains, partitions, useWeights, controlVariables, &
+      subroutine PerformMeshPartitioning(mesh, no_of_elements, no_of_domains, partitions, useWeights, controlVariables, &
 						eID_Order, nElementLevel)
          use FTValueDictionaryClass
          implicit none
          type(HexMesh), intent(in)  		:: mesh
+         integer,       intent(in)  		:: no_of_elements
          integer,       intent(in)  		:: no_of_domains
          type(PartitionedMesh_t)    		:: partitions(no_of_domains)
          logical,       intent(in)  		:: useWeights
@@ -27,7 +28,7 @@ module MeshPartitioning
 !        ---------------
 !
          integer               :: fID, domain
-         integer               :: elementsDomain(mesh % no_of_elements)
+         integer               :: elementsDomain(no_of_elements)
 !
 !        Initialize partitions
 !        ---------------------
@@ -38,10 +39,10 @@ module MeshPartitioning
 !        Get each domain elements and nodes
 !        ----------------------------------
          if (present(eID_Order)) then
-			call GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights, controlVariables, &
+			call GetElementsDomain(mesh, no_of_elements, no_of_domains, elementsDomain, partitions, useWeights, controlVariables, &
 									eID_Order=eID_Order, nElementLevel=nElementLevel)
 		 else 
-			call GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights, controlVariables)
+			call GetElementsDomain(mesh, no_of_elements, no_of_domains, elementsDomain, partitions, useWeights, controlVariables)
 		 end if 
 !
 !        Get the partition boundary faces
@@ -54,13 +55,14 @@ module MeshPartitioning
          call WritePartitionsFile(mesh, elementsDomain)
       end subroutine PerformMeshPartitioning
 
-      subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions, useWeights, controlVariables, &
+      subroutine GetElementsDomain(mesh, no_of_elements, no_of_domains, elementsDomain, partitions, useWeights, controlVariables, &
 								   eID_Order, nElementLevel)
          use IntegerDataLinkedList
          use MPI_Process_Info
          use FTValueDictionaryClass
          implicit none
          type(HexMesh), intent(in)              :: mesh
+         integer,       intent(in)  		      :: no_of_elements
          integer,       intent(in)              :: no_of_domains
          integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
          type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)      
@@ -89,32 +91,32 @@ module MeshPartitioning
 !           Space-filling curve partitioning
 !           --------------------------------
             case (SFC_PARTITIONING)
-			   if (present(eID_Order)) then
-				  call GetSFCElementsPartition(mesh, no_of_domains, mesh % no_of_elements, elementsDomain, useWeights=useWeights, &
-											 eID_Order=eID_Order, nElementLevel=nElementLevel)
-			   else
-			      allocate(eID(mesh % no_of_elements))
-				  eID = [(i, i=1, mesh % no_of_elements)]
-			      nEleLevel = mesh % no_of_elements
-				  call GetSFCElementsPartition(mesh, no_of_domains, mesh % no_of_elements, elementsDomain, useWeights=useWeights, &
-											  eID_Order=eID, nElementLevel=nEleLevel)
-				  deallocate(eID)
+               if (present(eID_Order)) then
+                  call GetSFCElementsPartition(mesh, no_of_domains, no_of_elements, elementsDomain, useWeights=useWeights, &
+                                               eID_Order=eID_Order, nElementLevel=nElementLevel)
+               else
+                  allocate(eID(no_of_elements))
+                  eID = [(i, i=1, no_of_elements)]
+                  nEleLevel = no_of_elements
+                  call GetSFCElementsPartition(mesh, no_of_domains, no_of_elements, elementsDomain, useWeights=useWeights, &
+                                               eID_Order=eID, nElementLevel=nEleLevel)
+                  deallocate(eID)
 			   end if 
 !     
 !           METIS partitioning
 !           ------------------
             case (METIS_PARTITIONING)
-			   if (present(eID_Order)) then
-				  call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables, &
-												 size(nElementLevel), eID_Order, nElementLevel)
-			   else
-			      allocate(eID(mesh % no_of_elements))
-				  eID = [(i, i=1, mesh % no_of_elements)]
-			      nEleLevel = mesh % no_of_elements
-				  call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables, &
-												1, eID, nEleLevel)
-			      deallocate(eID)
-			   end if 
+               if (present(eID_Order)) then
+                  call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables, &
+                                                 size(nElementLevel), eID_Order, nElementLevel)
+               else
+                  allocate(eID(no_of_elements))
+                  eID = [(i, i=1, no_of_elements)]
+                  nEleLevel = no_of_elements
+               call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain, useWeights, controlVariables, &
+                                              1, eID, nEleLevel)
+                  deallocate(eID)
+               end if 
          end select
 !
 !        ****************************************
@@ -384,13 +386,13 @@ module MeshPartitioning
 !     --------------------------------
 !     Space-filling curve partitioning
 !     --------------------------------
-      subroutine GetSFCElementsPartition(mesh, no_of_domains, nelem, elementsDomain, useWeights, eID_Order, nElementLevel)
+      subroutine GetSFCElementsPartition(mesh, no_of_domains, no_of_elements, elementsDomain, useWeights, eID_Order, nElementLevel)
          implicit none
          !-arguments--------------------------------------------------
          type(HexMesh), intent(in)        	:: mesh
          integer, intent(in)    			:: no_of_domains
-         integer, intent(in)    			:: nelem
-         integer, intent(inout) 			:: elementsDomain(nelem)
+         integer, intent(in)    			:: no_of_elements
+         integer, intent(inout) 			:: elementsDomain(no_of_elements)
          logical, intent(in)    			:: useWeights
 	     integer, intent(in)                :: eID_Order(:)
 	     integer, intent(in)                :: nElementLevel(:)
@@ -407,8 +409,8 @@ module MeshPartitioning
          !------------------------------------------------------------
 	     nLevel = size(nElementLevel)
          if (useWeights) then
-             allocate(weights(nelem))
-             do ielem=1,nelem
+             allocate(weights(no_of_elements))
+             do ielem=1,no_of_elements
                  weights(ielem) = product(mesh % elements(ielem) % Nxyz + 1)
              end do
              if (maxval(weights) .eq. minval(weights)) then
@@ -454,7 +456,7 @@ module MeshPartitioning
              do domain = 1, no_of_domains-1
                  if (start_index(domain) .ge. start_index(domain+1)) start_index(domain+1) = start_index(domain) + 1
                  dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
-                 do ielem=1,nelem
+                 do ielem=1,no_of_elements
                      if (dof_in_domain .lt. max_dof) then
                          start_index(domain+1) = start_index(domain+1) + 1
                          dof_in_domain = sum(weights(start_index(domain):start_index(domain+1)))
