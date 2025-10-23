@@ -60,7 +60,7 @@ acoustic solution save  = .false.
 
 #define p-adaptation
    adaptation type       = RL
-   agent file            = policy_padaptation/p_adaptation_policy
+   agent file            = ../../RLPolicies/policy_padaptation/p_adaptation_policy
    tolerance             = 5d-3
    Nmax                  = [6, 6, 1]
    Nmin                  = [2, 2, 1]
