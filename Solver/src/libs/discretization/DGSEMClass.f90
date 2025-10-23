@@ -302,14 +302,15 @@ Module DGSEMClass
 !
 !               Perform the partitioning
 !               ------------------------
-				   call PerformMeshPartitioning  (self % mesh, self % mesh % no_of_elements, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, controlVariables)
+				   call PerformMeshPartitioning  (self % mesh, self % mesh % no_of_elements, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, &
+                                              Nx, Ny, Nz, controlVariables)
 !
 !               Send the partitions
 !               -------------------
                call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
             else
-               call PerformMeshPartitioning (self % mesh, self % mesh % no_of_elements, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, controlVariables, &
-											 eID_Order=eID_Order, nElementLevel=nElementLevel)
+               call PerformMeshPartitioning (self % mesh, self % mesh % no_of_elements, MPI_Process % nProcs, mpi_allPartitions, useWeightsPartition, &        
+                                             Nx, Ny, Nz, controlVariables, eID_Order=eID_Order, nElementLevel=nElementLevel)
 !
 !               Send the partitions
 !               -------------------
