@@ -40,7 +40,7 @@ explicit method       = RK3
 !-Adaptation-----------------------------------
 #define p-adaptation
    adaptation type       = RL
-   agent file            = ../../RLPolicies/policy_padaptation/p_adaptation_policy
+   agent file            = ../../rl_policies/policy_padaptation/p_adaptation_policy
    tolerance             = 1d-2
    Nmax                  = [6, 6, 2]
    Nmin                  = [1, 1, 1]

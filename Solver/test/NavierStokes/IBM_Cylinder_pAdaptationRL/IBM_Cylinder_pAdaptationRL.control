@@ -40,7 +40,7 @@ dcfl                  = 0.05d0
 !-Adaptation-----------------------------------
 #define p-adaptation
    adaptation type       = RL
-   agent file            = ../../RLPolicies/policy_padaptation/p_adaptation_policy
+   agent file            = ../../rl_policies/policy_padaptation/p_adaptation_policy
    tolerance             = 5d-3
    Nmax                  = [4, 4, 4]
    Nmin                  = [1, 1, 1]
