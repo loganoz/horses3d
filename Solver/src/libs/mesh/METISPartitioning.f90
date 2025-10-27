@@ -3,7 +3,7 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 !
 !     *********************************************************************
 !        This subroutine performs the mesh partitioning using METIS
-!        and then manual load balancing for MixedRK used in multiphase
+!        with two-phase partitioning for MixedRK multiphase simulations
 !     *********************************************************************
 !        
       use HexMeshClass
@@ -45,10 +45,6 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
       integer, allocatable, target   :: weights(:)
       logical                :: is_water              ! Flag for water elements
       integer                :: water_count, air_count ! Counters for water and air elements
-      integer, allocatable   :: domain_water_count(:), domain_air_count(:)
-      integer, allocatable   :: water_elems(:), air_elems(:)
-      integer                :: target_water, target_air, w_idx, a_idx
-      logical, allocatable   :: elem_moved(:)
       logical                :: do_water_air_count    ! Flag to control water/air counting
 	  integer, allocatable   :: elementsDomainLevel(:), nodesDomainLevel(:), mapToOld(:)
 	  integer, allocatable   :: refEleDomain(:), inputMLRKDomain(:,:)
@@ -222,46 +218,45 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 !     	-----------------
 		opts(5) = 0
 !
-!     	*******************************
-!     	Calculate weights based on NDOF
-!     	*******************************
+!     	************************************
+!     	Two-phase partitioning for MixedRK
+!     	************************************
 !
-		if (useWeights) then
-		  allocate(weights(ne))
-		  do ielem=1,ne
-			  ! Base weight from polynomial order
-			  weights(ielem) = product(mesh % elements(eID_Order(ielem+starteID-1)) % Nxyz + 1)
-			  
-			  ! Determine if this is a water element and apply weight factor only if needed
-			  if (do_water_air_count) then
-				  is_water = .false.
-				  if (associated(mesh % elements(eID_Order(ielem+starteID-1)) % storage)) then
-						  is_water = all(mesh % elements(eID_Order(ielem+starteID-1)) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP) 
-				  end if
-				  
-				  ! Apply 4.666x weight factor for water elements
-				  ! Not fully necessary because of the manual air-watter balancing done later in the function
-				  ! but this is to protect against edge cases
-				  if (is_water) then
-					  weights(ielem) = weights(ielem) * 4.6666
-				  end if
-			  end if
-		  end do
-
-		  if (maxval(weights) .ne. minval(weights)) then
-			  vwgt => weights
-		  endif
-		end if 
-!     	**********************
-!     	Perform the partitions
-!     	**********************
+		if (do_water_air_count .and. water_count > 0 .and. air_count > 0) then
 !
-		call METIS_PartMeshDual(ne, nn,  eptr, eind,  vwgt, vsize, ncommon, no_of_domains, tpwgt,  opts,  objval, elementsDomainLevel, nodesDomainLevel)
+!     		Separate air and water elements and distribute across all domains
+!     		This ensures every domain gets both air and water elements
+!     		----------------------------------------------------------------
+			call partition_air_water_separately(mesh, ne, starteID, eID_Order, no_of_domains, &
+												water_count, air_count, elementsDomainLevel)
+		else
+!
+!     		*******************************
+!     		Calculate weights based on NDOF
+!     		*******************************
+!
+			if (useWeights) then
+			  allocate(weights(ne))
+			  do ielem=1,ne
+				  ! Base weight from polynomial order
+				  weights(ielem) = product(mesh % elements(eID_Order(ielem+starteID-1)) % Nxyz + 1)
+			  end do
+			  if (maxval(weights) .ne. minval(weights)) then
+				  vwgt => weights
+			  endif
+			end if 
+!
+!     		Regular METIS partitioning for non-MixedRK cases
+!     		-------------------------------------------------
+			call METIS_PartMeshDual(ne, nn, eptr, eind, vwgt, vsize, ncommon, no_of_domains, tpwgt, opts, objval, elementsDomainLevel, nodesDomainLevel)
+		end if
 !
 !     	Recover FORTRAN displacements by adding 1
 !     	-----------------------------------------
 		elementsDomainLevel = elementsDomainLevel + 1
-		nodesDomainLevel    = nodesDomainLevel + 1
+		if (.not. (do_water_air_count .and. water_count > 0 .and. air_count > 0)) then
+			nodesDomainLevel = nodesDomainLevel + 1
+		end if
 !
 !     	Send information to inputMLRKDomain - relocate to true elementID
 !     	----------------------------------------------------------------
@@ -273,14 +268,15 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 !       Free memory
 !       -----------
 !
-		deallocate (nodesDomainLevel, elementsDomainLevel, mapToOld, eptr, eind, opts)
+		deallocate (elementsDomainLevel, mapToOld, eptr, eind, opts)
+		if (allocated(nodesDomainLevel)) deallocate(nodesDomainLevel)
 		if (associated(vwgt)) 	nullify(vwgt)       ! vwgt is a pointer to a target. nullify is enough
 		if (allocated(weights)) deallocate(weights)
 		if (allocated(tpwgt)) 	deallocate(tpwgt)
 		if (allocated(vsize)) 	deallocate(vsize)
 	 end do
 	 
-	 nodesDomain = 0 ! Not used 
+
 	 do i=1, mesh % no_of_elements
 		elementsDomain(i) = sum(inputMLRKDomain(i,:))
 	 end do 
@@ -290,132 +286,31 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
 	 if (nLevel.gt.1) then
 		call combine_partitions(mesh % no_of_elements, nLevel, no_of_domains, refEleDomain, inputMLRKDomain, elementsDomain)
 	 end if 
-!    ************************************
-!    Manual balancing of water and air. 
-!    The aim is to have equal number of air and water elements in each core.
-!    ************************************
-     if (do_water_air_count .and. water_count > 0 .and. air_count > 0) then
-          ! Allocate arrays for balancing
-          allocate(domain_water_count(no_of_domains), domain_air_count(no_of_domains))
-          allocate(water_elems(water_count), air_elems(air_count))
-          allocate(elem_moved(ne))
-          elem_moved = .false.
-          
-          ! Count water/air elements per domain and collect element lists
-          domain_water_count = 0
-          domain_air_count = 0
-          w_idx = 0
-          a_idx = 0
-          
-          do ielem = 1, ne
-              is_water = .false.
-              if (associated(mesh % elements(ielem) % storage)) then
-                  is_water = all(mesh % elements(ielem) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP)
-              end if
-              
-              if (is_water) then
-                  w_idx = w_idx + 1
-                  water_elems(w_idx) = ielem
-                  domain_water_count(elementsDomain(ielem)) = domain_water_count(elementsDomain(ielem)) + 1
-              else
-                  a_idx = a_idx + 1
-                  air_elems(a_idx) = ielem
-                  domain_air_count(elementsDomain(ielem)) = domain_air_count(elementsDomain(ielem)) + 1
-              end if
-          end do
-          
-          ! Calculate target counts per domain
-          target_water = water_count / no_of_domains
-          target_air = air_count / no_of_domains
-          
-          if (MPI_Process % isRoot) then
-              write(*,*) "Balancing water/air elements: target per domain =", target_water, target_air
-          end if
-          
-          ! Redistribute elements to achieve balance while minimizing changes
-          do domain_id = 1, no_of_domains
-              ! Move water elements if needed
-              do while (domain_water_count(domain_id) > target_water + 1)
-                  ! Find a domain that needs more water elements
-                  do j = 1, no_of_domains
-                      if (domain_water_count(j) < target_water) then
-                          ! Find an unmoved water element from this domain
-                          do i = 1, water_count
-                              if (elementsDomain(water_elems(i)) == domain_id .and. .not. elem_moved(water_elems(i))) then
-                                  elementsDomain(water_elems(i)) = j
-                                  domain_water_count(domain_id) = domain_water_count(domain_id) - 1
-                                  domain_water_count(j) = domain_water_count(j) + 1
-                                  elem_moved(water_elems(i)) = .true.
-                                  exit
-                              end if
-                          end do
-                          exit
-                      end if
-                  end do
-                  
-                  ! Break if we can't balance further
-                  if (all(domain_water_count >= target_water)) exit
-              end do
-              
-              ! Move air elements if needed
-              do while (domain_air_count(domain_id) > target_air + 1)
-                  ! Find a domain that needs more air elements
-                  do j = 1, no_of_domains
-                      if (domain_air_count(j) < target_air) then
-                          ! Find an unmoved air element from this domain
-                          do i = 1, air_count
-                              if (elementsDomain(air_elems(i)) == domain_id .and. .not. elem_moved(air_elems(i))) then
-                                  elementsDomain(air_elems(i)) = j
-                                  domain_air_count(domain_id) = domain_air_count(domain_id) - 1
-                                  domain_air_count(j) = domain_air_count(j) + 1
-                                  elem_moved(air_elems(i)) = .true.
-                                  exit
-                              end if
-                          end do
-                          exit
-                      end if
-                  end do
-                  
-                  ! Break if we can't balance further
-                  if (all(domain_air_count >= target_air)) exit
-              end do
-          end do
-          
-          ! Update node domains based on element assignments
-          nodesDomain = 1
-          do ielem = 1, ne
-              do i = 1, nvertex
-                  nodesDomain(mesh % elements(ielem) % nodeIDs(i)) = elementsDomain(ielem)
-              end do
-          end do
 !
-!         Free memory
-!         -----------
+!    Update node domains based on final element assignments
+!    ------------------------------------------------------
+     nodesDomain = 1
+     do ielem = 1, mesh % no_of_elements
+         do i = 1, nvertex
+             nodesDomain(mesh % elements(ielem) % nodeIDs(i)) = elementsDomain(ielem)
+         end do
+     end do
 !
-          deallocate(domain_water_count, domain_air_count)
-          deallocate(water_elems, air_elems)
-          deallocate(elem_moved)
-          
-          if (MPI_Process % isRoot) then
-              write(*,*) "Applied post-processing to balance water/air elements"
-          end if
-	  end if
-
 !     **********************
 !     Print domain statistics
 !     **********************
+!
 	  if (do_water_air_count .and. MPI_Process % isRoot) then
           do domain_id = 1, no_of_domains
               water_count = 0
               air_count = 0
-              do ielem = 1, ne
+              do ielem = 1, mesh % no_of_elements
                   if (elementsDomain(ielem) == domain_id) then
                       ! Determine if this is a water element
                       is_water = .false.
                       if (associated(mesh % elements(ielem) % storage)) then
-                            is_water = all(mesh % elements(ielem) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP)
+                          is_water = all(mesh % elements(ielem) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP)
                       end if
-                      
                       if (is_water) then
                           water_count = water_count + 1
                       else
@@ -423,20 +318,113 @@ subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesD
                       end if
                   end if
               end do
-              
-              write(*,'(A,I3,A,I5,A,I5,A,I5)') 'Domain ', domain_id, &
-                    ': Water elements = ', water_count, &
-                    ', Air elements = ', air_count, &
-                    ', Total = ', water_count + air_count
+              write(*,'(A,I3,A,I6,A,I6,A,I6)') 'Domain ', domain_id, ': Water elements = ', &
+                   water_count, ', Air elements = ', air_count, ', Total = ', water_count + air_count
           end do
-	  end if
-!
-!     ****
-!     Free
-!     ****
-!
-      if (allocated(weights)) deallocate(weights)
-	  if (allocated(inputMLRKDomain)) deallocate(inputMLRKDomain)
-	  if (allocated(refEleDomain)) deallocate(refEleDomain)
+      end if
+
+contains
+
+subroutine partition_air_water_separately(mesh, ne, starteID, eID_Order, no_of_domains, &
+                                         water_count, air_count, elementsDomainLevel)
+    implicit none
+    type(HexMesh), intent(in) :: mesh
+    integer, intent(in) :: ne, starteID, no_of_domains, water_count, air_count
+    integer, intent(in) :: eID_Order(:)
+    integer, intent(out) :: elementsDomainLevel(:)
+    
+    integer, allocatable :: air_elems(:), water_elems(:)
+    integer, allocatable :: air_domains(:), water_domains(:)
+    integer :: ielem, w_idx, a_idx, i
+    logical :: is_water
+    
+!   Collect air and water element indices
+    allocate(air_elems(air_count), water_elems(water_count))
+    w_idx = 0
+    a_idx = 0
+    
+    do ielem = 1, ne
+        is_water = .false.
+        if (associated(mesh % elements(eID_Order(ielem+starteID-1)) % storage)) then
+            is_water = all(mesh % elements(eID_Order(ielem+starteID-1)) % storage % Q(1,:,:,:) < 1.0_RP - 1e-8_RP)
+        end if
+        
+        if (is_water) then
+            w_idx = w_idx + 1
+            water_elems(w_idx) = ielem
+        else
+            a_idx = a_idx + 1
+            air_elems(a_idx) = ielem
+        end if
+    end do
+
+!   Partition air elements with METIS
+    allocate(air_domains(air_count))
+    call partition_subset_with_metis(mesh, air_elems, air_count, starteID, eID_Order, no_of_domains, air_domains)
+    
+!   Partition water elements with METIS
+    allocate(water_domains(water_count))
+    call partition_subset_with_metis(mesh, water_elems, water_count, starteID, eID_Order, no_of_domains, water_domains)
+
+!   Simply assign METIS results directly
+    elementsDomainLevel = 0
+    do i = 1, air_count
+        elementsDomainLevel(air_elems(i)) = air_domains(i)
+    end do
+    do i = 1, water_count
+        elementsDomainLevel(water_elems(i)) = water_domains(i)
+    end do
+    
+    deallocate(air_elems, water_elems, air_domains, water_domains)
+end subroutine partition_air_water_separately
+
+subroutine partition_subset_with_metis(mesh, elem_subset, subset_count, starteID, eID_Order, no_of_domains, domains)
+!   Partition a subset of elements using METIS for optimal spatial locality
+    implicit none
+    type(HexMesh), intent(in) :: mesh
+    integer, intent(in) :: subset_count, starteID, no_of_domains
+    integer, intent(in) :: elem_subset(:), eID_Order(:)
+    integer, intent(out) :: domains(:)
+    
+    integer, allocatable :: eptr(:), eind(:), opts(:), subset_domains(:), subset_nodes(:)
+    integer, pointer :: vwgt(:) => null(), vsize(:) => null()
+    real(kind=RP), pointer :: tpwgt(:) => null()
+    integer :: i, j, objval, nvertex = 8, ncommon = 4
+    
+    if (subset_count == 0) return
+    
+!   Build connectivity for subset elements only
+    allocate(eptr(subset_count+1), eind(nvertex*subset_count))
+    
+    j = 1
+    do i = 1, subset_count
+        eptr(i) = j - 1  ! 0-based indexing
+        eind(j:j+nvertex-1) = mesh % elements(eID_Order(elem_subset(i)+starteID-1)) % nodeIDs - 1
+        j = j + nvertex
+    end do
+    eptr(subset_count+1) = j - 1
+    
+!   METIS options
+    allocate(opts(0:39))
+    call METIS_SetDefaultOptions(opts)
+    opts(1) = -1  ! MIN_EDGE_CUT
+    opts(5) = 0   ! No verbosity
+    
+!   Partition subset
+    allocate(subset_domains(subset_count), subset_nodes(size(mesh % nodes)))
+    call METIS_PartMeshDual(subset_count, size(mesh % nodes), eptr, eind, vwgt, vsize, &
+                           ncommon, no_of_domains, tpwgt, opts, objval, subset_domains, subset_nodes)
+    
+!   Copy results
+    domains(1:subset_count) = subset_domains(1:subset_count)
+    
+    deallocate(eptr, eind, opts, subset_domains, subset_nodes)
+end subroutine partition_subset_with_metis
+
+
+#else
+      write(STD_OUT,*) "METIS library was not linked."
+      error stop
 #endif
-   end subroutine GetMETISElementsPartition
+
+   END SUBROUTINE GetMETISElementsPartition
