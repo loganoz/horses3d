@@ -14,15 +14,15 @@ module MeshPartitioning
                                          Nx, Ny, Nz, controlVariables, eID_Order, nElementLevel)
          use FTValueDictionaryClass
          implicit none
-         type(HexMesh), intent(in)  		:: mesh
-         integer,       intent(in)  		:: no_of_elements
-         integer,       intent(in)  		:: no_of_domains
-         type(PartitionedMesh_t)    		:: partitions(no_of_domains)
-         logical,       intent(in)  		:: useWeights
-         integer,       intent(in)  		:: Nx(no_of_elements), Ny(no_of_elements), Nz(no_of_elements)
-         type(FTValueDictionary), intent(in):: controlVariables
-	     integer, optional, intent(in)      :: eID_Order(:)
-	     integer, optional, intent(in)      :: nElementLevel(:)
+         type(HexMesh), intent(in)  		      :: mesh
+         integer,       intent(in)  		      :: no_of_elements
+         integer,       intent(in)  		      :: no_of_domains
+         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)
+         logical,       intent(in)  		      :: useWeights
+         integer,       intent(in)  		      :: Nx(no_of_elements), Ny(no_of_elements), Nz(no_of_elements)
+         type(FTValueDictionary), intent(in)    :: controlVariables
+	     integer, optional, intent(in)           :: eID_Order(:)
+	     integer, optional, intent(in)           :: nElementLevel(:)
 !
 !        ---------------
 !        Local variables
@@ -30,12 +30,7 @@ module MeshPartitioning
 !
          integer               :: fID, domain
          integer               :: elementsDomain(no_of_elements)
-!
-!        Initialize partitions
-!        ---------------------
-         do domain = 1, no_of_domains
-            partitions(domain) = PartitionedMesh_t(domain)
-         end do
+
 !
 !        Get each domain elements and nodes
 !        ----------------------------------
@@ -66,7 +61,7 @@ module MeshPartitioning
          type(HexMesh), intent(in)              :: mesh
          integer,       intent(in)              :: no_of_elements
          integer,       intent(in)              :: no_of_domains
-         integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
+         integer,       intent(out)             :: elementsDomain(no_of_elements)
          type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)      
          logical,       intent(in)              :: useWeights
          integer,       intent(in)              :: Nx(no_of_elements), Ny(no_of_elements), Nz(no_of_elements)
