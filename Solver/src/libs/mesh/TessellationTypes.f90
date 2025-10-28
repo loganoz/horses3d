@@ -17,7 +17,8 @@ module TessellationTypes
 
    integer, parameter :: FORCING_POINT = 1, NOT_FORCING_POINT = 0, ROTATION = 1, LINEAR = 2
    integer, parameter :: POINT_ON_PLANE = 0, POINT_IN_FRONT_PLANE = 1, POINT_BEHIND_PLANE = 2
-   integer, parameter :: NumOfVertices = 3, NumOfIntegrationVertices = 3
+   integer, parameter :: NumOfVertices = 3
+   integer            :: NumOfIntegrationVertices = 1
 
 !
 !  **************************************************
@@ -57,6 +58,7 @@ module TessellationTypes
       integer,       allocatable     :: domains(:), indeces(:)  !interPoint, index, domain
       real(kind=RP), dimension(NDIM) :: FSIPointForce, FSIcoords_stl0
       real(kind=RP), allocatable     :: FSIPointModePhi(:)
+      real(kind=RP)                  :: weight
 
       contains
          procedure :: copy => point_type_copy
@@ -119,6 +121,7 @@ module TessellationTypes
       character(len=LINE_LENGTH)                   :: filename, maskName
       ! FSI
       real(kind=RP)                                :: FSILengthScale_dimM, FSIRho_dimKgM3, FSIUinlet_dimMS
+      integer                                      :: quadOrder
       ! FSImove: Modal approach
       logical                                      :: FSImove,FSI_IfRigidPart
       integer                                      :: FSINumOfMode, FSIModeDIM, FSInumOfControlPoint
@@ -784,6 +787,9 @@ module TessellationTypes
          call SubSection_Header('Stl file "' // trim(fileName) // '"')
 
          write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
+
+         write(STD_OUT,'(30X,A,A35,I10)') "->" , "QuadOrder: " , this% quadOrder
+         
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "Moving: " , this% move
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSImove: " , this% FSImove
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "FSIPitchmove: " , this% FSIPitchmove
@@ -791,6 +797,7 @@ module TessellationTypes
          if ( (.not. this% move) .and. (.not. this% FSImove) .and.  (.not. this% FSIPitchmove)) then
             write(STD_OUT,'(30X,A,A35,A)') "->" , "Boundary conditions: " , trim(implementedBCNames(this% bctype))
          end if
+
          write(STD_OUT,'(30X,A,A35,L10)') "->" , "BF correction: " , this% BFcorrection
          if( this% read ) then 
             write(STD_OUT,'(30X,A,A35,A)') "->" , "Mask file: " , this% maskName
@@ -942,55 +949,44 @@ module TessellationTypes
    end subroutine  ReadTessellation
  
    subroutine STL_SetIntegrationPoints( this )
-
       implicit none
-
       class(STLfile), intent(inout) :: this 
 
-      integer       :: i, j, m,                &
-                      indecesL(NumOfVertices), &
-                      indecesR(NumOfVertices)
-!          * 2
-!         / \
-!      4 *   * 5 
-!       /  *   \
-!      /   7    \
-!   1 *----*-----* 3
-!          6
+      integer                       :: i, j
+      integer                       :: order
+      real(kind=RP), allocatable    :: lambda(:,:), weight(:)
+      real(kind=RP)                 :: X1(NDIM), X2(NDIM), X3(NDIM), Xq(NDIM)
+
+      call TriQuadPoints(this% quadOrder, lambda, weight, NumOfIntegrationVertices)
+
       ! -----------------------------------------------------------
       ! Set IntegrationPoints for calculating force on body ib
       ! Record stl vortex coords at t0 time.
-      ! -----------------------------------------------------------
+      ! ----------------------------------------------------------- 
+
       do i = 1, this% NumOfObjs 
          associate(obj => this% ObjectsList(i))
-         
          do j = 1, NumOfVertices
             obj% vertices(j)% FSIcoords_stl0 = obj% vertices(j)% coords
             call this % FSIGetPointModePhi(obj% vertices(j)% coords, obj% vertices(j)% FSIPointModePhi) 
          end do
 
+         X1 = obj%vertices(1)%coords
+         X2 = obj%vertices(2)%coords
+         X3 = obj%vertices(3)%coords
+
          if( .not. allocated(obj% IntegrationVertices) ) allocate( obj% IntegrationVertices(NumOfIntegrationVertices) )
+
          do j = 1, NumOfIntegrationVertices
-            obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
+            Xq = lambda(j,1)*X1 + lambda(j,2)*X2 + lambda(j,3)*X3
+            obj%IntegrationVertices(j)% coords = Xq
+            obj%IntegrationVertices(j)% weight = weight(j)
+            ! obj% IntegrationVertices(j)% coords = obj% vertices(j)% coords
+
             obj% IntegrationVertices(j)% FSIcoords_stl0 = obj% IntegrationVertices(j)% coords
             call this % FSIGetPointModePhi(obj% IntegrationVertices(j)% coords, obj% IntegrationVertices(j)% FSIPointModePhi) 
          end do
 
-         ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = 0.0_RP 
-         ! do j = 1, NumOfVertices
-         !    obj% IntegrationVertices(j)% coords                        = obj% vertices(j)% coords
-         !    ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords + &
-         !    !                                                              obj% vertices(j)% coords
-         ! end do 
-         ! obj% IntegrationVertices(NumOfIntegrationVertices)% coords = obj% IntegrationVertices(NumOfIntegrationVertices)% coords/NumOfVertices
-         ! indecesL = (/ 1, 2, 3 /)
-         ! indecesR = (/ 2, 3, 1 /)
-         ! m = 0
-         ! do j = NumOfVertices+1, NumOfIntegrationVertices-1
-         !    m = m + 1
-         !    obj% IntegrationVertices(j)% coords = 0.5_RP*( obj% IntegrationVertices(indecesL(m))% coords + &
-         !                                                   obj% IntegrationVertices(indecesR(m))% coords   )
-         ! end do
          end associate 
       end do
 
@@ -1169,6 +1165,12 @@ module TessellationTypes
          GetZoneType = 3 
       end if
       this% bctype = GetZoneType
+
+      if ( .not. bcdict % ContainsKey("quadorder") ) then
+         this% quadOrder = 2
+      else
+         this% quadOrder = bcdict % integerValueForKey("quadorder")
+      end if
 
       if ( .not. bcdict % ContainsKey("moving") ) then
          logval = .false. 
@@ -1730,19 +1732,26 @@ module TessellationTypes
       real(kind=RP),     intent(in) :: ScalarVar(NumOfIntegrationVertices)
       real(kind=RP)                 :: Val
 
-      real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
+      real(kind=RP)                 :: AB(NDIM), AC(NDIM), S(NDIM), A
+      integer                       :: j
+      real(kind=RP)                 :: weight
 
-      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
-      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
-
+      AB = obj% Vertices(2)% coords - obj% Vertices(1)% coords 
+      AC = obj% Vertices(3)% coords - obj% Vertices(1)% coords 
       call vcross(AB,AC,S)
-   
       A = 0.5_RP * norm2(S)
 
-      Val = A * (ScalarVar(1) + ScalarVar(2) + ScalarVar(3))/3.0_RP
-      ! Val = A/60.0_RP * ( 27.0_RP * ScalarVar(NumOfIntegrationVertices) +                      &
-      !                     3.0_RP  * sum(ScalarVar(1:NumOfVertices))     +                      &
-      !                     8.0_RP  * sum(ScalarVar(NumOfVertices+1:NumOfIntegrationVertices-1)) )
+      Val = 0.0_RP
+      do j = 1, NumOfIntegrationVertices
+         weight = obj%IntegrationVertices(j)%weight
+         Val = Val + weight * ScalarVar(j)
+      end do
+      Val = A * Val
+
+      ! Val = A * (ScalarVar(1) + ScalarVar(2) + ScalarVar(3))/3.0_RP
+      ! ! Val = A/60.0_RP * ( 27.0_RP * ScalarVar(NumOfIntegrationVertices) +                      &
+      ! !                     3.0_RP  * sum(ScalarVar(1:NumOfVertices))     +                      &
+      ! !                     8.0_RP  * sum(ScalarVar(NumOfVertices+1:NumOfIntegrationVertices-1)) )
 
    end function TriangleScalarIntegral
 
@@ -1755,19 +1764,28 @@ module TessellationTypes
       real(kind=RP)                 :: Val(NDIM)
  
       real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
-      real(kind=RP) :: normal(NDIM)
+      real(kind=RP) :: temp(NDIM), weight
+      integer       :: j
 
-      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
-      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
-
+      AB = obj% Vertices(2)% coords - obj% Vertices(1)% coords 
+      AC = obj% Vertices(3)% coords - obj% Vertices(1)% coords 
       call vcross(AB,AC,S)
-
       A = 0.5_RP * norm2(S)
+
+      Val = 0.0_RP
+
+      do j = 1, NumOfIntegrationVertices
+         weight = obj%IntegrationVertices(j)%weight
+         temp = VectorVar(:,j)
+         Val = Val + weight * temp
+      end do
+
+      Val = A * Val
       
-      Val = A * (VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3))/3.0_RP
-      ! Val = A/60.0_RP * ( 27.0_RP * VectorVar(:,NumOfIntegrationVertices) +                      &
-      !                      3.0_RP * sum(VectorVar(:,1:NumOfVertices))     +                      &
-      !                      8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfIntegrationVertices-1)) )
+      ! Val = A * (VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3))/3.0_RP
+      ! ! Val = A/60.0_RP * ( 27.0_RP * VectorVar(:,NumOfIntegrationVertices) +                      &
+      ! !                      3.0_RP * sum(VectorVar(:,1:NumOfVertices))     +                      &
+      ! !                      8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfIntegrationVertices-1)) )
 
    end function TriangleVectorIntegral
 
@@ -1783,29 +1801,39 @@ module TessellationTypes
       ! local
       real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM)
       real(kind=RP) :: A
-      real(kind=RP) :: normal(NDIM)
-      real(kind=RP) :: r_centroid(NDIM)
-      real(kind=RP) :: F_avg(NDIM)
-      real(kind=RP) :: r_rel(NDIM)
-      real(kind=RP) :: temp(NDIM)
+      ! real(kind=RP) :: normal(NDIM)
+      ! real(kind=RP) :: r_centroid(NDIM)
+      ! real(kind=RP) :: F_avg(NDIM)
+      real(kind=RP) :: r_rel(NDIM), temp(NDIM)
+      integer       :: j
+      real(kind=RP) :: weight
+      
    
-      AB = obj% IntegrationVertices(2)% coords - obj% IntegrationVertices(1)% coords 
-      AC = obj% IntegrationVertices(3)% coords - obj% IntegrationVertices(1)% coords 
-   
+      AB = obj% Vertices(2)% coords - obj% Vertices(1)% coords 
+      AC = obj% Vertices(3)% coords - obj% Vertices(1)% coords 
       call vcross(AB, AC, S)
       A = 0.5_RP * norm2(S)
+
+      Moment = 0.0_RP
+      do j = 1, NumOfIntegrationVertices
+         r_rel = obj%IntegrationVertices(j)%coords - CofR
+         weight = obj%IntegrationVertices(j)%weight
+         call vcross(r_rel, VectorVar(:,j), temp)
+         Moment = Moment + weight * temp
+      end do
+
+      Moment = A * Moment
    
-      r_centroid = ( obj% IntegrationVertices(1)% coords + &
-                     obj% IntegrationVertices(2)% coords + &
-                     obj% IntegrationVertices(3)% coords ) / 3.0_RP
+      ! r_centroid = ( obj% IntegrationVertices(1)% coords + &
+      !                obj% IntegrationVertices(2)% coords + &
+      !                obj% IntegrationVertices(3)% coords ) / 3.0_RP
    
-      F_avg = ( VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3) ) / 3.0_RP
+      ! F_avg = ( VectorVar(:,1) + VectorVar(:,2) + VectorVar(:,3) ) / 3.0_RP
    
-      r_rel = r_centroid - CofR
+      ! r_rel = r_centroid - CofR
    
-      call vcross(r_rel, F_avg, temp)
-      Moment = A * temp
-   
+      ! call vcross(r_rel, F_avg, temp)
+      ! Moment = A * temp
    end function TriangleMomentIntegral
    
 
@@ -2653,5 +2681,62 @@ module TessellationTypes
       write(unit, *)
       write(unit,'(A)') "Iteration    Time(s)                 Theta(rad)                 Omega(rad/s)              Moment(N*m)"
    end subroutine STL_FSIPitchWriteOutputHeader
+
+   subroutine TriQuadPoints(order, lambda, weight, nQuad)
+      implicit none
+      integer, intent(in) :: order
+      integer, intent(out) :: nQuad
+      real(kind=8), allocatable, intent(out) :: lambda(:,:), weight(:)
+   
+      select case(order)
+   
+      case(1)
+         nQuad = 1
+         allocate(lambda(nQuad,3), weight(nQuad))
+         lambda = transpose( reshape([ &
+            1d0/3, 1d0/3, 1d0/3 ], [3,nQuad]) )
+         weight = [1d0]
+   
+      case(2)
+         nQuad = 3
+         allocate(lambda(nQuad,3), weight(nQuad))
+         lambda = transpose( reshape([ &
+            2d0/3, 1d0/6, 1d0/6, &
+            1d0/6, 2d0/3, 1d0/6, &
+            1d0/6, 1d0/6, 2d0/3 ], [3,nQuad]) )
+         weight = [1d0/3, 1d0/3, 1d0/3]
+   
+      case(3)
+         nQuad = 4
+         allocate(lambda(nQuad,3), weight(nQuad))
+         lambda = transpose( reshape([ &
+            1d0/3, 1d0/3, 1d0/3, &
+            0.6d0, 0.2d0, 0.2d0, &
+            0.2d0, 0.6d0, 0.2d0, &
+            0.2d0, 0.2d0, 0.6d0 ], [3,nQuad]) )
+         weight = [-27d0/48, 25d0/48, 25d0/48, 25d0/48]
+   
+      case(4)
+         nQuad = 6
+         allocate(lambda(nQuad,3), weight(nQuad))
+         lambda = transpose( reshape([ &
+            0.108103018168070d0, 0.445948490915965d0, 0.445948490915965d0, &
+            0.445948490915965d0, 0.108103018168070d0, 0.445948490915965d0, &
+            0.445948490915965d0, 0.445948490915965d0, 0.108103018168070d0, &
+            0.816847572980459d0, 0.091576213509771d0, 0.091576213509771d0, &
+            0.091576213509771d0, 0.816847572980459d0, 0.091576213509771d0, &
+            0.091576213509771d0, 0.091576213509771d0, 0.816847572980459d0 ], [3,nQuad]) )
+         weight = [ &
+            0.223381589678011d0, 0.223381589678011d0, 0.223381589678011d0, &
+            0.109951743655322d0, 0.109951743655322d0, 0.109951743655322d0 ]
+   
+      case default
+         print *, "TriQuadPoints: supported order=1–4, unsupported order=", order
+         stop
+      end select
+   
+   end subroutine TriQuadPoints
+   
+  
    
 end module TessellationTypes
