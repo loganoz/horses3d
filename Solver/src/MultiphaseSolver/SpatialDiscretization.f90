@@ -532,7 +532,7 @@ module SpatialDiscretization
 !        Compute local entropy variables gradient
 !        ----------------------------------------
 !
-         call ViscousDiscretization % ComputeLocalGradients( NCONS, NCONS, mesh , time , mGradientVariables, Level = locLevel)
+         call ViscousDiscretization % ComputeLocalGradients( NCONS, NCONS, mesh , time , mGradientVariables, element_mask=element_mask,  Level = locLevel)
 !
 !        --------------------
 !        Update MPI Gradients
@@ -549,7 +549,7 @@ module SpatialDiscretization
 !        -------------------------------------
 !
 !$omp do schedule(runtime) private(i,j,k,sqrtRho,invMa2,eID)
-		 do lID = 1, MLIter(locLevel,1) ! 
+		 do lID = 1, MLIter(locLevel,1)  
 		    eID = MLIter_eID(lID)
             compute_element = .true.
             if (present(element_mask)) compute_element = element_mask(eID)
@@ -589,7 +589,7 @@ module SpatialDiscretization
          end do
 !$omp end do
 
-         call ViscousDiscretization % LiftGradients( NCONS, NCONS, mesh , time , mGradientVariables)
+         call ViscousDiscretization % LiftGradients( NCONS, NCONS, mesh , time , mGradientVariables, element_mask=element_mask)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -656,7 +656,7 @@ module SpatialDiscretization
 !           Get concentration (lifted) gradients (also prolong to faces)
 !           ------------------------------------------------------------
 !
-            call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, chGradientVariables, .false., element_mask)
+            call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, chGradientVariables, .false., element_mask = element_mask)
 !
 !           --------------------------------
 !           Get chemical potential laplacian
