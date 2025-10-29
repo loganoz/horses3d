@@ -193,14 +193,16 @@ Module MappedGeometryClass
          integer     :: i, j, k, m, n, l
          real(kind=RP)  :: grad_x(NDIM,NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: xCGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
-         real(kind=RP)  :: auxgrad(NDIM,NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
-         real(kind=RP)  :: coordsProduct(NDIM,0:self % Nx,0:self % Ny,0:self % Nz)
-         real(kind=RP)  :: Jai(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
-         real(kind=RP)  :: Ja1CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
-         real(kind=RP)  :: Ja2CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
-         real(kind=RP)  :: Ja3CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
+         real(kind=RP)  :: auxgrad(4,NDIM,NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
+         real(kind=RP)  :: coordsProduct(4,NDIM,0:self % Nx,0:self % Ny,0:self % Nz)
+         real(kind=RP)  :: Ja1CGL(4,0:self % Nx, 0:self % Ny, 0:self % Nz)
+         real(kind=RP)  :: Ja2CGL(4,0:self % Nx, 0:self % Ny, 0:self % Nz)
+         real(kind=RP)  :: Ja3CGL(4,0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: JacobianCGL(0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: x(3)
+
+         real(kind=RP)  :: jGradXi_local(NDIM), jGradEta_local(NDIM), jGradZeta_local(NDIM), jacobian_local
+         real(kind=RP)  :: auxgrad_l1(NDIM), auxgrad_l2(NDIM), auxgrad_l3(NDIM)
 !
 !        Compute the mapping gradient in Chebyshev-Gauss-Lobatto points
 !        --------------------------------------------------------------
@@ -217,125 +219,27 @@ Module MappedGeometryClass
 !        Compute coordinates combination
 !        -------------------------------
          do k = 0, self % Nz    ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            coordsProduct(:,i,j,k) =   xCGL(3,i,j,k) * grad_x(2,:,i,j,k)  &
-                                     - xCGL(2,i,j,k) * grad_x(3,:,i,j,k)
+            coordsProduct(1,:,i,j,k) = xCGL(3,i,j,k) * grad_x(2,:,i,j,k) - xCGL(2,i,j,k) * grad_x(3,:,i,j,k)
+            coordsProduct(2,:,i,j,k) = xCGL(1,i,j,k) * grad_x(3,:,i,j,k) - xCGL(3,i,j,k) * grad_x(1,:,i,j,k)
+            coordsProduct(3,:,i,j,k) = xCGL(2,i,j,k) * grad_x(1,:,i,j,k) - xCGL(1,i,j,k) * grad_x(2,:,i,j,k)
          end do            ; end do          ; end do
-!
-!        Compute its gradient
-!        --------------------
+
          auxgrad = 0.0_RP
-         do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
+         do k = 0, self % Nz; do j = 0, self % Ny; do i = 0, self % Nx
             do l = 0, self % Nx
-               auxgrad(:,1,i,j,k) = auxgrad(:,1,i,j,k) + coordsProduct(:,l,j,k) * spAxi % DCGL(i,l)
+               auxgrad(1:4,:,1,i,j,k) = auxgrad(1:4,:,1,i,j,k) + coordsProduct(1:4,:,l,j,k) * spAxi % DCGL(i,l)
             end do
-
             do l = 0, self % Ny
-               auxgrad(:,2,i,j,k) = auxgrad(:,2,i,j,k) + coordsProduct(:,i,l,k) * spAeta % DCGL(j,l)
+               auxgrad(1:4,:,2,i,j,k) = auxgrad(1:4,:,2,i,j,k) + coordsProduct(1:4,:,i,l,k) * spAeta % DCGL(j,l)
             end do
-
             do l = 0, self % Nz
-               auxgrad(:,3,i,j,k) = auxgrad(:,3,i,j,k) + coordsProduct(:,i,j,l) * spAzeta % DCGL(k,l)
+               auxgrad(1:4,:,3,i,j,k) = auxgrad(1:4,:,3,i,j,k) + coordsProduct(1:4,:,i,j,l) * spAzeta % DCGL(k,l)
             end do
-         end do         ; end do          ; end do
-!
-!        Compute the curl
-!        ----------------
-         do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            Jai(1,i,j,k) = auxgrad(3,2,i,j,k) - auxgrad(2,3,i,j,k)
-            Jai(2,i,j,k) = auxgrad(1,3,i,j,k) - auxgrad(3,1,i,j,k)
-            Jai(3,i,j,k) = auxgrad(2,1,i,j,k) - auxgrad(1,2,i,j,k)
-         end do         ; end do          ; end do
-!
-!        Assign to the first coordinate of each metrics
-!        ----------------------------------------------
-         Ja1CGL(1,:,:,:)  = -0.5_RP * Jai(1,:,:,:)
-         Ja2CGL(1,:,:,:)  = -0.5_RP * Jai(2,:,:,:)
-         Ja3CGL(1,:,:,:)  = -0.5_RP * Jai(3,:,:,:)
-!
-!        *****************************************
-!        Compute the y-coordinates of the mappings
-!        *****************************************
-!
-!        Compute coordinates combination
-!        -------------------------------
-         do k = 0, self % Nz    ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            coordsProduct(:,i,j,k) =   xCGL(1,i,j,k) * grad_x(3,:,i,j,k) &
-                                     - xCGL(3,i,j,k) * grad_x(1,:,i,j,k)
-         end do            ; end do          ; end do
-!
-!        Compute its gradient
-!        --------------------
-         auxgrad = 0.0_RP
-         do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            do l = 0, self % Nx
-               auxgrad(:,1,i,j,k) = auxgrad(:,1,i,j,k) + coordsProduct(:,l,j,k) * spAxi % DCGL(i,l)
-            end do
+            Ja1CGL(1:4,i,j,k) = -0.5_RP * (auxgrad(1:4,3,2,i,j,k) - auxgrad(1:4,2,3,i,j,k))
+            Ja2CGL(1:4,i,j,k) = -0.5_RP * (auxgrad(1:4,1,3,i,j,k) - auxgrad(1:4,3,1,i,j,k))
+            Ja3CGL(1:4,i,j,k) = -0.5_RP * (auxgrad(1:4,2,1,i,j,k) - auxgrad(1:4,1,2,i,j,k))
+         end do ;      end do;     end do
 
-            do l = 0, self % Ny
-               auxgrad(:,2,i,j,k) = auxgrad(:,2,i,j,k) + coordsProduct(:,i,l,k) * spAeta % DCGL(j,l)
-            end do
-
-            do l = 0, self % Nz
-               auxgrad(:,3,i,j,k) = auxgrad(:,3,i,j,k) + coordsProduct(:,i,j,l) * spAzeta % DCGL(k,l)
-            end do
-         end do         ; end do          ; end do
-!
-!        Compute the curl
-!        ----------------
-         do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            Jai(1,i,j,k) = auxgrad(3,2,i,j,k) - auxgrad(2,3,i,j,k)
-            Jai(2,i,j,k) = auxgrad(1,3,i,j,k) - auxgrad(3,1,i,j,k)
-            Jai(3,i,j,k) = auxgrad(2,1,i,j,k) - auxgrad(1,2,i,j,k)
-         end do         ; end do          ; end do
-!
-!        Assign to the second coordinate of each metrics
-!        -----------------------------------------------
-         Ja1CGL(2,:,:,:)  = -0.5_RP*Jai(1,:,:,:)
-         Ja2CGL(2,:,:,:)  = -0.5_RP*Jai(2,:,:,:)
-         Ja3CGL(2,:,:,:)  = -0.5_RP*Jai(3,:,:,:)
-!
-!        *****************************************
-!        Compute the z-coordinates of the mappings
-!        *****************************************
-!
-!        Compute coordinates combination
-!        -------------------------------
-         do k = 0, self % Nz    ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            coordsProduct(:,i,j,k) =   xCGL(2,i,j,k) * grad_x(1,:,i,j,k) &
-                                     - xCGL(1,i,j,k) * grad_x(2,:,i,j,k)
-         end do            ; end do          ; end do
-!
-!        Compute its gradient
-!        --------------------
-         auxgrad = 0.0_RP
-         do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            do l = 0, self % Nx
-               auxgrad(:,1,i,j,k) = auxgrad(:,1,i,j,k) + coordsProduct(:,l,j,k) * spAxi % DCGL(i,l)
-            end do
-
-            do l = 0, self % Ny
-               auxgrad(:,2,i,j,k) = auxgrad(:,2,i,j,k) + coordsProduct(:,i,l,k) * spAeta % DCGL(j,l)
-            end do
-
-            do l = 0, self % Nz
-               auxgrad(:,3,i,j,k) = auxgrad(:,3,i,j,k) + coordsProduct(:,i,j,l) * spAzeta % DCGL(k,l)
-            end do
-         end do         ; end do          ; end do
-!
-!        Compute the curl
-!        ----------------
-         do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            Jai(1,i,j,k) = auxgrad(3,2,i,j,k) - auxgrad(2,3,i,j,k)
-            Jai(2,i,j,k) = auxgrad(1,3,i,j,k) - auxgrad(3,1,i,j,k)
-            Jai(3,i,j,k) = auxgrad(2,1,i,j,k) - auxgrad(1,2,i,j,k)
-         end do         ; end do          ; end do
-!
-!        Assign to the third coordinate of each metrics
-!        ----------------------------------------------
-         Ja1CGL(3,:,:,:)  = -0.5_RP * Jai(1,:,:,:)
-         Ja2CGL(3,:,:,:)  = -0.5_RP * Jai(2,:,:,:)
-         Ja3CGL(3,:,:,:)  = -0.5_RP * Jai(3,:,:,:)
-!
 !        ********************
 !        Compute the Jacobian
 !        ********************
@@ -350,37 +254,45 @@ Module MappedGeometryClass
 !        Return to Gauss points
 !        **********************
 !
-         self % jGradXi = 0.0_RP
-         self % jGradEta = 0.0_RP
+         self % jGradXi   = 0.0_RP
+         self % jGradEta  = 0.0_RP
          self % jGradZeta = 0.0_RP
-         self % jacobian = 0.0_RP
+         self % jacobian  = 0.0_RP
 
          do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
+            jGradXi_local   = 0
+            jGradEta_local  = 0
+            jGradZeta_local = 0
+            jacobian_local  = 0
             do n = 0, self % Nz ; do m = 0, self % Ny ; do l = 0, self % Nx
-               self % jGradXi(:,i,j,k) = self % jGradXi(:,i,j,k) + Ja1CGL(:,l,m,n) &
+               jGradXi_local(:) = jGradXi_local(:) + Ja1CGL(1:3,l,m,n) &
+                                          * spAxi  % TCheb2Gauss(i,l) &
+                                          * spAeta % TCheb2Gauss(j,m) &
+                                          * spAzeta % TCheb2Gauss(k,n)
+
+               jGradEta_local(:) = jGradEta_local(:) + Ja2CGL(1:3,l,m,n) &
+                                          * spAxi  % TCheb2Gauss(i,l) &
+                                          * spAeta % TCheb2Gauss(j,m) &
+                                          * spAzeta % TCheb2Gauss(k,n)
+
+               jGradZeta_local(:) = jGradZeta_local(:) + Ja3CGL(1:3,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
                                           * spAzeta % TCheb2Gauss(k,n)
 
-               self % jGradEta(:,i,j,k) = self % jGradEta(:,i,j,k) + Ja2CGL(:,l,m,n) &
-                                          * spAxi % TCheb2Gauss(i,l) &
-                                          * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n)
-
-               self % jGradZeta(:,i,j,k) = self % jGradZeta(:,i,j,k) + Ja3CGL(:,l,m,n) &
-                                          * spAxi % TCheb2Gauss(i,l) &
-                                          * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n)
-
-               self % jacobian(i,j,k) = self % jacobian(i,j,k) + JacobianCGL(l,m,n) &
+               jacobian_local = jacobian_local + JacobianCGL(l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
                                           * spAzeta % TCheb2Gauss(k,n)
             end do              ; end do              ; end do
+
+            self % jGradXi(:,i,j,k)   = jGradXi_local(:)
+            self % jGradEta(:,i,j,k)  = jGradEta_local(:)
+            self % jGradZeta(:,i,j,k) = jGradZeta_local(:)
+            self % jacobian(i,j,k)    = jacobian_local
+            self % invJacobian(i,j,k) = 1._RP / jacobian_local
          end do               ; end do               ; end do
-         do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            self % invJacobian(i,j,k) = 1._RP / self % jacobian(i,j,k)
-         end do               ; end do               ; end do
+         
       end subroutine computeMetricTermsConservativeForm
 !
 !///////////////////////////////////////////////////////////////////////
