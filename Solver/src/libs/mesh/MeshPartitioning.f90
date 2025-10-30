@@ -93,78 +93,120 @@ module MeshPartitioning
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine GetNodesPartition(mesh, no_of_domains, elementsDomain, partitions)
-         use Utilities, only: Qsort
-         implicit none
-     
-         type(HexMesh), intent(in)              :: mesh
-         integer,       intent(in)              :: no_of_domains
-         integer,       intent(in)              :: elementsDomain(mesh%no_of_elements)
-         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)
-     
-         integer              :: nvertex, i, j, k, ipoint, jpoint
-         integer              :: idomain, npoints, ielem
-         logical              :: isnewpoint, meshIsHOPR
-         integer, allocatable :: points(:), HOPRpoints(:)
-         logical, allocatable :: mask(:)  ! Mask array for node uniqueness
-         integer              :: max_nodes
-     
-         nvertex = 8
-         meshIsHOPR = allocated(mesh%HOPRnodeIDs)
-         max_nodes = 0
-         do ielem = 1, mesh%no_of_elements
-            max_nodes = max(maxval(mesh%elements(ielem)%nodeIDs(:)), max_nodes)
-         end do
+     subroutine GetNodesPartition(mesh, no_of_domains, elementsDomain, partitions)
+        use Utilities, only: Qsort
+        implicit none
+        type(HexMesh), intent(in)              :: mesh
+        integer,       intent(in)              :: no_of_domains
+        integer,       intent(in)              :: elementsDomain(mesh % no_of_elements)
+        type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)   
+!
+!       ---------------
+!       Local Variables
+!       ---------------
+!
+        integer              :: nvertex
+        integer              :: i
+        integer              :: j
+        integer              :: k
+        integer              :: ipoint
+        integer              :: jpoint
+        integer              :: idomain
+        integer              :: npoints
+        integer              :: ielem
+        logical              :: isnewpoint
+        logical              :: meshIsHOPR
+        integer, allocatable :: points(:)
+        integer, allocatable :: HOPRpoints(:)
 
-         allocate(mask(max_nodes))  ! One-time allocation
-     
-         do idomain = 1, no_of_domains
-             partitions(idomain)%no_of_elements = count(elementsDomain == idomain)
-             allocate(partitions(idomain)%elementIDs(partitions(idomain)%no_of_elements))
-             allocate(points(nvertex * partitions(idomain)%no_of_elements))
-             points = 0
-     
-             if (meshIsHOPR) then
-                 allocate(HOPRpoints(nvertex * partitions(idomain)%no_of_elements))
-                 HOPRpoints = 0
-             end if
-     
-             mask = .false.  ! Reset mask for new domain
-             k = 0
-             npoints = 0
-             do ielem = 1, mesh%no_of_elements
-                 if (elementsDomain(ielem) == idomain) then
-                     k = k + 1
-                     partitions(idomain)%elementIDs(k) = ielem
-                     do j = 1, nvertex
-                         jpoint = mesh%elements(ielem)%nodeIDs(j)
-                         if (.not. mask(jpoint)) then
-                             npoints = npoints + 1
-                             points(npoints) = jpoint
-                             mask(jpoint) = .true.
-                             if (meshIsHOPR) HOPRpoints(npoints) = mesh%HOPRnodeIDs(jpoint)
-                         end if
-                     end do
-                 end if
-             end do
-     
-             allocate(partitions(idomain)%nodeIDs(npoints))
-             partitions(idomain)%nodeIDs = points(1:npoints)
-     
-             if (meshIsHOPR) then
-                 allocate(partitions(idomain)%HOPRnodeIDs(npoints))
-                 partitions(idomain)%HOPRnodeIDs = HOPRpoints(1:npoints)
-             end if
-     
-             if (.not. meshIsHOPR) call Qsort(partitions(idomain)%nodeIDs)
-     
-             partitions(idomain)%no_of_nodes = npoints
-     
-             deallocate(points)
-             if (allocated(HOPRpoints)) deallocate(HOPRpoints)
+        nvertex = 8
+        
+        meshIsHOPR = allocated (mesh % HOPRnodeIDs)
+        
+        do idomain=1,no_of_domains
+!
+!       Get the number of elements for the partition
+!       --------------------------------------------
+        partitions(idomain)%no_of_elements = count(elementsDomain == idomain)
+        allocate(partitions(idomain)%elementIDs(partitions(idomain)%no_of_elements))
+!
+!       This will store the partition nodes (allocated as 8 * no_of_elements)
+!       ---------------------------------------------------------------------
+        allocate(points(nvertex*partitions(idomain)%no_of_elements))
+        points = 0
+        if (meshIsHOPR) then
+            allocate(HOPRpoints(nvertex*partitions(idomain)%no_of_elements))
+            HOPRpoints = 0
+        end if
+!
+!       ****************************************
+!       Gather each partition nodes and elements      
+!       ****************************************
+!
+        k = 0
+        npoints = 0
+        do ielem=1,mesh % no_of_elements
+           if (elementsDomain(ielem) == idomain) then
+!
+!             Append a new element
+!             --------------------
+              k = k + 1
+              partitions(idomain)%elementIDs(k) = ielem
+!
+!             Append its nodes
+!             ----------------           
+              do j=1,nvertex
+!
+!                Get the node ID
+!                ---------------
+                 jpoint = mesh % elements(ielem) % nodeIDs(j)
+!
+!                Check if it is already stored
+!                -----------------------------
+                 isnewpoint = .true.
+                 do i=1,npoints
+                    ipoint = points(i)
+                    if (jpoint == ipoint) then
+                       isnewpoint = .false.
+                       exit
+                    end if
+                 end do
+!
+!                Store the node
+!                --------------      
+                 if (isnewpoint) then
+                    npoints = npoints + 1
+                    points(npoints) = jpoint
+                    if (meshIsHOPR) HOPRpoints(npoints) = mesh % HOPRnodeIDs(jpoint)
+                 end if                  
+              end do
+            end if      
          end do
-     
-         deallocate(mask)
+!
+!        Put the nodeIDs into the partitions structure
+!        ---------------------------------------------      
+         allocate(partitions(idomain)%nodeIDs(npoints))
+         partitions(idomain)%nodeIDs(:) = points(1:npoints)
+         
+         if (meshIsHOPR) then
+            allocate(partitions(idomain)%HOPRnodeIDs(npoints))
+            partitions(idomain)%HOPRnodeIDs(:) = HOPRpoints(1:npoints)
+         end if
+!
+!        Sort the nodeIDs to read the mesh file accordingly (only needed for SpecMesh)
+!        --------------------------------------------------
+         if (.not. meshIsHOPR) call Qsort(partitions(idomain)%nodeIDs)
+
+         partitions(idomain)%no_of_nodes = npoints
+!
+!        ****
+!        Free
+!        ****
+!
+         deallocate(points)
+         safedeallocate(HOPRpoints)
+      end do
+
      end subroutine GetNodesPartition
 !
 !////////////////////////////////////////////////////////////////////////

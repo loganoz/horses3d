@@ -143,7 +143,6 @@ contains
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
-      integer, allocatable       :: NodeToHOPRMap(:)      
       !---------------------------------------------------------------
       
 !
@@ -256,8 +255,10 @@ contains
          ! Read nodeIDs and add them to the self%nodes array
          DO k = 1, NODES_PER_ELEMENT
             HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HCornerMap(k)
+            
             corners(:,k) = NodeCoords(:,HOPRNodeID) / Lref
-            call AddToNodeMap(TempNodes , HOPRNodeMap, NodeToHOPRMap, corners(:,k), GlobalNodeIDs(HOPRNodeID), nodeIDs(k))
+            
+            call AddToNodeMap (TempNodes , HOPRNodeMap, corners(:,k), GlobalNodeIDs(HOPRNodeID), nodeIDs(k))
          END DO
          
          do k = 1, FACES_PER_ELEMENT
@@ -1240,10 +1241,9 @@ contains
       
       allocate (TempNodes(3,nUniqueNodes))
       allocate (HOPRNodeMap(nUniqueNodes))
-      allocate(NodeToHOPRMap(nUniqueNodes))
-      NodeToHOPRMap = -1
-      TempNodes     = 0._RP
-      HOPRNodeMap   = 0
+      
+      TempNodes   = 0._RP
+      HOPRNodeMap = 0
       
    end subroutine InitNodeMap
    
@@ -1253,13 +1253,11 @@ contains
 !  ----------------------------------------------------------------
 !  Add a new entry to the node map
 !  ----------------------------------------------------------------
-
-   subroutine AddToNodeMap(TempNodes , HOPRNodeMap, NodeToHOPRMap, newnode, HOPRGlobalID,nodeID)
+   subroutine AddToNodeMap (TempNodes , HOPRNodeMap, newnode, HOPRGlobalID,nodeID)
       implicit none
       !--------------------------------------------
       real(kind=RP), intent(inout) :: TempNodes(:,:)
       integer      , intent(inout) :: HOPRNodeMap(:)
-      integer      , intent(inout) :: NodeToHOPRMap(:)
       real(kind=RP), intent(in)    :: newnode(3)
       integer      , intent(in)    :: HOPRGlobalID
       integer      , intent(out)   :: nodeID          ! Node ID in HORSES3D!
@@ -1267,20 +1265,21 @@ contains
       integer       :: i         ! Counter
       !--------------------------------------------
       
-
-      if (NodeToHOPRMap(HOPRGlobalID) .ne. -1 ) then
-         nodeID = NodeToHOPRMap(HOPRGlobalID)
-         return
-      end if
-
+      do i = 1, idx
+         if (HOPRGlobalID == HOPRNodeMap(i)) then
+            nodeID = i
+            return
+         end if
+      end do
+      
       idx = idx + 1
       nodeID = idx
-      TempNodes(:,idx)            = newnode
-      HOPRNodeMap(idx)            = HOPRGlobalID
-      NodeToHOPRMap(HOPRGlobalID) = idx
+      
+      TempNodes(:,idx) = newnode
+      HOPRNodeMap(idx) = HOPRGlobalID
+      
    end subroutine AddToNodeMap
 
-   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1319,7 +1318,6 @@ contains
       
       deallocate (TempNodes)
       deallocate (HOPRNodeMap)
-      deallocate(NodeToHOPRMap)
       
    end subroutine FinishNodeMap
 

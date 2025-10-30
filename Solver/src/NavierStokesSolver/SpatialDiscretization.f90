@@ -1354,82 +1354,90 @@ module SpatialDiscretization
 
       end subroutine TimeDerivative_VolumetricContribution
 
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 
-#define PASTE(a) a
-#define CAT(a,b) PASTE(a)b
+      subroutine TimeDerivative_VolumetricContribution_Split(mesh)
+         use HexMeshClass
+         use NodalStorageClass, only: NodalStorage
+         use ElementClass
+         use DGIntegrals
+         use RiemannSolvers_NS
+         implicit none
+         type(HexMesh), intent (inout)           :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: i, j, k,l,eq, eID
+         real(kind=RP) :: Flux(1:NCONS, 1:NDIM)
 
-#define SUFFIX StandardDG
-#define TWO_POINT_FLUX_FUNC StandardDG_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
+         !$acc parallel present(mesh) vector_length(128) num_gangs(9750) async(1)
+         !$acc loop gang
+         do eID = 1 , size(mesh % elements)
+         
+            !$acc loop vector collapse(3) private(Flux)
+            do k = 0, mesh % elements(eID) % Nxyz(3)  
+               do j = 0, mesh % elements(eID) % Nxyz(2)  
+                  do i = 0, mesh % elements(eID) % Nxyz(1)
 
-#define SUFFIX Morinishi
-#define TWO_POINT_FLUX_FUNC Morinishi_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
+                  call ViscousFlux_STATE( NCONS, NGRAD, mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % U_x(:,i,j,k), & 
+                                          mesh % elements(eID) % storage % U_y(:,i,j,k) , mesh % elements(eID) % storage % U_z(:,i,j,k), &
+                                          mesh % elements(eID) % storage % mu_ns(1,i,j,k), 0.0_RP, &
+                                          mesh % elements(eID) % storage % mu_ns(2,i,j,k), Flux)
+                  !$acc loop seq
+                  do eq = 1, NCONS
+              
+                     mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IX)  = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradXi(IX,i,j,k)  &
+                                                                                        - Flux(eq,IY) * mesh % elements(eID) % geom % jGradXi(IY,i,j,k)  &
+                                                                                        - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)
 
-#define SUFFIX Ducros
-#define TWO_POINT_FLUX_FUNC Ducros_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
+                     mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IY) = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  &
+                                                                                       - Flux(eq,IY) * mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  &
+                                                                                       - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)
+                  
+                     mesh % elements(eID) % storage % contravariantFlux(eq,i,j,k,IZ) = - Flux(eq,IX) * mesh % elements(eID) % geom % jGradZeta(IX,i,j,k)  &
+                                                                                       - Flux(eq,IY) * mesh % elements(eID) % geom % jGradZeta(IY,i,j,k)  &
+                                                                                       - Flux(eq,IZ) * mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k)
+                  end do
+            end do               ; end do                ; end do
 
-#define SUFFIX KennedyGruber
-#define TWO_POINT_FLUX_FUNC KennedyGruber_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
+         call ScalarWeakIntegrals_StdVolumeGreen( mesh % elements(eID) % Nxyz, NCONS, mesh % elements(eID) % storage % contravariantFlux, &
+                                                  mesh % elements(eID) % storage % QDot)
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+            !$acc loop vector collapse(3) private(Flux)
+            do k = 0, mesh % elements(eID) % Nxyz(3)  
+               do j = 0, mesh % elements(eID) % Nxyz(2)  
+                  do i = 0, mesh % elements(eID) % Nxyz(1)
+                     !$acc loop seq
+                     do l = 0, mesh % elements(eID) % Nxyz(1)
+                        call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,l,j,k), mesh % elements(eID) % geom % jGradXi(:,i,j,k),  mesh % elements(eID) % geom % jGradXi(:,l,j,k), Flux(:,IX))
+                        call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,l,k), mesh % elements(eID) % geom % jGradEta(:,i,j,k), mesh % elements(eID) % geom % jGradEta(:,i,l,k), Flux(:,IY))
+                        call TwoPointFlux_Selector(mesh % elements(eID) % storage % Q(:,i,j,k), mesh % elements(eID) % storage % Q(:,i,j,l), mesh % elements(eID) % geom % jGradZeta(:,i,j,k), mesh % elements(eID) % geom % jGradZeta(:,i,j,l), Flux(:,IZ))
+                        
+                        !$acc loop seq
+                        do eq = 1, NCONS
+                           mesh % elements(eID) % storage % QDot(eq,i,j,k) = mesh % elements(eID) % storage % QDot(eq,i,j,k) &
+                                                                           - NodalStorage(mesh % elements(eID) % Nxyz(1)) % sharpD(i,l) *  Flux(eq,IX) &
+                                                                           - NodalStorage(mesh % elements(eID) % Nxyz(2)) % sharpD(j,l) *  Flux(eq,IY) &
+                                                                           - NodalStorage(mesh % elements(eID) % Nxyz(3)) % sharpD(k,l) *  Flux(eq,IZ)
+                        end do
+                     end do 
 
-#define SUFFIX Pirozzoli
-#define TWO_POINT_FLUX_FUNC Pirozzoli_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
+            end do               ; end do                ; end do
 
-#define SUFFIX EntropyConserving
-#define TWO_POINT_FLUX_FUNC EntropyConserving_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
+         enddo
+         !$acc end parallel loop
 
-#define SUFFIX Chandrasekar
-#define TWO_POINT_FLUX_FUNC Chandrasekar_TwoPointFlux
-#include "split_template.f90"
-#undef SUFFIX
-#undef TWO_POINT_FLUX_FUNC
-
-
-   subroutine TimeDerivative_VolumetricContribution_Split(mesh)
-      use HexMeshClass
-      use RiemannSolvers_NSKeywordsModule
-      use RiemannSolvers_NS, only : whichAverage
-      implicit none
-      type(HexMesh), intent(inout) :: mesh
-
-      select case (whichAverage)
-         case (STANDARD_AVG)
-            call TimeDerivative_VolumetricContribution_Split_StandardDG(mesh)
-         case (MORINISHI_AVG)
-            call TimeDerivative_VolumetricContribution_Split_Morinishi(mesh)
-         case (DUCROS_AVG)
-            call TimeDerivative_VolumetricContribution_Split_Ducros(mesh)
-         case (KENNEDYGRUBER_AVG)
-            call TimeDerivative_VolumetricContribution_Split_KennedyGruber(mesh)
-         case (PIROZZOLI_AVG)
-            call TimeDerivative_VolumetricContribution_Split_Pirozzoli(mesh)
-         case (ENTROPYCONS_AVG)
-            call TimeDerivative_VolumetricContribution_Split_EntropyConserving(mesh)
-         case (CHANDRASEKAR_AVG)
-            call TimeDerivative_VolumetricContribution_Split_Chandrasekar(mesh)
-         case default
-            print*, "Averaging not recognized."
-            errorMessage(STD_OUT)
-            error stop
-      end select
-   end subroutine
+      end subroutine TimeDerivative_VolumetricContribution_Split
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
