@@ -136,6 +136,25 @@ jobs:
          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES
 
 
+#
+# 0) CYLINDER ChandrasekarRoe
+# ------------------
+
+      - name: Build NSCylinderChandrasekarRoe
+        working-directory: ./Solver/test/NavierStokes/CylinderChandrasekarRoe/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run NSCylinderChandrasekarRoe
+        working-directory: ./Solver/test/NavierStokes/CylinderChandrasekarRoe
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns CylinderChandrasekarRoe.control
+        if: '!cancelled()'
+
+
 ########################################################################
 #######                         EULER                           ########
 ########################################################################
