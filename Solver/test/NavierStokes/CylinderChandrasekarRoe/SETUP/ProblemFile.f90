@@ -524,7 +524,7 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Cylinder Vreman"
+            CHARACTER(LEN=29)                  :: testName           = "Cylinder ChandrasekarRoe"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -532,14 +532,14 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd =  34.5428177831554_RP
-            real(kind=RP), parameter           :: cl = -4.7999091236761160E-04_RP
-            real(kind=RP), parameter           :: wake_u = 1.0883014687531778E-08_RP
-            real(kind=RP), parameter           :: res(5) = [  8.74266124458872_RP, & 
-                                                              17.4701104368444_RP, &
-                                                              0.18963568534174_RP, &
-                                                              24.0324616446032_RP, &  
-                                                              238.729734578169_RP] 
+            real(kind=RP), parameter           :: cd =  35.517808389300342_RP
+            real(kind=RP), parameter           :: cl =  -0.0001597956781_RP
+            real(kind=RP), parameter           :: wake_u = 2.44E-14_RP 
+            real(kind=RP), parameter           :: res(5) = [  9.292005572719354_RP, & 
+                                                              24.258016397589838_RP, &
+                                                              0.2388511827572224_RP, &
+                                                              28.435107391243378_RP, &  
+                                                              253.03319158649319_RP] 
 #if defined(NAVIERSTOKES)
 
             CALL initializeSharedAssertionsManager
