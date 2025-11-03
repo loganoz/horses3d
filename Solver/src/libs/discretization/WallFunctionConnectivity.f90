@@ -36,7 +36,7 @@ Module WallFunctionConnectivity  !
 
     logical                                                          :: useWallFunc
     character(len=BC_STRING_LENGTH), dimension(:), allocatable       :: wallFunBCs
-    integer, dimension(:), allocatable                               :: wallFaceOppositeID, wallSideID, wallFaceID!wallElemIds, wallNormalDirection, wallNormalIndex, 
+    integer, dimension(:), allocatable                               :: wallFaceOppositeID, wallSideID, wallFaceID 
     real(kind=RP), dimension(:,:,:,:), allocatable                   :: meanVelocity
     real(kind=RP)                                                    :: timeCont
 
@@ -73,9 +73,9 @@ Module WallFunctionConnectivity  !
         character(len=LINE_LENGTH)             :: wallBC_str
         integer                                :: numberFacesWall, numberBC
         integer, dimension(:), allocatable     :: zonesWall
-        integer                                :: i, j, nz, k, fID, efID, ff
-        integer                                :: linkedfID, linkedFaceSide, cont, actualElementID, linkedElementID, normalIndex, oppositeIndex, oppositeNormalIndex
-        integer                                :: allFaces, ierr
+        integer                                :: i, j, nz, k, fID, efID
+        integer                                :: linkedfID, linkedFaceSide, side, currentElementID, linkedElementglobID, normalIndex, oppositeIndex
+        integer                                :: allFaces, ierr, element_index
 
         call Initialize_Wall_Function(controlVariables, useWallFunc)
         if (.not. useWallFunc) then
@@ -125,8 +125,8 @@ Module WallFunctionConnectivity  !
             do i = 1, mesh % zones(nz) % no_of_faces
                 k = k + 1
                 fID = mesh % zones(nz) % faces(i)
-                actualElementID = mesh % faces(fID) % ElementIDs(1)
-                associate ( e => mesh % elements(actualElementID) )
+                currentElementID = mesh % faces(fID) % ElementIDs(1)
+                associate ( e => mesh % elements(currentElementID) )
                     elem_loop:do efID = 1, FACES_PER_ELEMENT
                         if ( trim(wallFunBCs(j)) .eq. trim(e % boundaryName(efID)) ) then
                             normalIndex = normalAxis(efID)
@@ -137,37 +137,29 @@ Module WallFunctionConnectivity  !
                     ! use the maxloc line if the compiler doesn't support findloc
                     ! oppositeIndex = findloc(normalAxis,oppositeIndex,dim=1)
                     oppositeIndex = maxloc(merge(1.0, 0.0, normalAxis == oppositeIndex),dim=1)
-                    linkedElementID = e % Connection(oppositeIndex) % globID
+                    linkedElementglobID = e % Connection(oppositeIndex) % globID
                     linkedfID = e % faceIDs(oppositeIndex)
-                          
                     associate ( f => mesh % faces(linkedfID))
-                        do cont =1,2
-                            write(*,'(A, I8, A, 2I8)') 'linkedElementID=', linkedElementID, ' elementIDs=', f % elementIDs(1), f % elementIDs(2)
-                            if ( linkedElementID .eq. f % elementIDs(cont) ) then
-                                linkedFaceSide = cont
-                                exit
-                            endif
+                        do side =1,2
+                            element_index = f % elementIDs(side)
+                            if (element_index .ne. 0) then
+                                !if not equal to zero means that the element exists at the same MPI partition
+                                if ( linkedElementglobID .eq. mesh%elements(f % elementIDs(side))%globID) then
+                                    linkedFaceSide = side
+                                    exit
+                                endif
+                            else
+                                ! if element_index is zero, then the element is in another MPI partition, so we accept it as the linked element
+                                linkedFaceSide = side
+                            end if     
+
                         end do
                     end associate
-                    write(*,'(A, I8, A, I8)') 'linkedfID=', linkedfID, ' linkedFaceSide=', linkedFaceSide
-
-
                 end associate
-                !linkedElementID = getElementID(mesh, linkedElementID)
+                
                 wallFaceID(k) = fID
-                !wallElemIds(k) = linkedElementID
                 wallFaceOppositeID(k) = linkedfID
                 wallSideID(k) = linkedFaceSide
-
-                !get the normalIndex of the linked element instead of actual element, needed for rotated meshes
-                do ff = 1, FACES_PER_ELEMENT
-                    if (mesh % elements(linkedElementID) % Connection(ff) % globID .eq. mesh % elements(actualElementID) % globID) then
-                        oppositeNormalIndex = normalAxis(ff)
-                        exit
-                    end if 
-                end do
-                !wallNormalDirection(k) = abs(oppositeNormalIndex)
-                !wallNormalIndex(k) = getNormalIndex(mesh % faces(fID), mesh % elements(linkedElementID), wallNormalDirection(k))
             end do
         end do
 
@@ -319,42 +311,19 @@ Module WallFunctionConnectivity  !
         real(kind=RP), dimension(:,:,:), allocatable, intent(out)        :: x
         integer, intent(out)                                             :: faceIndex
 !       Local variables
-        integer                                                         :: fID, side!, eID, solIndex
-        ! integer                                                         :: faceIndex, eID, solIndex
+        integer                                                         :: fID, side
 
         allocate( Q(NCONS,0:f % Nf(1),0:f % Nf(2)), x(NDIM,0:f % Nf(1),0:f % Nf(2)) )
 
         ! use the maxloc line if the compiler doesn't support findloc
-        ! faceIndex = findloc(wallFaceID, f % ID, dim=1)
         faceIndex = maxloc(merge(1.0, 0.0, wallFaceID == f % ID),dim=1)
-        !eID = wallElemIds(faceIndex)
-        !solIndex = wallNormalIndex(faceIndex)
+
 
         fID = wallFaceOppositeID(faceIndex)
         side = wallSideID(faceIndex)
 
         Q(:,:,:) = mesh % faces(fID) % storage(side) % Q(:,:,:)
         x(:,:,:) = mesh % faces(fID) % geom % x(:,:,:)
-
-
-        ! select the local coordinate directions of the face base on the definition of axisMap in HexElementConnectivityDefinitions
-!        associate ( e => mesh % elements(eID) )
-!            select case (wallNormalDirection(faceIndex))
-!            case (1)
-!                Q(:,:,:) = e % storage % Q(:,solIndex,:,:)
-!                x(:,:,:) = e % geom % x(:,solIndex,:,:)
-!            case (2)
-!                Q(:,:,:) = e % storage % Q(:,:,solIndex,:)
-!                x(:,:,:) = e % geom % x(:,:,solIndex,:)
-!            case (3)
-!                Q(:,:,:) = e % storage % Q(:,:,:,solIndex)
-!                x(:,:,:) = e % geom % x(:,:,:,solIndex)
-!            case default
-!               write(STD_OUT,'(A)') "Error: wallNormalDirection not found in axisMap"
-!               errorMessage(STD_OUT)
-!               error stop 
-!            end select
-!        end associate
 
     End Subroutine WallGetFaceConnectedQ
 
@@ -424,45 +393,12 @@ Module WallFunctionConnectivity  !
                         invRho = 1.0_RP / Q(IRHO,i,j)
                         localV(:) = Q(IRHOU:IRHOW,i,j) * invRho
                         meanVelocity(:,fIndex,i,j) = localV(:)
-                        print *, 'fIndex:', fIndex, 'i:', i, 'j:', j, 'Mean Velocity:', meanVelocity(:,fIndex,i,j)
                     end do
                 end do
             end associate
         end do 
 
     End Subroutine WallStartMeanV
-
-    integer Function getElementID(mesh, globeID)
-
-!     *******************************************************************
-!        This subroutine get the element ID based on the global element ID
-!        needed specially for MPI, to be sure that the element is in the mesh
-!        partition.
-!     *******************************************************************
-!
-        implicit none
-        class(HexMesh), intent(in)             :: mesh
-        integer, intent(in)                    :: globeID
-!
-!       ---------------
-!       Local variables
-!       ---------------
-!
-        integer                                :: eID, solIndex
-
-        do eID = 1, mesh % no_of_elements
-            if (mesh % elements(eID) % globID .eq. globeID) then
-                getElementID = eID
-                return
-            end if
-        end do
-
-        ! if the code reach this point the element does not exists
-        write(STD_OUT,'(A,I0)') "Error: The element of the wall function does not exists in the mesh or mesh partition, global ID: ", globeID
-        errorMessage(STD_OUT)
-        error stop 
-
-    End Function getElementID
 
 End Module WallFunctionConnectivity
 #endif
