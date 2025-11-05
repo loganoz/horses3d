@@ -442,8 +442,8 @@ module pAdaptationClassRL
          write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
       end if
       
-      call sem % mesh % Export(AdaptedMeshFile)
-      call sem % mesh % ExportOrders(AdaptedMeshFile)
+      ! call sem % mesh % Export(AdaptedMeshFile)
+      ! call sem % mesh % ExportOrders(AdaptedMeshFile)
       
       if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       

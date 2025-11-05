@@ -370,7 +370,6 @@ module SurfaceMonitorClass
             STLNum = self% marker
             ! if( mesh % IBM% stl(STLNum)% move ) then 
             if( mesh % IBM % stl(STLNum) % move .or. &
-                mesh % IBM % stl(STLNum) % FSImove .or. &
                 mesh % IBM % stl(STLNum) % FSIPitchmove ) then
                   
                call mesh % IBM% DestroyBandRegion( STLNum )
