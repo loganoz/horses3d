@@ -75,7 +75,7 @@ Module WallFunctionConnectivity  !
         integer, dimension(:), allocatable     :: zonesWall
         integer                                :: i, j, nz, k, fID, efID
         integer                                :: linkedfID, linkedFaceSide, side, currentElementID, linkedElementglobID, normalIndex, oppositeIndex
-        integer                                :: allFaces, ierr, element_index
+        integer                                :: allFaces, ierr, element_index, fIndex
 
         call Initialize_Wall_Function(controlVariables, useWallFunc)
         if (.not. useWallFunc) then
@@ -115,7 +115,7 @@ Module WallFunctionConnectivity  !
             return
         end if
 
-        allocate( wallFaceOppositeID(numberFacesWall), wallSideID(numberFacesWall),wallFaceID(numberFacesWall) )!, wallElemIds(numberFacesWall), wallNormalIndex(numberFacesWall), wallNormalDirection(numberFacesWall), &
+        allocate( wallFaceOppositeID(numberFacesWall), wallSideID(numberFacesWall),wallFaceID(numberFacesWall) )
                  
 
         !get for each face of the wall, the linked element, normalDirection and index
@@ -177,6 +177,16 @@ Module WallFunctionConnectivity  !
         if (useAverageV) then
             fID = wallFaceID(1)
             associate( f => mesh%faces(fID) )
+                do fIndex = 1,size(wallFaceID)
+                    associate( f2 => mesh%faces(fIndex) )
+                        if (f%nf(1) .ne. f2%nf(1) .or. f%nf(2) .ne. f2%nf(2)  ) then
+                            write(STD_OUT,'(A)') "Error: Wall function with time averaged velocity only supported for same p in all wall faces"
+                            errorMessage(STD_OUT)
+                            error stop
+                        end if
+                    end associate    
+                end do
+                print*, "NDIM", NDIM, "numberFacesWall", numberFacesWall, "f%Nf(1)", f % Nf(1), "f%nf(2)", f % nf(2), "rank", MPI_Process%rank
                 allocate( meanVelocity(NDIM,numberFacesWall,0:f % Nf(1),0:f % nf(2)) )
             end associate
             ! meanVelocity = 0.0_RP
