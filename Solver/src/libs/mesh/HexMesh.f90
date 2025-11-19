@@ -3327,6 +3327,11 @@ if (.not.self % nonconforming) then
                   if ( bfOrder(zoneID) < 1 ) then
                      write(STD_OUT,*) 'ERROR :: The chosen polynomial orders are too low to represent the boundaries accurately'
                      write(STD_OUT,*) '      :: Nonconforming representations on boundaries need N>=2'
+                     deallocate (SurfInfo)
+                     safedeallocate (bfOrder)
+#if _HAS_MPI_
+                     safedeallocate (bfOrder_local)
+#endif
                      error stop
                   end if
                end if
