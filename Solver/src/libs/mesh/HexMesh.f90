@@ -3599,6 +3599,7 @@ if (.not.self % nonconforming) then
                case (0, 1)
                associate(eL => self % elements(f % elementIDs(1)))
                   !write(*,*) f%elementIDs(1)
+               call f % geom % destruct()
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
                                          NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
@@ -3609,6 +3610,7 @@ if (.not.self % nonconforming) then
                  ! write(*,*) f%elementIDs(2)
                  !write(*,*) f % NelRight
                  ! write(*,*)  f % NfRight
+               call f % geom % destruct()
                call f % geom % construct(f % Nf, f % NelRight, f % NfRight, eR % Nxyz, &
                                          NodalStorage(f % Nf), NodalStorage(eR % Nxyz), &
                                          eR % geom, eR % hexMap, f % elementSide(2), &
@@ -3620,6 +3622,7 @@ if (.not.self % nonconforming) then
                   !write(*,*) f%elementIDs(1)
                  ! write(*,*) 'fl',f % NfLeft
                   !write(*,*) 'constructing geometry if face:',fID
+               call f % geom % destruct()
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
                                          NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
@@ -3643,6 +3646,7 @@ if (.not.self % nonconforming) then
                end select
 
                associate(e => self % elements(f % elementIDs(side)))
+               call f % geom % destruct()
                call f % geom % construct(f % Nf, Nelf, Nel, e % Nxyz, &
                                          NodalStorage(f % Nf), NodalStorage(e % Nxyz), &
                                          e % geom, e % hexMap, f % elementSide(side), &
