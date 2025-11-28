@@ -2968,7 +2968,6 @@ slavecoord:             DO l = 1, 4
             case(HMESH_INTERIOR, HMESH_BOUNDARY)
                associate(eL => self % elements(f % elementIDs(1)))
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
-                                         NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
                                          f % projectionType(1), 1, 0 )
                end associate
@@ -2991,7 +2990,6 @@ slavecoord:             DO l = 1, 4
 
                associate(e => self % elements(f % elementIDs(side)))
                call f % geom % construct(f % Nf, Nelf, Nel, e % Nxyz, &
-                                         NodalStorage(f % Nf), NodalStorage(e % Nxyz), &
                                          e % geom, e % hexMap, f % elementSide(side), &
                                          f % projectionType(side), side, rot)
 
