@@ -21,7 +21,7 @@
                 fluid 1 viscosity (Pa.s) = 0.005
                 fluid 2 viscosity (Pa.s) = 0.01
 ! MAINTAINED TO COMPARE!!        mobility = 0.18856
-        chemical characteristic time (s) = 900.0
+        chem characteristic time (s) = 38.16
                      interface width (m) = 0.0424
                  Interface tension (N/m) = 0.00025
        artificial compressibility factor = 1000.0

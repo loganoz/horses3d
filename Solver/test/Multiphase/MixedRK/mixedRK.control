@@ -50,7 +50,7 @@ Averaging = Skew-symmetric 2
 Viscous discretization = BR1   ! IP/BR2
 Cahn-Hilliard discretization = BR1
 
-chemical characteristic time (s) = 1e+16  !10000
+chem characteristic time (s) = 1e+14  !10000
 interface width (m) = 0.01 
 interface tension (N/m) = 1e-16   !72.8e-3
 
