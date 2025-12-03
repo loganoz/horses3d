@@ -7,7 +7,7 @@
 !        Required arguments
 !        ******************
 !
-         character(len=KEYWORD_LENGTH), parameter    :: TCH_KEY               = "chemical characteristic time (s)"
+         character(len=KEYWORD_LENGTH), parameter    :: TCH_KEY               = "chem characteristic time (s)"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width (m)"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension (n/m)"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
@@ -84,7 +84,7 @@
       multiphase_ % sigma_wDim = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
 
       if ( .not. almostEqual(multiphase_ % tCH_wDim, 0.0_RP) ) then
-         multiphase_ % M0_wDim = POW2(Lref)*multiphase_ % eps_wDim / (multiphase_ % tCH_wDim * multiphase_ % sigma_wDim)
+         multiphase_ % M0_wDim = POW2(Lref)*(multiphase_ % eps_wDim**2) / (multiphase_ % tCH_wDim * multiphase_ % sigma_wDim)
       else
          multiphase_ % M0_wDim = 0.0_RP
       end if
@@ -95,7 +95,7 @@
       multiphase_ % sigma = multiphase_ % sigma_wDim / pRef
 
       if ( .not. almostEqual(multiphase_ % tCH, 0.0_RP) ) then
-         multiphase_ % M0 = multiphase_ % eps / (multiphase_ % tCH * multiphase_ % sigma)
+         multiphase_ % M0 = (multiphase_ % eps**2) / (multiphase_ % tCH * multiphase_ % sigma)
       else
          multiphase_ % M0 = 0.0_RP
       end if

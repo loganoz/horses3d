@@ -25,7 +25,7 @@
                        gravity direction = [-1,0,0]
                        Compute gradients = .true.
 
-        chemical characteristic time (s) = 1000.0
+        chem characteristic time (s) = 100.0
                      interface width (m) = 0.1 ! 0.03
                  interface tension (N/m) = 24.5
 

@@ -21,7 +21,7 @@ fluid 2 sound speed square (m/s) = 116136.222222222
 fluid 2 density (kg/m^3) = 1.22145354210477
 fluid 2 viscosity (Pa.s) = 1.831943887d-5
 
-chemical characteristic time (s) = 1000000
+chem characteristic time (s) = 40000
 interface width (m) = 0.04
 interface tension (N/m) = 72.8e-3
 

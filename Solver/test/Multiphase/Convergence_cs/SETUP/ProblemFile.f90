@@ -559,7 +559,7 @@ end module ProblemFileFunctions
                                           7.4217194511428453E-17_RP, & 
                                           6.1637135702849238E-04_RP]
             integer        :: i, j,k, eID 
-            CHARACTER(LEN=29)                  :: testName           = "Multiphase convergence non constant sound speed"
+            CHARACTER(LEN=49)                  :: testName           = "Multiphase convergence non constant sound speed"
             real(kind=RP)  :: error(5)
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success

@@ -22,7 +22,7 @@
 
 interface width (m) = 0.70711
 interface tension (N/m) = 6.236E-3
-chemical characteristic time (s) = 1000.0
+chem characteristic time (s) = 707.11
 artificial sound speed square (m/s) = 1000.0
 !------------------------- Discretization:-
                         Polynomial order = 5
