@@ -499,3 +499,19 @@ jobs:
           ./horses3d.ins Actuator.control
         if: '!cancelled()'
 
+# 8) INS NACA0012
+# -------------------------------
+
+      - name: Build iNS-NACA0012
+        working-directory: ./Solver/test/IncompressibleNS/NACA0012/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run iNS-NACA0012
+        working-directory: ./Solver/test/IncompressibleNS/NACA0012
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ins NACA0012.control
+        if: '!cancelled()'

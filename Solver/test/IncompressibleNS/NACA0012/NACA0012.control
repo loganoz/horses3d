@@ -1,0 +1,66 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "iNS"
+mesh file name        = "../../TestMeshes/naca0012_p3.msh"
+Polynomial order      = 2 ! T
+Number of time steps  = 100
+Output Interval       = 10 
+autosave mode         = "iteration"
+autosave interval     = 1000
+
+Convergence tolerance = 1.d-10
+cfl                   = 0.1d0
+dcfl                  = 0.1d0
+Density (kg/m^3) = 1.0
+Viscosity (Pa.s)  = 1.0
+reference velocity (m/s)  = 100.0
+Artificial compressibility factor = 1000.0
+
+discretization nodes  = Gauss-Lobatto
+
+solution file name    = "RESULTS/naca.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/restart.hsol"
+riemann solver         = "central"
+viscous discretization = "BR1"
+
+Riemann solver = central  
+Lambda stabilization = 1.0
+!Inviscid discretization = Split-form
+Averaging = Skew-symmetric 2 ! Pirozzoli/Morinishi/Kennedy-Gruber/Entropy conserving/Entropy and
+LES Model = Vreman
+                               
+simulation type       = time-accurate
+final time            = 40.d0
+!simulation type       = steady-state
+time integration        = explicit
+partitioning = SFC
+!-------------------------------------------------------------
+! Inflow
+!-------------------------------------------------------------
+#define boundary BACK
+   type = FreeSlipWall
+#end
+
+#define boundary FRONT
+   type = FreeSlipWall
+#end
+
+#define boundary AIRFOILT
+  type = NoSlipWall
+#end
+
+#define boundary AIRFOILB
+  type = NoSlipWall
+#end
+
+#define boundary INFLOW
+    type = Inflow
+#end
+
+#define boundary OUTFLOW
+    type = Outflow
+#end
+!-------------------------------------------------------------
+
+
