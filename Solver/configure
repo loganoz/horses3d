@@ -92,6 +92,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/Cylinder \
             ./IncompressibleNS/CylinderVreman \
             ./IncompressibleNS/ActuatorLineInterpolation \
+            ./IncompressibleNS/NACA0012 \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/Convergence_cs \
