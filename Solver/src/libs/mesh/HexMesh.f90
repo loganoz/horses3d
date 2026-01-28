@@ -4060,6 +4060,13 @@ slavecoord:             DO l = 1, 4
       character(len=LINE_LENGTH)    :: qBaseByFile = 'file'
       character(len=LINE_LENGTH)    :: qBaseByUniformField = 'uniform'
 
+      ! In the control file, the keyword 'qbase' is mandatory:
+      ! qbase = file/uniform
+      ! * When qbase is given by a file, the keyword 'qbase file name' is mandatory:
+      ! qbase file name = path/to/file.stats.hsol
+      ! * When qbase is given by a uniform field, the keyword 'qbase vector' is mandatory:
+      ! qbase vector = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]
+
       
       ! Check which type of qBase we have: file or uniform
       call toLower(qBaseKey)
