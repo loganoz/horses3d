@@ -10,6 +10,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartFileNameKey         = "restart file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey        = "solution file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveGradientsToSolutionKey = "save gradients with solution"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveLambVectorToSolutionKey = "save lamb vector" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveSensorToSolutionKey    = "save sensor with solution"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveLESToSolutionKey       = "save les with solution"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveSourceToSolutionKey    = "save source with solution"
@@ -17,11 +18,12 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey          = "output interval"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey    = "convergence tolerance"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey      = "number of boundaries"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(12) :: mainKeywords =  [ meshFileNameKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(13) :: mainKeywords =  [ meshFileNameKey,           &
                                                                           inviscidDiscretizationKey,  &
                                                                           splitFormkey,               &
                                                                           discretizationNodesKey,     &
                                                                           saveGradientsToSolutionKey, &
+                                                                          saveLambVectorToSolutionKey,&
                                                                           saveSensorToSolutionKey,    &
                                                                           restartKey,                 &
                                                                           restartFileNameKey,         &

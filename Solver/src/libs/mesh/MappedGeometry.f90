@@ -9,7 +9,7 @@ Module MappedGeometryClass
       private
       public MappedGeometry, MappedGeometryFace
       public SetMappingsToCrossProduct
-      public vDot, vCross
+      public vDot, vCross, ComputeVorticity
 !
 !     ---------
 !     Constants
@@ -860,5 +860,19 @@ Module MappedGeometryClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
+      pure subroutine ComputeVorticity(U_x, U_y, U_z, vorticity)
 
+         real(kind=RP), intent(in)  :: U_x(3)
+         real(kind=RP), intent(in)  :: U_y(3)
+         real(kind=RP), intent(in)  :: U_z(3)
+         real(kind=RP), intent(out) :: vorticity(3)
+
+         vorticity(1) = U_y(3) - U_z(2)
+         vorticity(2) = U_z(1) - U_x(3)
+         vorticity(3) = U_x(2) - U_y(1)
+
+      end subroutine ComputeVorticity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
 END Module MappedGeometryClass

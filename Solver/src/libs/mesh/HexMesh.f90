@@ -132,6 +132,7 @@ MODULE HexMeshClass
             procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
 #if defined(NAVIERSTOKES) || defined(INCNS)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
+            procedure :: SaveLambVectorStatistics      => HexMesh_SaveLambVectorStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
@@ -3359,7 +3360,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_, saveSource_)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_, saveSource_, saveLambVector_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -3371,6 +3372,7 @@ slavecoord:             DO l = 1, 4
          logical, optional,   intent(in)        :: saveSensor_
          logical, optional,   intent(in)        :: saveLES_
          logical, optional,   intent(in)        :: saveSource_
+         logical, optional,   intent(in)        :: saveLambVector_
 !
 !        ---------------
 !        Local variables
@@ -3380,7 +3382,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor, saveLES, saveSource
+         logical                          :: saveSensor, saveLES, saveSource, saveLambVector
 #if (!defined(NAVIERSTOKES) || !defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
@@ -3428,6 +3430,11 @@ slavecoord:             DO l = 1, 4
             saveSource = saveSource_
          else
             saveSource = .false.
+         end if
+         if (present(saveLambVector_)) then
+            saveLambVector = saveLambVector_
+         else
+            saveLambVector = .false.
          end if
 
          if (saveGradients .and. computeGradients) then
@@ -3538,7 +3545,100 @@ slavecoord:             DO l = 1, 4
 !        --------------
          call SealSolutionFile(trim(name))
 
+#ifdef FLOW
+         if (saveLambVector) then
+            call HexMesh_SaveLambVector(self, iter, time, name)
+         end if
+#endif
+
       end subroutine HexMesh_SaveSolution
+
+      subroutine HexMesh_SaveLambVector(self, iter, time, name)
+         use SolutionFile
+         use MPI_Process_Info
+         use MappedGeometryClass, only: vCross, ComputeVorticity
+         implicit none
+         class(HexMesh)                         :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         character(len=LINE_LENGTH)       :: fileName
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+         integer                          :: i, j, k
+         real(kind=RP), dimension(NDIM)   :: vorticity, velocity, LambVector
+!
+!        Gather reference quantities
+!        ---------------------------
+#if defined(NAVIERSTOKES)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+#elif defined(INCNS)
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
+#elif defined(ACOUSTIC)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+#else
+         refs = 0.0_RP
+#endif
+!
+!        Create new file
+!        ---------------
+         filename = trim(getFileName(name)) // ".Lamb.hsol"
+         call CreateNewSolutionFile(trim(filename), SOLUTION_FILE, self % nodeType, &
+                                    self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(filename))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+
+               allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+                  call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
+#if defined(NAVIERSTOKES)
+                  velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
+#elif defined(INCNS)
+                  velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
+#endif
+                  call vCross(velocity, vorticity, LambVector)
+               end do                  ; end do                   ; end do
+
+               write(fid) Q
+
+               deallocate(Q)
+
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(filename))
+
+      end subroutine HexMesh_SaveLambVector
+
 
 #if defined(NAVIERSTOKES)
       subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
@@ -3596,7 +3696,7 @@ slavecoord:             DO l = 1, 4
                Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
                write(fid) Q
                ! UZ
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:no_stat_s+NCONS+NDIM*NGRAD,:,:,:)
                write(fid) Q
                deallocate(Q)
             end if
@@ -3685,6 +3785,66 @@ slavecoord:             DO l = 1, 4
 #endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
+
+      subroutine HexMesh_SaveLambVectorStatistics(self, iter, time, name, saveGradients)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer                          :: no_stat_s
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities
+!        ---------------------------
+#ifdef NAVIERSTOKES
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+#else         
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
+#endif
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_of_stats_variables*e % offsetIO*SIZEOF_RP
+            no_stat_s = 9 + NCONS
+            if ( saveGradients ) no_stat_s = no_stat_s + NDIM * NGRAD
+            call writeArray(fid, e % storage % stats % data(no_stat_s:,:,:,:), position=pos)
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SaveLambVectorStatistics
 
       subroutine HexMesh_ResetStatistics(self)
          implicit none
