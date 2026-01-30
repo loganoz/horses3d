@@ -40,7 +40,6 @@ MODULE HexMeshClass
       public      GetOriginalNumberOfFaces
       public      ConstructFaces, ConstructPeriodicFaces
       public      DeletePeriodicMinusFaces, GetElementsFaceIDs
-      public      no_of_stats_variables
 !
 !     ---------------
 !     Mesh definition
@@ -135,6 +134,10 @@ MODULE HexMeshClass
             procedure :: SaveLambVectorStatistics      => HexMesh_SaveLambVectorStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
+#ifdef ACOUSTIC
+            procedure :: LoadLambVector                => HexMesh_LoadLambVector
+            procedure :: LoadLambVectorStatistics      => HexMesh_LoadLambVectorStatistics
+#endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
@@ -166,7 +169,6 @@ MODULE HexMeshClass
       end type HexMesh
 
       integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
-      integer            :: no_of_stats_variables
 
       TYPE Neighbor_t         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
          INTEGER :: elmnt(NUM_OF_NEIGHBORS+1) ! "7" hardcoded for 3D hexahedrals in conforming meshes (the last one is itself)... This definition must change if the code is expected to be more general
@@ -3623,6 +3625,7 @@ slavecoord:             DO l = 1, 4
                   velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
 #endif
                   call vCross(velocity, vorticity, LambVector)
+                  Q(:,i,j,k) = LambVector
                end do                  ; end do                   ; end do
 
                write(fid) Q
@@ -3655,7 +3658,7 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer                          :: fid, eID
-         integer                          :: no_stat_s
+         integer                          :: no_of_written_vars, no_stat_s
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
          real(kind=RP), allocatable       :: Q(:,:,:,:)
@@ -3668,7 +3671,7 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-         refs(RE_REF)    = dimensionless  % Re
+         ! refs(RE_REF)    = dimensionless  % Re
 
 !        Create new file
 !        ---------------
@@ -3677,10 +3680,13 @@ slavecoord:             DO l = 1, 4
 !        Write arrays
 !        ------------
          fID = putSolutionFileInWriteDataMode(trim(name))
+         ! Set the number of written variables for the correct offset
+         no_stat_s = 9 ! S_ij
+         no_of_written_vars = no_stat_s + NCONS ! 9 + NCONS
+         if (saveGradients .and. computeGradients) no_of_written_vars = no_of_written_vars + NGRAD * NDIM
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_of_stats_variables*e % offsetIO*SIZEOF_RP
-            no_stat_s = 9
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_of_written_vars*e % offsetIO*SIZEOF_RP
             call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             ! write(fid) e%storage%stats%data(7:,:,:,:)
@@ -3727,7 +3733,7 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer                          :: fid, eID
-         integer                          :: no_stat_s
+         integer                          :: no_of_written_vars, no_stat_s
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
          real(kind=RP), allocatable       :: Q(:,:,:,:)
@@ -3749,10 +3755,13 @@ slavecoord:             DO l = 1, 4
 !        Write arrays
 !        ------------
          fID = putSolutionFileInWriteDataMode(trim(name))
+         ! Set the number of written variables for the correct offset
+         no_stat_s = 9 ! S_ij
+         no_of_written_vars = no_stat_s + NCONS ! 9 + NCONS
+         if (saveGradients .and. computeGradients) no_of_written_vars = no_of_written_vars + NGRAD * NDIM
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
-            no_stat_s = 9
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_written_vars*e % offsetIO*SIZEOF_RP
             call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
          !    ! write(fid) e%storage%stats%data(7:,:,:,:)
@@ -3832,10 +3841,10 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_of_stats_variables*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
             no_stat_s = 9 + NCONS
             if ( saveGradients ) no_stat_s = no_stat_s + NDIM * NGRAD
-            call writeArray(fid, e % storage % stats % data(no_stat_s:,:,:,:), position=pos)
+            call writeArray(fid, e % storage % stats % data(no_stat_s+1:,:,:,:), position=pos)
             end associate
          end do
          close(fid)
@@ -3862,6 +3871,106 @@ slavecoord:             DO l = 1, 4
 
       end subroutine HexMesh_ResetStatistics
 #endif
+
+#ifdef ACOUSTIC
+
+      subroutine HexMesh_LoadLambVector( self, controlVariables)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         type(FTValueDictionary), intent(in)  :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         character(len=LINE_LENGTH)                :: loadFileName
+         character(len=LINE_LENGTH)                :: LambKey
+         CLASS(FTObject), POINTER         :: obj
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+
+         !
+         ! Read Lamb.stats.hsol file from control file
+         !
+         LambKey = "lamb vector file name"
+         obj => controlVariables % objectForKey(LambKey)
+         if ( .not. associated(obj) ) then
+            print *, "The keyword ", trim(LambKey), " not defined. Use:"
+            print *, trim(LambKey), " = path/to/file.Lamb.hsol"
+            error stop
+         end if
+         loadFileName = trim(controlVariables % stringValueForKey(LambKey,LINE_LENGTH))
+         if ( getSolutionFileType(trim(loadFileName)) .ne. SOLUTION_FILE ) then
+            print *, "The file ", loadFileName, " is not a solution file."
+            error stop
+         end if
+
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInReadDataMode(trim(loadFileName))
+         do eID = 1, self % no_of_elements
+            read(fID) self % elements(eID) % storage % Lamb_NS(1:NDIM,:,:,:)
+         end do
+
+         ! Close the file
+         close(fid)
+
+      end subroutine HexMesh_LoadLambVector
+
+      subroutine HexMesh_LoadLambVectorStatistics( self, controlVariables)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         type(FTValueDictionary), intent(in)  :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         character(len=LINE_LENGTH)                :: loadFileName
+         character(len=LINE_LENGTH)                :: LambStatsKey
+         CLASS(FTObject), POINTER         :: obj
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+
+         !
+         ! Read Lamb.stats.hsol file from control file
+         !
+         LambStatsKey = "lamb vector stats file name"
+         obj => controlVariables % objectForKey(LambStatsKey)
+         if ( .not. associated(obj) ) then
+            print *, "The keyword ", trim(LambStatsKey), " not defined. Use:"
+            print *, trim(LambStatsKey), " = path/to/file.Lamb.stats.hsol"
+            error stop
+         end if
+         loadFileName = trim(controlVariables % stringValueForKey(LambStatsKey,LINE_LENGTH))
+         if ( getSolutionFileType(trim(loadFileName)) .ne. STATS_FILE ) then
+            print *, "The file ", loadFileName, " is not a stats file."
+            error stop
+         end if
+
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInReadDataMode(trim(loadFileName))
+         do eID = 1, self % no_of_elements
+            associate ( e     =>    self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+            read(fID, pos=pos) self % elements(eID) % storage % Lambbase(1:NDIM,:,:,:)
+            end associate
+         end do
+
+         ! Close the file
+         close(fid)
+
+      end subroutine HexMesh_LoadLambVectorStatistics
+
+#endif
+!
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

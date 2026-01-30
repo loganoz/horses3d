@@ -71,7 +71,6 @@ module StatisticsMonitor
       subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector)
          use ParamfileRegions
          use PhysicsStorage, only: NCONS, NGRAD
-         use HexMeshClass,   only: no_of_stats_variables
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
@@ -86,7 +85,6 @@ module StatisticsMonitor
          self % saveLambVector = saveLambVector
          if (saveGradients) NO_OF_VARIABLES = NO_OF_VARIABLES + NGRAD * NDIM
          if (saveLambVector) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
-         no_of_stats_variables = NO_OF_VARIABLES
 !
 !        Search for the parameters in the case file
 !        ------------------------------------------
