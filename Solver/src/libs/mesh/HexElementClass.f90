@@ -952,6 +952,8 @@
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
          spAzeta => NodalStorage(N(3))
+
+         print *, "self%eID, N,nEqn: ", self%eID, N,nEqn
 !
 !        *************************
 !        Prolong solution to faces

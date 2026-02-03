@@ -4070,9 +4070,11 @@ slavecoord:             DO l = 1, 4
          integer  :: fIDs(6)
          integer  :: eID, i
 
+         print *, "start prolong"
 !$omp do schedule(runtime) private(fIDs)
          do eID = 1, size(self % elements)
             fIDs = self % elements(eID) % faceIDs
+            print *, "eID,nEqn: ", eID,nEqn
             call self % elements(eID) % ProlongBaseSolutionToFaces(nEqn, &
                                                                    self % faces(fIDs(1)),&
                                                                    self % faces(fIDs(2)),&
