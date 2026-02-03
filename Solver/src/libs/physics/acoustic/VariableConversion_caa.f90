@@ -78,7 +78,7 @@ module VariableConversion_CAA
 ! /////////////////////////////////////////////////////////////////////
 !
 !---------------------------------------------------------------------
-!! Compute the pressure from the state variables
+!! Compute the pressure from the conservative variables of NS
 !---------------------------------------------------------------------
 !
       PURE function PressureBaseFlow(Q) RESULT(P)

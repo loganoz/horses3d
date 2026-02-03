@@ -43,8 +43,8 @@ module RiemannSolvers_CAA
          use PhysicsStorage_CAA
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseL(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseR(1:NCONS)
+         real(kind=RP), intent(in)       :: QbaseL(1:NCONSB)
+         real(kind=RP), intent(in)       :: QbaseR(1:NCONSB)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
@@ -180,8 +180,8 @@ module RiemannSolvers_CAA
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseL(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseR(1:NCONS)
+         real(kind=RP), intent(in)       :: QbaseL(1:NCONSB)
+         real(kind=RP), intent(in)       :: QbaseR(1:NCONSB)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
@@ -189,10 +189,10 @@ module RiemannSolvers_CAA
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: rhoL, uL, vL, wL, pL
-         real(kind=RP) :: rhoR, uR, vR, wR, pR
-         real(kind=RP) :: QLRot(5), QRRot(5) 
-         real(kind=RP) :: QBaseLRot(5), QbaseRRot(5) 
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, a2L
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, a2R
+         real(kind=RP) :: QLRot(NCONS), QRRot(NCONS) 
+         real(kind=RP) :: QBaseLRot(NCONSB), QbaseRRot(NCONSB) 
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
@@ -226,9 +226,12 @@ module RiemannSolvers_CAA
 
          pL = QbaseL(5)
          pR = QbaseR(5)
+
+         a2L = QbaseL(6)
+         a2R = QbaseR(6)
 !
-         QbaseLRot = (/ rhoL, uL, vL, wL, pL /)
-         QbaseRRot = (/ rhoR, uR, vR, wR, pR /)
+         QbaseLRot = (/ rhoL, uL, vL, wL, pL, a2L /)
+         QbaseRRot = (/ rhoR, uR, vR, wR, pR, a2R /)
 !        Perform the average using the averaging function
 !        ------------------------------------------------
          call StandardAverage(QLRot, QRRot, QBaseLRot, QbaseRRot, flux)
@@ -252,8 +255,8 @@ module RiemannSolvers_CAA
 !
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseL(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseR(1:NCONS)
+         real(kind=RP), intent(in)       :: QbaseL(1:NCONSB)
+         real(kind=RP), intent(in)       :: QbaseR(1:NCONSB)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
@@ -263,11 +266,11 @@ module RiemannSolvers_CAA
 !        Local Variables
 !        ---------------
 !
-         real(kind=RP) :: rhoL, uL, vL, wL, pL, al
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, aL
          real(kind=RP) :: rhoR, uR, vR, wR, pR, aR
-         real(kind=RP) :: QLRot(5), QRRot(5) 
-         real(kind=RP) :: QBaseLRot(5), QbaseRRot(5) 
-         real(kind=RP)  :: lambda, stab(5)
+         real(kind=RP) :: QLRot(NCONS), QRRot(NCONS) 
+         real(kind=RP) :: QBaseLRot(NCONSB), QbaseRRot(NCONSB) 
+         real(kind=RP)  :: lambda, stab(NCONS)
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
@@ -285,12 +288,12 @@ module RiemannSolvers_CAA
          pL = QbaseL(5)
          pR = QbaseR(5)
 !
-         QbaseLRot = (/ rhoL, uL, vL, wL, pL /)
-         QbaseRRot = (/ rhoR, uR, vR, wR, pR /)
+         QbaseLRot = (/ rhoL, uL, vL, wL, pL, QBaseLRot(6) /)
+         QbaseRRot = (/ rhoR, uR, vR, wR, pR, QBaseLRot(6) /)
 !
          ! speed of sound of base flow
-         aL = sqrt(thermodynamics % gamma * pL / rhoL)
-         aR = sqrt(thermodynamics % gamma * pR / rhoR)
+         aL = sqrt(QbaseL(6))
+         aR = sqrt(QbaseR(6))
 !
          rhoL = QLeft(1)
          rhoR = QRight(1)
@@ -355,8 +358,8 @@ module RiemannSolvers_CAA
 !
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseL(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseR(1:NCONS)
+         real(kind=RP), intent(in)       :: QbaseL(1:NCONSB)
+         real(kind=RP), intent(in)       :: QbaseR(1:NCONSB)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
@@ -593,8 +596,8 @@ error stop
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseL(1:NCONS)
-         real(kind=RP), intent(in)       :: QbaseR(1:NCONS)
+         real(kind=RP), intent(in)       :: QbaseL(1:NCONSB)
+         real(kind=RP), intent(in)       :: QbaseR(1:NCONSB)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------

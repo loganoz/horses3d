@@ -812,7 +812,7 @@ module StorageClass
          ALLOCATE( self % S_SA  (NCONS,0:Nx,0:Ny,0:Nz) )
 #endif
 #if defined (ACOUSTIC)
-         ALLOCATE( self % Qbase  (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % Qbase  (NCONSB,0:Nx,0:Ny,0:Nz) )
 #endif
          if (computeGradients) then
             ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
@@ -1406,7 +1406,7 @@ module StorageClass
              ALLOCATE( self % QdotNS   (NCONS,0:Nf(1),0:Nf(2)) )
          end if
 #if defined (ACOUSTIC)
-         ALLOCATE( self % Qbase (NCONS,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % Qbase (NCONSB,0:Nf(1),0:Nf(2)) )
 #endif
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------

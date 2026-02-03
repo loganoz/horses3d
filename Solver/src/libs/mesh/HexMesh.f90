@@ -4041,7 +4041,7 @@ slavecoord:             DO l = 1, 4
     Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
         Implicit None
          CLASS(HexMesh)                  :: self
-         real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
+         real(kind=RP), dimension(1:NCONSB), intent(in)  :: Q_in
 !
 !        ---------------
 !        Local variables
@@ -4049,7 +4049,7 @@ slavecoord:             DO l = 1, 4
          INTEGER                        :: eID, eq
 
          do eID = 1, size(self % elements)
-            do eq = 1,NCONS
+            do eq = 1,NCONSB
                 self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
             end do
          end do
