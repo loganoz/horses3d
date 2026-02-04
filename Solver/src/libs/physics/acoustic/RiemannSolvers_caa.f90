@@ -288,8 +288,8 @@ module RiemannSolvers_CAA
          pL = QbaseL(5)
          pR = QbaseR(5)
 !
-         QbaseLRot = (/ rhoL, uL, vL, wL, pL, QBaseLRot(6) /)
-         QbaseRRot = (/ rhoR, uR, vR, wR, pR, QBaseLRot(6) /)
+         QbaseLRot = (/ rhoL, uL, vL, wL, pL, QBaseL(6) /)
+         QbaseRRot = (/ rhoR, uR, vR, wR, pR, QBaseR(6) /)
 !
          ! speed of sound of base flow
          aL = sqrt(QbaseL(6))

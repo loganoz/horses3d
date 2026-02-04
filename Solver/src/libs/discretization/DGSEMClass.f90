@@ -402,10 +402,8 @@ Module DGSEMClass
 !
 #if defined(ACOUSTIC)
       ! start by default with no flow conditions
-         print *, "start Qbase"
       QbaseUniform = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP/(dimensionless % gammaM2),1.0_RP/POW2(dimensionless%Mach)]
       call self % mesh % SetUniformBaseFlow(QbaseUniform)
-         print *, "start prol Qbase"
       call self % mesh % ProlongBaseSolutionToFaces(NCONSB)
 #ifdef _HAS_MPI_
 !$omp single
