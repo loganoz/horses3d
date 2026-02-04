@@ -96,7 +96,7 @@ module MPI_Face_Class
 
       end subroutine ConstructMPIFaces
 
-      subroutine ConstructMPIFacesStorage(facesSet, NCONS, NGRAD, NDOFS, NCONSB)
+      subroutine ConstructMPIFacesStorage(facesSet, NCONS, NGRAD, NDOFS, NCONSB_in)
 !
 !        ***************************************************
 !           Allocates buffers to send and receive.
@@ -108,13 +108,19 @@ module MPI_Face_Class
          type(MPI_FacesSet_t)    :: facesSet
          integer, intent(in)     :: NCONS, NGRAD
          integer, intent(in)     :: NDOFS(MPI_Process % nProcs)
-         integer, intent(in), optional     :: NCONSB
+         integer, intent(in), optional     :: NCONSB_in
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: domain
+         integer  :: domain, NCONSB
+
+         if (present(NCONSB_in)) then
+             NCONSB = NCONSB_in
+         else
+             NCONSB = 0
+         end if 
 
          do domain = 1, MPI_Process % nProcs
             facesSet % faces(domain) % nDOFs         = NDOFS(domain)
