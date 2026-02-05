@@ -3570,6 +3570,7 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
          character(len=LINE_LENGTH)       :: fileName
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
@@ -3614,7 +3615,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(filename))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-
+               pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
                allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
@@ -3628,7 +3629,7 @@ slavecoord:             DO l = 1, 4
                   Q(:,i,j,k) = LambVector
                end do                  ; end do                   ; end do
 
-               write(fid) Q
+               call writeArray(fid, Q, position=pos)
 
                deallocate(Q)
 
@@ -3908,11 +3909,15 @@ slavecoord:             DO l = 1, 4
          end if
 
 !
-!        Write arrays
+!        Read arrays
 !        ------------
          fID = putSolutionFileInReadDataMode(trim(loadFileName))
          do eID = 1, self % no_of_elements
-            read(fID) self % elements(eID) % storage % Lamb_NS(1:NDIM,:,:,:)
+            associate( e => self % elements(eID) )
+               pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+               pos = pos + 5_AddrInt*SIZEOF_INT
+               read(fID, pos=pos) self % elements(eID) % storage % Lamb_NS(1:NDIM,:,:,:)
+            end associate
          end do
 
          ! Close the file
