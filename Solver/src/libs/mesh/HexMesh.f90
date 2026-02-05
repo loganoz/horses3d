@@ -4053,7 +4053,7 @@ slavecoord:             DO l = 1, 4
       class(FTObject), pointer   :: obj, obj2
       character(len=LINE_LENGTH) :: qBaseMode
       character(len=LINE_LENGTH) :: fileName
-      real(kind=RP)              :: QbaseUniform(1:NCONS)
+      real(kind=RP)              :: QbaseUniform(1:NCONSB)
 
       CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseKey                   = "qBase"
       CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseFileNameKey           = "qBase file name"

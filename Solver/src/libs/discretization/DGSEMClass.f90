@@ -399,7 +399,7 @@ Module DGSEMClass
 !
 #if defined(ACOUSTIC)
       call self % mesh % InitializeBaseFlow(controlVariables)
-      call self % mesh % ProlongBaseSolutionToFaces(NCONS)
+      call self % mesh % ProlongBaseSolutionToFaces(NCONSB)
 #ifdef _HAS_MPI_
 !$omp single
       call self % mesh % UpdateMPIFacesBaseSolution(NCONSB)
