@@ -3555,7 +3555,7 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer                          :: fid, eID
+         integer                          :: fid, eID, fileType
          integer                          :: no_stat_s
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
@@ -3573,7 +3573,9 @@ slavecoord:             DO l = 1, 4
 
 !        Create new file
 !        ---------------
-         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+         fileType = STATS_FILE
+         if ( saveGradients .and. computeGradients ) fileType = STATS_AND_GRADIENTS_FILE
+         call CreateNewSolutionFile(trim(name), fileType, self % nodeType, self % no_of_allElements, iter, time, refs)
 !
 !        Write arrays
 !        ------------
@@ -3584,7 +3586,6 @@ slavecoord:             DO l = 1, 4
             no_stat_s = 9
             call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            ! write(fid) e%storage%stats%data(7:,:,:,:)
             Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
             write(fid) Q
             deallocate(Q)
@@ -4160,30 +4161,18 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !        Local variables
 !        ---------------
-         INTEGER                        :: fID, eID, fileType, no_of_elements, flag, nodetype
-         integer, allocatable           :: arrayDimensions(:)
-         integer :: iter
-         real(kind=RP) :: time
-         real(kind=RP), dimension(NO_OF_SAVED_REFS) :: refs
+         INTEGER                        :: fID, eID, fileType, no_of_elements, nodetype
          integer                        :: i, j, k
-         integer                        :: padding
          integer(kind=AddrInt)          :: pos
-         integer                        :: no_stat_s
+         integer                        :: no_stat_s, no_stats_read
          real(kind=RP), allocatable     :: Q(:,:,:,:)
-         character(len=SOLFILE_STR_LEN) :: rstName
-         logical                        :: gradients
 
-         gradients = .FALSE.
-!
-!        Get the file title
-!        ------------------
-         rstName = getSolutionFileName(trim(fileName))
 !
 !        Get the file type
 !        -----------------
          fileType = getSolutionFileType(trim(fileName))
 
-         if (fileType .ne. STATS_FILE) then
+         if ( (fileType .ne. STATS_FILE) .and. (fileType .ne. STATS_AND_GRADIENTS_FILE) ) then
             print*, "The selected file is not a statistics file"
             errorMessage(STD_OUT)
             error stop
@@ -4209,35 +4198,31 @@ slavecoord:             DO l = 1, 4
             errorMessage(STD_OUT)
             error stop
          end if
-         allocate(arrayDimensions(4))
-!
-!        Get time and iteration
-!        ----------------------
-         call getSolutionFileTimeAndIteration(trim(fileName),iter,time)
-!
-!        Read reference values
-!        ---------------------
-         refs = getSolutionFileReferenceValues(trim(fileName))
+
 !
 !        Read elements data
 !        ------------------
          fID = putSolutionFileInReadDataMode(trim(fileName))
+         no_stat_s = 9
+         no_stats_read = no_stat_s + NCONS
+         if (fileType .eq. STATS_AND_GRADIENTS_FILE) no_stats_read = no_stats_read + NGRAD*NDIM
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            call getSolutionFileArrayDimensions(fID,arrayDimensions)
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_stats_read*e % offsetIO*SIZEOF_RP
+            pos = pos + 5_AddrInt*SIZEOF_INT ! This is to skip the reading of the dimensions and shape in writeArray
 
-            no_stat_s = 9
             ! Read and initialize velocity
             allocate(Q(1:no_stat_s, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            read(fID) Q
+            read(fID, pos=pos) Q
             ! WARNING: 1,2,3 should match U,V,W in StatisticsMonitor
             self % elements(eID) % storage % Qbase(ICAAU,:,:,:) = Q(1,:,:,:)
             self % elements(eID) % storage % Qbase(ICAAV,:,:,:) = Q(2,:,:,:)
             self % elements(eID) % storage % Qbase(ICAAW,:,:,:) = Q(3,:,:,:)
             deallocate(Q)
-            ! Read and initialize density
+            ! Read NCONS variables 
             allocate(Q(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
+            ! Initialize density
             self % elements(eID) % storage % Qbase(ICAARHO,:,:,:) = Q(IRHO,:,:,:)
             ! Read and initialize pressure
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
