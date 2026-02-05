@@ -1515,7 +1515,7 @@ slavecoord:             DO l = 1, 4
          do k = 1, nShared
 			domain = MPIfaces % listDomain(k)
 			if (MPIfaces % faces(domain) % no_of_faces > 0) then
-				call MPIfaces % faces(domain) % RecvQ(domain, nEqn, all_reqs(k))
+				call MPIfaces % faces(domain) % RecvQBase(domain, nEqn, all_reqs(k))
 			end if 
          end do
 !
@@ -1543,7 +1543,7 @@ slavecoord:             DO l = 1, 4
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Qbase(:,i,j)
+                  self % MPIfaces % faces(domain) % QBaseSend(counter:counter+nEqn-1) = f % storage(thisSide) % Qbase(:,i,j)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -1553,7 +1553,7 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call MPIfaces % faces(domain) % SendQ(domain, nEqn, all_reqs(idx_send))
+            call MPIfaces % faces(domain) % SendQBase(domain, nEqn, all_reqs(idx_send))
 			idx_send = idx_send + 1
          end do
 !
@@ -1744,7 +1744,7 @@ slavecoord:             DO l = 1, 4
                thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % Qbase(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % Qbase(:,i,j) = self % MPIfaces % faces(domain) % QBaseRecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -2545,7 +2545,7 @@ slavecoord:             DO l = 1, 4
 #elif defined(MULTIPHASE)
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(ACOUSTIC)
-            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, NCONSB_in=NCONSB)
 #endif
 
 #endif
@@ -4136,7 +4136,7 @@ slavecoord:             DO l = 1, 4
     Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
         Implicit None
          CLASS(HexMesh)                  :: self
-         real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
+         real(kind=RP), dimension(1:NCONSB), intent(in)  :: Q_in
 !
 !        ---------------
 !        Local variables
@@ -4144,7 +4144,7 @@ slavecoord:             DO l = 1, 4
          INTEGER                        :: eID, eq
 
          do eID = 1, size(self % elements)
-            do eq = 1,NCONS
+            do eq = 1,NCONSB
                 self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
             end do
          end do

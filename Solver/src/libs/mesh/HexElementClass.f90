@@ -952,6 +952,7 @@
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
          spAzeta => NodalStorage(N(3))
+
 !
 !        *************************
 !        Prolong solution to faces

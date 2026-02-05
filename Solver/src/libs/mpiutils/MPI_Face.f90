@@ -22,6 +22,7 @@ module MPI_Face_Class
       integer                    :: Qrecv_req
       integer                    :: gradQrecv_req
       integer                    :: AviscFluxRecv_req
+      integer                    :: QBaseRecv_req
       integer                    :: sizeQ
       integer                    :: sizeU_xyz
       integer                    :: sizeAviscFlux
@@ -33,6 +34,8 @@ module MPI_Face_Class
       real(kind=RP), allocatable :: U_xyzrecv(:)
       real(kind=RP), allocatable :: AviscFluxSend(:)
       real(kind=RP), allocatable :: AviscFluxRecv(:)
+      real(kind=RP), allocatable :: QbaseSend(:)
+      real(kind=RP), allocatable :: QbaseRecv(:)
       contains
          procedure   :: Construct        => MPI_Face_Construct
          procedure   :: Destruct         => MPI_Face_Destruct
@@ -48,13 +51,16 @@ module MPI_Face_Class
          procedure   :: WaitForSolution  => MPI_Face_WaitForSolution
          procedure   :: WaitForGradients => MPI_Face_WaitForGradients
          procedure   :: WaitForAviscFlux => MPI_Face_WaitForAviscFlux
+         procedure   :: SendQbase        => MPI_Face_SendQbase
+         procedure   :: RecvQbase        => MPI_Face_RecvQbase
+         procedure   :: WaitForSolutionB => MPI_Face_WaitForSolutionB
    end type MPI_Face_t
 
    type MPI_FacesSet_t
       logical                          :: constructed = .false.
-	  integer                          :: nDomainShared
+      integer                          :: nDomainShared
       type(MPI_Face_t), allocatable    :: faces(:)
-	  integer         , allocatable    :: listDomain(:)
+      integer         , allocatable    :: listDomain(:)
    end type MPI_FacesSet_t
 
    interface MPI_Face_t
@@ -75,14 +81,14 @@ module MPI_Face_Class
 
          if ( MPI_Process % doMPIAction ) then
             allocate(facesSet % faces(MPI_Process % nProcs))
-			allocate(facesSet % listDomain(MPI_Process % nProcs))
-			
-			facesSet % nDomainShared = MPI_Process % nProcs
-			
+            allocate(facesSet % listDomain(MPI_Process % nProcs))
+            
+            facesSet % nDomainShared = MPI_Process % nProcs
+            
             do domain = 1, MPI_Process % nProcs
                facesSet % faces(domain) = MPI_Face_t()
-			   facesSet % faces(domain) % no_of_faces = 0
-			   facesSet % listDomain (domain) = domain
+               facesSet % faces(domain) % no_of_faces = 0
+               facesSet % listDomain (domain) = domain
             end do
          end if
 
@@ -90,7 +96,7 @@ module MPI_Face_Class
 
       end subroutine ConstructMPIFaces
 
-      subroutine ConstructMPIFacesStorage(facesSet, NCONS, NGRAD, NDOFS)
+      subroutine ConstructMPIFacesStorage(facesSet, NCONS, NGRAD, NDOFS, NCONSB_in)
 !
 !        ***************************************************
 !           Allocates buffers to send and receive.
@@ -102,13 +108,20 @@ module MPI_Face_Class
          type(MPI_FacesSet_t)    :: facesSet
          integer, intent(in)     :: NCONS, NGRAD
          integer, intent(in)     :: NDOFS(MPI_Process % nProcs)
+         integer, intent(in), optional     :: NCONSB_in
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: domain
-		 
+         integer  :: domain, NCONSB
+
+         if (present(NCONSB_in)) then
+             NCONSB = NCONSB_in
+         else
+             NCONSB = 0
+         end if 
+
          do domain = 1, MPI_Process % nProcs
             facesSet % faces(domain) % nDOFs         = NDOFS(domain)
             facesSet % faces(domain) % sizeQ         = NCONS * NDOFS(domain)
@@ -116,13 +129,15 @@ module MPI_Face_Class
             facesSet % faces(domain) % sizeAviscFlux = NCONS * NDOFS(domain)
 
             if ( NDOFS(domain) .gt. 0 ) then
-			   
+
                safedeallocate(facesSet % faces(domain) % Qsend)
                safedeallocate(facesSet % faces(domain) % U_xyzsend)
                safedeallocate(facesSet % faces(domain) % Qrecv)
                safedeallocate(facesSet % faces(domain) % U_xyzrecv)
                safedeallocate(facesSet % faces(domain) % AviscFluxSend)
                safedeallocate(facesSet % faces(domain) % AviscFluxRecv)
+               safedeallocate(facesSet % faces(domain) % QBaseSend)
+               safedeallocate(facesSet % faces(domain) % QBaseRecv)
 
                allocate( facesSet % faces(domain) % Qsend(NCONS * NDOFS(domain)) )
                allocate( facesSet % faces(domain) % U_xyzsend(NDIM * NGRAD * NDOFS(domain)) )
@@ -130,6 +145,8 @@ module MPI_Face_Class
                allocate( facesSet % faces(domain) % U_xyzrecv(NDIM * NGRAD * NDOFS(domain)) )
                allocate( facesSet % faces(domain) % AviscFluxSend(NCONS * NDOFS(domain)) )
                allocate( facesSet % faces(domain) % AviscFluxRecv(NCONS * NDOFS(domain)) )
+               allocate( facesSet % faces(domain) % QBaseSend(NCONSB * NDOFS(domain)) )
+               allocate( facesSet % faces(domain) % QBaseRecv(NCONSB * NDOFS(domain)) )
             end if
          end do
       end subroutine ConstructMPIFacesStorage
@@ -144,12 +161,12 @@ module MPI_Face_Class
          !-arguments-----------------------------------------------
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
-		 integer, intent(out)   :: req
+         integer, intent(out)   :: req
          !-local-variables-----------------------------------------
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
-		 req = MPI_REQUEST_NULL
+         req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % Nsend, 6 * self % no_of_faces, MPI_INT, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, req, ierr)
@@ -164,16 +181,16 @@ module MPI_Face_Class
          !-arguments-----------------------------------------------
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
-		 integer, intent(out)   :: req
+         integer, intent(out)   :: req
          !-local-variables-----------------------------------------
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
-		 req = MPI_REQUEST_NULL
+         req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % Nrecv, 6 * self % no_of_faces, MPI_INT, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, req, ierr)
-			self % Nrecv_req = req
+            self % Nrecv_req = req
          end if
 #endif
       end subroutine MPI_Face_RecvN
@@ -188,12 +205,12 @@ module MPI_Face_Class
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
          integer, intent(in)    :: nEqn
-		 integer, intent(out)   :: req
+         integer, intent(out)   :: req
          !-local-variables-----------------------------------------
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
-		 req = MPI_REQUEST_NULL
+         req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, req, ierr)
@@ -208,17 +225,17 @@ module MPI_Face_Class
          class(MPI_Face_t)      :: self
          integer, intent(in)    :: domain
          integer, intent(in)    :: nEqn
-		 integer, intent(out)   :: req
+         integer, intent(out)   :: req
          !-local-variables-----------------------------------------
          integer  :: ierr
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
-		 req = MPI_REQUEST_NULL
-		 self % Qrecv_req = MPI_REQUEST_NULL
+         req = MPI_REQUEST_NULL
+         self % Qrecv_req = MPI_REQUEST_NULL
          if ( self % no_of_faces .gt. 0 ) then
             call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, req, ierr)
-			self % Qrecv_req = req
+            self % Qrecv_req = req
          end if
 #endif
       end subroutine MPI_Face_RecvQ
@@ -316,6 +333,51 @@ module MPI_Face_Class
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!     ---------------------------------
+!     Subroutine to send the variable Qbase
+!     ---------------------------------
+      subroutine MPI_Face_SendQBase(self, domain, nEqn, req)
+         implicit none
+         class(MPI_Face_t)      :: self
+         integer, intent(in)    :: domain
+         integer, intent(in)    :: nEqn
+         integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+#ifdef _HAS_MPI_
+         req = MPI_REQUEST_NULL
+         if ( self % no_of_faces .gt. 0 ) then
+            call mpi_isend(self % QBaseSend, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, DEFAULT_TAG, &
+                           MPI_COMM_WORLD, req, ierr)
+         end if
+#endif
+      end subroutine MPI_Face_SendQBase
+!     ------------------------------------
+!     Subroutine to receive the variable Qbase
+!     ------------------------------------
+      subroutine MPI_Face_RecvQBase(self, domain, nEqn, req)
+         implicit none
+         class(MPI_Face_t)      :: self
+         integer, intent(in)    :: domain
+         integer, intent(in)    :: nEqn
+         integer, intent(out)   :: req
+         !-local-variables-----------------------------------------
+         integer  :: ierr
+         !---------------------------------------------------------
+#ifdef _HAS_MPI_
+        req = MPI_REQUEST_NULL
+        self % QBaseRecv_req = MPI_REQUEST_NULL
+         if ( self % no_of_faces .gt. 0 ) then
+            call mpi_irecv(self % QBaseRecv, nEqn * self % nDOFs, MPI_DOUBLE_PRECISION, domain-1, MPI_ANY_TAG, &
+                           MPI_COMM_WORLD, req, ierr)
+            self % QBaseRecv_req = req
+         end if
+#endif
+      end subroutine MPI_Face_RecvQBase
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !     -------------------------------------------
 !     Wait until the polynomial order is received
 !     -------------------------------------------
@@ -407,6 +469,30 @@ module MPI_Face_Class
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+      subroutine MPI_Face_WaitForSolutionB(self)
+         implicit none
+         class(MPI_Face_t)    :: self
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer              :: ierr
+         integer              :: status(MPI_STATUS_SIZE)
+
+!
+!        -----------------------------------
+!        Wait until the solution is received
+!        -----------------------------------
+!
+         call mpi_wait(self % QBaseRecv_req, status, ierr)
+#endif
+
+      end subroutine MPI_Face_WaitForSolutionB
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine DestructMPIFaces(facesSet)
          implicit none
          type(MPI_FacesSet_t)    :: facesSet
@@ -422,9 +508,9 @@ module MPI_Face_Class
                call facesSet % faces(domain) % Destruct()
             end do
             safedeallocate(facesSet % faces)
-			safedeallocate(facesSet % listDomain)
+            safedeallocate(facesSet % listDomain)
          end if
-		 facesSet % constructed = .FALSE.
+         facesSet % constructed = .FALSE.
 
       end subroutine DestructMPIFaces
 
@@ -454,6 +540,7 @@ module MPI_Face_Class
          self % Qrecv_req         = MPI_REQUEST_NULL
          self % gradQrecv_req     = MPI_REQUEST_NULL
          self % AviscFluxRecv_req = MPI_REQUEST_NULL
+         self % QBaseRecv_req     = MPI_REQUEST_NULL
 #endif
 
       end subroutine MPI_Face_Construct
@@ -473,11 +560,14 @@ module MPI_Face_Class
          safedeallocate(self % U_xyzrecv)
          safedeallocate(self % AviscFluxSend)
          safedeallocate(self % AviscFluxRecv)
+         safedeallocate(self % QBaseSend)
+         safedeallocate(self % QBaseRecv)
 #ifdef _HAS_MPI_
          self % Nrecv_req         = MPI_REQUEST_NULL
          self % Qrecv_req         = MPI_REQUEST_NULL
          self % gradQrecv_req     = MPI_REQUEST_NULL
          self % AviscFluxRecv_req = MPI_REQUEST_NULL
+         self % QBaseRecv_req     = MPI_REQUEST_NULL
 #endif
 
       end subroutine MPI_Face_Destruct

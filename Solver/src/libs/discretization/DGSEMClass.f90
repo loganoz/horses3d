@@ -402,11 +402,11 @@ Module DGSEMClass
       call self % mesh % ProlongBaseSolutionToFaces(NCONS)
 #ifdef _HAS_MPI_
 !$omp single
-      call self % mesh % UpdateMPIFacesBaseSolution(NCONS)
+      call self % mesh % UpdateMPIFacesBaseSolution(NCONSB)
       ! not efficient, but only done once
       ! we can wait for the communication with more computation in between, but will need to be in a different subroutine
       call mpi_barrier(MPI_COMM_WORLD, ierr)
-      call self % mesh % GatherMPIFacesBaseSolution(NCONS)
+      call self % mesh % GatherMPIFacesBaseSolution(NCONSB)
 !$omp end single
 #endif
 !
