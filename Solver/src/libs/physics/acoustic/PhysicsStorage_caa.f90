@@ -24,9 +24,10 @@
      IMPLICIT NONE
 
      private
-     public    NCONS, NGRAD
+     public    NCONS, NGRAD, NCONSB
      public    ICAARHO, ICAAU, ICAAV, ICAAW, ICAAP
-     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE, ICAAA2
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+     public    IBRHO, IBU, IBV, IBW, IBP, IBA2
      public    computeGradients, flowIsNavierStokes
 
      public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA
@@ -41,20 +42,24 @@
      logical, protected :: computeGradients   = .false.
 !
 !    --------------------------
-!!   The sizes of the NS system
+!!   The sizes of the CAA system
 !    --------------------------
 !
      INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
+     ! for APE and LEE we have one more variable, the speed of sound squared
+     INTEGER, PARAMETER ::  NCONSB = NCONS + 1
 !
 !    -------------------------------------------
-!!   The positions of the conservative variables
+!!   The positions of the conserv variables
 !    -------------------------------------------
 !
      INTEGER, PARAMETER       :: ICAARHO = 1 , ICAAU = 2 , ICAAV = 3 , ICAAW = 4 , ICAAP = 5
 !
-!!   The positions of the conservative variables of the base flow
+!!   The positions of the primitive variables of the base flow
+     INTEGER, PARAMETER       :: IBRHO = 1 , IBU = 2 , IBV = 3 , IBW = 4 , IBP = 5, IBA2 = 6
+
+!!   The positions of the conservative variables of the base flow from the NS solver
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
-     INTEGER, PARAMETER       :: ICAAA2 = 6
 !
 !    --------------------------------
 !    Choice of the gradient variables

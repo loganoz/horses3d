@@ -36,7 +36,11 @@ module HyperbolicDiscretizationClass
          real(kind=RP), intent(in)           :: Q(1:NCONS     )
          real(kind=RP), intent(out)          :: F(1:NCONS, 1:NDIM)
          real(kind=RP), intent(in), optional :: rho_
+#if defined(ACOUSTIC)
+         real(kind=RP), intent(in), optional :: Qbase(1:NCONSB)
+#else
          real(kind=RP), intent(in), optional :: Qbase(1:NCONS)
+#endif
       end subroutine HyperbolicFlux0D_f
    end interface
 !

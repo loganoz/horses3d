@@ -144,7 +144,9 @@ Module DGSEMClass
       logical                     :: useWeightsPartition                ! Partitioning mesh using DOF of elements as weights
       logical                     :: genMonitor
 	  logical                     :: isReconstruct=.false.
-	  real(kind=RP)               :: QbaseUniform(1:NCONS)
+#if defined(ACOUSTIC)
+	  real(kind=RP)               :: QbaseUniform(1:NCONSB)
+#endif
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 #if (!defined(NAVIERSTOKES))
@@ -400,16 +402,16 @@ Module DGSEMClass
 !
 #if defined(ACOUSTIC)
       ! start by default with no flow conditions
-      QbaseUniform = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP/(dimensionless % gammaM2)]
+      QbaseUniform = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP/(dimensionless % gammaM2),1.0_RP/POW2(dimensionless%Mach)]
       call self % mesh % SetUniformBaseFlow(QbaseUniform)
-      call self % mesh % ProlongBaseSolutionToFaces(NCONS)
+      call self % mesh % ProlongBaseSolutionToFaces(NCONSB)
 #ifdef _HAS_MPI_
 !$omp single
-      call self % mesh % UpdateMPIFacesBaseSolution(NCONS)
+      call self % mesh % UpdateMPIFacesBaseSolution(NCONSB)
       ! not efficient, but only done once
       ! we can wait for the communication with more computation in between, but will need to be in a different subroutine
       call mpi_barrier(MPI_COMM_WORLD, ierr)
-      call self % mesh % GatherMPIFacesBaseSolution(NCONS)
+      call self % mesh % GatherMPIFacesBaseSolution(NCONSB)
 !$omp end single
 #endif
 !
