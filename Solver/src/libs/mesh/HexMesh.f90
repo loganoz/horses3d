@@ -2544,7 +2544,7 @@ slavecoord:             DO l = 1, 4
 #elif defined(MULTIPHASE)
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(ACOUSTIC)
-            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, NCONSB=NCONSB)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, NCONSB_in=NCONSB)
 #endif
 
 #endif
