@@ -84,7 +84,7 @@ module MonitorsClass
          character(len=STR_LEN_MONITORS) :: line
          character(len=STR_LEN_MONITORS) :: solution_file                                            
          logical, save                   :: FirstCall = .TRUE.
-         logical                         :: saveGradients
+         logical                         :: saveGradients, saveLambVector
 		 logical                         :: monitorMem =.FALSE.
 !
 !        Setup the buffer
@@ -147,7 +147,8 @@ module MonitorsClass
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-         call Monitors % stats     % Construct(mesh, saveGradients)
+         saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)
+         call Monitors % stats     % Construct(mesh, saveGradients, saveLambVector)
 
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )

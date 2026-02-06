@@ -567,7 +567,9 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, ActuatorLineControlFlag, saveLES, saveOrders, saveSource
+      logical                       :: saveGradients, saveSensor, saveLES, saveOrders, saveSource, saveLambVector
+      logical                       :: useTrip, ActuatorLineFlag, ActuatorLineControlFlag
+
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 
       logical                       :: dtHasToAdapt = .FALSE. ! Flag to indicate if the time step has to be adapted
@@ -645,6 +647,7 @@
       saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
       saveLES          = controlVariables % logicalValueForKey(saveLESToSolutionKey)
       saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
+      saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)
 !
 !     -----------------------
 !     Check initial residuals
@@ -905,7 +908,7 @@
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES, saveSource)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES, saveSource, saveLambVector)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -1039,7 +1042,7 @@
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource, saveLambVector)
 #if defined(FLOW) 
       use SpongeClass, only: sponge, WriteBaseFlowSponge
 #endif
@@ -1058,6 +1061,7 @@
       logical,          intent(in) :: saveSensor
       logical,          intent(in) :: saveLES
       logical,          intent(in) :: saveSource
+      logical,          intent(in) :: saveLambVector
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -1065,7 +1069,7 @@
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource, saveLambVector)
 #if defined(FLOW) 
       call WriteBaseFlowSponge(sponge, sem % mesh, k, t)
 #endif

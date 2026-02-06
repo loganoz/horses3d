@@ -34,7 +34,7 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients, saveSensor, saveLES, saveSource
+      LOGICAL                             :: success, saveGradients, saveSensor, saveLES, saveSource, saveLambVector
 	  logical                             :: generateMonitor = .TRUE.
 	  logical                             :: optimizePartitionLevel=.FALSE.
 	  logical                             :: isMLRK=.FALSE.
@@ -204,7 +204,8 @@
          saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
          saveLES          = controlVariables % logicalValueForKey(saveLESToSolutionKey)
          saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveLES, saveSource)
+         saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveLES, saveSource, saveLambVector)
          if ( sem % particles % active ) then
             call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
          end if
@@ -265,6 +266,11 @@
          obj => controlVariables % objectForKey(saveGradientsToSolutionKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey(".false.",saveGradientsToSolutionKey)
+         end if
+
+         obj => controlVariables % objectForKey(saveLambVectorToSolutionKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey(".false.",saveLambVectorToSolutionKey)
          end if
 
          obj => controlVariables % objectForKey(saveSensorToSolutionKey)
