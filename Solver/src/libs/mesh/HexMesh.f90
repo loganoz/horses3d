@@ -138,8 +138,9 @@ MODULE HexMeshClass
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
 #if defined(ACOUSTIC)
+            procedure :: InitializeBaseFlow            => HexMesh_InitializeBaseFlow
             procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
-            ! procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+            procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
             procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
             procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
             procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
@@ -3554,7 +3555,7 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer                          :: fid, eID
+         integer                          :: fid, eID, fileType
          integer                          :: no_stat_s
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
@@ -3568,11 +3569,13 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-         refs(RE_REF)    = dimensionless  % Re
+         ! refs(RE_REF)    = dimensionless  % Re
 
 !        Create new file
 !        ---------------
-         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+         fileType = STATS_FILE
+         if ( saveGradients .and. computeGradients ) fileType = STATS_AND_GRADIENTS_FILE
+         call CreateNewSolutionFile(trim(name), fileType, self % nodeType, self % no_of_allElements, iter, time, refs)
 !
 !        Write arrays
 !        ------------
@@ -3583,7 +3586,6 @@ slavecoord:             DO l = 1, 4
             no_stat_s = 9
             call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            ! write(fid) e%storage%stats%data(7:,:,:,:)
             Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
             write(fid) Q
             deallocate(Q)
@@ -4038,6 +4040,99 @@ slavecoord:             DO l = 1, 4
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 #if defined(ACOUSTIC)
+
+   subroutine HexMesh_InitializeBaseFlow(self, controlVariables)
+      use FTObjectClass
+      use mainKeywordsModule
+      use FileReadingUtilities, only: getRealArrayFromString
+      Implicit None
+      CLASS(HexMesh)                  :: self
+      class(FTValueDictionary)        :: controlVariables
+
+      
+      class(FTObject), pointer   :: obj, obj2
+      character(len=LINE_LENGTH) :: qBaseMode
+      character(len=LINE_LENGTH) :: fileName
+      real(kind=RP)              :: QbaseUniform(1:NCONSB)
+
+      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseKey                   = "qBase"
+      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseFileNameKey           = "qBase file name"
+      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseVectorKey             = "qBase vector"
+      character(len=LINE_LENGTH)    :: qBaseByFile = 'file'
+      character(len=LINE_LENGTH)    :: qBaseByUniformField = 'uniform'
+
+      ! In the control file, the keyword 'qbase' is mandatory:
+      ! qbase = file/uniform
+      ! * When qbase is given by a file, the keyword 'qbase file name' is mandatory:
+      ! qbase file name = path/to/file.stats.hsol
+      ! * When qbase is given by a uniform field, the keyword 'qbase vector' is mandatory:
+      ! qbase vector = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]
+
+      
+      ! Check which type of qBase we have: file or uniform
+      call toLower(qBaseKey)
+      obj => controlVariables % objectForKey(trim(qBaseKey))
+      if ( associated(obj) ) then
+
+         qBaseMode = controlVariables % stringValueForKey(trim(qBaseKey), requestedLength = LINE_LENGTH)
+         call ToLower(qBaseMode)
+         
+         if ( trim(qBaseMode) .eq. trim(qBaseByFile) ) then
+            !
+            ! Read Qbase from file
+            !
+            ! Check that the user has specified the file to read from
+            call toLower(qBaseFileNameKey)
+            obj2 => controlVariables % objectForKey(trim(qBaseFileNameKey))
+            if ( .not. associated(obj2) ) then
+               print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no file specified. Use:"
+               print *, trim(qBaseFileNameKey), " = filename"
+               errorMessage(STD_OUT)
+               error stop
+            end if
+            ! Load the base flow from the specified stats file
+            fileName = controlVariables % stringValueForKey(qBaseFileNameKey,requestedLength = LINE_LENGTH)
+            call self % LoadBaseFlowSolution(fileName)
+         elseif ( trim(qBaseMode) .eq. trim(qbaseByUniformField) ) then
+            !
+            ! Read Qbase uniform field from control file
+            !
+            ! Check that the user has specified the field
+            call toLower(qBaseVectorKey)
+            obj2 => controlVariables % objectForKey(trim(qBaseVectorKey))
+            if ( .not. associated(obj2) ) then
+               print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no vector specified. Use:"
+               print *, trim(qBaseVectorKey), " = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]"
+               errorMessage(STD_OUT)
+               error stop
+            end if
+            ! Read the field
+            QbaseUniform = 0.0_RP
+            QbaseUniform = GetRealArrayFromString( controlVariables % StringValueForKey(qBaseVectorKey,requestedLength = LINE_LENGTH))
+            ! Set uniform field
+            call self % SetUniformBaseFlow(QbaseUniform)
+         else
+            print*, 'Unknown qBase mode "',trim(qBaseMode),'".'
+            print*, "Implemented modes are:"
+            print*, "   * ", trim(qBaseByFile)
+            print*, "   * ", trim(qbaseByUniformField)
+            errorMessage(STD_OUT)
+            error stop
+         end if
+
+      else 
+         ! Keyword not present: 
+         print*, 'Argument qBase mode is mandatory'
+         print*, "Implemented modes are:"
+         print*, "   * ", trim(qBaseByFile)
+         print*, "   * ", trim(qbaseByUniformField)
+         errorMessage(STD_OUT)
+         error stop
+
+      end if
+
+   end subroutine HexMesh_InitializeBaseFlow
+
     Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
         Implicit None
          CLASS(HexMesh)                  :: self
@@ -4056,6 +4151,90 @@ slavecoord:             DO l = 1, 4
 !
     End Subroutine HexMesh_SetUniformBaseFlow
 !
+!////////////////////////////////////////////////////////////////////////
+!
+   Subroutine HexMesh_LoadBaseFlowSolution(self, fileName)
+         use VariableConversion_CAA, only: PressureBaseFlow
+        Implicit None
+         CLASS(HexMesh)                  :: self
+         character(len=*)                :: fileName
+!        ---------------
+!        Local variables
+!        ---------------
+         INTEGER                        :: fID, eID, fileType, no_of_elements, nodetype
+         integer                        :: i, j, k
+         integer(kind=AddrInt)          :: pos
+         integer                        :: no_stat_s, no_stats_read
+         real(kind=RP), allocatable     :: Q(:,:,:,:)
+
+!
+!        Get the file type
+!        -----------------
+         fileType = getSolutionFileType(trim(fileName))
+
+         if ( (fileType .ne. STATS_FILE) .and. (fileType .ne. STATS_AND_GRADIENTS_FILE) ) then
+            print*, "The selected file is not a statistics file"
+            errorMessage(STD_OUT)
+            error stop
+         end if
+!
+!        Get the node type
+!        -----------------
+         nodeType = getSolutionFileNodeType(trim(fileName))
+
+         if ( nodeType .ne. self % nodeType ) then
+            print*, "WARNING: Solution file uses a different discretization nodes than the mesh."
+            print*, "Add restart polorder = (Pol order in your restart file) in the control file if you want interpolation routines to be used."
+            print*, "If restart polorder is not specified the values in the original set of nodes are loaded into the new nodes without interpolation."
+            errorMessage(STD_OUT)
+         end if
+!
+!        Read the number of elements
+!        ---------------------------
+         no_of_elements = getSolutionFileNoOfElements(trim(fileName))
+         if ( no_of_elements .ne. self % no_of_allElements ) then
+            write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
+                                   "do not match that of the mesh file"
+            errorMessage(STD_OUT)
+            error stop
+         end if
+
+!
+!        Read elements data
+!        ------------------
+         fID = putSolutionFileInReadDataMode(trim(fileName))
+         no_stat_s = 9
+         no_stats_read = no_stat_s + NCONS
+         if (fileType .eq. STATS_AND_GRADIENTS_FILE) no_stats_read = no_stats_read + NGRAD*NDIM
+         do eID = 1, size(self % elements)
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_stats_read*e % offsetIO*SIZEOF_RP
+            pos = pos + 5_AddrInt*SIZEOF_INT ! This is to skip the reading of the dimensions and shape in writeArray
+
+            ! Read and initialize velocity
+            allocate(Q(1:no_stat_s, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            read(fID, pos=pos) Q
+            ! WARNING: 1,2,3 should match U,V,W in StatisticsMonitor
+            self % elements(eID) % storage % Qbase(ICAAU,:,:,:) = Q(1,:,:,:)
+            self % elements(eID) % storage % Qbase(ICAAV,:,:,:) = Q(2,:,:,:)
+            self % elements(eID) % storage % Qbase(ICAAW,:,:,:) = Q(3,:,:,:)
+            deallocate(Q)
+            ! Read NCONS variables 
+            allocate(Q(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            read(fID) Q
+            ! Initialize density
+            self % elements(eID) % storage % Qbase(ICAARHO,:,:,:) = Q(IRHO,:,:,:)
+            ! Read and initialize pressure
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+               self % elements(eID) % storage % Qbase(ICAAP,i,j,k) = PressureBaseFlow(Q(:,i,j,k))
+            end do                  ; end do                   ; end do
+            deallocate(Q)
+            end associate
+         end do
+
+
+    End Subroutine HexMesh_LoadBaseFlowSolution
+
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine HexMesh_ProlongBaseSolutionToFaces(self, nEqn)

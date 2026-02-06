@@ -39,7 +39,8 @@ module SolutionFile
 #endif
    
    private
-   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_MESH_FILE
+   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, ZONE_MESH_FILE
+   public      :: STATS_FILE, STATS_AND_GRADIENTS_FILE
    public      :: ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE
    public      :: SOLUTION_AND_SENSOR_FILE, SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE
    public      :: BEGINNING_DATA
@@ -61,11 +62,12 @@ module SolutionFile
    integer, parameter      :: SOLUTION_FILE                          = 2
    integer, parameter      :: SOLUTION_AND_GRADIENTS_FILE            = 3
    integer, parameter      :: STATS_FILE                             = 4
-   integer, parameter      :: ZONE_MESH_FILE                         = 5
-   integer, parameter      :: ZONE_SOLUTION_FILE                     = 6
-   integer, parameter      :: ZONE_SOLUTION_AND_DOT_FILE             = 7
-   integer, parameter      :: SOLUTION_AND_SENSOR_FILE               = 8
-   integer, parameter      :: SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE = 9
+   integer, parameter      :: STATS_AND_GRADIENTS_FILE               = 5
+   integer, parameter      :: ZONE_MESH_FILE                         = 6
+   integer, parameter      :: ZONE_SOLUTION_FILE                     = 7
+   integer, parameter      :: ZONE_SOLUTION_AND_DOT_FILE             = 8
+   integer, parameter      :: SOLUTION_AND_SENSOR_FILE               = 9
+   integer, parameter      :: SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE = 10
 
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99
@@ -133,6 +135,7 @@ module SolutionFile
             case(SOLUTION_FILE)
             case(SOLUTION_AND_GRADIENTS_FILE)
             case(STATS_FILE)
+            case(STATS_AND_GRADIENTS_FILE)
             case(ZONE_MESH_FILE)
             case(ZONE_SOLUTION_FILE)
             case(ZONE_SOLUTION_AND_DOT_FILE)

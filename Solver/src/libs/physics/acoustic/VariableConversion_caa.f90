@@ -6,7 +6,7 @@ module VariableConversion_CAA
    implicit none
 
    private
-   public   Pressure, PressureDot
+   public   Pressure, PressureDot, PressureBaseFlow
    public   NSGradientVariables_STATE
    ! public   getPrimitiveVariables
    public   getVelocityGradients, getTemperatureGradient, getConservativeGradients
