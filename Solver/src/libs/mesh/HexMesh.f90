@@ -3880,7 +3880,7 @@ slavecoord:             DO l = 1, 4
       subroutine HexMesh_LoadLambVector( self, controlVariables)
          use SolutionFile
          implicit none
-         class(HexMesh),      intent(in)        :: self
+         class(HexMesh)                       :: self
          type(FTValueDictionary), intent(in)  :: controlVariables
 !
 !        ---------------
@@ -3930,7 +3930,7 @@ slavecoord:             DO l = 1, 4
       subroutine HexMesh_LoadLambVectorStatistics( self, controlVariables)
          use SolutionFile
          implicit none
-         class(HexMesh),      intent(in)        :: self
+         class(HexMesh)                       :: self
          type(FTValueDictionary), intent(in)  :: controlVariables
 !
 !        ---------------
