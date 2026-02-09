@@ -109,16 +109,6 @@
 !     -----------------------------
 !
       CALL timeIntegrator % construct (controlVariables, sem, initial_iteration, initial_time)
-
-
-      ! AJRTODO: Where do we call this?
-      block
-         call sem % mesh % LoadLambVectorStatistics(controlVariables)
-         print *, "STATS DONE"
-         call sem % mesh % LoadLambVector(controlVariables)
-         print *, "LAMB DONE"
-         error stop
-      end block
 !
 !     -----------------
 !     Integrate in time

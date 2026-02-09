@@ -568,7 +568,7 @@
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
       logical                       :: saveGradients, saveSensor, saveLES, saveOrders, saveSource, saveLambVector
-      logical                       :: useTrip, ActuatorLineFlag, ActuatorLineControlFlag
+      logical                       :: useTrip, ActuatorLineFlag, ActuatorLineControlFlag, readLamb_NS
 
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 
@@ -583,6 +583,7 @@
       ActuatorLineFlag        = controlVariables % logicalValueForKey("use actuatorline")
       ActuatorLineControlFlag = controlVariables % logicalValueForKey("actuator use controller")
       saveOrders              = controlVariables % logicalValueForKey("save mesh order")
+      readLamb_NS             = .false.
 
 !
 !     ---------------
@@ -613,6 +614,9 @@
 #endif
 #if defined(FLOW) 
       call ConstructSponge(sponge,sem % mesh,controlVariables)
+#endif
+#if defined(ACOUSTICS)
+   call sem % mesh % LoadLambVectorStatistics(controlVariables)
 #endif
 !
 !     ----------------------------------
@@ -770,6 +774,10 @@
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
+#endif
+#if defined(ACOUSTICS)
+         ! AJRTODO: Set readLamb_NS in terms of user input
+         if (readLamb_NS) call sem % mesh % LoadLambVector(controlVariables)
 #endif
 !
 !        Perform time step
