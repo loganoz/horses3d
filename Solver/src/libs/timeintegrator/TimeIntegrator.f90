@@ -615,7 +615,7 @@
 #if defined(FLOW) 
       call ConstructSponge(sponge,sem % mesh,controlVariables)
 #endif
-#if defined(ACOUSTICS)
+#if defined(ACOUSTIC)
    call sem % mesh % LoadLambVectorStatistics(controlVariables)
 #endif
 !
@@ -775,7 +775,7 @@
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
-#if defined(ACOUSTICS)
+#if defined(ACOUSTIC)
          ! AJRTODO: Set readLamb_NS in terms of user input
          if (readLamb_NS) call sem % mesh % LoadLambVector(controlVariables)
 #endif
