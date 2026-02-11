@@ -76,7 +76,7 @@ Module APESourceClass  !
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                     qvel =  e % storage % Lambbase(:,i,j,k) - e % storage % Lamb_NS(:,i,j,k)
-                    aux = e % storage % Qbase(IBRHO,i,j,k) * e % storage % Q(ICAAU:ICAAW,i,j,k) + \
+                    aux = e % storage % Qbase(IBRHO,i,j,k) * e % storage % Q(ICAAU:ICAAW,i,j,k) + &
                           e % storage % Qbase(IBU:IBW,i,j,k) * e % storage % Q(ICAAP,i,j,k) / e % storage % Qbase(IBA2,i,j,k)
                     qp = dot_product(aux, e % storage % grada2base(:,i,j,k))
                     e % storage % S_NS(ICAARHO,i,j,k) = e % storage % S_NS(ICAARHO,i,j,k) + qrho
