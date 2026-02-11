@@ -51,6 +51,7 @@ module StatisticsMonitor
       real(kind=RP)  :: starting_time
       integer        :: no_of_samples
       logical        :: saveGradients
+      logical        :: saveLambVector
       contains
          procedure   :: Construct    => StatisticsMonitor_Construct
          procedure   :: Update       => StatisticsMonitor_Update
@@ -67,14 +68,13 @@ module StatisticsMonitor
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients)
+      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector)
          use ParamfileRegions
          use PhysicsStorage, only: NCONS, NGRAD
-         use HexMeshClass,   only: no_of_stats_variables
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
-         logical, intent(in)           :: saveGradients
+         logical, intent(in)           :: saveGradients, saveLambVector
          integer, allocatable          :: Nsample, i0, Ndump, Nreset
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
@@ -82,8 +82,9 @@ module StatisticsMonitor
 
          NO_OF_VARIABLES = NO_OF_VARIABLES_Sij + NCONS
          self % saveGradients = saveGradients
+         self % saveLambVector = saveLambVector
          if (saveGradients) NO_OF_VARIABLES = NO_OF_VARIABLES + NGRAD * NDIM
-         no_of_stats_variables = NO_OF_VARIABLES
+         if (saveLambVector) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
 !
 !        Search for the parameters in the case file
 !        ------------------------------------------
@@ -168,7 +169,11 @@ module StatisticsMonitor
          character(len=LINE_LENGTH)    :: fileName
 
          write(fileName,'(A,A)') trim(solution_file),'.stats.hsol'
-         if ( self % state .ne. OFF) call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
+         if ( self % state .ne. OFF) then
+            call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
+            write(fileName,'(A,A)') trim(solution_file),'.Lamb.stats.hsol'
+            if (self % saveLambVector) call mesh % SaveLambVectorStatistics(iter, t, trim(fileName), self % saveGradients)
+         end if
 
       end subroutine StatisticsMonitor_WriteFile
 
@@ -225,6 +230,7 @@ module StatisticsMonitor
 
       subroutine StatisticsMonitor_UpdateValues(self, mesh)
          use PhysicsStorage
+         use MappedGeometryClass, only: vCross, ComputeVorticity
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)              :: mesh
@@ -237,16 +243,23 @@ module StatisticsMonitor
          integer  :: i, j, k
          real(RP) :: ratio, inv_nsamples_plus_1
          real(RP) :: rfactor1, rfactor2
-         integer, dimension(5) :: limits
+         integer, dimension(6) :: limits
+         real(kind=RP), dimension(NDIM) :: vorticity, velocity, LambVector
+         real(kind=RP), pointer, contiguous :: U_x(:), U_y(:), U_z(:)
 
 
 #ifdef NAVIERSTOKES
          !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
             limits(1) = NO_OF_VARIABLES_Sij + IRHO
             limits(2) = NO_OF_VARIABLES_Sij + NCONS
-            limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD
-            limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD
-            limits(5) = NO_OF_VARIABLES
+            limits(3:6) = limits(2)
+            if (self % saveGradients) then
+               limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD ! U_x
+               limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD ! U_y
+               limits(5) = NO_OF_VARIABLES_Sij + NCONS + NDIM * NGRAD ! U_z
+               limits(6) = limits(5)
+            end if
+            if (self % saveLambVector) limits(6) = limits(5) + NDIM
 
             inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
             ratio = self % no_of_samples * inv_nsamples_plus_1
@@ -272,7 +285,18 @@ module StatisticsMonitor
                       data(limits(2)+1:limits(3),i,j,k) = data(limits(2)+1:limits(3),i,j,k) * ratio + e % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
                       data(limits(3)+1:limits(4),i,j,k) = data(limits(3)+1:limits(4),i,j,k) * ratio + e % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
                       data(limits(4)+1:limits(5),i,j,k) = data(limits(4)+1:limits(5),i,j,k) * ratio + e % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
-                  end if 
+                  end if
+                  ! Save Lamb vector: u x w
+                  if (self % saveLambVector) then
+                     ! Attention: qm in APE is -(w x u)'
+                     U_x => e % storage % U_x(:,i,j,k)
+                     U_y => e % storage % U_y(:,i,j,k)
+                     U_z => e % storage % U_z(:,i,j,k)
+                     call ComputeVorticity(U_x, U_y, U_z, vorticity)
+                     velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
+                     call vCross(velocity, vorticity, LambVector)
+                     data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
+                  end if
                end do                  ; end do                   ; end do
 
                end associate
@@ -283,9 +307,14 @@ module StatisticsMonitor
          !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
             limits(1) = NO_OF_VARIABLES_Sij + INSRHO
             limits(2) = NO_OF_VARIABLES_Sij + NCONS
-            limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD
-            limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD
-            limits(5) = NO_OF_VARIABLES
+            limits(3:6) = limits(2)
+            if (self % saveGradients) then
+               limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD ! U_x
+               limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD ! U_y
+               limits(5) = NO_OF_VARIABLES_Sij + NCONS + NDIM * NGRAD ! U_z
+               limits(6) = limits(5)
+            end if
+            if (self % saveLambVector) limits(6) = limits(5) + NDIM
 
             inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
             ratio = self % no_of_samples * inv_nsamples_plus_1
@@ -312,6 +341,17 @@ module StatisticsMonitor
                       data(limits(3)+1:limits(4),i,j,k) = data(limits(3)+1:limits(4),i,j,k) * ratio + e % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
                       data(limits(4)+1:limits(5),i,j,k) = data(limits(4)+1:limits(5),i,j,k) * ratio + e % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
                   end if 
+                  ! Save Lamb vector: u x w
+                  if (self % saveLambVector) then
+                     ! Attention: qm in APE is -(w x u)'
+                     U_x => e % storage % U_x(:,i,j,k)
+                     U_y => e % storage % U_y(:,i,j,k)
+                     U_z => e % storage % U_z(:,i,j,k)
+                     call ComputeVorticity(U_x, U_y, U_z, vorticity)
+                     velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
+                     call vCross(velocity, vorticity, LambVector)
+                     data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
+                  end if
                end do                  ; end do                   ; end do
 
                end associate
