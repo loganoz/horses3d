@@ -528,6 +528,9 @@
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces, FarmUpdateControlVars, WriteControlVars, SaveControllerState
 #endif
+#if defined(ACOUSTIC)
+      use APESourceClass, only: apeSource, constructAPESource
+#endif
 
       use IBMClass
 
@@ -617,6 +620,7 @@
 #endif
 #if defined(ACOUSTIC)
    call sem % mesh % LoadLambVectorStatistics(controlVariables)
+   call constructAPESource(apeSource, controlVariables)
 #endif
 !
 !     ----------------------------------

@@ -95,7 +95,8 @@ module StorageClass
 #ifdef ACOUSTIC
       real(kind=RP),           allocatable :: Qbase(:,:,:,:)         ! Base flow State vector
       real(kind=RP),           allocatable :: Lambbase(:,:,:,:)      ! Lamb vector base
-      real(kind=RP),           allocatable :: Lamb_NS(:,:,:,:)          ! Lamb vector from NS
+      real(kind=RP),           allocatable :: Lamb_NS(:,:,:,:)       ! Lamb vector from NS
+      real(kind=RP),           allocatable :: grada2base(:,:,:,:)    ! Gradient of the squared sound velocity
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -199,6 +200,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: Qbase ! Base flow State vector
       real(kind=RP), dimension(:,:,:),     allocatable :: Lambbase ! Lamb vector base
       real(kind=RP), dimension(:,:,:),     allocatable :: Lamb_NS ! Lamb vector
+      real(kind=RP), dimension(:,:,:),     allocatable :: grada2base ! Gradient of the squared sound velocity
 #endif
 #ifdef MULTIPHASE
       real(kind=RP), dimension(:,:),       allocatable :: invMa2
@@ -819,6 +821,7 @@ module StorageClass
          ALLOCATE( self % Qbase  (NCONSB,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % Lambbase  (NDIM,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % Lamb_NS  (NDIM,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % grada2base  (NDIM,0:Nx,0:Ny,0:Nz) )
 #endif
          if (computeGradients) then
             ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
@@ -901,6 +904,7 @@ module StorageClass
          self % Qbase  = 0.0_RP
          self % Lambbase = 0.0_RP
          self % Lamb_NS = 0.0_RP
+         self % grada2base = 0.0_RP
 #endif
          if (computeGradients) then
             self % U_xNS = 0.0_RP
@@ -1012,6 +1016,7 @@ module StorageClass
          to % Qbase   = from % Qbase
          to % Lambbase   = from % Lambbase
          to % Lamb_NS   = from % Lamb_NS
+         to % grada2base = from % grada2base
 #endif
 
 #ifndef ACOUSTIC
@@ -1110,6 +1115,7 @@ module StorageClass
          safedeallocate(self % Qbase)
          safedeallocate(self % Lambbase)
          safedeallocate(self % Lamb_NS)
+         safedeallocate(self % grada2base)
 #endif
 
          if (self % computeGradients) then
@@ -1421,6 +1427,7 @@ module StorageClass
          ALLOCATE( self % Qbase (NCONSB,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % Lambbase (NDIM,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % Lamb_NS (NDIM,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % grada2base (NDIM,0:Nf(1),0:Nf(2)) )
 #endif
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
@@ -1486,6 +1493,7 @@ module StorageClass
          self % Qbase    = 0.0_RP
          self % Lambbase    = 0.0_RP
          self % Lamb_NS    = 0.0_RP
+         self % grada2base = 0.0_RP
 #endif
 
          self % rho    = 0.0_RP
@@ -1586,6 +1594,7 @@ module StorageClass
          safedeallocate(self % Qbase )
          safedeallocate(self % Lambbase )
          safedeallocate(self % Lamb_NS )
+         safedeallocate(self % grada2base )
 #endif
 
          self % anJacobian      = .FALSE.
@@ -1752,6 +1761,7 @@ module StorageClass
          to % Qbase = from % Qbase
          to % Lambbase = from % Lambbase
          to % Lamb_NS = from % Lamb_NS
+         to % grada2base = from % grada2base
 #endif
          if (to % computeGradients) then
             to % U_xNS = from % U_xNS

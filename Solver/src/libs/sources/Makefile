@@ -33,7 +33,8 @@ LIBOBJS_MU = ./build_mu/ControllerInterface.o \
 
 LIBOBJS_CAA = ./build_caa/ControllerInterface.o \
               ./build_caa/ActuatorLine.o \
-			  ./build_caa/SpongeClass.o 
+			  ./build_caa/SpongeClass.o \
+	          ./build_caa/APESourceClass.o 
 
 LIB = sources
 
