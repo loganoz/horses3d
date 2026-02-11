@@ -268,11 +268,6 @@
             call controlVariables % addValueForKey(".false.",saveGradientsToSolutionKey)
          end if
 
-         obj => controlVariables % objectForKey(saveLambVectorToSolutionKey)
-         if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey(".false.",saveLambVectorToSolutionKey)
-         end if
-
          obj => controlVariables % objectForKey(saveSensorToSolutionKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey(".false.",saveSensorToSolutionKey)

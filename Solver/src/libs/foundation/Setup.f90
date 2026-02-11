@@ -18,12 +18,11 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey          = "output interval"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey    = "convergence tolerance"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey      = "number of boundaries"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(13) :: mainKeywords =  [ meshFileNameKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(12) :: mainKeywords =  [ meshFileNameKey,           &
                                                                           inviscidDiscretizationKey,  &
                                                                           splitFormkey,               &
                                                                           discretizationNodesKey,     &
                                                                           saveGradientsToSolutionKey, &
-                                                                          saveLambVectorToSolutionKey,&
                                                                           saveSensorToSolutionKey,    &
                                                                           restartKey,                 &
                                                                           restartFileNameKey,         &
