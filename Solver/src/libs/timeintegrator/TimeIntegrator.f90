@@ -776,7 +776,7 @@
          if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 #if defined(ACOUSTIC)
-         ! AJRTODO: Set readLamb_NS in terms of user input
+         ! AJRTODO: Set readLamb_NS in terms of user input 
          if (readLamb_NS) call sem % mesh % LoadLambVector(controlVariables)
 #endif
 !
