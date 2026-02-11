@@ -90,7 +90,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 5.7% of total for derived types.</p>Including implementation: 308 statements,  6.6% of total for derived types.">18 statements</a>
+                 title="<p> 6.0% of total for derived types.</p>Including implementation: 344 statements,  7.3% of total for derived types.">19 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -139,7 +139,8 @@
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-starting_iteration">starting_iteration</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-starting_time">starting_time</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-no_of_samples">no_of_samples</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savegradients">saveGradients</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savegradients~2">saveGradients</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savelambvector~2">saveLambVector</a>
         </div>
       </div>
     </div>
@@ -166,11 +167,11 @@
       </a>
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-construct">Construct</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-update~2">Update</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-updatevalues">UpdateValues</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-construct~3">Construct</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-update~6">Update</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-updatevalues~3">UpdateValues</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-getstate">GetState</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writelabel~2">WriteLabel</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writelabel~5">WriteLabel</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writevalue">WriteValue</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writefile">WriteFile</a>
         </div>
@@ -330,7 +331,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-savegradients"></span>
+              <span class="anchor" id="variable-savegradients~2"></span>
               logical,
             </td>
               <td>public</td>
@@ -339,6 +340,23 @@
             </td>
             <td>::</td>
             <td><strong>saveGradients</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-savelambvector~2"></span>
+              logical,
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>saveLambVector</strong></td>
                 <td></td>
                 <td></td>
             <td>
@@ -358,7 +376,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-construct"></span>
+      <span class="anchor" id="boundprocedure-construct~3"></span>
       <h3>
           procedure, public ::
   <strong>Construct</strong> => StatisticsMonitor_Construct
@@ -368,7 +386,7 @@
       <ul class="list-group">
           <li class="list-group-item">
                     <h3>
-    private  subroutine StatisticsMonitor_Construct(self, mesh, saveGradients)  
+    private  subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector)  
 </h3>
 
   
@@ -429,6 +447,21 @@
                 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              logical,
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>saveLambVector</strong></td>
+            <td>
+                
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -441,7 +474,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-update~2"></span>
+      <span class="anchor" id="boundprocedure-update~6"></span>
       <h3>
           procedure, public ::
   <strong>Update</strong> => StatisticsMonitor_Update
@@ -554,7 +587,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-updatevalues"></span>
+      <span class="anchor" id="boundprocedure-updatevalues~3"></span>
       <h3>
           procedure, public ::
   <strong>UpdateValues</strong> => StatisticsMonitor_UpdateValues
@@ -705,7 +738,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writelabel~2"></span>
+      <span class="anchor" id="boundprocedure-writelabel~5"></span>
       <h3>
           procedure, public ::
   <strong>WriteLabel</strong> => StatisticsMonitor_WriteLabel
@@ -934,6 +967,7 @@
 <span class="w">      </span><span class="kt">real</span><span class="p">(</span><span class="nb">kind</span><span class="o">=</span><span class="n">RP</span><span class="p">)</span><span class="w">  </span><span class="kd">::</span><span class="w"> </span><span class="n">starting_time</span>
 <span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_samples</span>
 <span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveGradients</span>
+<span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveLambVector</span>
 <span class="w">      </span><span class="k">contains</span>
 <span class="k">         procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Construct</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_Construct</span>
 <span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Update</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_Update</span>
@@ -965,7 +999,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2026-02-06 15:02 +0000             </p>
+ on 2026-02-11 15:55 +0000             </p>
           </div>
         </div>
         <br>
