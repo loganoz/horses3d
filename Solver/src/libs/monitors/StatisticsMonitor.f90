@@ -245,8 +245,6 @@ module StatisticsMonitor
          real(RP) :: rfactor1, rfactor2
          integer, dimension(6) :: limits
          real(kind=RP), dimension(NDIM) :: vorticity, velocity, LambVector
-         real(kind=RP), pointer, contiguous :: U_x(:), U_y(:), U_z(:)
-
 
 #ifdef NAVIERSTOKES
          !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
@@ -288,11 +286,7 @@ module StatisticsMonitor
                   end if
                   ! Save Lamb vector: u x w
                   if (self % saveLambVector) then
-                     ! Attention: qm in APE is -(w x u)'
-                     U_x => e % storage % U_x(:,i,j,k)
-                     U_y => e % storage % U_y(:,i,j,k)
-                     U_z => e % storage % U_z(:,i,j,k)
-                     call ComputeVorticity(U_x, U_y, U_z, vorticity)
+                     call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
                      velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
                      call vCross(velocity, vorticity, LambVector)
                      data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
@@ -343,11 +337,7 @@ module StatisticsMonitor
                   end if 
                   ! Save Lamb vector: u x w
                   if (self % saveLambVector) then
-                     ! Attention: qm in APE is -(w x u)'
-                     U_x => e % storage % U_x(:,i,j,k)
-                     U_y => e % storage % U_y(:,i,j,k)
-                     U_z => e % storage % U_z(:,i,j,k)
-                     call ComputeVorticity(U_x, U_y, U_z, vorticity)
+                     call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
                      velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
                      call vCross(velocity, vorticity, LambVector)
                      data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
