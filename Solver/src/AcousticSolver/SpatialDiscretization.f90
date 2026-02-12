@@ -209,6 +209,7 @@ module SpatialDiscretization
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
          ! use ActuatorLine, only: farm
          use SpongeClass, only: sponge, addSourceSponge
+         use APESourceClass, only: apeSource, addAPESource
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -333,6 +334,9 @@ module SpatialDiscretization
 !$omp end do
             ! for the sponge, loops are in the internal subroutine as values are precalculated
             call addSourceSponge(sponge,mesh)
+
+            ! add source term for the acoustics
+            call addAPESource(apeSource, mesh)
 !
 !        ***********************
 !        Now add the source term
