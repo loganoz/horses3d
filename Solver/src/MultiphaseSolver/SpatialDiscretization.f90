@@ -1682,7 +1682,7 @@ module SpatialDiscretization
 
 
          if ( LESModel % Active ) then
-!$omp do schedule(runtime) private(i,j,delta,mu_smag)
+!$omp do schedule(runtime) private(i,j,delta,mu_smag,side)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
 
