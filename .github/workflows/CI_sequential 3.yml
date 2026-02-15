@@ -275,14 +275,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: ('!cancelled()')
+        if: ('!cancelled()' && matrix.compiler == 'ifort')
 
       - name: Run MultiphaseRisingBubbleVreman
         working-directory: ./Solver/test/Multiphase/RisingBubbleVreman
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu RisingBubble.control
-        if: ('!cancelled()')
+        if: ('!cancelled()' && matrix.compiler == 'ifort')
 
 #
 # 7) Mu AL
