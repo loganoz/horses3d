@@ -3929,6 +3929,7 @@ slavecoord:             DO l = 1, 4
 
       subroutine HexMesh_LoadLambVectorStatistics( self, controlVariables)
          use SolutionFile
+         use FileReadingUtilities, only: getRealArrayFromString
          implicit none
          class(HexMesh)                       :: self
          type(FTValueDictionary), intent(in)  :: controlVariables
@@ -3937,42 +3938,99 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         character(len=LINE_LENGTH)                :: loadFileName
-         character(len=LINE_LENGTH)                :: LambStatsKey
-         CLASS(FTObject), POINTER         :: obj
-         integer                          :: fid, eID
-         integer(kind=AddrInt)            :: pos
-         real(kind=RP), allocatable       :: Q(:,:,:,:)
+         CHARACTER(LEN=LINE_LENGTH) :: LambVectorKey = "Lamb vector stats"
+         character(len=LINE_LENGTH) :: LambVectorByFile = 'file'
+         character(len=LINE_LENGTH) :: LambVectorByUniformField = 'uniform'
+         CHARACTER(LEN=LINE_LENGTH) :: LambVectorFileNameKey = 'Lamb vector stats file name'
+         CHARACTER(LEN=LINE_LENGTH) :: LambVectorVectorKey = "Lamb vector vector"
+         
+         character(len=LINE_LENGTH)    :: LambVectorMode
+         character(len=LINE_LENGTH)    :: loadFileName
+         real(kind=RP)                 :: LambVectorUniform(1:NDIM)
+         CLASS(FTObject), POINTER      :: obj, obj2
+         integer                       :: fid, eID
+         integer                       :: i, j, k
+         integer(kind=AddrInt)         :: pos
 
-         !
-         ! Read Lamb.stats.hsol file from control file
-         !
-         LambStatsKey = "lamb vector stats file name"
-         obj => controlVariables % objectForKey(LambStatsKey)
+         ! Check if LambVectorKey has been supplied
+         call toLower(LambVectorKey)
+         obj => controlVariables % objectForKey(trim(LambVectorKey))
          if ( .not. associated(obj) ) then
-            print *, "The keyword ", trim(LambStatsKey), " not defined. Use:"
-            print *, trim(LambStatsKey), " = path/to/file.Lamb.stats.hsol"
+            ! Keyword not present: 
+            print*, 'Argument ', trim(LambVectorKey), ' is mandatory'
+            print*, "Implemented modes are:"
+            print*, "   * ", trim(LambVectorByFile)
+            print*, "   * ", trim(LambVectorByUniformField)
+            errorMessage(STD_OUT)
             error stop
-         end if
-         loadFileName = trim(controlVariables % stringValueForKey(LambStatsKey,LINE_LENGTH))
-         if ( getSolutionFileType(trim(loadFileName)) .ne. STATS_FILE ) then
-            print *, "The file ", loadFileName, " is not a stats file."
-            error stop
-         end if
+         else
+            ! Check which type of LambVectorKey we have: file or uniform
+            LambVectorMode = controlVariables % stringValueForKey(trim(LambVectorKey), requestedLength = LINE_LENGTH)
+            call ToLower(LambVectorMode)
 
-!
-!        Write arrays
-!        ------------
-         fID = putSolutionFileInReadDataMode(trim(loadFileName))
-         do eID = 1, self % no_of_elements
-            associate ( e     =>    self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
-            read(fID, pos=pos) self % elements(eID) % storage % Lambbase(1:NDIM,:,:,:)
-            end associate
-         end do
+            if ( trim(LambVectorMode) .eq. trim(LambVectorByFile) ) then
 
-         ! Close the file
-         close(fid)
+               !
+               ! Read Lamb.stats.hsol file from control file
+               !
+               obj2 => controlVariables % objectForKey(trim(LambVectorFileNameKey))
+               if ( .not. associated(obj2) ) then
+                  print *, "The keyword ", trim(LambVectorFileNameKey), " not defined. Use:"
+                  print *, trim(LambVectorFileNameKey), " = path/to/file.Lamb.stats.hsol"
+                  error stop
+               end if
+               loadFileName = trim(controlVariables % stringValueForKey(LambVectorFileNameKey,LINE_LENGTH))
+               if ( getSolutionFileType(trim(loadFileName)) .ne. STATS_FILE ) then
+                  print *, "The file ", loadFileName, " is not a stats file."
+                  error stop
+               end if
+
+               !
+               ! Read arrays
+               !
+               fID = putSolutionFileInReadDataMode(trim(loadFileName))
+               do eID = 1, self % no_of_elements
+                  associate ( e     =>    self % elements(eID) )
+                  pos = POS_INIT_DATA + (e % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+                  read(fID, pos=pos) self % elements(eID) % storage % Lambbase(1:NDIM,:,:,:)
+                  end associate
+               end do
+
+               ! Close the file
+               close(fid)
+            elseif ( trim(LambVectorMode) .eq. trim(LambVectorByUniformField) ) then
+               !
+               ! Read Lamb vector uniform field from control file
+               !
+               ! Check that the user has specified the field
+               call toLower(LambVectorVectorKey)
+               obj2 => controlVariables % objectForKey(trim(LambVectorVectorKey))
+               if ( .not. associated(obj2) ) then
+                  print *, trim(LambVectorKey), " = ", trim(LambVectorMode), ", but no vector specified. Use:"
+                  print *, trim(LambVectorVectorKey), " = [1.0_RP,0.0_RP,0.0_RP]"
+                  errorMessage(STD_OUT)
+                  error stop
+               end if
+               ! Read the field
+               LambVectorUniform = 0.0_RP
+               LambVectorUniform = GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorVectorKey,requestedLength = LINE_LENGTH))
+               ! Set uniform field
+               do eID = 1, self % no_of_elements
+                  associate ( e     =>    self % elements(eID) )
+                     do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+                        self % elements(eID) % storage % Lambbase(1:NDIM,i,j,k) = LambVectorUniform
+                     end do; end do; end do;
+                  end associate
+               end do
+            else
+               print*, 'Unknown LambVector mode "',trim(LambVectorMode),'".'
+               print*, "Implemented modes are:"
+               print*, "   * ", trim(LambVectorByFile)
+               print*, "   * ", trim(LambVectorByUniformField)
+               errorMessage(STD_OUT)
+               error stop
+            end if
+         end if
 
       end subroutine HexMesh_LoadLambVectorStatistics
 
