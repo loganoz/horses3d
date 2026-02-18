@@ -167,6 +167,9 @@ module ProblemFileFunctions
 #ifdef CAHNHILLIARD
 ,multiphase_ &
 #endif
+#ifdef ACOUSTIC
+,Qbase, Lambbase, Lamb_NS &
+#endif
 )
          use SMConstants
          USE HexMeshClass
@@ -182,6 +185,11 @@ module ProblemFileFunctions
          type(RefValues_t),      intent(in)  :: refValues_
 #ifdef CAHNHILLIARD
          type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
+#ifdef ACOUSTIC
+         real(kind=RP),             intent(in)  :: Qbase(NCONSB)
+         real(kind=RP),             intent(in)  :: Lambbase(NDIM)
+         real(kind=RP),             intent(in)  :: Lamb_NS(NDIM)
 #endif
       end subroutine UserDefinedSourceTermNS_f
 #endif
@@ -516,6 +524,9 @@ end module ProblemFileFunctions
 #ifdef CAHNHILLIARD
 , multiphase_ &
 #endif
+#ifdef ACOUSTIC
+, Qbase, Lambbase, Lamb_NS &
+#endif
 )
 !
 !           --------------------------------------------
@@ -536,6 +547,11 @@ end module ProblemFileFunctions
             type(RefValues_t),      intent(in)  :: refValues_
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
+#ifdef ACOUSTIC
+            real(kind=RP),             intent(in)  :: Qbase(NCONSB)
+            real(kind=RP),             intent(in)  :: Lambbase(NDIM)
+            real(kind=RP),             intent(in)  :: Lamb_NS(NDIM)
 #endif
 !
 !           ---------------

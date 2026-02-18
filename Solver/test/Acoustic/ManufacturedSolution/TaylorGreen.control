@@ -1,0 +1,57 @@
+Flow equations        = "NS"
+simulation type       = "time-accurate"
+
+dt = 0.00001
+final time = 3.0
+Number of time steps  = 100
+Output Interval       = 1
+time integration = "explicit"
+explicit method = "Euler"
+
+
+mesh file name        = "../../TestMeshes/TaylorGreen8.mesh"
+restart file name     = "RESULTS/TGV.rst"
+solution file name    = "RESULTS/TGV.rst"
+restart               = .false.
+Polynomial order      = 6
+Number of plot points = 2
+Convergence tolerance = 1.d-10
+!!!!!cfl                   = 0.4
+!!!!!dcfl                  = 0.4
+mach number           = 0.4d0
+riemann solver        = "lax-friedrichs"
+
+qBase = uniform
+qBase vector = [1.0d0, 10.0d0, 15.0d0, -20.0d0, 4.464285714285714d0, 6.249999999999999d0] ! mean density, mean velocity, mean pressure, mean sound velocity squared
+Lamb vector stats = uniform
+Lamb vector vector = [0.0d0, 0.0d0, 0.0d0]
+
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
