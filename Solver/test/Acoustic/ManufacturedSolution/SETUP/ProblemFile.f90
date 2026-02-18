@@ -86,11 +86,6 @@
             REAL(KIND=RP) :: rho , u , v , w , p
             REAL(KIND=RP) :: L, u_0, rho_0, p_0
             integer       :: Nx, Ny, Nz
-
-            integer :: myfile
-
-            myfile = 10
-            open(unit=myfile, file="output_userDefinedIC.txt", status="replace")
             
             L     = 1.0_RP
             u_0   = 1.0_RP
@@ -107,21 +102,14 @@
                DO k = 0, Nz
                   DO j = 0, Ny
                      DO i = 0, Nx 
-
                         x = mesh % elements(eID) % geom % x(:,i,j,k)
-
                         call evalManufacturedSolution(x(1), x(2), x(3), t, mesh % elements(eID) % storage % Q(:,i,j,k))
-
-                        write(myfile,'(F24.16)') mesh % elements(eID) % storage % Q(:,i,j,k)
-
                      END DO
                   END DO
                END DO 
                
             END DO  
             
-            close(myfile)
-
          end subroutine UserDefinedInitialCondition
 #if defined(ACOUSTIC)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
@@ -318,7 +306,6 @@
             sharedManager => sharedAssertionsManager()
 
             ! AJRTODO
-            print *, "HELLO"
             error_mesh = 0.0_rp
             DO eID = 1, SIZE(mesh % elements)
                Nx = mesh % elements(eID) % Nxyz(1)
@@ -345,35 +332,6 @@
             
             error_mesh = sqrt(error_mesh / SIZE(mesh % elements))
             print *, "Error in L2 norm: ", error_mesh
-
-
-            ! block
-            !    integer :: myfile, nxx, nyy, nzz
-            !    myfile = 10
-            !    print *, "FINAL TIME: ", time
-            !    open(unit=myfile, file="output_MSFinal.txt", status="replace")
-            !    DO eID = 1, SIZE(mesh % elements)
-            !          Nxx = mesh % elements(eID) % Nxyz(1)
-            !          Nyy = mesh % elements(eID) % Nxyz(2)
-            !          Nzz = mesh % elements(eID) % Nxyz(3)
-
-            !          DO k = 0, Nzz; DO j = 0, Nyy; DO i = 0, Nxx 
-            !             x = mesh % elements(eID) % geom % x(:,i,j,k)
-            !             call evalManufacturedSolution(x(1),x(2),x(3),time,u)
-            !                               if (eID .eq. 1) then
-            !          print *, "FIRST ELEMENT AT FINAL TIME (analytical)"
-            !                                  print *, "coordinates"
-            !          print *, x
-            !          print *, "values"
-            !          print *, u
-            !       end if
-            !             write(myfile,'(F24.16)') u
-            !          end do; end do; end do;
-                     
-            !    END DO 
-            !    close(myfile)
-            !    ! error stop
-            ! end block
 
             ! CALL FTAssertEqual(expectedValue = res(1) + 1.0_RP, &
             !                    actualValue   = monitors % residuals % values(1,1) + 1.0_RP, &
