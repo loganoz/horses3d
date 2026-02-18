@@ -1,3 +1,81 @@
+      
+module computeNorms
+            use SMConstants
+         use MPI_Process_Info
+         use HexMeshClass
+         use NodalStorageClass, only: NodalStorage
+         use PhysicsStorage
+
+   implicit none
+   private
+         public computeL2Norm
+
+   contains
+       subroutine computeL2Norm(mesh, time, val)
+         implicit none
+         class(HexMesh),      intent(in)  :: mesh
+         real(kind=RP),       intent(in)  :: time
+         real(kind=RP), intent(out)                    :: val
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: localVal
+         integer       :: eID, ierr
+
+         integer     :: Nel(3)    ! Element polynomial order
+         integer     :: i, j, k
+         real(rp)    :: u(NCONS), f
+
+!
+!        Initialization
+!        --------------
+         val = 0.0_RP
+!
+!        Loop the mesh
+!        -------------
+!$omp parallel do reduction(+:val) private(eID,Nel,i,j,k,u,f) schedule(guided)
+         do eID = 1, mesh % no_of_elements
+
+            Nel = mesh % elements(eID) % Nxyz
+!
+!           Compute the integral
+!           --------------------
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               call evalManufacturedSolution(mesh % elements(eID) % geom % x(1,i,j,k), mesh % elements(eID) % geom % x(2,i,j,k), mesh % elements(eID) % geom % x(3,i,j,k), time, u)
+               f = norm2(u - mesh % elements(eID) % storage % Q(:,i,j,k))
+               val = val + f * NodalStorage(Nel(1)) % w(i) * NodalStorage(Nel(2)) % w(j) * NodalStorage(Nel(3)) % w(k) * mesh % elements(eID) % geom % jacobian(i,j,k)
+            end do            ; end do           ; end do
+
+         end do
+!$omp end parallel do
+
+#ifdef _HAS_MPI_
+            localVal = val
+            call mpi_allreduce(localVal, val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+
+      val = sqrt(val)
+
+      end subroutine computeL2Norm
+
+   pure subroutine evalManufacturedSolution(x, y, z, t, res)
+      use SMConstants
+      use PhysicsStorage_CAA
+      implicit none
+      real(rp), intent(in)  :: x, y, z, t
+      real(rp), intent(out) :: res(NCONS)
+
+      res(ICAARHO) = 0.0_rp
+      res(ICAAU) = -cos(x)*sin(y)*sin(z)*exp(-t)
+      res(ICAAV) = sin(x)*cos(y)*sin(z)*exp(-t)
+      res(ICAAW) = -sin(x)*sin(y)*cos(z)*exp(-t)
+      res(ICAAP) = (cos(x)+cos(y)+cos(z))*exp(-2.0_rp*t)
+   end subroutine
+
+end module computeNorms
+      
       PROGRAM HORSES3DMainCAA
 
       USE SMConstants
@@ -141,6 +219,19 @@
          call mpi_barrier(MPI_COMM_WORLD, ierr)
       end if
 #endif
+
+      block
+         use computeNorms
+         use VolumeIntegrals, only: VOLUME, ScalarVolumeIntegral
+         real(rp) :: errL2, volDom
+         errL2 = 0.0_rp
+         call computeL2Norm(sem % mesh, timeIntegrator % time, errL2)
+         volDom = ScalarVolumeIntegral(sem % mesh, VOLUME)
+         print *, "Error in L2 norm: ", errL2
+         print *, "Error in L2 norm (scaled by the volume): ", errL2 / volDom
+      end block
+
+
 !
 !     -------------------------------------
 !     Save the results to the solution file
