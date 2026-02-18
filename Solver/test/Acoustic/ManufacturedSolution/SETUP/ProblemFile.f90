@@ -284,33 +284,41 @@
 !           ---------------
 !
             CHARACTER(LEN=29)                  :: testName           = "Periodic APE-4C"
-            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP)                      :: Qerror
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, Nx, Ny, Nz
             TYPE(FTAssertionsManager), POINTER :: sharedManager
-            LOGICAL                            :: success
+            LOGICAL                            :: Qsuccess
             integer                            :: rank
-            ! real(kind=RP), parameter           :: kinEn = 1.2499879367819486E-01_RP
-            ! real(kind=RP), parameter           :: kinEnRate = -4.2807806718622574E-04_RP
-            ! real(kind=RP), parameter           :: enstrophy = 3.7499683882517909E-01_RP 
-            ! real(kind=RP), parameter           :: res(5) = [1.6417830052388520E-05_RP, &
-            !                                                 1.2677577061211545E-01_RP, &
-            !                                                 1.2677577048633804E-01_RP, &
-            !                                                 2.4981129585617484E-01_RP, &
-            !                                                 6.2174425106488129E-01_RP ]
+            integer                            :: fid
             REAL(KIND=RP) :: u(NCONS), uh(NCONS), x(NDIM), wi, wj, wk
             REAL(KIND=RP) :: error_mesh, error_elem
             
+            Qsuccess = .true.
+
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
-            ! AJRTODO
+            open(newunit=fid, file="test_Q_degree4", status="old", action="read", &
+                      form="unformatted" , access="stream")
+
+            ! Compute point-wise L2 norm
             error_mesh = 0.0_rp
             DO eID = 1, SIZE(mesh % elements)
                Nx = mesh % elements(eID) % Nxyz(1)
                Ny = mesh % elements(eID) % Nxyz(2)
                Nz = mesh % elements(eID) % Nxyz(3)
+
+               ! Compare the values obtained with the expected (saved in file)
+               allocate(QExpected(1:NCONS,0:Nx,0:Ny,0:Nz))
+               read(fid) QExpected(:,:,:,:)
+               Qerror = maxval(abs(QExpected - mesh % elements(eID) % storage % Q))
+               if (Qerror > 1e-12) then
+                  Qsuccess = .false.
+               end if
+               deallocate(QExpected)
+
 
                error_elem = 0.0_rp
                DO k = 0, Nz
@@ -319,10 +327,6 @@
                         x = mesh % elements(eID) % geom % x(:,i,j,k)
                         call evalManufacturedSolution(x(1),x(2),x(3),time,u)
                         uh = mesh % elements(eID) % storage % Q(:,i,j,k)
-                        ! wi = NodalStorage(Nx) % w(i)
-                        ! wj = NodalStorage(Ny) % w(j)
-                        ! wk = NodalStorage(Nz) % w(k)
-                        ! error_elem = error_elem + norm2(u - uh) * mesh % elements(eID) % geom % jacobian(i,j,k) * wi * wj * wk
                         error_elem = error_elem + norm2(u - uh)
                      END DO
                   END DO
@@ -333,27 +337,41 @@
             error_mesh = sqrt(error_mesh / SIZE(mesh % elements))
             print *, "Error in L2 norm: ", error_mesh
 
-            ! CALL FTAssertEqual(expectedValue = res(1) + 1.0_RP, &
-            !                    actualValue   = monitors % residuals % values(1,1) + 1.0_RP, &
-            !                    tol           = 1.0e-7_RP, &
-            !                    msg           = "L2 norm")
+            CALL FTAssertEqual(expectedValue = 1.2414872500884904E-003_rp, &
+                               actualValue   = error_mesh, &
+                               tol           = 1.0e-7_RP, &
+                               msg           = "L2 norm")
+            
+            CALL FTAssertEqual(expectedValue = .true., &
+                               actualValue   = Qsuccess, &
+                               msg           = "Error when comparing obtained Q from the reference one in file.")
 
             
-            ! CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
-            ! IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
-            !    WRITE(6,*) testName, " ... Passed"
-            !    WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 5 iterations."
-            ! ELSE
-            !    WRITE(6,*) testName, " ... Failed"
-            !    WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
-            !    WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-            !     error stop 99
-            ! END IF 
-            ! WRITE(6,*)
+            WRITE(6,*)
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+
+            ! ! Save solution to file for the test
+            ! block
+            !    integer :: fid
+            !    open(newunit=fid, file="test_Q_degree4", status="replace", action="write", &
+            !          form="unformatted" , access="stream")
+            !    DO eID = 1, SIZE(mesh % elements)
+            !       write(fid) mesh % elements(eID) % storage % Q
+            !       ! Nx = mesh % elements(eID) % Nxyz(1)
+            !       ! Ny = mesh % elements(eID) % Nxyz(2)
+            !       ! Nz = mesh % elements(eID) % Nxyz(3)
+
+            !       ! DO k = 0, Nz; DO j = 0, Ny; DO i = 0, Nx
+            !       !    write(fid) mesh % elements(eID) % storage % Q(:,i,j,k)
+            !       ! end do; end do; end do;
+            !    end do
+            !    close(fid)
+            ! end block
+            
 
          END SUBROUTINE UserDefinedFinalize
 !
