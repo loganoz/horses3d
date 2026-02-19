@@ -326,7 +326,8 @@ module SpatialDiscretization
                ! different contributions and not accumulate each call
                e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, &
+                     e % storage % Qbase(:,i,j,k), e % storage % Lambbase(:,i,j,k), e % storage % Lamb_NS(:,i,j,k))
                   ! call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
@@ -405,7 +406,8 @@ module SpatialDiscretization
                associate ( e => mesh % elements(eID) )
                e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, &
+                        e % storage % Qbase(:,i,j,k), e % storage % Lambbase(:,i,j,k), e % storage % Lamb_NS(:,i,j,k))
                   ! call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
