@@ -95,22 +95,18 @@ module VariableConversion_MU
       class(dimensionless_t),intent(in) :: dimensionless_ 
       real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
       !-local-variables---------------------------------------------
-      real(kind=RP) :: rho, invRho, invRho2, uDivRho(NDIM)
+      real(kind=RP) :: rho, invRho, invsqrtRho, uDivRho(NDIM)
       !-------------------------------------------------------------
 
-       ! rho = dimensionless_ % rho(1)*Q(IMC) + dimensionless_ % rho(2)*(1-Q(IMC))
-       ! invRho  = 1._RP / rho
-       ! invRho2 = invRho * invRho
-      
-       ! uDivRho = [Q(IMSQRHOU) , Q(IMSQRHOV) , Q(IMSQRHOW) ] * invRho2
-      
-       ! u_x = invRho * Q_x(IMSQRHOU:IMSQRHOW) - uDivRho * Q_x(IMC)*(dimensionless_ % rho(1) - dimensionless_ % rho(2))
-       ! u_y = invRho * Q_y(IMSQRHOU:IMSQRHOW) - uDivRho * Q_y(IMC)*(dimensionless_ % rho(1) - dimensionless_ % rho(2))
-       ! u_z = invRho * Q_z(IMSQRHOU:IMSQRHOW) - uDivRho * Q_z(IMC)*(dimensionless_ % rho(1) - dimensionless_ % rho(2))
-	   
-	    u_x =  Q_x(IMSQRHOU:IMSQRHOW) 
-        u_y =  Q_y(IMSQRHOU:IMSQRHOW)
-        u_z =  Q_z(IMSQRHOU:IMSQRHOW) 
+      rho = dimensionless_ % rho(1)*Q(IMC) + dimensionless_ % rho(2)*(1-Q(IMC))
+      invRho  = 1.0_RP / rho
+      invsqrtRho  = 1.0_RP / sqrt( rho )
+
+      uDivRho = Q(IMSQRHOU:IMSQRHOW) * invsqrtRho * invRho
+
+      u_x = invsqrtRho * Q_x(IMSQRHOU:IMSQRHOW) + 0.5_rp * uDivRho * (dimensionless_ % rho(2) - dimensionless_ % rho(1)) * Q_x(IMC)
+      u_y = invsqrtRho * Q_y(IMSQRHOU:IMSQRHOW) + 0.5_rp * uDivRho * (dimensionless_ % rho(2) - dimensionless_ % rho(1)) * Q_y(IMC)
+      u_z = invsqrtRho * Q_z(IMSQRHOU:IMSQRHOW) + 0.5_rp * uDivRho * (dimensionless_ % rho(2) - dimensionless_ % rho(1)) * Q_z(IMC)
 		
    end subroutine getVelocityGradients
 
