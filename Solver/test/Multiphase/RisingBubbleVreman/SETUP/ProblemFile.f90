@@ -488,7 +488,7 @@ end module ProblemFileFunctions
             real(kind=RP), parameter           :: area_saved = 2.0280805425950454E-01_RP
             real(kind=RP), parameter           :: xcog_saved = 1.0140441757648569E-01_RP
             real(kind=RP), parameter           :: risevel_saved = 3.8406818922332423E-04_RP
-            real(kind=RP), parameter           :: residuals_saved(5) = [7.2857935278517783E-01_RP, &
+            real(kind=RP), parameter           :: residuals_saved(5) = [7.2798707712714172E-01_RP, &
                                                                         4.1415379171508304E+00_RP, &
                                                                         8.9544195979782244E-14_RP, &
                                                                         3.2583699429696256E+00_RP, &
