@@ -14,6 +14,7 @@ module VariableConversion_NSSA
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
    public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
+   public   getVelocityGradients_STATE
    public   geteddyviscositygradients
   
 

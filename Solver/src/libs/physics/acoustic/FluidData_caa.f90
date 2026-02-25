@@ -30,6 +30,7 @@ module FluidData_CAA
       real(kind=RP)                    :: gammaDivGammaMinus1
       real(kind=RP)                    :: cp          ! R * gogm1
       real(kind=RP)                    :: cv          ! R * invgm1
+      real(kind=RP)                    :: c02(2) ! Sound velocity
    end type Thermodynamics_t
 
 

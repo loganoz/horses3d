@@ -231,6 +231,15 @@ module StatisticsMonitor
       subroutine StatisticsMonitor_UpdateValues(self, mesh)
          use PhysicsStorage
          use MappedGeometryClass, only: vCross, ComputeVorticity
+#if (defined(NAVIERSTOKES) && !(defined(SPALARTALMARAS)) )
+         use VariableConversion_NS, only: getVelocityGradients_STATE
+#elif (defined(NAVIERSTOKES) && (defined(SPALARTALMARAS)) )
+         use VariableConversion_NSSA, only: getVelocityGradients_STATE
+#elif defined(INCNS)
+         use VariableConversion_iNS, only: getVelocityGradients
+#elif defined(MULTIPHASE)
+         use VariableConversion_MU, only: getVelocityGradients
+#endif
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)              :: mesh
@@ -245,6 +254,7 @@ module StatisticsMonitor
          real(RP) :: rfactor1, rfactor2
          integer, dimension(6) :: limits
          real(kind=RP), dimension(NDIM) :: vorticity, velocity, LambVector
+         real(kind=RP), dimension(NDIM) :: gradvel_x, gradvel_y, gradvel_z
 
 #ifdef NAVIERSTOKES
          !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
@@ -286,7 +296,8 @@ module StatisticsMonitor
                   end if
                   ! Save Lamb vector: u x w
                   if (self % saveLambVector) then
-                     call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
+                     call getVelocityGradients_State(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
+                     call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)
                      velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
                      call vCross(velocity, vorticity, LambVector)
                      data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
@@ -337,7 +348,8 @@ module StatisticsMonitor
                   end if 
                   ! Save Lamb vector: u x w
                   if (self % saveLambVector) then
-                     call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
+                     call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
+                     call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)
                      velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
                      call vCross(velocity, vorticity, LambVector)
                      data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
@@ -347,6 +359,59 @@ module StatisticsMonitor
                end associate
             end do
 #endif 
+
+#ifdef MULTIPHASE
+         !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
+            limits(1) = NO_OF_VARIABLES_Sij + IMC
+            limits(2) = NO_OF_VARIABLES_Sij + NCONS + 1 ! Also the density
+            limits(3:6) = limits(2)
+            if (self % saveGradients) then
+               limits(3) = NO_OF_VARIABLES_Sij + NCONS + 1 + NGRAD ! U_x
+               limits(4) = NO_OF_VARIABLES_Sij + NCONS + 1 + 2*NGRAD ! U_y
+               limits(5) = NO_OF_VARIABLES_Sij + NCONS + 1 + NDIM * NGRAD ! U_z
+               limits(6) = limits(5)
+            end if
+            if (self % saveLambVector) limits(6) = limits(5) + NDIM
+
+            inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
+            ratio = self % no_of_samples * inv_nsamples_plus_1
+
+            do eID = 1, size(mesh % elements)
+               associate(e    => mesh % elements(eID), &
+                         data => mesh % elements(eID) % storage % stats % data)
+
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+                  rfactor1 = inv_nsamples_plus_1 / sqrt( e % storage % rho(i,j,k) )
+                  rfactor2 = inv_nsamples_plus_1 / e % storage % rho(i,j,k)
+                  data(U,i,j,k)  = data(U,i,j,k)  * ratio + e % storage % Q(IMSQRHOU,i,j,k) * rfactor1
+                  data(V,i,j,k)  = data(V,i,j,k)  * ratio + e % storage % Q(IMSQRHOV,i,j,k) * rfactor1
+                  data(W,i,j,k)  = data(W,i,j,k)  * ratio + e % storage % Q(IMSQRHOW,i,j,k) * rfactor1
+                  data(UU,i,j,k) = data(UU,i,j,k) * ratio + POW2( e % storage % Q(IMSQRHOU,i,j,k) ) * rfactor2
+                  data(VV,i,j,k) = data(VV,i,j,k) * ratio + POW2( e % storage % Q(IMSQRHOV,i,j,k) ) * rfactor2
+                  data(WW,i,j,k) = data(WW,i,j,k) * ratio + POW2( e % storage % Q(IMSQRHOW,i,j,k) ) * rfactor2
+                  data(UV,i,j,k) = data(UV,i,j,k) * ratio + e % storage % Q(IMSQRHOU,i,j,k) * e % storage % Q(IMSQRHOV,i,j,k) * rfactor2
+                  data(UW,i,j,k) = data(UW,i,j,k) * ratio + e % storage % Q(IMSQRHOU,i,j,k) * e % storage % Q(IMSQRHOW,i,j,k) * rfactor2
+                  data(VW,i,j,k) = data(VW,i,j,k) * ratio + e % storage % Q(IMSQRHOV,i,j,k) * e % storage % Q(IMSQRHOW,i,j,k) * rfactor2
+                  data(limits(1):limits(2)-1,i,j,k) = data(limits(1):limits(2)-1,i,j,k) * ratio + e % storage % Q(:,i,j,k) * inv_nsamples_plus_1
+                  data(limits(2)-1:limits(2),i,j,k) = data(limits(2)-1:limits(2),i,j,k) * ratio + e % storage % rho(i,j,k) * inv_nsamples_plus_1
+                  if (self % saveGradients) then
+                      data(limits(2)+1:limits(3),i,j,k) = data(limits(2)+1:limits(3),i,j,k) * ratio + e % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
+                      data(limits(3)+1:limits(4),i,j,k) = data(limits(3)+1:limits(4),i,j,k) * ratio + e % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
+                      data(limits(4)+1:limits(5),i,j,k) = data(limits(4)+1:limits(5),i,j,k) * ratio + e % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
+                  end if
+                  ! Save Lamb vector: u x w
+                  if (self % saveLambVector) then
+                     call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
+                     call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)
+                     velocity = e % storage % Q(IMSQRHOU:IMSQRHOW,i,j,k) / sqrt( e % storage % rho(i,j,k) )
+                     call vCross(velocity, vorticity, LambVector)
+                     data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
+                  end if
+               end do                  ; end do                   ; end do
+
+               end associate
+            end do
+#endif
 
          self % no_of_samples = self % no_of_samples + 1
          

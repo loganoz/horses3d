@@ -619,7 +619,6 @@
       call ConstructSponge(sponge,sem % mesh,controlVariables)
 #endif
 #if defined(ACOUSTIC)
-   call sem % mesh % LoadLambVectorStatistics(controlVariables)
    call constructAPESource(apeSource, controlVariables)
 #endif
 !

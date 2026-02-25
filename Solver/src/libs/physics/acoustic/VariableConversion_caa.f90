@@ -6,7 +6,7 @@ module VariableConversion_CAA
    implicit none
 
    private
-   public   Pressure, PressureDot, PressureBaseFlow
+   public   Pressure, PressureDot, PressureBaseFlow_NS, PressureBaseFlow_iNS, PressureBaseFlow_MU
    public   NSGradientVariables_STATE
    ! public   getPrimitiveVariables
    public   getVelocityGradients, getTemperatureGradient, getConservativeGradients
@@ -81,7 +81,7 @@ module VariableConversion_CAA
 !! Compute the pressure from the conservative variables of NS
 !---------------------------------------------------------------------
 !
-      PURE function PressureBaseFlow(Q) RESULT(P)
+      PURE function PressureBaseFlow_NS(Q) RESULT(P)
 !
 !     ---------
 !     Arguments
@@ -97,7 +97,49 @@ module VariableConversion_CAA
       
       P = thermodynamics % gammaMinus1*(Q(IRHOE) - 0.5_RP*(Q(IRHOU)**2 + Q(IRHOV)**2 + Q(IRHOW)**2)/Q(IRHO))
 
-      end function PressureBaseFlow
+      end function PressureBaseFlow_NS
+!---------------------------------------------------------------------
+!! Compute the pressure from the conservative variables of iNS
+!---------------------------------------------------------------------
+!
+      PURE function PressureBaseFlow_iNS(Q) RESULT(P)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: P
+      
+      P = Q(INSP)
+
+      end function PressureBaseFlow_iNS
+!---------------------------------------------------------------------
+!! Compute the pressure from the state variables of MU
+!---------------------------------------------------------------------
+!
+      PURE function PressureBaseFlow_MU(Q) RESULT(P)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: P
+      
+      P = Q(IMP)
+
+      end function PressureBaseFlow_MU
 !
 ! /////////////////////////////////////////////////////////////////////
 !---------------------------------------------------------------------
@@ -146,7 +188,7 @@ module VariableConversion_CAA
          V(ICAAU) = U(IRHOU) * invRho
          V(ICAAV) = U(IRHOV) * invRho
          V(ICAAW) = U(IRHOW) * invRho
-         V(ICAAP) = PressureBaseFlow(U)
+         V(ICAAP) = PressureBaseFlow_NS(U)
          ! V(ICAAA2) = thermodynamics % gamma * V(ICAAP) * invRho
 
       end subroutine getPrimitiveVariablesBaseFlow
@@ -167,14 +209,9 @@ module VariableConversion_CAA
          real(kind=RP) :: invRho, invRho2, uDivRho(NDIM)
          !-------------------------------------------------------------
 
-         invRho  = 1._RP / Q(IRHO)
-         invRho2 = invRho * invRho
-         
-         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
-         
-         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
-         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
-         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+         u_x = Q_x(ICAAU:ICAAW)
+         u_y = Q_y(ICAAU:ICAAW)
+         u_z = Q_z(ICAAU:ICAAW)
 
       end subroutine getVelocityGradients
 !
@@ -349,5 +386,13 @@ module VariableConversion_CAA
          end do       ; end do       ; end do
          
       end subroutine getConservativeGradients_3D
+
+
+
+      ! pure subroutine computeSoundVelocity_NS()
+      !       implicit none
+
+
+      ! end subroutine computeSoundVelocity_NS
 
 end module VariableConversion_CAA
