@@ -1,5 +1,5 @@
 #include "Includes.h"
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module StatisticsMonitor
    use SMConstants
    use HexMeshClass
@@ -52,6 +52,8 @@ module StatisticsMonitor
       integer        :: no_of_samples
       logical        :: saveGradients
       logical        :: saveLambVector
+      logical        :: saveSoundVelocitySquared
+      logical        :: saveGradSoundVelocitySquared
       contains
          procedure   :: Construct    => StatisticsMonitor_Construct
          procedure   :: Update       => StatisticsMonitor_Update
@@ -68,13 +70,13 @@ module StatisticsMonitor
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector)
+      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared)
          use ParamfileRegions
          use PhysicsStorage, only: NCONS, NGRAD
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
-         logical, intent(in)           :: saveGradients, saveLambVector
+         logical, intent(in)           :: saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared
          integer, allocatable          :: Nsample, i0, Ndump, Nreset
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
@@ -83,8 +85,15 @@ module StatisticsMonitor
          NO_OF_VARIABLES = NO_OF_VARIABLES_Sij + NCONS
          self % saveGradients = saveGradients
          self % saveLambVector = saveLambVector
+         self % saveSoundVelocitySquared = saveSoundVelocitySquared
+         self % saveGradSoundVelocitySquared = saveGradSoundVelocitySquared
          if (saveGradients) NO_OF_VARIABLES = NO_OF_VARIABLES + NGRAD * NDIM
          if (saveLambVector) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
+         if (saveSoundVelocitySquared) NO_OF_VARIABLES = NO_OF_VARIABLES + 1
+         if (saveGradSoundVelocitySquared) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
+         print *, "self % saveLambVector", self % saveLambVector
+         print *, "self % saveSoundVelocitySquared", self % saveSoundVelocitySquared
+         print *, "self % saveGradSoundVelocitySquared", self % saveGradSoundVelocitySquared
 !
 !        Search for the parameters in the case file
 !        ------------------------------------------
@@ -160,6 +169,7 @@ module StatisticsMonitor
       end subroutine StatisticsMonitor_Construct
 
       subroutine StatisticsMonitor_WriteFile(self, mesh, iter, t, solution_file)
+         use PhysicsStorage
          implicit none
          class(StatisticsMonitor_t) :: self
          class(HexMesh)             :: mesh
@@ -167,12 +177,38 @@ module StatisticsMonitor
          real(kind=RP), intent(in)  :: t
          character(len=*), intent(in)  :: solution_file
          character(len=LINE_LENGTH)    :: fileName
+         
+         integer :: lblimits, ublimits
 
          write(fileName,'(A,A)') trim(solution_file),'.stats.hsol'
          if ( self % state .ne. OFF) then
             call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
+            ! Save Lamb vector
+            lblimits = NO_OF_VARIABLES_Sij + NCONS
+            if (self % saveGradients) lblimits = lblimits + NDIM * NGRAD
+            lblimits = lblimits + 1
+            ublimits = lblimits + NDIM - 1
             write(fileName,'(A,A)') trim(solution_file),'.Lamb.stats.hsol'
-            if (self % saveLambVector) call mesh % SaveLambVectorStatistics(iter, t, trim(fileName), self % saveGradients)
+            if (self % saveLambVector) call mesh % SaveLambVectorStatistics(iter, t, trim(fileName), lblimits, ublimits)
+#ifdef NAVIERSTOKES
+            ! Save sound velocity
+            lblimits = NO_OF_VARIABLES_Sij + NCONS
+            if (self % saveGradients) lblimits = lblimits + NDIM * NGRAD
+            if (self % saveLambVector) lblimits = lblimits + NDIM
+            lblimits = lblimits + 1
+            ublimits = lblimits + 1 - 1
+            write(fileName,'(A,A)') trim(solution_file),'.SoundVelocitySquared.stats.hsol'
+            if (self % saveSoundVelocitySquared) call mesh % saveSoundVelocitySquaredStatistics(iter, t, trim(filename), lblimits, ublimits)
+            ! Save gradient of sound velocity squared
+            lblimits = NO_OF_VARIABLES_Sij + NCONS
+            if (self % saveGradients) lblimits = lblimits + NDIM * NGRAD
+            if (self % saveLambVector) lblimits = lblimits + NDIM
+            if (self % saveSoundVelocitySquared) lblimits = lblimits + 1
+            lblimits = lblimits + 1
+            ublimits = lblimits + NDIM - 1
+            write(fileName,'(A,A)') trim(solution_file),'.GradientSoundVelocitySquared.stats.hsol'
+            if (self % saveGradSoundVelocitySquared) call mesh % saveGradientSoundVelocitySquaredStatistics(iter, t, trim(filename), lblimits, ublimits)
+#endif
          end if
 
       end subroutine StatisticsMonitor_WriteFile
@@ -232,13 +268,14 @@ module StatisticsMonitor
          use PhysicsStorage
          use MappedGeometryClass, only: vCross, ComputeVorticity
 #if (defined(NAVIERSTOKES) && !(defined(SPALARTALMARAS)) )
-         use VariableConversion_NS, only: getVelocityGradients_STATE
+         use VariableConversion_NS, only: getVelocityGradients_STATE, Pressure
 #elif (defined(NAVIERSTOKES) && (defined(SPALARTALMARAS)) )
-         use VariableConversion_NSSA, only: getVelocityGradients_STATE
+         use VariableConversion_NSSA, only: getVelocityGradients_STATE, Pressure
 #elif defined(INCNS)
          use VariableConversion_iNS, only: getVelocityGradients
 #elif defined(MULTIPHASE)
          use VariableConversion_MU, only: getVelocityGradients
+         use FluidData_MU, only: dimensionless
 #endif
          implicit none
          class(StatisticsMonitor_t)    :: self
@@ -252,22 +289,26 @@ module StatisticsMonitor
          integer  :: i, j, k
          real(RP) :: ratio, inv_nsamples_plus_1
          real(RP) :: rfactor1, rfactor2
-         integer, dimension(6) :: limits
+         integer, dimension(8) :: limits
          real(kind=RP), dimension(NDIM) :: vorticity, velocity, LambVector
-         real(kind=RP), dimension(NDIM) :: gradvel_x, gradvel_y, gradvel_z
+         real(kind=RP), dimension(NDIM) :: gradvel_x, gradvel_y, gradvel_z, uDivRho
+         real(kind=RP) :: press, invRho, invRho2, soundVelocity
+         real(kind=RP), dimension(NDIM) :: gradPress, gradSoundVelocity
 
 #ifdef NAVIERSTOKES
          !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
             limits(1) = NO_OF_VARIABLES_Sij + IRHO
             limits(2) = NO_OF_VARIABLES_Sij + NCONS
-            limits(3:6) = limits(2)
+            limits(3:7) = limits(2)
             if (self % saveGradients) then
                limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD ! U_x
                limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD ! U_y
                limits(5) = NO_OF_VARIABLES_Sij + NCONS + NDIM * NGRAD ! U_z
-               limits(6) = limits(5)
+               limits(6:8) = limits(5)
             end if
             if (self % saveLambVector) limits(6) = limits(5) + NDIM
+            if (self % saveSoundVelocitySquared) limits(7) = limits(6) + 1
+            if (self % saveGradSoundVelocitySquared) limits(8) = limits(7) + NDIM
 
             inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
             ratio = self % no_of_samples * inv_nsamples_plus_1
@@ -301,6 +342,28 @@ module StatisticsMonitor
                      velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
                      call vCross(velocity, vorticity, LambVector)
                      data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
+                  end if
+                  if (self % saveSoundVelocitySquared) then
+                     press = Pressure(e % storage % Q(:,i,j,k))
+                     data(limits(6)+1:limits(7),i,j,k) = data(limits(6)+1:limits(7),i,j,k) * ratio + thermodynamics % gamma * press / e % storage % Q(IRHO,i,j,k) * inv_nsamples_plus_1
+                  end if
+                  if (self % saveGradSoundVelocitySquared) then
+                     call getVelocityGradients_State(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
+                     invRho = 1.0_rp / e % storage % Q(IRHO,i,j,k)
+                     invRho2 = invRho * invRho
+                     uDivRho = invRho * e % storage % Q(IRHOU:IRHOW,i,j,k)
+                     press = Pressure(e % storage % Q(:,i,j,k))
+                     soundVelocity = sqrt( thermodynamics % gamma * press * invRho )
+                     gradPress(1) = thermodynamics % gammaMinus1 * ( e % storage % U_x(IRHOE,i,j,k) - dot_product(uDivRho, gradvel_x) + &
+                                 0.5_rp * (e % storage % Q(IRHOU,i,j,k)**2 + e % storage % Q(IRHOV,i,j,k)**2 + e % storage % Q(IRHOW,i,j,k)**2) * invRho2 * e % storage % U_x(IRHO,i,j,k))
+                     gradPress(2) = thermodynamics % gammaMinus1 * ( e % storage % U_y(IRHOE,i,j,k) - dot_product(uDivRho, gradvel_y) + &
+                                 0.5_rp * (e % storage % Q(IRHOU,i,j,k)**2 + e % storage % Q(IRHOV,i,j,k)**2 + e % storage % Q(IRHOW,i,j,k)**2) * invRho2 * e % storage % U_y(IRHO,i,j,k))
+                     gradPress(3) = thermodynamics % gammaMinus1 * ( e % storage % U_z(IRHOE,i,j,k) - dot_product(uDivRho, gradvel_z) + &
+                                 0.5_rp * (e % storage % Q(IRHOU,i,j,k)**2 + e % storage % Q(IRHOV,i,j,k)**2 + e % storage % Q(IRHOW,i,j,k)**2) * invRho2 * e % storage % U_z(IRHO,i,j,k))
+                     gradSoundVelocity(1) = thermodynamics % gamma * ( gradPress(1) * invRho - press * e % storage % U_x(IRHO,i,j,k) * invRho2 )
+                     gradSoundVelocity(2) = thermodynamics % gamma * ( gradPress(2) * invRho - press * e % storage % U_y(IRHO,i,j,k) * invRho2 )
+                     gradSoundVelocity(3) = thermodynamics % gamma * ( gradPress(3) * invRho - press * e % storage % U_z(IRHO,i,j,k) * invRho2 )
+                     data(limits(7)+1:limits(8),i,j,k) = data(limits(7)+1:limits(8),i,j,k) * ratio + 2.0_rp * soundVelocity * gradSoundVelocity * inv_nsamples_plus_1
                   end if
                end do                  ; end do                   ; end do
 
@@ -401,7 +464,7 @@ module StatisticsMonitor
                   end if
                   ! Save Lamb vector: u x w
                   if (self % saveLambVector) then
-                     call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
+                     call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), dimensionless, gradvel_x, gradvel_y, gradvel_z)
                      call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)
                      velocity = e % storage % Q(IMSQRHOU:IMSQRHOW,i,j,k) / sqrt( e % storage % rho(i,j,k) )
                      call vCross(velocity, vorticity, LambVector)

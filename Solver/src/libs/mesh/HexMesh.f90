@@ -129,14 +129,14 @@ MODULE HexMeshClass
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
             procedure :: DefineAcousticElements        => HexMesh_DefineAcousticElements
             procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: SaveLambVectorStatistics      => HexMesh_SaveLambVectorStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
-#ifdef ACOUSTIC
-            procedure :: LoadLambVector                => HexMesh_LoadLambVector
-            procedure :: LoadLambBase                  => HexMesh_LoadLambBase
+#if defined(NAVIERSTOKES)
+            procedure :: saveSoundVelocitySquaredStatistics => HexMesh_saveSoundVelocitySquaredStatistics
+            procedure :: saveGradientSoundVelocitySquaredStatistics => HexMesh_saveGradientSoundVelocitySquaredStatistics
 #endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
@@ -145,9 +145,11 @@ MODULE HexMeshClass
             procedure :: InitializeBaseFlow            => HexMesh_InitializeBaseFlow
             procedure :: SetUniformBaseFlow            => HexMesh_SetUniformBaseFlow
             procedure :: LoadBaseFlowSolution          => HexMesh_LoadBaseFlowSolution
+            procedure :: LoadLambBase                  => HexMesh_LoadLambBase
             procedure :: ProlongBaseSolutionToFaces    => HexMesh_ProlongBaseSolutionToFaces
             procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
             procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
+            procedure :: LoadLambVector                => HexMesh_LoadLambVector
 #endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
@@ -3883,16 +3885,15 @@ slavecoord:             DO l = 1, 4
 
 #endif
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
-
-      subroutine HexMesh_SaveLambVectorStatistics(self, iter, time, name, saveGradients)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+      subroutine HexMesh_SaveLambVectorStatistics(self, iter, time, name, lblimits, ublimits)
          use SolutionFile
          implicit none
          class(HexMesh),      intent(in)        :: self
          integer,             intent(in)        :: iter
          real(kind=RP),       intent(in)        :: time
          character(len=*),    intent(in)        :: name
-         logical,             intent(in)        :: saveGradients
+         integer,             intent(in)        :: lblimits, ublimits
 !
 !        ---------------
 !        Local variables
@@ -3932,9 +3933,7 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
-            no_stat_s = 9 + NCONS
-            if ( saveGradients ) no_stat_s = no_stat_s + NDIM * NGRAD
-            call writeArray(fid, e % storage % stats % data(no_stat_s+1:,:,:,:), position=pos)
+            call writeArray(fid, e % storage % stats % data(lblimits:ublimits,:,:,:), position=pos)
             end associate
          end do
          close(fid)
@@ -3944,7 +3943,8 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveLambVectorStatistics
-
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       subroutine HexMesh_ResetStatistics(self)
          implicit none
          class(HexMesh)       :: self
@@ -3960,6 +3960,107 @@ slavecoord:             DO l = 1, 4
          end do
 
       end subroutine HexMesh_ResetStatistics
+#endif
+
+
+#if defined(NAVIERSTOKES)
+
+      subroutine HexMesh_saveSoundVelocitySquaredStatistics(self, iter, time, name, lblimits, ublimits)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         integer,             intent(in)        :: lblimits, ublimits
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer                          :: no_stat_s
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities
+!        ---------------------------
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*e % offsetIO*SIZEOF_RP
+            call writeArray(fid, e % storage % stats % data(lblimits:ublimits,:,:,:), position=pos)
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_saveSoundVelocitySquaredStatistics
+
+      subroutine HexMesh_saveGradientSoundVelocitySquaredStatistics(self, iter, time, name, lblimits, ublimits)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         integer,             intent(in)        :: lblimits, ublimits
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities
+!        ---------------------------
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+            call writeArray(fid, e % storage % stats % data(lblimits:ublimits,:,:,:), position=pos)
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_saveGradientSoundVelocitySquaredStatistics
 #endif
 
 #ifdef ACOUSTIC
@@ -4490,7 +4591,9 @@ slavecoord:             DO l = 1, 4
       ! * When qbase is given by a uniform field, the keyword 'qbase vector' is mandatory:
       ! qbase vector = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]
 
-      
+      !
+      ! Read base flow variables
+      !
       ! Check which type of qBase we have: file or uniform
       call toLower(qBaseKey)
       obj => controlVariables % objectForKey(trim(qBaseKey))
@@ -4525,7 +4628,7 @@ slavecoord:             DO l = 1, 4
             end if
             ! Load which solver generated the stats file
             statsSolverKey = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
-            call self % LoadBaseFlowSolution(fileName, statsSolverKey)
+            call self % LoadBaseFlowSolution(controlVariables, fileName, statsSolverKey)
          elseif ( trim(qBaseMode) .eq. trim(qbaseByUniformField) ) then
             !
             ! Read Qbase uniform field from control file
@@ -4568,9 +4671,11 @@ slavecoord:             DO l = 1, 4
       ! Finally, load the Lamb vector into the LambBase array
       !
       call self % LoadLambBase(controlVariables)
-
+!
    end subroutine HexMesh_InitializeBaseFlow
-
+!
+!////////////////////////////////////////////////////////////////////////
+!
     Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
         Implicit None
          CLASS(HexMesh)                  :: self
@@ -4591,12 +4696,13 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   Subroutine HexMesh_LoadBaseFlowSolution(self, fileName, statsSolver)
+   Subroutine HexMesh_LoadBaseFlowSolution(self, controlVariables, fileName, statsSolver)
       use mainKeywordsModule, only: KEYWORD_LENGTH
       use Physics_iNSKeywordsModule, only: ARTIFICIAL_COMPRESSIBILITY_KEY
       use FluidData_CAA, only: thermodynamics, refValues
       Implicit None
       CLASS(HexMesh)                  :: self
+      type(FTValueDictionary), intent(in)  :: controlVariables
       character(len=*)                :: fileName
       character(len=*), intent(in)    :: statsSolver
 
@@ -4607,8 +4713,8 @@ slavecoord:             DO l = 1, 4
       real(rp) :: c1, c2 ! Sound velocity
 
       if (trim(statsSolver) .eq. trim(qBaseSolverNS)) then
-         c1 = thermodynamics % c02(1) / refValues % V ! AJRTODO: Esto esta mal. debe ser con la formula de gamma * p / rho
-         call HexMesh_LoadBaseFlowSolution_NS(self, fileName, c1)
+         call HexMesh_LoadBaseFlowSolution_NS(self, fileName)
+         call HexMesh_LoadBaseSoundVelocity_NS(self, controlVariables)
       elseif (trim(statsSolver) .eq. trim(qBaseSolveriNS)) then
          c1 = thermodynamics % c02(1) / refValues % V
          call HexMesh_LoadBaseFlowSolution_iNS(self, fileName, c1)
@@ -4622,12 +4728,11 @@ slavecoord:             DO l = 1, 4
    End Subroutine HexMesh_LoadBaseFlowSolution
 
    
-   Subroutine HexMesh_LoadBaseFlowSolution_NS(self, fileName, soundVelocity)
+   Subroutine HexMesh_LoadBaseFlowSolution_NS(self, fileName)
          use VariableConversion_CAA, only: PressureBaseFlow_NS
         Implicit None
          CLASS(HexMesh)                  :: self
          character(len=*)                :: fileName
-         real(kind=RP)                   :: soundVelocity
 !        ---------------
 !        Local variables
 !        ---------------
@@ -4702,16 +4807,86 @@ slavecoord:             DO l = 1, 4
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
                ! Initialize pressure
                self % elements(eID) % storage % Qbase(IBP,i,j,k) = PressureBaseFlow_NS(Q(:,i,j,k))
-               ! Initialize sound velocity
-               self % elements(eID) % storage % Qbase(IBA2,i,j,k) = 0.0_rp !AJRTODO
             end do                  ; end do                   ; end do
             deallocate(Q)
-            ! AJRTODO: Initialize gradient of sound velocity
-            
             end associate
          end do
 
    End Subroutine HexMesh_LoadBaseFlowSolution_NS
+
+   Subroutine HexMesh_LoadBaseSoundVelocity_NS(self, controlVariables)
+      use VariableConversion_CAA, only: PressureBaseFlow_NS
+      Implicit None
+      CLASS(HexMesh)                  :: self
+      type(FTValueDictionary), intent(in)  :: controlVariables
+
+      CHARACTER(LEN=LINE_LENGTH) :: soundVelocityFileNameKey           = "sound velocity squared stats file name"
+      CHARACTER(LEN=LINE_LENGTH) :: gradSoundVelocityFileNameKey           = "gradient sound velocity squared stats file name"
+
+      class(FTObject), pointer   :: obj
+      character(len=LINE_LENGTH) :: fileName
+      integer(kind=AddrInt)      :: pos
+      integer                    :: fid, eID
+
+      !
+      ! Read and initialize the sound velocity squared
+      !
+      ! Check that the user has specified the file to read from
+      call toLower(soundVelocityFileNameKey)
+      obj => controlVariables % objectForKey(trim(soundVelocityFileNameKey))
+      if ( .not. associated(obj) ) then
+         print *, trim(soundVelocityFileNameKey), " not specified. Use:"
+         print *, trim(soundVelocityFileNameKey), " = path/to/file.SoundVelocitySquared.stats.hsol"
+         errorMessage(STD_OUT)
+         error stop
+      end if
+      ! Load the the specified stats file
+      fileName = controlVariables % stringValueForKey(soundVelocityFileNameKey,requestedLength = LINE_LENGTH)
+      if ( getSolutionFileType(trim(fileName)) .ne. STATS_FILE ) then
+         print *, "The file ", fileName, " is not a stats file."
+         error stop
+      end if
+      ! Read arrays
+      fID = putSolutionFileInReadDataMode(trim(fileName))
+      do eID = 1, self % no_of_elements
+         associate ( e     =>    self % elements(eID) )
+         pos = POS_INIT_DATA + (e % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*e % offsetIO*SIZEOF_RP
+         read(fID, pos=pos) self % elements(eID) % storage % Qbase(IBA2,:,:,:)
+         end associate
+      end do
+      ! Close the file
+      close(fid)
+
+      !
+      ! Read and initialize the gradient of the sound velocity squared
+      !
+      ! Check that the user has specified the file to read from
+      call toLower(gradSoundVelocityFileNameKey)
+      obj => controlVariables % objectForKey(trim(gradSoundVelocityFileNameKey))
+      if ( .not. associated(obj) ) then
+         print *, trim(gradSoundVelocityFileNameKey), "not specified. Use:"
+         print *, trim(gradSoundVelocityFileNameKey), " = path/to/file.GradientSoundVelocitySquared.stats.hsol"
+         errorMessage(STD_OUT)
+         error stop
+      end if
+      ! Load the the specified stats file
+      fileName = controlVariables % stringValueForKey(gradSoundVelocityFileNameKey,requestedLength = LINE_LENGTH)
+      if ( getSolutionFileType(trim(fileName)) .ne. STATS_FILE ) then
+         print *, "The file ", fileName, " is not a stats file."
+         error stop
+      end if
+      ! Read arrays
+      fID = putSolutionFileInReadDataMode(trim(fileName))
+      do eID = 1, self % no_of_elements
+         associate ( e     =>    self % elements(eID) )
+         pos = POS_INIT_DATA + (e % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+         read(fID, pos=pos) self % elements(eID) % storage % grada2base(:,:,:,:)
+         end associate
+      end do
+      ! Close the file
+      close(fid)
+
+   end Subroutine HexMesh_LoadBaseSoundVelocity_NS
 
    Subroutine HexMesh_LoadBaseFlowSolution_iNS(self, fileName, soundVelocity)
       use VariableConversion_CAA, only: PressureBaseFlow_iNS
