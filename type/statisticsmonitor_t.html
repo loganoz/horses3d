@@ -90,7 +90,7 @@
 
             <li class="list-inline-item" id="statements"><i class="fa fa-list-ol"></i>
               <a data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"
-                 title="<p> 6.0% of total for derived types.</p>Including implementation: 337 statements,  7.2% of total for derived types.">19 statements</a>
+                 title="<p> 6.5% of total for derived types.</p>Including implementation: 445 statements,  9.3% of total for derived types.">21 statements</a>
             </li>
 
             <li class="list-inline-item" id="source-file">
@@ -141,6 +141,8 @@
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-no_of_samples">no_of_samples</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savegradients~2">saveGradients</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savelambvector~2">saveLambVector</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savesoundvelocitysquared~2">saveSoundVelocitySquared</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#variable-savegradsoundvelocitysquared~2">saveGradSoundVelocitySquared</a>
         </div>
       </div>
     </div>
@@ -168,10 +170,10 @@
       <div id="boundprocs-0" class="collapse">
         <div class="list-group list-group-flush">
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-construct~2">Construct</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-update~6">Update</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-update~3">Update</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-updatevalues~2">UpdateValues</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-getstate">GetState</a>
-            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writelabel~6">WriteLabel</a>
+            <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writelabel~2">WriteLabel</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writevalue">WriteValue</a>
             <a class="list-group-item" href="../type/statisticsmonitor_t.html#boundprocedure-writefile">WriteFile</a>
         </div>
@@ -363,6 +365,40 @@
                 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-savesoundvelocitysquared~2"></span>
+              logical,
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>saveSoundVelocitySquared</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" id="variable-savegradsoundvelocitysquared~2"></span>
+              logical,
+            </td>
+              <td>public</td>
+            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>saveGradSoundVelocitySquared</strong></td>
+                <td></td>
+                <td></td>
+            <td>
+                
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -386,7 +422,7 @@
       <ul class="list-group">
           <li class="list-group-item">
                     <h3>
-    private  subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector)  
+    private  subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared)  
 </h3>
 
   
@@ -462,6 +498,36 @@
                 
             </td>
         </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              logical,
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>saveSoundVelocitySquared</strong></td>
+            <td>
+                
+            </td>
+        </tr>
+        <tr>
+            <td>
+              <span class="anchor" ></span>
+              logical,
+            </td>
+<td>intent(in)</td>
+              <td></td>            <td>
+              
+            </td>
+            <td>::</td>
+            <td><strong>saveGradSoundVelocitySquared</strong></td>
+            <td>
+                
+            </td>
+        </tr>
     </tbody>
   </table>
 
@@ -474,7 +540,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-update~6"></span>
+      <span class="anchor" id="boundprocedure-update~3"></span>
       <h3>
           procedure, public ::
   <strong>Update</strong> => StatisticsMonitor_Update
@@ -738,7 +804,7 @@
           <div class="row">
               <div class="card mt-3">
     <div class="card-header codesum">
-      <span class="anchor" id="boundprocedure-writelabel~6"></span>
+      <span class="anchor" id="boundprocedure-writelabel~2"></span>
       <h3>
           procedure, public ::
   <strong>WriteLabel</strong> => StatisticsMonitor_WriteLabel
@@ -968,6 +1034,8 @@
 <span class="w">      </span><span class="kt">integer</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">no_of_samples</span>
 <span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveGradients</span>
 <span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveLambVector</span>
+<span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveSoundVelocitySquared</span>
+<span class="w">      </span><span class="kt">logical</span><span class="w">        </span><span class="kd">::</span><span class="w"> </span><span class="n">saveGradSoundVelocitySquared</span>
 <span class="w">      </span><span class="k">contains</span>
 <span class="k">         procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Construct</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_Construct</span>
 <span class="w">         </span><span class="k">procedure</span><span class="w">   </span><span class="kd">::</span><span class="w"> </span><span class="n">Update</span><span class="w">       </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">StatisticsMonitor_Update</span>
@@ -999,7 +1067,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2026-02-24 20:01 +0000             </p>
+ on 2026-02-26 14:48 +0000             </p>
           </div>
         </div>
         <br>
