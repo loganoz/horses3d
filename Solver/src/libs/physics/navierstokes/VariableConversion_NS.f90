@@ -13,6 +13,7 @@ module VariableConversion_NS
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
+   public   getVelocityGradients_STATE
    public   set_getVelocityGradients
   
 

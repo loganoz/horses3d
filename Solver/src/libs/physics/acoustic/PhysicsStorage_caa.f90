@@ -4,8 +4,13 @@
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_TEMPERATURE_KEY      = "reference temperature (k)"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_PRESSURE_KEY         = "reference pressure (pa)"
+         character(LEN = KEYWORD_LENGTH), parameter :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY                = "mach number"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY             = "flow equations"
+
+         character(len=KEYWORD_LENGTH), parameter :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial sound speed square (m/s)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID1_COMPRESSIBILITY_KEY = "fluid 1 sound speed square (m/s)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID2_COMPRESSIBILITY_KEY = "fluid 2 sound speed square (m/s)"
 
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_CAAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
 
@@ -26,8 +31,10 @@
      private
      public    NCONS, NGRAD, NCONSB
      public    ICAARHO, ICAAU, ICAAV, ICAAW, ICAAP
-     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
      public    IBRHO, IBU, IBV, IBW, IBP, IBA2
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE ! NS solver
+     public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP ! iNS solver
+     public    IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP ! MU solver
      public    computeGradients, flowIsNavierStokes
 
      public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA
@@ -60,6 +67,14 @@
 
 !!   The positions of the conservative variables of the base flow from the NS solver
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+
+!!   The positions of the conservative variables of the base flow from the iNS solver
+     enum, bind(C)
+        enumerator :: INSRHO = 1, INSRHOU, INSRHOV, INSRHOW, INSP
+     end enum
+
+!!   The positions of the conservative variables of the base flow from the MU solver
+     INTEGER, PARAMETER       :: IMC = 1 , IMSQRHOU = 2 , IMSQRHOV = 3 , IMSQRHOW = 4 , IMP = 5
 !
 !    --------------------------------
 !    Choice of the gradient variables
@@ -90,7 +105,8 @@
                                                 1.0_RP / 1.4_RP, & ! InvGamma
                                    1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
                        287.15_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
-                                287.15_RP / ( 1.4_RP - 1.0_RP )  & ! cv
+                               287.15_RP / ( 1.4_RP - 1.0_RP ),  & ! cv
+                                 [ 117649.0_RP, 117649.0_RP ]    & ! c02
 )
 !
 !    ========
@@ -161,8 +177,6 @@
 
       ! if ( keyword == "ape" ) then
       ! end if
-
-      dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
 !
 !     **************************************************
 !     Set reference values with the base flow variables
@@ -180,12 +194,41 @@
          refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
       end if
 
-      refValues_ % V =   dimensionless_ % Mach &
-                       * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+      if ( controlVariables % ContainsKey(MACH_NUMBER_KEY) ) then
+            dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
+            refValues_ % V =   dimensionless_ % Mach &
+                        * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+      elseif ( controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
+            refValues_ % V = controlVariables % doublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
+            dimensionless_ % Mach = refValues_ % V &
+                        / sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+      else
+            print*, "*** ERROR: Specify Mach number or reference velocity"
+            error stop
+      end if
+
+      
+      if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
+         thermodynamics_ % c02 = controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
+      else
+!      - Default to 1000.0
+         thermodynamics_ % c02 = 1000.0_RP
+
+         if ( controlVariables % ContainsKey(FLUID1_COMPRESSIBILITY_KEY) ) then
+            thermodynamics_ % c02(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_COMPRESSIBILITY_KEY)
+         end if
+
+         if ( controlVariables % ContainsKey(FLUID2_COMPRESSIBILITY_KEY) ) then
+            thermodynamics_ % c02(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_COMPRESSIBILITY_KEY)
+         end if
+         
+      end if
 
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       timeref = Lref / refValues_ % V
+
+      dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues
