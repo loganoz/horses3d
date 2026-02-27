@@ -91,9 +91,6 @@ module StatisticsMonitor
          if (saveLambVector) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
          if (saveSoundVelocitySquared) NO_OF_VARIABLES = NO_OF_VARIABLES + 1
          if (saveGradSoundVelocitySquared) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
-         print *, "self % saveLambVector", self % saveLambVector
-         print *, "self % saveSoundVelocitySquared", self % saveSoundVelocitySquared
-         print *, "self % saveGradSoundVelocitySquared", self % saveGradSoundVelocitySquared
 !
 !        Search for the parameters in the case file
 !        ------------------------------------------
