@@ -160,7 +160,6 @@ module MeshInterpolation
         fileName = controlVariables % stringValueForKey("stats qbase file name", requestedLength = LINE_LENGTH)
         call readStats(controlVariables, M_in, storage_e_in, refs, iter, time, fileName)
         ! AJRTODO: OpenMP implementation
-        ! AJRTODO: Interpolate Lamb vector _NS and stats
 
 
         ! AJRTODO: This should be removed
@@ -393,11 +392,7 @@ module MeshInterpolation
         TYPE(FTValueDictionary)                :: controlVariables
         integer, intent(out) :: nodeType
 
-        ! Local variables
-        CLASS(FTObject), POINTER :: obj
-
-        obj => controlVariables % objectForKey(discretizationNodesKey)
-        if ( .not. associated(obj) ) then
+        if (.not. controlVariables % containsKey(discretizationNodesKey)) then
             call controlVariables % addValueForKey("Gauss",discretizationNodesKey)
         end if
 
@@ -486,7 +481,6 @@ module MeshInterpolation
 
     subroutine readStats(controlVariables, mesh, storage_e, refs, iter, time, filename)
         use FTValueDictionaryClass
-        use FTObjectClass
         use HexMeshClass
         use StorageClass
         use Utilities, only: toLower
@@ -507,14 +501,12 @@ module MeshInterpolation
         CHARACTER(LEN=LINE_LENGTH) :: qBaseSolverNS  = "ns"
         CHARACTER(LEN=LINE_LENGTH) :: qBaseSolveriNS = "ins"
         CHARACTER(LEN=LINE_LENGTH) :: qBaseSolverMU  = "mu"
-        class(FTObject), pointer   :: obj
         character(len=LINE_LENGTH) :: statsSolver
 
 
         ! Check that the user has specified the solver that wrote the stats file
         call toLower(qBaseSolverKey)
-        obj => controlVariables % objectForKey(trim(qBaseSolverKey))
-        if ( .not. associated(obj) ) then
+        if (.not. controlVariables % containsKey(trim(qBaseSolverKey))) then
             print *, trim(qBaseSolverKey), " not specified. Use:"
             print *, trim(qBaseSolverKey), " = ns/ins/mu"
             errorMessage(STD_OUT)
@@ -645,7 +637,6 @@ module MeshInterpolation
         use StorageClass
         use SolutionFile
         use FTValueDictionaryClass
-        use FTObjectClass
         use Utilities, only: toLower
         implicit None
         TYPE(FTValueDictionary)         :: controlVariables
@@ -660,14 +651,12 @@ module MeshInterpolation
         integer(kind=AddrInt)          :: pos
         integer                        :: no_stat_s, no_stats_read
         character(len=LINE_LENGTH)     :: fileName
-        class(FTObject), pointer   :: obj
         CHARACTER(LEN=LINE_LENGTH) :: soundVelocityFileNameKey           = "stats sound velocity squared file name"
 
 
         ! Check that the user has specified the file to read from
         call toLower(soundVelocityFileNameKey)
-        obj => controlVariables % objectForKey(trim(soundVelocityFileNameKey))
-        if ( .not. associated(obj) ) then
+        if (.not. controlVariables % containsKey(trim(soundVelocityFileNameKey))) then
             print *, trim(soundVelocityFileNameKey), " not specified. Use:"
             print *, trim(soundVelocityFileNameKey), " = path/to/file.SoundVelocitySquared.stats.hsol"
             errorMessage(STD_OUT)
@@ -725,7 +714,6 @@ module MeshInterpolation
         use StorageClass
         use SolutionFile
         use FTValueDictionaryClass
-        use FTObjectClass
         use Utilities, only: toLower
         implicit None
         TYPE(FTValueDictionary)         :: controlVariables
@@ -740,14 +728,12 @@ module MeshInterpolation
         integer(kind=AddrInt)          :: pos
         integer                        :: no_stat_s, no_stats_read
         character(len=LINE_LENGTH)     :: fileName
-        class(FTObject), pointer   :: obj
         CHARACTER(LEN=LINE_LENGTH) :: gradSoundVelocityFileNameKey           = "stats gradient sound velocity squared file name"
 
 
         ! Check that the user has specified the file to read from
         call toLower(gradSoundVelocityFileNameKey)
-        obj => controlVariables % objectForKey(trim(gradSoundVelocityFileNameKey))
-        if ( .not. associated(obj) ) then
+        if (.not. controlVariables % containsKey(trim(gradSoundVelocityFileNameKey))) then
             print *, trim(gradSoundVelocityFileNameKey), " not specified. Use:"
             print *, trim(gradSoundVelocityFileNameKey), " = path/to/file.GradientSoundVelocitySquared.stats.hsol"
             errorMessage(STD_OUT)
@@ -998,7 +984,6 @@ module MeshInterpolation
         use StorageClass
         use SolutionFile
         use FTValueDictionaryClass
-        use FTObjectClass
         use Utilities, only: toLower
         implicit None
         TYPE(FTValueDictionary)         :: controlVariables
@@ -1013,14 +998,12 @@ module MeshInterpolation
         integer(kind=AddrInt)          :: pos
         integer                        :: no_stat_s, no_stats_read
         character(len=LINE_LENGTH)     :: fileName
-        class(FTObject), pointer   :: obj
         CHARACTER(LEN=LINE_LENGTH) :: LambStatsFileNameKey           = "stats Lamb vector file name"
 
 
         ! Check that the user has specified the file to read from
         call toLower(LambStatsFileNameKey)
-        obj => controlVariables % objectForKey(trim(LambStatsFileNameKey))
-        if ( .not. associated(obj) ) then
+        if (.not. controlVariables % containsKey(trim(LambStatsFileNameKey))) then
             print *, trim(LambStatsFileNameKey), " not specified. Use:"
             print *, trim(LambStatsFileNameKey), " = path/to/Lamb.stats.hsol"
             errorMessage(STD_OUT)
@@ -1078,7 +1061,6 @@ module MeshInterpolation
         use StorageClass
         use SolutionFile
         use FTValueDictionaryClass
-        use FTObjectClass
         use Utilities, only: toLower
         implicit None
         TYPE(FTValueDictionary)         :: controlVariables
@@ -1093,14 +1075,12 @@ module MeshInterpolation
         integer(kind=AddrInt)          :: pos
         integer                        :: no_stat_s, no_stats_read
         character(len=LINE_LENGTH)     :: fileName
-        class(FTObject), pointer   :: obj
         CHARACTER(LEN=LINE_LENGTH) :: LambFileNameKey           = "Lamb vector file name"
 
 
         ! Check that the user has specified the file to read from
         call toLower(LambFileNameKey)
-        obj => controlVariables % objectForKey(trim(LambFileNameKey))
-        if ( .not. associated(obj) ) then
+        if (.not. controlVariables % containsKey(trim(LambFileNameKey))) then
             print *, trim(LambFileNameKey), " not specified. Use:"
             print *, trim(LambFileNameKey), " = path/to/Lamb.hsol"
             errorMessage(STD_OUT)
