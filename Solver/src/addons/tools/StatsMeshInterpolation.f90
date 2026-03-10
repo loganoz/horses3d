@@ -1,6 +1,7 @@
 #include "Includes.h"
 module StatsMeshInterpolation
     use SMConstants
+    use omp_lib
 
     implicit none
 
@@ -52,14 +53,13 @@ module StatsMeshInterpolation
 
         type(StatsElementStorage_t), allocatable :: storage_e_in(:), storage_e_out(:) ! To save the stats
         integer :: no_of_stats
+        logical :: allocateSoundVelocity
         type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
         type(Probe_t) :: probe
         real(rp) :: x(NDIM) ! To store the coordinates in the computation space
         real(kind=RP) :: refs(NO_OF_SAVED_REFS)
         integer :: iter
         real(rp) :: time
-        integer :: pa, npa ! AJRTODO: Remove?
-        real(rp), allocatable :: xd_dp_pa(:,:), f_pa(:,:) ! AJRTODO: Remove
 
         !
         ! Read mesh M_in
@@ -153,27 +153,20 @@ module StatsMeshInterpolation
         allocate(storage_e_in(M_in % no_of_elements))
         fileName = controlVariables % stringValueForKey("stats qbase file name", requestedLength = LINE_LENGTH)
         call readStats(controlVariables, M_in, storage_e_in, refs, iter, time, fileName)
-        ! AJRTODO: OpenMP implementation
 
-
-        ! AJRTODO: This should be removed
-        npa = 0
-        do eID = 1, M_out % no_of_elements
-            npa = npa + product(M_out % elements(eID) % Nxyz + 1)
-        end do
-        allocate(xd_dp_pa(3,npa))
-        allocate(f_pa(1,npa))
-        f_pa = -22.0_rp
-
-        ! Allocate the transfinite mappings
-        allocate(hex8Map)
-        allocate(genHexMap)
 
         ! Initialize storage for mesh M_out
         allocate(storage_e_out(M_out % no_of_elements))
         no_of_stats = size(storage_e_in(1) % Q, dim=1)
+        allocateSoundVelocity = allocated(storage_e_in(1) % a2)
+        call allocateStorage(M_out, storage_e_out, no_of_stats, allocateSoundVelocity)
+
+        !$omp parallel default(shared) private(hex8Map,genHexMap,hexMap)
+        ! Allocate the transfinite mappings
+        allocate(hex8Map)
+        allocate(genHexMap)
         
-        pa = 1
+        !$omp do schedule(runtime) private(eID,i,j,k,ii,jj,kk,probe,spAxi,spAeta,spAzeta,x)
         do eID = 1, M_out % no_of_elements
 
             ! Create transfinite mapping
@@ -186,30 +179,13 @@ module StatsMeshInterpolation
                hexMap => genHexMap
             end if
 
-            ! Allocate storage for stats
-            allocate(storage_e_out(eID) % Q(1:no_of_stats, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
-            storage_e_out(eID) % Q = 0.0_rp
-            ! Allocate sound velocity if Navier-Stokes solver, i.e., if a2 or grada2 have been allocated.
-            if ( allocated(storage_e_in(1) % a2) ) then
-                allocate( storage_e_out(eID) % a2(1:1, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
-                storage_e_out(eID) % a2 = 0.0_rp
-                allocate( storage_e_out(eID) % grada2(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
-                storage_e_out(eID) % grada2 = 0.0_rp
-            end if
-            ! Allocate Lamb vector stats
-            allocate(storage_e_out(eID) % LambStats(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
-            storage_e_out(eID) % LambStats = 0.0_rp
-            ! Allocate Lamb vector
-            allocate(storage_e_out(eID) % Lamb(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
-            storage_e_out(eID) % Lamb = 0.0_rp
-
             do k = 0, M_out % elements(eID) % Nxyz(3)
                 do j = 0, M_out % elements(eID) % Nxyz(2)
                     do i = 0, M_out % elements(eID) % Nxyz(1)
                         !
                         ! Create the node as a probe
                         !
-                        probe % ID = pa
+                        probe % ID = eID
                         spAxi => NodalStorage_out(M_out % elements(eID) % Nxyz(1))
                         spAeta => NodalStorage_out(M_out % elements(eID) % Nxyz(2))
                         spAzeta => NodalStorage_out(M_out % elements(eID) % Nxyz(3))
@@ -217,9 +193,6 @@ module StatsMeshInterpolation
                         x = [spAxi % x(i), spAeta % x(j), spAzeta % x(k)]
                         ! Coordinates of the point in the physical space
                         probe % x = hexMap % transfiniteMapAt(x)
-
-                        
-                        xd_dp_pa(:,pa) = probe % x ! AJRTODO: remove
 
 
                         !
@@ -236,7 +209,7 @@ module StatsMeshInterpolation
                                 write(STD_OUT,'(A,I0,A)') "Probe ", probe % ID, " was not successfully initialized."
                                 print*, "Probe is set to inactive."
                             ! end if
-                            return
+                            ! return
                         end if
 
                         !
@@ -262,24 +235,21 @@ module StatsMeshInterpolation
                             end do
                         end do   
 
-                        ! AJRTODO: remove
-                        f_pa(1,pa) = storage_e_out(eID) % Q(1,i,j,k)
-                        pa = pa + 1
                     end do
                 end do
             end do
         end do
+        !$omp end do
+
+        deallocate(hex8Map)
+        deallocate(genHexMap)
+
+        !$omp end parallel
 
 
         ! Export field values at probes
         call M_out % PrepareForIO()
         call saveStats(M_out, storage_e_out, refs, iter, time, "hola")
-
-        ! AJRTODO: remove
-        call write_points_vtk("testPoints.vtk", npa, xd_dp_pa, f_pa)
-
-
-
 
     end subroutine InterpolateStats
 
@@ -472,6 +442,36 @@ module StatsMeshInterpolation
         close(unit)
 
     end subroutine write_points_vtk
+
+    subroutine allocateStorage(M_out, storage_e_out, no_of_stats, allocateSoundVelocity)
+        use HexMeshClass
+        implicit none
+        type(HexMesh), intent(in)          :: M_out
+        type(StatsElementStorage_t)          :: storage_e_out(:)
+        integer, intent(in) :: no_of_stats
+        logical, intent(in) :: allocateSoundVelocity
+
+        integer :: eID
+
+        do eID = 1, M_out % no_of_elements
+            ! Allocate storage for stats
+            allocate(storage_e_out(eID) % Q(1:no_of_stats, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
+            storage_e_out(eID) % Q = 0.0_rp
+            ! Allocate sound velocity if Navier-Stokes solver, i.e., if a2 or grada2 have been allocated.
+            if ( allocateSoundVelocity ) then
+                allocate( storage_e_out(eID) % a2(1:1, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
+                storage_e_out(eID) % a2 = 0.0_rp
+                allocate( storage_e_out(eID) % grada2(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
+                storage_e_out(eID) % grada2 = 0.0_rp
+            end if
+            ! Allocate Lamb vector stats
+            allocate(storage_e_out(eID) % LambStats(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
+            storage_e_out(eID) % LambStats = 0.0_rp
+            ! Allocate Lamb vector
+            allocate(storage_e_out(eID) % Lamb(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
+            storage_e_out(eID) % Lamb = 0.0_rp
+        end do
+    end subroutine allocateStorage
 
     subroutine readStats(controlVariables, mesh, storage_e, refs, iter, time, filename)
         use FTValueDictionaryClass
