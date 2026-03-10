@@ -3740,7 +3740,7 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer                          :: fid, eID
+         integer                          :: fid, eID, fileType
          integer                          :: no_of_written_vars, no_stat_s
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
@@ -3758,7 +3758,9 @@ slavecoord:             DO l = 1, 4
 
 !        Create new file
 !        ---------------
-         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+         fileType = STATS_FILE
+         if ( saveGradients .and. computeGradients ) fileType = STATS_AND_GRADIENTS_FILE
+         call CreateNewSolutionFile(trim(name), fileType, self % nodeType, self % no_of_allElements, iter, time, refs)
 !
 !        Write arrays
 !        ------------
@@ -3817,7 +3819,7 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer                          :: fid, eID
+         integer                          :: fid, eID, fileType
          integer                          :: no_of_written_vars, no_stat_s
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
@@ -3835,7 +3837,9 @@ slavecoord:             DO l = 1, 4
 
 !        Create new file
 !        ---------------
-         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+         fileType = STATS_FILE
+         if ( saveGradients .and. computeGradients ) fileType = STATS_AND_GRADIENTS_FILE
+         call CreateNewSolutionFile(trim(name), fileType, self % nodeType, self % no_of_allElements, iter, time, refs)
 !
 !        Write arrays
 !        ------------
@@ -3863,13 +3867,13 @@ slavecoord:             DO l = 1, 4
             if ( saveGradients .and. computeGradients ) then
                allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
                ! UX
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+2:no_stat_s+NCONS+1+NGRAD,:,:,:)
                write(fid) Q
                ! UY
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+2+NGRAD:no_stat_s+NCONS+1+2*NGRAD,:,:,:)
                write(fid) Q
                ! UZ
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:no_stat_s+NCONS+NDIM*NGRAD,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+2+2*NGRAD:no_stat_s+NCONS+1+NDIM*NGRAD,:,:,:)
                write(fid) Q
                deallocate(Q)
             end if
@@ -4145,12 +4149,13 @@ slavecoord:             DO l = 1, 4
          obj => controlVariables % objectForKey(trim(LambVectorKey))
          if ( .not. associated(obj) ) then
             ! Keyword not present: 
-            print*, 'Argument ', trim(LambVectorKey), ' is mandatory'
-            print*, "Implemented modes are:"
-            print*, "   * ", trim(LambVectorByFile)
-            print*, "   * ", trim(LambVectorByUniformField)
-            errorMessage(STD_OUT)
-            error stop
+            ! print*, 'Argument ', trim(LambVectorKey), ' is mandatory'
+            ! print*, "Implemented modes are:"
+            ! print*, "   * ", trim(LambVectorByFile)
+            ! print*, "   * ", trim(LambVectorByUniformField)
+            ! errorMessage(STD_OUT)
+            ! error stop
+            print *, trim(LambVectorKey), " not present. Setting LambBase to zero."
          else
             ! Check which type of LambVectorKey we have: file or uniform
             LambVectorMode = controlVariables % stringValueForKey(trim(LambVectorKey), requestedLength = LINE_LENGTH)
@@ -4628,6 +4633,7 @@ slavecoord:             DO l = 1, 4
             end if
             ! Load which solver generated the stats file
             statsSolverKey = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
+            ! Load the base flow
             call self % LoadBaseFlowSolution(controlVariables, fileName, statsSolverKey)
          elseif ( trim(qBaseMode) .eq. trim(qbaseByUniformField) ) then
             !
@@ -4698,7 +4704,6 @@ slavecoord:             DO l = 1, 4
 !
    Subroutine HexMesh_LoadBaseFlowSolution(self, controlVariables, fileName, statsSolver)
       use mainKeywordsModule, only: KEYWORD_LENGTH
-      use Physics_iNSKeywordsModule, only: ARTIFICIAL_COMPRESSIBILITY_KEY
       use FluidData_CAA, only: thermodynamics, refValues
       Implicit None
       CLASS(HexMesh)                  :: self
@@ -4975,6 +4980,9 @@ slavecoord:             DO l = 1, 4
          ! Gradient of sound velocity is already initialized to zero, so there is no need to reassign it here.
          end associate
       end do
+
+      ! Close the file
+      close(fID)
    End Subroutine HexMesh_LoadBaseFlowSolution_iNS
 
    Subroutine HexMesh_LoadBaseFlowSolution_MU(self, fileName, soundVelocity)

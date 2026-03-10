@@ -10,6 +10,7 @@ Program main
     use LocalIBMRefinementTool
     use FWHTools
     use ConverStats
+    use MeshInterpolation, only: mymain
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -61,6 +62,9 @@ Program main
     case("local IBM p refinement")
         call Main_Header("HORSES additional proccesing tools: Local IBM Refinement Pre-Proccesing",__DATE__,__TIME__)
         call LocalRef_IBM(controlVariables)
+    case("stats mesh interpolation")
+        call Main_Header("HORSES additional proccesing tools: Mesh Interpolation Pre-Proccesing",__DATE__,__TIME__)
+        call mymain(controlVariables)
     case default
         call Main_Header("HORSES additional proccesing tools",__DATE__,__TIME__)
         write(STD_OUT,'(A)') "The requested tool type is not implemented"
