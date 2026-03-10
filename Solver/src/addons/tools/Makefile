@@ -36,7 +36,7 @@ OBJS=	\
 	LocalRefinementTool \
 	LocalIBMRefinementTool \
 	ConverStats \
-	MeshInterpolation \
+	StatsMeshInterpolation \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)

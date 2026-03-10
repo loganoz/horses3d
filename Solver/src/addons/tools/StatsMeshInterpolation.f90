@@ -1,17 +1,11 @@
 #include "Includes.h"
-module MeshInterpolation
-    ! use HexMeshClass
-    ! use ElementClass
+module StatsMeshInterpolation
     use SMConstants
-    ! use ElementConnectivityDefinitions
-    ! use LocalRefinement
-    ! use Utilities, only: UnusedUnit
-    ! use NodeClass
-    ! use FileReadingUtilities      , only: getFileName, getRealArrayFromStringNoCommas
 
     implicit none
 
-    public StatsElementStorage_t
+    private 
+    public InterpolateStats
 
     type StatsElementStorage_t
         real(rp), allocatable :: Q(:,:,:,:)
@@ -30,7 +24,7 @@ module MeshInterpolation
 
     contains
 
-    subroutine mymain(controlVariables)
+    subroutine InterpolateStats(controlVariables)
         ! Interpolate fields defined in mesh M_in onto the mesh M_out.
         use FTValueDictionaryClass
         use pAdaptationClass          , only: GetMeshPolynomialOrders
@@ -287,7 +281,7 @@ module MeshInterpolation
 
 
 
-    end subroutine
+    end subroutine InterpolateStats
 
     subroutine ConstructSimpleMesh(mesh, meshFileName, AllNx, AllNy, AllNz)
         use SMConstants
@@ -1518,4 +1512,4 @@ module MeshInterpolation
 
     end subroutine saveLambVector
 
-end module MeshInterpolation
+end module StatsMeshInterpolation
