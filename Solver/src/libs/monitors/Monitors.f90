@@ -11,7 +11,7 @@ module MonitorsClass
 #ifdef FLOW
    use ProbeClass
 #endif
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
    use StatisticsMonitor
    use SurfaceMonitorClass
 #endif
@@ -46,6 +46,8 @@ module MonitorsClass
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS)
       class(SurfaceMonitor_t)      , allocatable :: surfaceMonitors(:)
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       type(StatisticsMonitor_t)                  :: stats
 #endif
       contains
@@ -147,14 +149,15 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToStatsKey)
          saveSoundVelocitySquared = controlVariables % logicalValueForKey(saveSoundVelocitySquaredToStatsKey)
          saveGradSoundVelocitySquared = controlVariables % logicalValueForKey(saveGradSoundVelocitySquaredToStatsKey)
          call Monitors % stats     % Construct(mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared)
+#endif
 
-
+#if defined(NAVIERSTOKES) || defined(INCNS)
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
          do i = 1 , Monitors % no_of_surfaceMonitors
             call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
@@ -219,7 +222,9 @@ module MonitorsClass
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % WriteLabel
          end do
+#endif
 
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call self % stats % WriteLabel
 #endif
 !
@@ -299,7 +304,9 @@ module MonitorsClass
          do i = 1 , self % no_of_surfaceMonitors
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % surfaceMonitors(i) % monitorName ) + 2 ) )
          end do
+#endif
 
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
 #endif
 
@@ -364,7 +371,9 @@ module MonitorsClass
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
          end do
+#endif
 
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          call self % stats % WriteValue
 #endif
 !
@@ -448,6 +457,8 @@ module MonitorsClass
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, autosave, dt )
          end do
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 !
 !        Update statistics
 !        -----------------
@@ -506,10 +517,13 @@ module MonitorsClass
             end do
 #endif
    
-#if defined(NAVIERSTOKES) || defined(INCNS)  
+#if defined(NAVIERSTOKES) || defined(INCNS)
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
+#endif
+!
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 !
 !              Write statistics
 !              ----------------
@@ -587,7 +601,9 @@ module MonitorsClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
          call self % surfaceMonitors % destruct
          safedeallocate (self % surfaceMonitors)
+#endif         
          
+#if defined(NAVIERSTOKES) || defined(INCNS)
          !call self % stats % destruct
 #endif         
       end subroutine
@@ -646,7 +662,9 @@ module MonitorsClass
          safedeallocate ( to % surfaceMonitors )
          allocate ( to % surfaceMonitors ( size(from % surfaceMonitors) ) )
          to % surfaceMonitors = from % surfaceMonitors
+#endif
          
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          to % stats = from % stats
 #endif
          
