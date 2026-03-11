@@ -4630,7 +4630,7 @@ slavecoord:             DO l = 1, 4
       !
       ! Finally, load the Lamb vector into the LambBase array
       !
-      if (controlVariables % logicalValueForKey("use Lamb vector")) then
+      if (controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) then
          call self % LoadLambBase(controlVariables)
       end if
 !

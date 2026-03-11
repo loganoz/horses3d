@@ -19,10 +19,10 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: APE_NUMBER_KEY              = "ape number"
 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseKey                   = "qbase"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseFileNameKey           = "qbase file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseVectorKey             = "qbase vector"
          character(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseByFile                = 'file'
          character(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseByUniformField        = 'uniform'
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseFileNameKey           = "qbase file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseVectorKey             = "qbase vector"
          
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverKey             = "base solver"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverNS              = "ns"
@@ -63,7 +63,7 @@
      public    IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP ! MU solver
      public    computeGradients, flowIsNavierStokes
 
-     public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA
+     public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA, DescribePhysicsStorage_CAABaseFlow
      public    CheckPhysicsCAAInputIntegrity
      public    GRADVARS_STATE, grad_vars
 !
@@ -313,6 +313,49 @@
          write(STD_OUT,'(30X,A,A27,F10.3)') "->" , "Mach number: " , dimensionless % Mach
 
       END SUBROUTINE DescribePhysicsStorage_CAA
+
+      SUBROUTINE DescribePhysicsStorage_CAABaseFlow(controlVariables)
+         USE FTValueDictionaryClass
+         use Physics_CAAKeywordsModule
+         USE Headers
+         use MPI_Process_Info
+         IMPLICIT NONE
+         TYPE(FTValueDictionary)      :: controlVariables
+
+         character(len=LINE_LENGTH) :: baseMode
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Base flow input data")
+         write(STD_OUT,'(30X,A,A27,A)') "->" , "Base solver: " , trim(controlVariables % stringValueForKey(trim(qBaseSolverKey), requestedLength = LINE_LENGTH))
+
+         baseMode = controlVariables % stringValueForKey(trim(qBaseKey), requestedLength = LINE_LENGTH)
+         write(STD_OUT,'(30X,A,A27,A)') "->" , "Base flow mode: " , trim(baseMode)
+         if ( trim(baseMode) .eq. trim(qBaseByFile) ) then
+            write(STD_OUT,'(30X,A,A27,A)') "->" , "Base flow file: " , trim(controlVariables % stringValueForKey(trim(qBaseFileNameKey), requestedLength = LINE_LENGTH))
+         elseif ( trim(baseMode) .eq. trim(qbaseByUniformField) ) then
+            write(STD_OUT,'(30X,A,A27,6(F10.3))') "->" , "Base flow vector: " , GetRealArrayFromString( controlVariables % StringValueForKey(qBaseVectorKey,requestedLength = LINE_LENGTH))
+         end if
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Lamb vector input data")
+         if (controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) then
+            write(STD_OUT,'(30X,A,A27,A)') "->" , trim(LAMB_VECTOR_KEY) , ": true"
+            baseMode = controlVariables % stringValueForKey(trim(LambVectorBaseKey), requestedLength = LINE_LENGTH)
+            write(STD_OUT,'(30X,A,A27,A)') "->" , "Lamb vector base mode: " , trim(baseMode)
+            if ( trim(baseMode) .eq. trim(LambVectorBaseByFile) ) then
+               write(STD_OUT,'(30X,A,A27,A)') "->" , "Lamb vector base file: " , trim(controlVariables % stringValueForKey(trim(LambVectorBaseFileNameKey), requestedLength = LINE_LENGTH))
+            elseif ( trim(baseMode) .eq. trim(LambVectorBaseByUniformField) ) then
+               write(STD_OUT,'(30X,A,A27,3(F10.3))') "->" , "Lamb vector base vector: " , GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorBaseVectorKey,requestedLength = LINE_LENGTH))
+            end if
+
+            write(STD_OUT,'(30X,A,A27,A)') "->" , "Lamb vector file: " , trim(controlVariables % stringValueForKey(trim(LambVectorFileNameKey), requestedLength = LINE_LENGTH))
+         else
+            write(STD_OUT,'(30X,A,A27,A)') "->" , trim(LAMB_VECTOR_KEY) , ": false"
+         end if
+
+      END SUBROUTINE DescribePhysicsStorage_CAABaseFlow
 !
 !////////////////////////////////////////////////////////////////////////
 !
