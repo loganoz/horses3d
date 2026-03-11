@@ -711,6 +711,9 @@ Module DGSEMClass
             IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN           
                write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
                call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor, saveLES)
+#ifdef ACOUSTIC
+               call self % mesh % SaveBaseFlow(initial_iteration, initial_time, solutionName)
+#endif
                !TDG: ADD PARTICLES WRITE WITH IFDEF
             END IF 
          END IF
