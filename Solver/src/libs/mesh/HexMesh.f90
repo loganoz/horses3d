@@ -4566,16 +4566,8 @@ slavecoord:             DO l = 1, 4
       !
       ! Read base flow variables
       !
-      ! Check which type of qBase we have: file or uniform
-      if (.not. controlVariables % containsKey(trim(qBaseKey))) then
-         ! Keyword not present: 
-         print*, 'Argument ', trim(qBaseKey), ' mode is mandatory'
-         print*, "Implemented modes are:"
-         print*, "   * ", trim(qBaseByFile)
-         print*, "   * ", trim(qbaseByUniformField)
-         errorMessage(STD_OUT)
-         error stop
-      end if
+      ! Load which solver generated the stats file
+      statsSolverKey = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
 
       qBaseMode = controlVariables % stringValueForKey(trim(qBaseKey), requestedLength = LINE_LENGTH)
       call ToLower(qBaseMode)
@@ -4592,15 +4584,6 @@ slavecoord:             DO l = 1, 4
          end if
          ! Load the base flow from the specified stats file
          fileName = controlVariables % stringValueForKey(qBaseFileNameKey,requestedLength = LINE_LENGTH)
-         ! Check that the user has specified the solver that wrote the stats file
-         if (.not. controlVariables % containsKey(trim(qBaseSolverKey))) then
-            print *, trim(qBaseSolverKey), " not specified. Use:"
-            print *, trim(qBaseSolverKey), " = ns/ins/mu"
-            errorMessage(STD_OUT)
-            error stop
-         end if
-         ! Load which solver generated the stats file
-         statsSolverKey = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
          call self % LoadBaseFlowSolution(controlVariables, fileName, statsSolverKey)
       elseif ( trim(qBaseMode) .eq. trim(qbaseByUniformField) ) then
          !
@@ -4681,6 +4664,7 @@ slavecoord:             DO l = 1, 4
          call HexMesh_LoadBaseFlowSolution_MU(self, fileName, [ c1, c2 ])
       else
          print *, "Unknown solver of the stats file ", trim(statsSolver)
+         error stop
       end if
    End Subroutine HexMesh_LoadBaseFlowSolution
 

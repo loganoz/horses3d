@@ -220,19 +220,6 @@
          refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
       end if
 
-      if ( controlVariables % ContainsKey(MACH_NUMBER_KEY) ) then
-            dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
-            refValues_ % V =   dimensionless_ % Mach &
-                        * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
-      elseif ( controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
-            refValues_ % V = controlVariables % doublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
-            dimensionless_ % Mach = refValues_ % V &
-                        / sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
-      else
-            print*, "*** ERROR: Specify Mach number or reference velocity"
-            error stop
-      end if
-
       
       if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
          thermodynamics_ % c02 = controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
@@ -248,6 +235,41 @@
             thermodynamics_ % c02(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_COMPRESSIBILITY_KEY)
          end if
          
+      end if
+
+
+      ! Load which solver generated the stats file
+      keyword = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
+      if ( controlVariables % ContainsKey(MACH_NUMBER_KEY) ) then
+            dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
+            if ( trim(keyword) .eq. trim(qBaseSolverNS) ) then
+               refValues_ % V =   dimensionless_ % Mach &
+                           * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+            elseif ( trim(keyword) .eq. trim(qBaseSolveriNS) ) then
+               print *, "Specify a reference velocity and not the Mach number if the base solver is ", trim(qBaseSolveriNS)
+               error stop
+            elseif ( trim(keyword) .eq. trim(qBaseSolverMU) ) then
+               refValues_ % V = dimensionless_ % Mach * sqrt( thermodynamics_ % c02(1) )
+            else
+               print *, "Unknown solver of the base flow ", trim(keyword)
+               error stop
+            end if
+      elseif ( controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
+         refValues_ % V = controlVariables % doublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
+         if ( trim(keyword) .eq. trim(qBaseSolverNS) ) then
+            dimensionless_ % Mach = refValues_ % V &
+                        / sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+         elseif ( trim(keyword) .eq. trim(qBaseSolveriNS) ) then
+            dimensionless_ % Mach = 1.0_rp / sqrt( thermodynamics_ % c02(1) )
+         elseif ( trim(keyword) .eq. trim(qBaseSolverMU) ) then
+            dimensionless_ % Mach = refValues_ % V / sqrt( thermodynamics_ % c02(1) )
+         else
+            print *, "Unknown solver of the base flow ", trim(keyword)
+            error stop
+         end if
+      else
+            print*, "*** ERROR: Specify Mach number or reference velocity"
+            error stop
       end if
 
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )

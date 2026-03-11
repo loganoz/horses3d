@@ -183,6 +183,7 @@
          use FTValueClass
          use MPI_Process_Info
          use SpatialDiscretization, only: viscousDiscretizationKey
+         use Physics_CAAKeywordsModule
          IMPLICIT NONE
 !
 !        ---------
@@ -255,6 +256,25 @@
                success = .FALSE.
             END IF
          END DO
+
+
+         ! Check Check that the user has specified which type of qBase we have: file or uniform
+         if (.not. controlVariables % containsKey(trim(qBaseKey))) then
+            ! Keyword not present: 
+            print*, 'Argument ', trim(qBaseKey), ' mode is mandatory'
+            print*, "Implemented modes are:"
+            print*, "   * ", trim(qBaseByFile)
+            print*, "   * ", trim(qbaseByUniformField)
+            error stop
+         end if
+
+         ! Check that the user has specified the solver that generated the base flow
+         if (.not. controlVariables % containsKey(trim(qBaseSolverKey))) then
+            ! Keyword not present: 
+            print *, trim(qBaseSolverKey), " not specified. Use:"
+            print *, trim(qBaseSolverKey), " = ns/ins/mu"
+            error stop
+         end if
 
       END SUBROUTINE checkInputIntegrity
 

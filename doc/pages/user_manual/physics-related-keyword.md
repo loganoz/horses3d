@@ -353,10 +353,10 @@ The keywords for the trip options are:
 
 | Keyword                   | Description                                                                                                        | Default value          |
 |---------------------------|--------------------------------------------------------------------------------------------------------------------|------------------------|
+| base solver  | *CHARACTER*: Specifies which solver was run to compute the base flow. Options are: `ns`/`ins`/`mu`. | Mandatory keyword |
 | qbase | *CHARACTER*: Whether to set a uniform base flow or read it from a file. Options are: `file` or `uniform`. | Mandatory keyword |
 | qbase vector | *REAL*: The vector of the base flow. The order is: mean density, mean velocity, mean pressure, mean sound velocity squared. | Mandatory keyword if `qbase = uniform` |
 | qbase file name | *CHARACTER*: The path to the stats file of the base flow. | Mandatory keyword if `qbase = file`. |
-| base solver  | *CHARACTER*: Specifies which solver generated the stats of the base flow. Options are: `ns`/`ins`/`mu`. | Mandatory keyword if `qbase = file`. |
 | use source term | *LOGICAL*: Whether to compute the source term or not. Options are: `.true.` or `.false.`. | `.false.` |
 | APE number | *INTEGER*: The number of the APE to use. Options are: 4. | 4 |
 | sound velocity squared base file name | *CHARACTER*: The path to the stats file of the base sound velocity squared. | Mandatory keyword if `base solver = ns`. |
@@ -366,3 +366,15 @@ The keywords for the trip options are:
 | Lamb vector base vector | *REAL*: The vector of the base Lamb vector. | Mandatory keyword if `Lamb vector base = uniform` |
 | Lamb vector base file name | *CHARACTER*: The path to the stats file of the base Lamb vector. | Mandatory keyword if `Lamb vector base = file`. |
 | Lamb vector file name | *CHARACTER*: The path to the file of the Lamb vector. | Mandatory keyword if `use Lamb vector = .true.`. |
+
+When the base solver is compressible Navier-Stokes or multiphase, it is possible to input either the Mach number or a reference velocity. In the case of compressible Navier-Stokes, the Mach number and the reference velocity are related by
+\begin{equation}
+V_{\text{ref}} = \text{M} \; \sqrt{ \gamma R T_{\text{ref}}},
+\end{equation}
+where \(\gamma\) is the heat ratio, \(R\) is the gas constant, and \(T_{\text{ref}}\) is a reference temperature.
+In the case of multiphase solver, the Mach number and the reference velocity are related by
+\begin{equation}
+V_{\text{ref}} = \text{M} \; a^2_1,
+\end{equation}
+where \(a_1\) is the sound velocity in the first fluid.
+When the base solver is incompressible Navier-Stokes, it is only possible to input a reference velocity.
