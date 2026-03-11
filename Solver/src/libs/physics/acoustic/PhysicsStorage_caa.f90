@@ -14,6 +14,32 @@
 
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_CAAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: SOURCE_TERM_KEY             = "use source term"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMB_VECTOR_KEY             = "use lamb vector"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: APE_NUMBER_KEY              = "ape number"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseKey                   = "qbase"
+         character(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseByFile                = 'file'
+         character(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseByUniformField        = 'uniform'
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseFileNameKey           = "qbase file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseVectorKey             = "qbase vector"
+         
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverKey             = "base solver"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverNS              = "ns"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolveriNS             = "ins"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverMU              = "mu"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: soundVelocityBaseFileNameKey     = "sound velocity squared base file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gradSoundVelocityBaseFileNameKey = "gradient sound velocity squared base file name"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseKey              = "lamb vector base"
+         character(len=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseByFile           = 'file'
+         character(len=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseByUniformField   = 'uniform'
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseFileNameKey      = 'lamb vector base file name'
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseVectorKey        = "lamb vector base vector"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorFileNameKey          = "lamb vector file name"
+
       END MODULE Physics_CAAKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -37,7 +63,7 @@
      public    IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP ! MU solver
      public    computeGradients, flowIsNavierStokes
 
-     public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA
+     public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA, DescribePhysicsStorage_CAABaseFlow
      public    CheckPhysicsCAAInputIntegrity
      public    GRADVARS_STATE, grad_vars
 !
@@ -194,19 +220,6 @@
          refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
       end if
 
-      if ( controlVariables % ContainsKey(MACH_NUMBER_KEY) ) then
-            dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
-            refValues_ % V =   dimensionless_ % Mach &
-                        * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
-      elseif ( controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
-            refValues_ % V = controlVariables % doublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
-            dimensionless_ % Mach = refValues_ % V &
-                        / sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
-      else
-            print*, "*** ERROR: Specify Mach number or reference velocity"
-            error stop
-      end if
-
       
       if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
          thermodynamics_ % c02 = controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
@@ -222,6 +235,41 @@
             thermodynamics_ % c02(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_COMPRESSIBILITY_KEY)
          end if
          
+      end if
+
+
+      ! Load which solver generated the stats file
+      keyword = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
+      if ( controlVariables % ContainsKey(MACH_NUMBER_KEY) ) then
+            dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
+            if ( trim(keyword) .eq. trim(qBaseSolverNS) ) then
+               refValues_ % V =   dimensionless_ % Mach &
+                           * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+            elseif ( trim(keyword) .eq. trim(qBaseSolveriNS) ) then
+               print *, "Specify a reference velocity and not the Mach number if the base solver is ", trim(qBaseSolveriNS)
+               error stop
+            elseif ( trim(keyword) .eq. trim(qBaseSolverMU) ) then
+               refValues_ % V = dimensionless_ % Mach * sqrt( thermodynamics_ % c02(1) )
+            else
+               print *, "Unknown solver of the base flow ", trim(keyword)
+               error stop
+            end if
+      elseif ( controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
+         refValues_ % V = controlVariables % doublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
+         if ( trim(keyword) .eq. trim(qBaseSolverNS) ) then
+            dimensionless_ % Mach = refValues_ % V &
+                        / sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+         elseif ( trim(keyword) .eq. trim(qBaseSolveriNS) ) then
+            dimensionless_ % Mach = 1.0_rp / sqrt( thermodynamics_ % c02(1) )
+         elseif ( trim(keyword) .eq. trim(qBaseSolverMU) ) then
+            dimensionless_ % Mach = refValues_ % V / sqrt( thermodynamics_ % c02(1) )
+         else
+            print *, "Unknown solver of the base flow ", trim(keyword)
+            error stop
+         end if
+      else
+            print*, "*** ERROR: Specify Mach number or reference velocity"
+            error stop
       end if
 
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
@@ -287,6 +335,49 @@
          write(STD_OUT,'(30X,A,A27,F10.3)') "->" , "Mach number: " , dimensionless % Mach
 
       END SUBROUTINE DescribePhysicsStorage_CAA
+
+      SUBROUTINE DescribePhysicsStorage_CAABaseFlow(controlVariables)
+         USE FTValueDictionaryClass
+         use Physics_CAAKeywordsModule
+         USE Headers
+         use MPI_Process_Info
+         IMPLICIT NONE
+         TYPE(FTValueDictionary)      :: controlVariables
+
+         character(len=LINE_LENGTH) :: baseMode
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Base flow input data")
+         write(STD_OUT,'(30X,A,A27,A)') "->" , "Base solver: " , trim(controlVariables % stringValueForKey(trim(qBaseSolverKey), requestedLength = LINE_LENGTH))
+
+         baseMode = controlVariables % stringValueForKey(trim(qBaseKey), requestedLength = LINE_LENGTH)
+         write(STD_OUT,'(30X,A,A27,A)') "->" , "Base flow mode: " , trim(baseMode)
+         if ( trim(baseMode) .eq. trim(qBaseByFile) ) then
+            write(STD_OUT,'(30X,A,A27,A)') "->" , "Base flow file: " , trim(controlVariables % stringValueForKey(trim(qBaseFileNameKey), requestedLength = LINE_LENGTH))
+         elseif ( trim(baseMode) .eq. trim(qbaseByUniformField) ) then
+            write(STD_OUT,'(30X,A,A27,6(F10.3))') "->" , "Base flow vector: " , GetRealArrayFromString( controlVariables % StringValueForKey(qBaseVectorKey,requestedLength = LINE_LENGTH))
+         end if
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Lamb vector input data")
+         if (controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) then
+            write(STD_OUT,'(30X,A,A27,A)') "->" , trim(LAMB_VECTOR_KEY) , ": true"
+            baseMode = controlVariables % stringValueForKey(trim(LambVectorBaseKey), requestedLength = LINE_LENGTH)
+            write(STD_OUT,'(30X,A,A27,A)') "->" , "Lamb vector base mode: " , trim(baseMode)
+            if ( trim(baseMode) .eq. trim(LambVectorBaseByFile) ) then
+               write(STD_OUT,'(30X,A,A27,A)') "->" , "Lamb vector base file: " , trim(controlVariables % stringValueForKey(trim(LambVectorBaseFileNameKey), requestedLength = LINE_LENGTH))
+            elseif ( trim(baseMode) .eq. trim(LambVectorBaseByUniformField) ) then
+               write(STD_OUT,'(30X,A,A27,3(F10.3))') "->" , "Lamb vector base vector: " , GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorBaseVectorKey,requestedLength = LINE_LENGTH))
+            end if
+
+            write(STD_OUT,'(30X,A,A27,A)') "->" , "Lamb vector file: " , trim(controlVariables % stringValueForKey(trim(LambVectorFileNameKey), requestedLength = LINE_LENGTH))
+         else
+            write(STD_OUT,'(30X,A,A27,A)') "->" , trim(LAMB_VECTOR_KEY) , ": false"
+         end if
+
+      END SUBROUTINE DescribePhysicsStorage_CAABaseFlow
 !
 !////////////////////////////////////////////////////////////////////////
 !

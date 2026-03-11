@@ -21,6 +21,7 @@ Convergence tolerance = 1.d-10
 mach number           = 0.4d0
 riemann solver        = "lax-friedrichs"
 
+base solver = ns
 qBase = uniform
 qBase vector = [1.0d0, 10.0d0, 15.0d0, -20.0d0, 4.464285714285714d0, 6.249999999999999d0] ! mean density, mean velocity, mean pressure, mean sound velocity squared
 Lamb vector stats = uniform
