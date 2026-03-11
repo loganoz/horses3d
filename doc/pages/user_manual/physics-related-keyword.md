@@ -358,7 +358,7 @@ The keywords for the trip options are:
 | qbase file name | *CHARACTER*: The path to the stats file of the base flow. | Mandatory keyword if `qbase = file`. |
 | base solver  | *CHARACTER*: Specifies which solver generated the stats of the base flow. Options are: `ns`/`ins`/`mu`. | Mandatory keyword if `qbase = file`. |
 | use source term | *LOGICAL*: Whether to compute the source term or not. Options are: `.true.` or `.false.`. | `.false.` |
-| APE equation | *INTEGER*: The number of the APE to use. Options are: 4. | 4 |
+| APE number | *INTEGER*: The number of the APE to use. Options are: 4. | 4 |
 | sound velocity squared base file name | *CHARACTER*: The path to the stats file of the base sound velocity squared. | Mandatory keyword if `base solver = ns`. |
 | gradient sound velocity squared base file name | *CHARACTER*: The path to the stats file of the base gradient sound velocity squared. | Mandatory keyword if `base solver = ns`. |
 | use Lamb vector | *LOGICAL*: Whether to compute the Lamb vector in the source term or not. Options are: `.true.` or `.false.`. | `.false.` |

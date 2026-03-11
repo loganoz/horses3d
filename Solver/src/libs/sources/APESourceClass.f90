@@ -36,24 +36,25 @@ Module APESourceClass  !
 !/////////////////////////////////////////////////////////////////////////
 
     subroutine constructAPESource(self, controlVariables)
+        use Physics_CAAKeywordsModule
         use FTValueDictionaryClass
         implicit none
         type(apeSource_t) :: self
         type(FTValueDictionary), intent(in)                     :: controlVariables
 
         self % isActive = .false.
-        if (.not. controlVariables % logicalValueForKey("use source term")) return
+        if (.not. controlVariables % logicalValueForKey(SOURCE_TERM_KEY)) return
         self % isActive = .true.
 
         ! Read APE equation from control file
-        self % apeeq = controlVariables % getValueOrDefault("APE equation", APEEQ_4)
+        self % apeeq = controlVariables % getValueOrDefault(APE_NUMBER_KEY, APEEQ_4)
         if (self % apeeq .ne. APEEQ_4) then
             print *, "Only APE-4 equation is implemented."
             error stop
         end if
 
         self % useLambVector = .false.
-        if (.not. controlVariables % logicalValueForKey("use Lamb vector")) return
+        if (.not. controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) return
         self % useLambVector = .true.
 
     end subroutine constructAPESource

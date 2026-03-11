@@ -14,6 +14,32 @@
 
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_CAAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: SOURCE_TERM_KEY             = "use source term"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMB_VECTOR_KEY             = "use lamb vector"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: APE_NUMBER_KEY              = "ape number"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseKey                   = "qbase"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseFileNameKey           = "qbase file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseVectorKey             = "qbase vector"
+         character(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseByFile                = 'file'
+         character(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseByUniformField        = 'uniform'
+         
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverKey             = "base solver"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverNS              = "ns"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolveriNS             = "ins"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: qBaseSolverMU              = "mu"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: soundVelocityBaseFileNameKey     = "sound velocity squared base file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gradSoundVelocityBaseFileNameKey = "gradient sound velocity squared base file name"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseKey              = "lamb vector base"
+         character(len=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseByFile           = 'file'
+         character(len=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseByUniformField   = 'uniform'
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseFileNameKey      = 'lamb vector base file name'
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseVectorKey        = "lamb vector base vector"
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorFileNameKey          = "lamb vector file name"
+
       END MODULE Physics_CAAKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////

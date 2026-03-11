@@ -4070,6 +4070,7 @@ slavecoord:             DO l = 1, 4
 #ifdef ACOUSTIC
 
       subroutine HexMesh_LoadLambVector( self, controlVariables)
+         use Physics_CAAKeywordsModule
          use SolutionFile
          implicit none
          class(HexMesh)                       :: self
@@ -4080,7 +4081,6 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          character(len=LINE_LENGTH)                :: loadFileName
-         character(len=LINE_LENGTH)                :: LambKey
          integer                          :: fid, eID
          integer(kind=AddrInt)            :: pos
          real(kind=RP), allocatable       :: Q(:,:,:,:)
@@ -4088,13 +4088,12 @@ slavecoord:             DO l = 1, 4
          !
          ! Read Lamb.hsol file from control file
          !
-         LambKey = "lamb vector file name"
-         if (.not. controlVariables % containsKey(trim(LambKey))) then
-            print *, "The keyword ", trim(LambKey), " not defined. Use:"
-            print *, trim(LambKey), " = path/to/file.Lamb.hsol"
+         if (.not. controlVariables % containsKey(trim(LambVectorFileNameKey))) then
+            print *, "The keyword ", trim(LambVectorFileNameKey), " not defined. Use:"
+            print *, trim(LambVectorFileNameKey), " = path/to/file.Lamb.hsol"
             error stop
          end if
-         loadFileName = trim(controlVariables % stringValueForKey(LambKey,LINE_LENGTH))
+         loadFileName = trim(controlVariables % stringValueForKey(LambVectorFileNameKey,LINE_LENGTH))
          if ( getSolutionFileType(trim(loadFileName)) .ne. SOLUTION_FILE ) then
             print *, "The file ", loadFileName, " is not a solution file."
             error stop
@@ -4118,6 +4117,7 @@ slavecoord:             DO l = 1, 4
       end subroutine HexMesh_LoadLambVector
 
       subroutine HexMesh_LoadLambBase( self, controlVariables)
+         use Physics_CAAKeywordsModule
          use SolutionFile
          use FileReadingUtilities, only: getRealArrayFromString
          implicit none
@@ -4128,12 +4128,6 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         CHARACTER(LEN=LINE_LENGTH) :: LambVectorKey = "Lamb vector base"
-         character(len=LINE_LENGTH) :: LambVectorByFile = 'file'
-         character(len=LINE_LENGTH) :: LambVectorByUniformField = 'uniform'
-         CHARACTER(LEN=LINE_LENGTH) :: LambVectorFileNameKey = 'Lamb vector base file name'
-         CHARACTER(LEN=LINE_LENGTH) :: LambVectorVectorKey = "Lamb vector base vector"
-         
          character(len=LINE_LENGTH)    :: LambVectorMode
          character(len=LINE_LENGTH)    :: loadFileName
          real(kind=RP)                 :: LambVectorUniform(1:NDIM)
@@ -4141,34 +4135,32 @@ slavecoord:             DO l = 1, 4
          integer                       :: i, j, k
          integer(kind=AddrInt)         :: pos
 
-         ! Check if LambVectorKey has been supplied
-         call toLower(LambVectorKey)
-         if (.not. controlVariables % containsKey(trim(LambVectorKey))) then
+         ! Check if LambVectorBaseKey has been supplied
+         if (.not. controlVariables % containsKey(trim(LambVectorBaseKey))) then
             ! Keyword not present: 
-            print*, 'Argument ', trim(LambVectorKey), ' is mandatory'
+            print*, 'Argument ', trim(LambVectorBaseKey), ' is mandatory'
             print*, "Implemented modes are:"
-            print*, "   * ", trim(LambVectorByFile)
-            print*, "   * ", trim(LambVectorByUniformField)
+            print*, "   * ", trim(LambVectorBaseByFile)
+            print*, "   * ", trim(LambVectorBaseByUniformField)
             errorMessage(STD_OUT)
             error stop
          end if
 
-         ! Check which type of LambVectorKey we have: file or uniform
-         LambVectorMode = controlVariables % stringValueForKey(trim(LambVectorKey), requestedLength = LINE_LENGTH)
+         ! Check which type of LambVectorBaseKey we have: file or uniform
+         LambVectorMode = controlVariables % stringValueForKey(trim(LambVectorBaseKey), requestedLength = LINE_LENGTH)
          call ToLower(LambVectorMode)
 
-         if ( trim(LambVectorMode) .eq. trim(LambVectorByFile) ) then
+         if ( trim(LambVectorMode) .eq. trim(LambVectorBaseByFile) ) then
 
             !
             ! Read Lamb.stats.hsol file from control file
             !
-            call toLower(LambVectorFileNameKey)
-            if (.not. controlVariables % containsKey(trim(LambVectorFileNameKey))) then
-               print *, "The keyword ", trim(LambVectorFileNameKey), " not defined. Use:"
-               print *, trim(LambVectorFileNameKey), " = path/to/file.Lamb.stats.hsol"
+            if (.not. controlVariables % containsKey(trim(LambVectorBaseFileNameKey))) then
+               print *, "The keyword ", trim(LambVectorBaseFileNameKey), " not defined. Use:"
+               print *, trim(LambVectorBaseFileNameKey), " = path/to/file.Lamb.stats.hsol"
                error stop
             end if
-            loadFileName = trim(controlVariables % stringValueForKey(LambVectorFileNameKey,LINE_LENGTH))
+            loadFileName = trim(controlVariables % stringValueForKey(LambVectorBaseFileNameKey,LINE_LENGTH))
             if ( getSolutionFileType(trim(loadFileName)) .ne. STATS_FILE ) then
                print *, "The file ", loadFileName, " is not a stats file."
                error stop
@@ -4187,21 +4179,20 @@ slavecoord:             DO l = 1, 4
 
             ! Close the file
             close(fid)
-         elseif ( trim(LambVectorMode) .eq. trim(LambVectorByUniformField) ) then
+         elseif ( trim(LambVectorMode) .eq. trim(LambVectorBaseByUniformField) ) then
             !
             ! Read Lamb vector uniform field from control file
             !
             ! Check that the user has specified the field
-            call toLower(LambVectorVectorKey)
-            if (.not. controlVariables % containsKey(trim(LambVectorVectorKey))) then
-               print *, trim(LambVectorKey), " = ", trim(LambVectorMode), ", but no vector specified. Use:"
-               print *, trim(LambVectorVectorKey), " = [1.0_RP,0.0_RP,0.0_RP]"
+            if (.not. controlVariables % containsKey(trim(LambVectorBaseVectorKey))) then
+               print *, trim(LambVectorBaseKey), " = ", trim(LambVectorMode), ", but no vector specified. Use:"
+               print *, trim(LambVectorBaseVectorKey), " = [1.0_RP,0.0_RP,0.0_RP]"
                errorMessage(STD_OUT)
                error stop
             end if
             ! Read the field
             LambVectorUniform = 0.0_RP
-            LambVectorUniform = GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorVectorKey,requestedLength = LINE_LENGTH))
+            LambVectorUniform = GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorBaseVectorKey,requestedLength = LINE_LENGTH))
             ! Set uniform field
             do eID = 1, self % no_of_elements
                associate ( e     =>    self % elements(eID) )
@@ -4213,8 +4204,8 @@ slavecoord:             DO l = 1, 4
          else
             print*, 'Unknown LambVector mode "',trim(LambVectorMode),'".'
             print*, "Implemented modes are:"
-            print*, "   * ", trim(LambVectorByFile)
-            print*, "   * ", trim(LambVectorByUniformField)
+            print*, "   * ", trim(LambVectorBaseByFile)
+            print*, "   * ", trim(LambVectorBaseByUniformField)
             errorMessage(STD_OUT)
             error stop
          end if
@@ -4561,7 +4552,7 @@ slavecoord:             DO l = 1, 4
 #if defined(ACOUSTIC)
 
    subroutine HexMesh_InitializeBaseFlow(self, controlVariables)
-      use mainKeywordsModule
+      use Physics_CAAKeywordsModule
       use FileReadingUtilities, only: getRealArrayFromString
       Implicit None
       CLASS(HexMesh)                  :: self
@@ -4572,29 +4563,13 @@ slavecoord:             DO l = 1, 4
       character(len=LINE_LENGTH) :: fileName, statsSolverKey
       real(kind=RP)              :: QbaseUniform(1:NCONSB)
 
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseKey                   = "qBase"
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseFileNameKey           = "qBase file name"
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseVectorKey             = "qBase vector"
-      character(len=LINE_LENGTH)    :: qBaseByFile = 'file'
-      character(len=LINE_LENGTH)    :: qBaseByUniformField = 'uniform'
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseSolverKey           = "base solver"
-
-      ! In the control file, the keyword 'qbase' is mandatory:
-      ! qbase = file/uniform
-      ! * When qbase is given by a file, the keyword 'qbase file name' is mandatory:
-      ! qbase file name = path/to/file.stats.hsol
-      ! Moreover, we should know which solver generated the stats file (NS, iNS, MU)
-      ! * When qbase is given by a uniform field, the keyword 'qbase vector' is mandatory:
-      ! qbase vector = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]
-
       !
       ! Read base flow variables
       !
       ! Check which type of qBase we have: file or uniform
-      call toLower(qBaseKey)
       if (.not. controlVariables % containsKey(trim(qBaseKey))) then
          ! Keyword not present: 
-         print*, 'Argument qBase mode is mandatory'
+         print*, 'Argument ', trim(qBaseKey), ' mode is mandatory'
          print*, "Implemented modes are:"
          print*, "   * ", trim(qBaseByFile)
          print*, "   * ", trim(qbaseByUniformField)
@@ -4609,7 +4584,6 @@ slavecoord:             DO l = 1, 4
          ! Read Qbase from file
          !
          ! Check that the user has specified the file to read from
-         call toLower(qBaseFileNameKey)
          if (.not. controlVariables % containsKey(trim(qBaseFileNameKey))) then
             print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no file specified. Use:"
             print *, trim(qBaseFileNameKey), " = filename"
@@ -4619,7 +4593,6 @@ slavecoord:             DO l = 1, 4
          ! Load the base flow from the specified stats file
          fileName = controlVariables % stringValueForKey(qBaseFileNameKey,requestedLength = LINE_LENGTH)
          ! Check that the user has specified the solver that wrote the stats file
-         call toLower(qBaseSolverKey)
          if (.not. controlVariables % containsKey(trim(qBaseSolverKey))) then
             print *, trim(qBaseSolverKey), " not specified. Use:"
             print *, trim(qBaseSolverKey), " = ns/ins/mu"
@@ -4634,7 +4607,6 @@ slavecoord:             DO l = 1, 4
          ! Read Qbase uniform field from control file
          !
          ! Check that the user has specified the field
-         call toLower(qBaseVectorKey)
          if (.not. controlVariables % containsKey(trim(qBaseVectorKey))) then
             print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no vector specified. Use:"
             print *, trim(qBaseVectorKey), " = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]"
@@ -4687,17 +4659,13 @@ slavecoord:             DO l = 1, 4
 !////////////////////////////////////////////////////////////////////////
 !
    Subroutine HexMesh_LoadBaseFlowSolution(self, controlVariables, fileName, statsSolver)
-      use mainKeywordsModule, only: KEYWORD_LENGTH
+      use Physics_CAAKeywordsModule
       use FluidData_CAA, only: thermodynamics, refValues
       Implicit None
       CLASS(HexMesh)                  :: self
       type(FTValueDictionary), intent(in)  :: controlVariables
       character(len=*)                :: fileName
       character(len=*), intent(in)    :: statsSolver
-
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseSolverNS           = "ns"
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseSolveriNS           = "ins"
-      CHARACTER(LEN=KEYWORD_LENGTH) :: qBaseSolverMU           = "mu"
 
       real(rp) :: c1, c2 ! Sound velocity
 
@@ -4805,13 +4773,12 @@ slavecoord:             DO l = 1, 4
 
    Subroutine HexMesh_LoadBaseSoundVelocity_NS(self, controlVariables)
       use VariableConversion_CAA, only: PressureBaseFlow_NS
+      use Physics_CAAKeywordsModule
       Implicit None
       CLASS(HexMesh)                  :: self
       type(FTValueDictionary), intent(in)  :: controlVariables
 
-      CHARACTER(LEN=LINE_LENGTH) :: soundVelocityFileNameKey           = "sound velocity squared base file name"
-      CHARACTER(LEN=LINE_LENGTH) :: gradSoundVelocityFileNameKey           = "gradient sound velocity squared base file name"
-
+      ! Local variables
       character(len=LINE_LENGTH) :: fileName
       integer(kind=AddrInt)      :: pos
       integer                    :: fid, eID
@@ -4820,15 +4787,14 @@ slavecoord:             DO l = 1, 4
       ! Read and initialize the sound velocity squared
       !
       ! Check that the user has specified the file to read from
-      call toLower(soundVelocityFileNameKey)
-      if (.not. controlVariables % containsKey(trim(soundVelocityFileNameKey))) then
-         print *, trim(soundVelocityFileNameKey), " not specified. Use:"
-         print *, trim(soundVelocityFileNameKey), " = path/to/file.SoundVelocitySquared.stats.hsol"
+      if (.not. controlVariables % containsKey(trim(soundVelocityBaseFileNameKey))) then
+         print *, trim(soundVelocityBaseFileNameKey), " not specified. Use:"
+         print *, trim(soundVelocityBaseFileNameKey), " = path/to/file.SoundVelocitySquared.stats.hsol"
          errorMessage(STD_OUT)
          error stop
       end if
       ! Load the the specified stats file
-      fileName = controlVariables % stringValueForKey(soundVelocityFileNameKey,requestedLength = LINE_LENGTH)
+      fileName = controlVariables % stringValueForKey(soundVelocityBaseFileNameKey,requestedLength = LINE_LENGTH)
       if ( getSolutionFileType(trim(fileName)) .ne. STATS_FILE ) then
          print *, "The file ", fileName, " is not a stats file."
          error stop
@@ -4848,15 +4814,14 @@ slavecoord:             DO l = 1, 4
       ! Read and initialize the gradient of the sound velocity squared
       !
       ! Check that the user has specified the file to read from
-      call toLower(gradSoundVelocityFileNameKey)
-      if (.not. controlVariables % containsKey(trim(gradSoundVelocityFileNameKey))) then
-         print *, trim(gradSoundVelocityFileNameKey), "not specified. Use:"
-         print *, trim(gradSoundVelocityFileNameKey), " = path/to/file.GradientSoundVelocitySquared.stats.hsol"
+      if (.not. controlVariables % containsKey(trim(gradSoundVelocityBaseFileNameKey))) then
+         print *, trim(gradSoundVelocityBaseFileNameKey), "not specified. Use:"
+         print *, trim(gradSoundVelocityBaseFileNameKey), " = path/to/file.GradientSoundVelocitySquared.stats.hsol"
          errorMessage(STD_OUT)
          error stop
       end if
       ! Load the the specified stats file
-      fileName = controlVariables % stringValueForKey(gradSoundVelocityFileNameKey,requestedLength = LINE_LENGTH)
+      fileName = controlVariables % stringValueForKey(gradSoundVelocityBaseFileNameKey,requestedLength = LINE_LENGTH)
       if ( getSolutionFileType(trim(fileName)) .ne. STATS_FILE ) then
          print *, "The file ", fileName, " is not a stats file."
          error stop
