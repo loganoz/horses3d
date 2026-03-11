@@ -49,14 +49,12 @@ module StatsMeshInterpolation
 
         type(NodalStorage_t), target, allocatable :: NodalStorage_in(:)
         type(NodalStorage_t), pointer :: NodalStorage_out(:)
-        TYPE(NodalStorage_t), pointer    :: spAxi, spAeta, spAzeta ! Pointers to the needed NodalStorage_in/out
 
         type(StatsElementStorage_t), allocatable :: storage_e_in(:), storage_e_out(:) ! To save the stats
         integer :: no_of_stats
         logical :: allocateSoundVelocity
         type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
         type(Probe_t) :: probe
-        real(rp) :: x(NDIM) ! To store the coordinates in the computation space
         real(kind=RP) :: refs(NO_OF_SAVED_REFS)
         integer :: iter
         real(rp) :: time
@@ -166,7 +164,7 @@ module StatsMeshInterpolation
         allocate(hex8Map)
         allocate(genHexMap)
         
-        !$omp do schedule(runtime) private(eID,i,j,k,ii,jj,kk,probe,spAxi,spAeta,spAzeta,x)
+        !$omp do schedule(runtime) private(eID,i,j,k,ii,jj,kk,probe)
         do eID = 1, M_out % no_of_elements
 
             ! Create transfinite mapping
@@ -185,32 +183,14 @@ module StatsMeshInterpolation
                         !
                         ! Create the node as a probe
                         !
-                        probe % ID = eID
-                        spAxi => NodalStorage_out(M_out % elements(eID) % Nxyz(1))
-                        spAeta => NodalStorage_out(M_out % elements(eID) % Nxyz(2))
-                        spAzeta => NodalStorage_out(M_out % elements(eID) % Nxyz(3))
-                        ! Coordinates of the point in the computational space
-                        x = [spAxi % x(i), spAeta % x(j), spAzeta % x(k)]
-                        ! Coordinates of the point in the physical space
-                        probe % x = hexMap % transfiniteMapAt(x)
-
+                        call assignProbeCoordinates(probe, NodalStorage_out, M_out % elements(eID) % Nxyz, hexMap, eID, i, j, k)
 
                         !
                         ! Find element of M_in containing the probe
                         !
-                        ! Find the requested point in the mesh
+                        ! This is needed because the global variable NodalStorage is used inside the function
                         NodalStorage => NodalStorage_in
-                        probe % active = M_in % FindPointWithCoords(probe % x, probe % eID, probe % xi)
-                        ! Check whether the probe is located in another partition
-                        call probe % LookInOtherPartitions
-                        ! Disable the probe if the point is not found
-                        if ( .not. probe % active ) then
-                            ! if ( MPI_Process % isRoot ) then
-                                write(STD_OUT,'(A,I0,A)') "Probe ", probe % ID, " was not successfully initialized."
-                                print*, "Probe is set to inactive."
-                            ! end if
-                            ! return
-                        end if
+                        call findProbeInMesh(M_in, probe)
 
                         !
                         ! Interpolation
@@ -472,6 +452,54 @@ module StatsMeshInterpolation
             storage_e_out(eID) % Lamb = 0.0_rp
         end do
     end subroutine allocateStorage
+
+    subroutine assignProbeCoordinates(probe, NodalStorage_out, Nxyz, hexMap, eID, i, j, k)
+        use ProbeClass
+        use NodalStorageClass
+        use TransfiniteMapClass
+        implicit none
+        type(Probe_t) :: probe
+        type(NodalStorage_t), pointer :: NodalStorage_out(:)
+        integer, intent(in) :: Nxyz(NDIM)
+        type(TransfiniteHexMap), intent(in) :: hexMap
+        integer, intent(in) :: eID, i, j, k
+
+        ! Local variables
+        TYPE(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+        real(rp) :: x(NDIM)
+
+        probe % ID = eID
+        spAxi => NodalStorage_out(Nxyz(1))
+        spAeta => NodalStorage_out(Nxyz(2))
+        spAzeta => NodalStorage_out(Nxyz(3))
+        ! Coordinates of the point in the computational space
+        x = [spAxi % x(i), spAeta % x(j), spAzeta % x(k)]
+        ! Coordinates of the point in the physical space
+        probe % x = hexMap % transfiniteMapAt(x)
+
+    end subroutine assignProbeCoordinates
+
+    subroutine findProbeInMesh(M_in, probe)
+        ! Find the requested point in the mesh
+        use ProbeClass
+        use NodalStorageClass
+        use HexMeshClass
+        implicit none
+        type(HexMesh) :: M_in
+        type(Probe_t) :: probe
+
+        probe % active = M_in % FindPointWithCoords(probe % x, probe % eID, probe % xi)
+        ! Check whether the probe is located in another partition
+        call probe % LookInOtherPartitions
+        ! Disable the probe if the point is not found
+        if ( .not. probe % active ) then
+            ! if ( MPI_Process % isRoot ) then
+                write(STD_OUT,'(A,I0,A)') "Probe ", probe % ID, " was not successfully initialized."
+                print*, "Probe is set to inactive."
+            ! end if
+            ! return
+        end if
+    end subroutine findProbeInMesh
 
     subroutine readStats(controlVariables, mesh, storage_e, refs, iter, time, filename)
         use FTValueDictionaryClass

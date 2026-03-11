@@ -18,7 +18,7 @@ Interpolate stats from one mesh to another. There is no need that meshes have th
 
 The algorithm creates a probe for each node of the output mesh `M_out`. This probe is searched in the input mesh `M_in`. Then, a high-order interpolation is computed.
 
-**This tool should be run in sequential mode. It does not work with MPI nor OpenMP.**
+**This tool should be run in sequential mode or in parallel with OpenMP. It does not work with MPI.**
 
 ### Keywords
 
