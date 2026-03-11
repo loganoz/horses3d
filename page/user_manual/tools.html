@@ -10,7 +10,7 @@
     <meta name="author" content="HORSES3D developers" >
     <link rel="icon" href="../../favicon.png">
 
-    <title>Spatial Discretization &ndash; HORSES3D</title>
+    <title>Tools &ndash; HORSES3D</title>
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -78,7 +78,7 @@
 
     <div class="container">
   <div class="row">
-    <h1>Spatial Discretization</h1>
+    <h1>Tools</h1>
     <div class="container p-2 mb-4 bg-light border rounded-3">
       <div class="row align-items-center justify-content-between">
         <div class="col">
@@ -90,7 +90,7 @@
             <ol class="breadcrumb justify-content-end mb-0">
                 <li class="breadcrumb-item"><a href='../index.html'>Documentation</a></li>
                 <li class="breadcrumb-item"><a href='index.html'>User Manual</a></li>
-              <li class="breadcrumb-item active" aria-current="page">Spatial Discretization</li>
+              <li class="breadcrumb-item active" aria-current="page">Tools</li>
             </ol>
           </nav>
         </div>
@@ -112,7 +112,7 @@
                 <nav class="nav nav-pills flex-column">
                                 <a class="nav-link" href="input-and-output-files.html">Input and Output Files</a>
               <a class="nav-link" href="running-a-simulation.html">Running a Simulation</a>
-              <a class="nav-link active disabled" href="spatial-discretization.html">Spatial Discretization</a>
+              <a class="nav-link" href="spatial-discretization.html">Spatial Discretization</a>
               <a class="nav-link" href="physics-related-keyword.html">Physics related keywords</a>
               <a class="nav-link" href="implicit-solvers-with-newton-linearization.html">Implicit Solvers with Newton Linearization</a>
               <a class="nav-link" href="explicit-solvers.html">Explicit Solvers</a>
@@ -123,7 +123,7 @@
               <a class="nav-link" href="s-advanced-user-setup.html">Advanced User Setup</a>
               <a class="nav-link" href="s-postprocessing.html">Postprocessing</a>
               <a class="nav-link" href="t-appendix.html">Appendix</a>
-              <a class="nav-link" href="tools.html">Tools</a>
+              <a class="nav-link active disabled" href="tools.html">Tools</a>
 
                 </nav>
           </nav>
@@ -131,43 +131,118 @@
       </div>
 
     <div class="col-9" id='text'>
-      <p><code>HORSES3D</code> uses a high-order discontinuous Galerkin Spectral Element (DGSEM) method. As part of the numerical method, several options of volume and surface discretization options can be selected. Some options are only available in certain solvers.</p>
+      <div class="toc">
+<ul>
+<li><a href="#horses-tools">Horses tools</a><ul>
+<li><a href="#stats-mesh-interpolation">Stats mesh interpolation</a><ul>
+<li><a href="#keywords">Keywords</a></li>
+<li><a href="#execution">Execution</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<h1 id="horses-tools">Horses tools</h1>
+<!-- Advanced users can have additional control over a simulation without having to modify the source code and recompile the code. To do that, the user can provide a set of routines that are called in different stages of the simulation via the Problem file (*ProblemFile.f90*). A description of the routines of the Problem File can be found in the following section. -->
+
+<p>It is possible to exclusively <strong>compile</strong> the tools running, from the <code>Solver</code> folder:</p>
+<div class="codehilite"><pre><span></span><code>make addons
+</code></pre></div>
+
+<h2 id="stats-mesh-interpolation">Stats mesh interpolation</h2>
+<p>Interpolate stats from one mesh to another. There is no need that meshes have the same geometry nor node type. The routine is completely general.</p>
+<p>The algorithm creates a probe for each node of the output mesh <code>M_out</code>. This probe is searched in the input mesh <code>M_in</code>. Then, a high-order interpolation is computed.</p>
+<p><strong>This tool should be run in sequential mode or in parallel with OpenMP. It does not work with MPI.</strong></p>
+<h3 id="keywords">Keywords</h3>
+<p>The keywords located in the control file regarding the <strong>input</strong> mesh (the mesh where the fields are defined) are:</p>
 <table class="table table-striped">
 <thead>
 <tr>
 <th>Keyword</th>
 <th>Description</th>
-<th>Default value</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Discretization nodes</td>
-<td><em>CHARACTER</em>: Node type to use in the solution. Options are: <br> - Gauss <br> - Gauss-Lobatto</td>
-<td>'Gauss'</td>
+<td><code>tool type</code></td>
+<td>Required to run this tool</td>
+<td><code>"stats mesh interpolation"</code></td>
 </tr>
 <tr>
-<td>Inviscid discretization</td>
-<td><em>CHARACTER</em>: DG discretization of inviscid fluxes. Options are: <br> - Standard <br> - Split-Form</td>
-<td>'Standard'</td>
+<td><code>stats solver</code></td>
+<td>Specifies which solver generated the stats</td>
+<td>ns/ins/mu</td>
 </tr>
 <tr>
-<td>Averaging</td>
-<td><em>CHARACTER</em>: Type of averaging function to use in numerical fluxes and split-forms (if in use). Options are: <br> - Standard <br> - Morinishi <br> - Ducros <br> - Kennedy-Gruber <br> - Pirozzoli <br> - Entropy conserving <br> - Chandrasekar <br> - Skew-symmetric 1 (only for Incompressible Navier–Stokes) <br> - Skew-symmetric 2 (only for Incompressible Navier–Stokes)</td>
-<td>--</td>
+<td><code>stats geo mesh file name</code></td>
+<td>Input mesh geometry</td>
+<td><code>"path/to/mesh.msh"</code></td>
 </tr>
 <tr>
-<td>Viscous discretization</td>
-<td><em>CHARACTER</em>: Method for viscous fluxes. Options are: <br> - BR1 <br> - BR2 <br> - IP</td>
-<td>'BR2'</td>
+<td><code>stats mesh file name</code></td>
+<td>Input mesh data in <code>hmesh</code> format</td>
+<td><code>"path/to/mesh.hmesh"</code></td>
 </tr>
 <tr>
-<td>Riemann solver</td>
-<td><em>CHARACTER</em>: Riemann solver for inviscid fluxes. Options are: <br> - Central <br> - Roe (Only for compressible Navier–Stokes) <br> - Standard Roe (Only for compressible Navier–Stokes) <br> - Roe-Pike (Only for compressible Navier–Stokes) <br> - Low dissipation Roe (Only for compressible Navier–Stokes) <br> - Lax-Friedrichs (Only for compressible and Incompressible Navier–Stokes) <br> - ES Lax-Friedrichs (Only for compressible Navier–Stokes, not including RANS) <br> - u-diss (Only for compressible Navier–Stokes, not including RANS) <br> - Rusanov (Only for compressible Navier–Stokes) <br> - Matrix dissipation (Only for compressible Navier–Stokes) <br> - Viscous NS (Only for compressible Navier–Stokes, not including RANS) <br> - Exact (Only for Incompressible Navier-Stokes, and Multiphase)</td>
-<td><strong>Mandatory keyword</strong></td>
+<td><code>stats qbase file name</code></td>
+<td>Stats file computed in the input mesh</td>
+<td><code>"path/to/file.stats.hsol"</code></td>
+</tr>
+<tr>
+<td><code>stats sound velocity squared file name</code></td>
+<td>In the case of Navier-Stokes simulations, stats file of the sound velocity computed in the input mesh</td>
+<td><code>"path/to/file.SoundVelocitySquared.stats.hsol"</code></td>
+</tr>
+<tr>
+<td><code>stats gradient sound velocity squared file name</code></td>
+<td>In the case of Navier-Stokes simulations, stats file of the gradient of the sound velocity computed in the input mesh</td>
+<td><code>"path/to/file.GradientSoundVelocitySquared.stats.hsol"</code></td>
+</tr>
+<tr>
+<td><code>stats lamb vector file name</code></td>
+<td>Stats file of the Lamb vector computed in the input mesh</td>
+<td><code>"path/to/file.Lamb.stats.hsol"</code></td>
+</tr>
+<tr>
+<td><code>lamb vector file name</code></td>
+<td>File of the Lamb vector computed in the input mesh</td>
+<td><code>"path/to/file.Lamb.hsol"</code></td>
 </tr>
 </tbody>
 </table>
+<p>The keywords located in the control file regarding the <strong>output</strong> mesh (the mesh where the fields should be interpolated into) are:</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Description</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mesh file name</code></td>
+<td>Output mesh geometry</td>
+<td><code>"path/to/mesh.msh"</code></td>
+</tr>
+<tr>
+<td><code>discretization nodes</code></td>
+<td>Type of nodes of the output mesh</td>
+<td>Gauss/Gauss-Lobatto</td>
+</tr>
+<tr>
+<td><code>Polynomial order</code></td>
+<td>Polynomial order of the output mesh</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="execution">Execution</h3>
+<p>To execute the <code>stats mesh interpolation</code> tool, it is required to set the <code>tool type = "stats mesh interpolation"</code> in the control file, and then</p>
+<div class="codehilite"><pre><span></span><code><span class="o">./</span><span class="n">horses</span><span class="o">.</span><span class="n">tools</span><span class="w"> </span><span class="n">controlFile</span><span class="o">.</span><span class="n">control</span>
+</code></pre></div>
     </div>
   </div>
       <hr>
