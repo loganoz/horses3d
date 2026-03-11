@@ -1,0 +1,70 @@
+Flow equations        = "NS"
+simulation type       = "time-accurate"
+
+dt = 0.00001
+final time = 3.0
+Number of time steps  = 1
+Output Interval       = 1
+time integration = "explicit"
+explicit method = "Euler"
+
+
+mesh file name        = "MESH/mesh_lc05.msh"
+solution file name    = "RESULTS/TGV.rst"
+
+restart file name     = "RESULTS/TGV.rst"
+restart               = .false.
+
+discretization nodes = Gauss
+riemann solver        = "lax-friedrichs"
+
+Polynomial order      = 1
+
+Number of plot points = 2
+Convergence tolerance = 1.d-10
+!!!!!cfl                   = 0.4
+!!!!!dcfl                  = 0.4
+mach number           = 0.4d0
+Reynolds number       = 1600.0
+
+
+save Lamb vector = .true.
+save Lamb vector stats = .true.
+compute gradients = .true.
+save gradients with solution = .true.
+save sound velocity squared stats = .true.
+save gradient sound velocity squared stats = .true.
+
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
+
+#define statistics
+   sampling interval = 1
+#end
