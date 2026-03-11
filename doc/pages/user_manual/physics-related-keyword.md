@@ -15,7 +15,10 @@ title: Physics related keywords
 | AOA phi                   | *REAL*: Angle of attack (degrees), based on the spherical coordinates azimuthal angle (\(\varphi\)) definition       | 0.0                    |
 | LES model                 | *CHARACTER*(\*): Options are: Vreman, Wale, Smagorinsky, None                                                       | None                   |
 | Wall model                | *CHARACTER*:                                                                                                       | linear                 |
-
+| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. Saved with the same frequency as the solution. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector stats | *LOGICAL*: Whether to save the Lamb vector statistics or not. Options are: `.true.` or `.false.`. |  `.false.` |
+| save sound velocity squared stats | *LOGICAL*: Whether to save the sound velocity squared statistics or not. A new file `solution_file.SoundVelocitySquared.stats.hsol` is created. Options are: `.true.` or `.false.`. |  `.false.` |
+| save gradient sound velocity squared stats | *LOGICAL*: Whether to save the gradient of the sound velocity squared or not. A new file `solution_file.GradientSoundVelocitySquared.stats.hsol` is created. Options are: `.true.` or `.false.`. |  `.false.` |
 
 
 ### Shock capturing 
@@ -69,7 +72,7 @@ All the methods implemented introduce artificial dissipation into the equations,
 The introduction of an SVV-filtered artificial flux helps dissipate high-frequency oscillations. The baseline viscous flux can be chosen as the Navier-Stokes viscous flux or the flux developed by Guermond and Popov. In any case, this flux is expressed in a modal base where it is filtered by any of the following three filter kernels:
 
 - power: \(\hat{F}^{\text{1D}}_i = (i/N)^P\),
-- sharp: \(\hat{F}^{\text{1D}}_i = 0\) if \(i<P\), \(\hat{F}^{\text{1D}}_i = 1\) elsewhere,
+- sharp: \(\hat{F}^{\text{1D}}_i = 0\) if \(i \leq P\), \(\hat{F}^{\text{1D}}_i = 1\) elsewhere,
 - exponential: \(\hat{F}^{\text{1D}}_i = 0\) if \(i \leq P\), \(\hat{F}^{\text{1D}}_i=\exp\left(-\frac{(i-N)^2}{(i-P)^2}\right)\) elsewhere.
 
 The extension to three dimensions allows the introduction of two types of kernels based on the one-dimensional ones:
@@ -119,7 +122,7 @@ To run the in-time computation, the observers must be defined in the control fil
 | tool type                      | *CHARACTER(*)*: Necessary for post-process calculation. Defines the type of post-process of horses.tools. For the FWH analogy the value must be ''fwh post''                          | --            |
 
 
-## Incompressible navier-Stokes
+## Incompressible Navier-Stokes
 
 Among the various incompressible Navier-Stokes models, `HORSES3D` uses an artificial compressibility 
 formulation, which converts the elliptic problem into a hyperbolic system of equations, at the expense of a non divergence–free 
@@ -158,6 +161,9 @@ This solver is run with the binary horses3d.ins.
 | artificial compressibility factor | *REAL*: Artificial compressibility factor \(c_0^2\)                                                | --            |
 | gravity acceleration (m/s^2)    | *REAL*: Value of gravity acceleration                                                             | --            |
 | gravity direction                | *REAL*: Array containing direction of gravity. Eg. \( [0.0,-1.0,0.0] \)                             | --            |
+| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. Saved with the same frequency as the solution. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector stats | *LOGICAL*: Whether to save the Lamb vector statistics or not. Options are: `.true.` or `.false.`. |  `.false.` |
+
 
 
 The incompressible Navier Stokes solver has two modes: with 1 fluid and with 2 fluids. The required keywords are listed below.
@@ -229,6 +235,8 @@ This solver is run with the binary horses3d.mu.
 | chemical characteristic time (s) | *REAL*: \(t_{CH}\) controls the speed of the phase separation                                         | --            |
 | interface width (m)              | *REAL*: \(\epsilon\) controls the interface width between the phases                                   | --            |
 | interface tension (N/m)          | *REAL*: \(\sigma\) controls the interface tension between the phases                                   | --            |
+| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. Saved with the same frequency as the solution. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector stats | *LOGICAL*: Whether to save the Lamb vector statistics or not. Options are: `.true.` or `.false.`. |  `.false.` |
 
 
 ## Particles
@@ -340,3 +348,21 @@ The keywords for the trip options are:
 | trip amplitude steady| *REAL*: Maximum steady amplitude of the trip.                                                                             | 0.0           |
 | random seed 1        | *INTEGER*: Number used to initialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart. | 930187532     |
 | random seed 2        | *INTEGER*: Number used to initialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart. | 597734650     |
+
+## Acoustics
+
+| Keyword                   | Description                                                                                                        | Default value          |
+|---------------------------|--------------------------------------------------------------------------------------------------------------------|------------------------|
+| qbase | *CHARACTER*: Whether to set a uniform base flow or read it from a file. Options are: `file` or `uniform`. | Mandatory keyword |
+| qbase vector | *REAL*: The vector of the base flow. The order is: mean density, mean velocity, mean pressure, mean sound velocity squared. | Mandatory keyword if `qbase = uniform` |
+| qbase file name | *CHARACTER*: The path to the stats file of the base flow. | Mandatory keyword if `qbase = file`. |
+| base solver  | *CHARACTER*: Specifies which solver generated the stats of the base flow. Options are: `ns`/`ins`/`mu`. | Mandatory keyword if `qbase = file`. |
+| use source term | *LOGICAL*: Whether to compute the source term or not. Options are: `.true.` or `.false.`. | `.false.` |
+| APE equation | *INTEGER*: The number of the APE to use. Options are: 4. | 4 |
+| sound velocity squared base file name | *CHARACTER*: The path to the stats file of the base sound velocity squared. | Mandatory keyword if `base solver = ns`. |
+| gradient sound velocity squared base file name | *CHARACTER*: The path to the stats file of the base gradient sound velocity squared. | Mandatory keyword if `base solver = ns`. |
+| use Lamb vector | *LOGICAL*: Whether to compute the Lamb vector in the source term or not. Options are: `.true.` or `.false.`. | `.false.` |
+| Lamb vector base | *CHARACTER*: Whether to set a uniform base Lamb vector or read it from a file. Options are: `file` or `uniform`. | Mandatory keyword if `use Lamb vector = .true.` |
+| Lamb vector base vector | *REAL*: The vector of the base Lamb vector. | Mandatory keyword if `Lamb vector base = uniform` |
+| Lamb vector base file name | *CHARACTER*: The path to the stats file of the base Lamb vector. | Mandatory keyword if `Lamb vector base = file`. |
+| Lamb vector file name | *CHARACTER*: The path to the file of the Lamb vector. | Mandatory keyword if `use Lamb vector = .true.`. |

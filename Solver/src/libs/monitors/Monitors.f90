@@ -89,7 +89,11 @@ module MonitorsClass
          logical                         :: saveGradients, saveLambVector
          logical                         :: saveSoundVelocitySquared
          logical                         :: saveGradSoundVelocitySquared
-		 logical                         :: monitorMem =.FALSE.
+		   logical                         :: monitorMem =.FALSE.
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveLambVectorToStatsKey = "save lamb vector stats"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveSoundVelocitySquaredToStatsKey = "save sound velocity squared stats"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveGradSoundVelocitySquaredToStatsKey = "save gradient sound velocity squared stats"
 !
 !        Setup the buffer
 !        ----------------
