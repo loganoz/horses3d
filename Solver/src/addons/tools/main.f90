@@ -63,7 +63,7 @@ Program main
         call Main_Header("HORSES additional proccesing tools: Local IBM Refinement Pre-Proccesing",__DATE__,__TIME__)
         call LocalRef_IBM(controlVariables)
     case("stats mesh interpolation")
-        call Main_Header("HORSES additional proccesing tools: Mesh Interpolation Pre-Proccesing",__DATE__,__TIME__)
+        call Main_Header("HORSES additional proccesing tools: Stats Mesh Interpolation Pre-Proccesing",__DATE__,__TIME__)
         call InterpolateStats(controlVariables)
     case default
         call Main_Header("HORSES additional proccesing tools",__DATE__,__TIME__)

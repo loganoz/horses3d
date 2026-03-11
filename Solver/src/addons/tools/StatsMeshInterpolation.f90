@@ -35,6 +35,7 @@ module StatsMeshInterpolation
         use ProbeClass
         use TransfiniteMapClass
         use SolutionFile, only: NO_OF_SAVED_REFS
+        use FileReadingUtilities
         implicit None
         TYPE(FTValueDictionary)                :: controlVariables
         !
@@ -229,7 +230,9 @@ module StatsMeshInterpolation
 
         ! Export field values at probes
         call M_out % PrepareForIO()
-        call saveStats(M_out, storage_e_out, refs, iter, time, "hola")
+        fileName = controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)
+        fileName = "./RESULTS/" // trim(removePath(getFileName(fileName)))
+        call saveStats(M_out, storage_e_out, refs, iter, time, fileName)
 
     end subroutine InterpolateStats
 

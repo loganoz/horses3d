@@ -1,0 +1,19 @@
+tool type = "stats mesh interpolation"
+
+mesh file name        = "MESH/mesh_lc05.msh"
+solution file name    = "RESULTS/TGV.rst"
+
+discretization nodes = Gauss
+!!discretization nodes = Gauss-Lobatto
+
+Polynomial order      = 2
+
+stats solver = ns
+stats geo mesh file name = "MESH/mesh_lc05.msh"
+stats mesh file name = "MESH/NS_mesh_lc05.hmesh"
+stats qbase file name = "RESULTS/NS/TGV.stats.hsol"
+stats sound velocity squared file name = "RESULTS/NS/TGV.SoundVelocitySquared.stats.hsol"
+stats gradient sound velocity squared file name = "RESULTS/NS/TGV.GradientSoundVelocitySquared.stats.hsol"
+
+stats lamb vector file name = "RESULTS/NS/TGV.Lamb.stats.hsol"
+lamb vector file name = "RESULTS/NS/TGV.Lamb.hsol"

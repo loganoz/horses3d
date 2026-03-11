@@ -1,0 +1,112 @@
+Flow equations        = "NS"
+simulation type       = "time-accurate"
+
+dt = 0.00001
+final time = 3.0
+Number of time steps  = 1
+Output Interval       = 1
+time integration = "explicit"
+explicit method = "Euler"
+
+
+mesh file name        = "MESH/mesh_lc01.msh"
+solution file name    = "RESULTS/TGV.rst"
+
+restart file name     = "RESULTS/TGV.rst"
+restart               = .false.
+
+discretization nodes = Gauss
+
+Polynomial order      = 4
+Number of plot points = 2
+Convergence tolerance = 1.d-10
+!!!!!cfl                   = 0.4
+!!!!!dcfl                  = 0.4
+mach number           = 0.4d0
+Reynolds number       = 1600.0
+
+reference velocity (m/s) = 1.0
+velocity direction = [0.0, 0.0, 1.0]
+gravity acceleration (m/s^2) = 1.0
+gravity direction = [-1 0 0]
+Number of fluids (1/2) = 2
+fluid 1 density (kg/m^3) = 1.0
+fluid 2 density (kg/m^3) = 5.0
+fluid 1 viscosity (Pa.s) = 0.005
+fluid 2 viscosity (Pa.s) = 0.01
+! MAINTAINED TO COMPARE!!        mobility = 0.18856
+chem characteristic time (s) = 38.16
+interface width (m) = 0.0424
+Interface tension (N/m) = 0.00025
+artificial compressibility factor = 1000.0
+
+                          Riemann solver = Exact
+                  Viscous discretization = BR1
+            Cahn-Hilliard discretization = BR1
+                       Penalty parameter = 1.0
+
+!
+! STATS MESH INTERPOLATION
+!
+tool type = "stats mesh interpolation"
+stats solver = mu
+stats geo mesh file name = "MESH/mesh_lc05.msh"
+stats mesh file name = "MESH/MU_mesh_lc05.hmesh"
+stats qbase file name = "RESULTS/MU/TGV.stats.hsol"
+
+
+!
+! FOR THE ACOUSTICS SIMULATION
+!
+stats solver = ns
+qBase = file
+qBase file name = "RESULTS/NS/TGV.stats.hsol"
+
+Lamb vector stats = uniform
+Lamb vector stats vector = [0.0d0, 0.0d0, 0.0d0]
+lamb vector stats file name = "RESULTS/NS/Cylinder_Re40.Lamb.hsol"
+! Lamb vector NS
+
+!
+! FOR THE FLOW SIMULATION
+!
+save Lamb vector = .true.
+save Lamb vector stats = .true.
+compute gradients = .true.
+save gradients with solution = .true.
+save sound velocity squared stats = .true.
+save gradient sound velocity squared stats = .true.
+
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
+
+#define statistics
+   sampling interval = 1
+#end
