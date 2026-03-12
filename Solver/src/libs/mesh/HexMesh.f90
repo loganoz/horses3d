@@ -150,6 +150,7 @@ MODULE HexMeshClass
             procedure :: UpdateMPIFacesBaseSolution    => HexMesh_UpdateMPIFacesBaseSolution
             procedure :: GatherMPIFacesBaseSolution    => HexMesh_GatherMPIFacesBaseSolution
             procedure :: LoadLambVector                => HexMesh_LoadLambVector
+            procedure :: SaveBaseFlow                  => HexMesh_SaveBaseFlow
 #endif
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
@@ -3646,6 +3647,52 @@ slavecoord:             DO l = 1, 4
 
       end subroutine HexMesh_SaveLambVector
 
+#ifdef ACOUSTIC
+      subroutine HexMesh_SaveBaseFlow(self, iter, time, name)
+         use SolutionFile
+         use MPI_Process_Info
+         implicit none
+         class(HexMesh)                         :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+
+         
+         ! Local variables
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
+         character(len=LINE_LENGTH)       :: fileName
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
+         integer                          :: i, j, k
+
+         ! Gather reference quantities
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+
+         ! Create new file
+         filename = trim(getFileName(name)) // ".BaseFlow.hsol"
+         call CreateNewSolutionFile(trim(filename), SOLUTION_FILE, self % nodeType, &
+                                    self % no_of_allElements, iter, time, refs)
+
+         ! Write base array
+         fID = putSolutionFileInWriteDataMode(trim(filename))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+               pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NCONSB*e % offsetIO*SIZEOF_RP
+               call writeArray(fid, e % storage % Qbase, position=pos)
+            end associate
+         end do
+         close(fid)
+
+         ! Close the file
+         call SealSolutionFile(trim(filename))
+
+      end subroutine HexMesh_SaveBaseFlow
+#endif
 
 #if defined(NAVIERSTOKES)
       subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
