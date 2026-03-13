@@ -295,6 +295,11 @@ module RiemannSolvers_CAA
          aL = sqrt(QbaseL(6))
          aR = sqrt(QbaseR(6))
 !
+!        Eigenvalues: lambda = max(|u_baseL|,|u_baseR|) + max(aL,aR)
+!        -----------
+         ! lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR) ! this was the NS version
+         lambda = max(abs(uL), abs(uR)) + max(aL,aR)
+!
          rhoL = QLeft(1)
          rhoR = QRight(1)
 
@@ -311,11 +316,6 @@ module RiemannSolvers_CAA
 !
          QLRot = (/ rhoL, uL, vL, wL, pL /)
          QRRot = (/ rhoR, uR, vR, wR, pR /)
-!
-!        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
-!        -----------
-         ! lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR) ! this was the NS version
-         lambda = max(abs(uL), abs(uR)) + max(aL,aR)
 !
 !        ****************
 !        Compute the flux

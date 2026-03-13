@@ -4706,8 +4706,8 @@ slavecoord:             DO l = 1, 4
          c1 = thermodynamics % c02(1) / refValues % V
          call HexMesh_LoadBaseFlowSolution_iNS(self, fileName, c1)
       elseif (trim(statsSolver) .eq. trim(qBaseSolverMU)) then
-         c1 = thermodynamics % c02(1) / refValues % V
-         c2 = thermodynamics % c02(2) / refValues % V
+         c1 = sqrt(thermodynamics % c02(1)) / refValues % V
+         c2 = sqrt(thermodynamics % c02(2)) / refValues % V
          call HexMesh_LoadBaseFlowSolution_MU(self, fileName, [ c1, c2 ])
       else
          print *, "Unknown solver of the stats file ", trim(statsSolver)
@@ -4848,8 +4848,9 @@ slavecoord:             DO l = 1, 4
       if (.not. controlVariables % containsKey(trim(gradSoundVelocityBaseFileNameKey))) then
          print *, trim(gradSoundVelocityBaseFileNameKey), "not specified. Use:"
          print *, trim(gradSoundVelocityBaseFileNameKey), " = path/to/file.GradientSoundVelocitySquared.stats.hsol"
-         errorMessage(STD_OUT)
-         error stop
+         ! errorMessage(STD_OUT)
+         ! error stop
+         return
       end if
       ! Load the the specified stats file
       fileName = controlVariables % stringValueForKey(gradSoundVelocityBaseFileNameKey,requestedLength = LINE_LENGTH)
@@ -5041,7 +5042,7 @@ slavecoord:             DO l = 1, 4
                ! Initialize pressure
                self % elements(eID) % storage % Qbase(IBP,i,j,k) = PressureBaseFlow_MU(Q(:,i,j,k))
                ! Initialize sound velocity
-               self % elements(eID) % storage % Qbase(IBA2,i,j,k) = (soundVelocity(1) * min(max(Q(IMC,i,j,k),0.0_RP),1.0_RP) + soundVelocity(2) * (1.0_RP - min(max(Q(IMC,i,j,k),0.0_RP),1.0_RP)))**2
+               self % elements(eID) % storage % Qbase(IBA2,i,j,k) = POW2(soundVelocity(1) * min(max(Q(IMC,i,j,k),0.0_RP),1.0_RP) + soundVelocity(2) * (1.0_RP - min(max(Q(IMC,i,j,k),0.0_RP),1.0_RP)))
             end do                  ; end do                   ; end do
             deallocate(Q)
             ! Read density variable
