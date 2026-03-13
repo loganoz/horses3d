@@ -86,6 +86,7 @@ module FluidData_CAA
          thermodynamics % gammaDivGammaMinus1 = thermodynamics_ % gammaDivGammaMinus1
          thermodynamics % cp                  = thermodynamics_ % cp
          thermodynamics % cv                  = thermodynamics_ % cv
+         thermodynamics % c02                  = thermodynamics_ % c02
 
       end subroutine SetThermodynamics
 
