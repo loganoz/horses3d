@@ -5757,6 +5757,10 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    type(FTValueDictionary) , intent(in)      :: controlVariables
    !-local-variables-----------------------------------
    integer :: eID, fID, STLNum
+#ifdef _HAS_MPI_
+   integer :: ierr, localAnisotropicInt, globalAnisotropicInt
+#endif
+   logical :: localAnisotropic
    logical :: saveGradients, FaceComputeQdot
    logical :: analyticalJac   ! Do we need analytical Jacobian storage?
    type(Element)   , pointer :: e
@@ -5771,7 +5775,17 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
 !     **************************************
 !     Check if resulting mesh is anisotropic
 !     **************************************
-   if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
+   localAnisotropic = ( maxval(NNew) /= minval(NNew) )
+   self % anisotropic = localAnisotropic
+
+#ifdef _HAS_MPI_
+   if ( MPI_Process % doMPIAction ) then
+      localAnisotropicInt = 0
+      if ( localAnisotropic ) localAnisotropicInt = 1
+      call mpi_allreduce(localAnisotropicInt, globalAnisotropicInt, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
+      self % anisotropic = (globalAnisotropicInt /= 0)
+   end if
+#endif
 
    self % NDOF = 0
    do eID=1, self % no_of_elements
@@ -5924,6 +5938,7 @@ end subroutine HexMesh_pAdapt_MPI
       integer         , allocatable :: zoneArray(:)
       integer         , allocatable :: facesArray(:)
       integer         , allocatable :: elementArray(:)
+      logical                       :: localAnisotropic
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
       type(Face)      , pointer :: f
@@ -5935,7 +5950,8 @@ end subroutine HexMesh_pAdapt_MPI
 !     **************************************
 !     Check if resulting mesh is anisotropic
 !     **************************************
-      if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
+      localAnisotropic = ( maxval(NNew) /= minval(NNew) )
+      self % anisotropic = localAnisotropic
 
       self % NDOF = 0
       do eID=1, self % no_of_elements
