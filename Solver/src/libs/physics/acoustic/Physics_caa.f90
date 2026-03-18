@@ -142,10 +142,10 @@
 !
       REAL(KIND=Rp) :: u, v, w, p, a
 !      
-      u = ABS( Q(ICAAU) )
-      v = ABS( Q(ICAAV) )
-      w = ABS( Q(ICAAW) )
-      p = Qbase(IBP)
+      u = ABS( Q(IBU) )
+      v = ABS( Qbase(IBV) )
+      w = ABS( Q(IBW) )
+      !p = Qbase(IBP)
       a = SQRT(Qbase(IBA2))
       
       eigen(1) = u + a
