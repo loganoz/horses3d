@@ -12,7 +12,8 @@
          character(len=KEYWORD_LENGTH), parameter :: FLUID1_COMPRESSIBILITY_KEY = "fluid 1 sound speed square (m/s)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID2_COMPRESSIBILITY_KEY = "fluid 2 sound speed square (m/s)"
 
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_CAAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+         ! CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_CAAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(1) :: physics_CAAKeywords = [FLOW_EQUATIONS_KEY]
 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: SOURCE_TERM_KEY             = "use source term"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMB_VECTOR_KEY             = "use lamb vector"
