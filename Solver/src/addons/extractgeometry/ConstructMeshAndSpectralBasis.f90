@@ -56,6 +56,7 @@ module ConstructMeshAndSpectralBasis_MOD
          ! else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
          !    padding = NCONS + 3 * NGRAD
          ! end if
+         has_sensor = .FALSE.
          select case (fileType)
          case(SOLUTION_FILE)
             padding = 1*NCONS
