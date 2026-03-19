@@ -744,6 +744,7 @@ module pAdaptationClassRL
 !  Select the polynomial orders for one element based on the VI Reinforcement Learning agent
 !  -----------------------------------------------------------------------------------------
    subroutine pAdaptation_pAdaptRL_SelectElemPolorders (this, e, NNew, tolerance, Ndir, adaptation_var)
+      use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
       implicit none
       !-arguments----------------------------------
       class(pAdaptationRL_t), intent(in)    :: this        !<> Adaptation class
@@ -837,7 +838,7 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir1(dir, :))
 
                !p-adaptation
-               if (maxQ - minQ < tolerance) then
+               if (any(.not. ieee_is_finite(Q_dir1(dir, :))) .or. (maxQ - minQ < tolerance)) then
                   indices_dir1(:) = this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(1) > 2) then
@@ -849,7 +850,9 @@ module pAdaptationClassRL
                   end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 1
-                  indices_dir1(:) = nint(2 * this % agent % smax * (Q_dir1(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  indices_dir1(:) = nint(max(-real(this % agent % smax, RP), min(real(this % agent % smax, RP), &
+                                         2.0_RP * this % agent % smax * (Q_dir1(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax))) + &
+                                         this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(1) > 2) then
                      action = max(action, this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getData(indices_dir1))
@@ -866,7 +869,7 @@ module pAdaptationClassRL
                min_errorQ = minval(Q_error1(:))
                max_errorQ = maxval(Q_error1(:))
 
-               if (max_errorQ - min_errorQ < tolerance) then
+               if (any(.not. ieee_is_finite(Q_error1(:))) .or. (max_errorQ - min_errorQ < tolerance)) then
                   indices_error1(:) = this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(1) > 2) then
@@ -878,7 +881,9 @@ module pAdaptationClassRL
                   end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 1
-                  indices_error1(:) = nint(2 * this % agent % smax * (Q_error1(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  indices_error1(:) = nint(max(-real(this % agent % smax, RP), min(real(this % agent % smax, RP), &
+                                          2.0_RP * this % agent % smax * (Q_error1(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax))) + &
+                                          this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(1) > 2) then
                      error_sensor = error_sensor + max(this % agent % policy(Pxyz(1) - this % agent % pmin + 1) % matrix % getError(indices_error1), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
@@ -958,7 +963,7 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir2(dir, :))
 
                !p-adaptation
-               if (maxQ - minQ < tolerance) then
+               if (any(.not. ieee_is_finite(Q_dir2(dir, :))) .or. (maxQ - minQ < tolerance)) then
                   indices_dir2(:) = this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(2) > 2) then
@@ -970,7 +975,9 @@ module pAdaptationClassRL
                   end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 2
-                  indices_dir2(:) = nint(2 * this % agent % smax * (Q_dir2(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  indices_dir2(:) = nint(max(-real(this % agent % smax, RP), min(real(this % agent % smax, RP), &
+                                         2.0_RP * this % agent % smax * (Q_dir2(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax))) + &
+                                         this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(2) > 2) then
                      action = max(action, this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getData(indices_dir2))
@@ -987,7 +994,7 @@ module pAdaptationClassRL
                min_errorQ = minval(Q_error2(:))
                max_errorQ = maxval(Q_error2(:))
 
-               if (max_errorQ - min_errorQ < tolerance) then
+               if (any(.not. ieee_is_finite(Q_error2(:))) .or. (max_errorQ - min_errorQ < tolerance)) then
                   indices_error2(:) = this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(2) > 2) then
@@ -999,7 +1006,9 @@ module pAdaptationClassRL
                   end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 2
-                  indices_error2(:) = nint(2 * this % agent % smax * (Q_error2(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  indices_error2(:) = nint(max(-real(this % agent % smax, RP), min(real(this % agent % smax, RP), &
+                                         2.0_RP * this % agent % smax * (Q_error2(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax))) + &
+                                         this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(2) > 2) then
                      error_sensor = error_sensor + max(this % agent % policy(Pxyz(2) - this % agent % pmin + 1) % matrix % getError(indices_error2), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
@@ -1082,7 +1091,7 @@ module pAdaptationClassRL
                maxQ = maxval(Q_dir3(dir, :))
 
                !p-adaptation
-               if (maxQ - minQ < tolerance) then
+               if (any(.not. ieee_is_finite(Q_dir3(dir, :))) .or. (maxQ - minQ < tolerance)) then
                   indices_dir3(:) = this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(3) > 2) then
@@ -1094,7 +1103,9 @@ module pAdaptationClassRL
                   end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 3
-                  indices_dir3(:) = nint(2 * this % agent % smax * (Q_dir3(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax) + this % agent % smax + 1
+                  indices_dir3(:) = nint(max(-real(this % agent % smax, RP), min(real(this % agent % smax, RP), &
+                                         2.0_RP * this % agent % smax * (Q_dir3(dir, :) - minQ) / (maxQ - minQ) - this % agent % smax))) + &
+                                         this % agent % smax + 1
                   ! Choose the best action: +1 increase polynomial order, -1 decrease polynomial order, 0 do nothing
                   if (Pxyz(3) > 2) then
                      action = max(action, this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getData(indices_dir3))
@@ -1111,7 +1122,7 @@ module pAdaptationClassRL
                min_errorQ = minval(Q_error3(:))
                max_errorQ = maxval(Q_error3(:))
 
-               if (max_errorQ - min_errorQ < tolerance) then
+               if (any(.not. ieee_is_finite(Q_error3(:))) .or. (max_errorQ - min_errorQ < tolerance)) then
                   indices_error3(:) = this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(3) > 2) then
@@ -1123,7 +1134,9 @@ module pAdaptationClassRL
                   end if
                else
                   !Compute non-dimensional state variables for each Gauss-node in axis 3
-                  indices_error3(:) = nint(2 * this % agent % smax * (Q_error3(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax) + this % agent % smax + 1
+                  indices_error3(:) = nint(max(-real(this % agent % smax, RP), min(real(this % agent % smax, RP), &
+                                          2.0_RP * this % agent % smax * (Q_error3(:) - min_errorQ) / (max_errorQ - min_errorQ) - this % agent % smax))) + &
+                                          this % agent % smax + 1
                   ! Compute the error
                   if (Pxyz(3) > 2) then
                      error_sensor = error_sensor + max(this % agent % policy(Pxyz(3) - this % agent % pmin + 1) % matrix % getError(indices_error3), min_error_sensor) * (max_errorQ - min_errorQ)**2.0_RP / 4.0_RP
