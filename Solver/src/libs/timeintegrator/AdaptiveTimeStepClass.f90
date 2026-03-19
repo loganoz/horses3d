@@ -136,13 +136,17 @@ contains
 
       avg_sum_dt_weight = sum_dt_weight / mesh % no_of_allElements
 
+      if (isnan(avg_sum_dt_weight) .or. (avg_sum_dt_weight <= 0.0_RP)) then
+         avg_sum_dt_weight = 1.0_RP
+      else
 !$omp parallel do schedule(runtime)
-      do eID = 1, mesh % no_of_elements
-         mesh % elements(eID) % ML_error_ratio = mesh % elements(eID) % ML_error_ratio / avg_sum_dt_weight
-      end do
+         do eID = 1, mesh % no_of_elements
+            mesh % elements(eID) % ML_error_ratio = mesh % elements(eID) % ML_error_ratio / avg_sum_dt_weight
+         end do
 !$omp end parallel do
+      end if
 
-      if (isnan(sum_dt_weight)) then
+      if (isnan(sum_dt_weight) .or. (sum_dt_weight <= 0.0_RP)) then
          this % dt_eps(3) = 1e-10_RP
       else
          this % dt_eps(3) = 1.0_RP / max(sqrt(avg_sum_dt_weight), 1e-10_RP)
@@ -237,6 +241,8 @@ contains
       do i = 0, Pxyz(3)
          do j = 0, Pxyz(2)
             do k = 0, Pxyz(1)
+               Q_error(k, j, i) = 0.0_RP
+               QLowRK_error(k, j, i) = 0.0_RP
                do dir = 1, Ndir
                   if(mod(this % error_variable, 3) == mod(dir, 3) .and. dir <= 3) then
                      if (this % error_variable <= 6) then
