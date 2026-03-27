@@ -146,7 +146,7 @@
 ! /////////////////////////////////////////////////////////////////////
 !
 !----------------------------------------------------------------------
-!! This routine returns the maximum eigenvalues for the Euler equations 
+!! This routine returns the maximum eigenvalues for the APE equations 
 !! for the given solution value in each spatial direction. 
 !! These are to be used to compute the local time step.
 !----------------------------------------------------------------------

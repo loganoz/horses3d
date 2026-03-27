@@ -100,9 +100,9 @@ module RiemannSolvers_CAA
                RiemannSolver => LxFRiemannSolver
                whichRiemannSolver = RIEMANN_LXF
 
-            ! case (RIEMANN_EXACT_AVG_NAME)
-            !   RiemannSolver => ExactAverageRiemannSolver
-            !    whichRiemannSolver = RIEMANN_EXACT_AVG
+            case (RIEMANN_EXACT_AVG_NAME)
+              RiemannSolver => ExactAverageRiemannSolver
+               whichRiemannSolver = RIEMANN_EXACT_AVG
 
             case (RIEMANN_EXACT_JUMP_NAME)
               RiemannSolver => ExactJumpRiemannSolver
@@ -163,8 +163,8 @@ module RiemannSolvers_CAA
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
 
-         ! case (RIEMANN_EXACT_AVG)
-            ! write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact Average"
+         case (RIEMANN_EXACT_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact Average"
 
          case (RIEMANN_EXACT_JUMP)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact Jump"
@@ -174,7 +174,6 @@ module RiemannSolvers_CAA
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
 
          end select
-
 
       end subroutine DescribeRiemannSolver
 !
@@ -579,11 +578,12 @@ module RiemannSolvers_CAA
 !
 !        *********************************************************************
 !           Computes the standard average of the two states:
-!              F* = {{F}} = 0.5 * (FL + FR)
+!              F*_n = {{F_n}} = 0.5 * (FL_n + FR_n)
 !
 !           State vectors are rotated.
 !        *********************************************************************
 !
+         use Physics_CAA, only: APEFluxNormal
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -602,7 +602,7 @@ module RiemannSolvers_CAA
 !        Compute the flux
 !        ----------------
          call APEFluxNormal(QRight, fR, QbaseR, nHat)
-         call APEFluxNormmal(QLeft, fL, QbaseL, nHat)
+         call APEFluxNormal(QLeft,  fL, QbaseL, nHat)
 
          flux = 0.5_RP*(fR+fL)
 
