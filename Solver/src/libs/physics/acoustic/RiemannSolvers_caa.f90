@@ -245,13 +245,13 @@ module RiemannSolvers_CAA
          QbaseRRot = (/ rhoR, uR, vR, wR, pR, a2R /)
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         call StandardAverage(QLRot, QRRot, QBaseLRot, QbaseRRot, flux)
+         call StandardAverage(QLRot, QRRot, QBaseLRot, QbaseRRot, nHat, flux)
 !
 !        ************************************************
-!        Return momentum equations to the cartesian frame
+!        Momentum equations are already in cartesian frame
 !        ************************************************
 !
-         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+         ! flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
 
       end subroutine CentralRiemannSolver
 !
@@ -306,7 +306,7 @@ module RiemannSolvers_CAA
          aL = sqrt(QbaseL(6))
          aR = sqrt(QbaseR(6))
 !
-!        Eigenvalues: lambdas = u_base /cdot n +-c
+!        Eigenvalues: lambdas = u_base /cdot n +- c
 !        -----------
          ! lambda = max(abs(uL), abs(uR)) + max(aL,aR)
          lambda = max(max(abs(uL-aL), abs(uL+aL)), max(abs(uR-aR), abs(uR+aR)))
@@ -334,21 +334,21 @@ module RiemannSolvers_CAA
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         call StandardAverage(QLRot, QRRot, QBaseLRot, QbaseRRot, flux)
+         call StandardAverage(QLRot, QRRot, QBaseLRot, QbaseRRot, nHat, flux)
 !
 !        Compute the Lax-Friedrichs stabilization
 !        ----------------------------------------
-         stab = 0.5_RP * lambda * (QRRot - QLRot)
+         stab = 0.5_RP * lambda * (QRight - QLeft)
 !
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------
          flux = flux - lambdaStab * stab
 !
 !        ************************************************
-!        Return momentum equations to the cartesian frame
+!        Momentum equations are already in cartesian frame
 !        ************************************************
 !
-         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+         ! flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
 
       END SUBROUTINE LxFRiemannSolver
 !
@@ -449,39 +449,47 @@ module RiemannSolvers_CAA
 !        ---------------
 !
 !
-         ! real(kind=RP) :: rhoL, uL, pL, aL, zL
-         ! real(kind=RP) :: rhoR, uR, pR, aR, zR
-         ! real(kind=RP) :: omega_plus, omega_minus
-         ! real(kind=RP) :: velocity_term
+         real(kind=RP) :: rhoL, uL, pL, aL, zL
+         real(kind=RP) :: rhoR, uR, pR, aR, zR
+         real(kind=RP) :: omega_plus, omega_minus
+         real(kind=RP) :: u_star, p_star
+         real(kind=RP) :: rhoa_mean, rho_inv_mean
+         real(kind=RP) :: velocity_term
 
-         ! rhoL = QbaseL(1)
-         ! rhoR = QbaseR(1)
+         rhoL = QbaseL(1)
+         rhoR = QbaseR(1)
 
-         ! ! speed of sound of base flow
-         ! aL = sqrt(QbaseL(6))
-         ! aR = sqrt(QbaseR(6))
+         ! speed of sound of base flow
+         aL = sqrt(QbaseL(6))
+         aR = sqrt(QbaseR(6))
 
-         ! uL = QLeft(2) * nHat(1) + QLeft(3) * nHat(2) + QLeft(4) * nHat(3)
-         ! uR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
-         ! pL = QLeft(5)
-         ! pR = QRight(5)
+         uL = QLeft(2) * nHat(1) + QLeft(3) * nHat(2) + QLeft(4) * nHat(3)
+         uR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+         pL = QLeft(5)
+         pR = QRight(5)
          
-! !        Eigenvalues: lambdas = u_base /cdot n +-c, 0,0
-! !        Riemann Invariants in lambdas not 0
-         ! omega_plus = pL + rhoL*aL*uL
-         ! omega_minus = pR - rhoR*aR*uR
-         ! zL = rhoL*aL
-         ! zR = rhoR*aR
+!        Eigenvalues: lambdas = u_base /cdot n +-c, 0,0
+!        Riemann Invariants in lambdas not 0
+         omega_plus = pL + rhoL*aL*uL
+         omega_minus = pR - rhoR*aR*uR
+         zL = rhoL*aL
+         zR = rhoR*aR
 
-         ! velocity_term = ( aL*omega_plus + aR*omega_minus) / (zL+zR)
+         u_star = ( omega_plus - omega_minus) / (zL+zR)
+         p_star = ( zR*omega_plus + zL*omega_minus) / (zL+zR)
 
-         ! flux(1) = 0.0_RP
-         ! flux(2) = nHat(1)*velocity_term
-         ! flux(3) = nHat(2)*velocity_term
-         ! flux(4) = nHat(3)*velocity_term
-         ! flux(5) = ( zR*aL*omega_plus - zL*aR*omega_minus) / (zL+zR)
--print*, "Exact Average Riemann solver not implemented yet"
--error stop
+         ! mean of rho * a
+         rhoa_mean = 0.5_RP * (aL*zL+aR*zR)
+         ! mean of 1/rho
+         rho_inv_mean = 0.5_RP * (1.0_RP/rhoL + 1.0_RP/rhoR)
+
+         velocity_term = rho_inv_mean * p_star
+
+         flux(1) = 0.0_RP
+         flux(2) = nHat(1)*velocity_term
+         flux(3) = nHat(2)*velocity_term
+         flux(4) = nHat(3)*velocity_term
+         flux(5) = rhoa_mean * u_star
 
       END SUBROUTINE ExactAverageRiemannSolver
 !
@@ -567,7 +575,7 @@ module RiemannSolvers_CAA
 !     -> Standard: Central fluxes
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
-      subroutine StandardAverage(QLeft, QRight, QbaseL, QbaseR, flux)
+      subroutine StandardAverage(QLeft, QRight, QbaseL, QbaseR, nHat, flux)
 !
 !        *********************************************************************
 !           Computes the standard average of the two states:
@@ -581,6 +589,7 @@ module RiemannSolvers_CAA
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: QbaseL(1:NCONSB)
          real(kind=RP), intent(in)       :: QbaseR(1:NCONSB)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
@@ -592,8 +601,8 @@ module RiemannSolvers_CAA
 !
 !        Compute the flux
 !        ----------------
-         call APEFlux1D(QRight, fR, Qbase=QbaseR)
-         call APEFlux1D(QLeft,  fL, Qbase=QbaseL)
+         call APEFluxNormal(QRight, fR, QbaseR, nHat)
+         call APEFluxNormmal(QLeft, fL, QbaseL, nHat)
 
          flux = 0.5_RP*(fR+fL)
 
