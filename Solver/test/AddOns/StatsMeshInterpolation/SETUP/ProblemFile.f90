@@ -196,7 +196,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #if defined(ACOUSTIC)
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_, Qbase, Lambbase, Lamb_NS)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_, Qbase, Lambbase, Lamb)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -217,7 +217,7 @@
             type(RefValues_t),         intent(in)  :: refValues_
             real(kind=RP),             intent(in)  :: Qbase(NCONSB)
             real(kind=RP),             intent(in)  :: Lambbase(NDIM)
-            real(kind=RP),             intent(in)  :: Lamb_NS(NDIM)
+            real(kind=RP),             intent(in)  :: Lamb(NDIM)
 !
 !           Usage example
 !           -------------
@@ -225,7 +225,7 @@
 
             real(rp) :: R, U, V, W, C, qm(NDIM)
 
-            qm = Lambbase - Lamb_NS
+            qm = Lambbase - Lamb
 
             R = Qbase(IBRHO)
             U = Qbase(IBU)

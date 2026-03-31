@@ -462,7 +462,9 @@ pure subroutine BubblesortWithFriend(A, B)
     integer,  intent(inout) :: B(size(A))
     !--------------------------------------
     integer :: n, newn
-    integer :: i, temp
+    integer :: i
+    real(rp) :: tempA
+    integer :: tempB
     !--------------------------------------
 
     n = size(A)
@@ -471,13 +473,13 @@ pure subroutine BubblesortWithFriend(A, B)
         do i = 1, n-1
             if (A(i) > A(i+1)) then
                 ! Swap A
-                temp = A(i)
+                tempA = A(i)
                 A(i) = A(i+1)
-                A(i+1) = temp
+                A(i+1) = tempA
                 ! Swap B
-                temp = B(i)
+                tempB = B(i)
                 B(i) = B(i+1)
-                B(i+1) = temp
+                B(i+1) = tempB
                 ! Update number of unsorted elements
                 newn = i
             end if
