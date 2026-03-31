@@ -168,7 +168,7 @@ module ProblemFileFunctions
 ,multiphase_ &
 #endif
 #ifdef ACOUSTIC
-,Qbase, Lambbase, Lamb_NS &
+,Qbase, Lambbase, Lamb &
 #endif
 )
          use SMConstants
@@ -189,7 +189,7 @@ module ProblemFileFunctions
 #ifdef ACOUSTIC
          real(kind=RP),             intent(in)  :: Qbase(NCONSB)
          real(kind=RP),             intent(in)  :: Lambbase(NDIM)
-         real(kind=RP),             intent(in)  :: Lamb_NS(NDIM)
+         real(kind=RP),             intent(in)  :: Lamb(NDIM)
 #endif
       end subroutine UserDefinedSourceTermNS_f
 #endif
@@ -525,7 +525,7 @@ end module ProblemFileFunctions
 , multiphase_ &
 #endif
 #ifdef ACOUSTIC
-, Qbase, Lambbase, Lamb_NS &
+, Qbase, Lambbase, Lamb &
 #endif
 )
 !
@@ -551,7 +551,7 @@ end module ProblemFileFunctions
 #ifdef ACOUSTIC
             real(kind=RP),             intent(in)  :: Qbase(NCONSB)
             real(kind=RP),             intent(in)  :: Lambbase(NDIM)
-            real(kind=RP),             intent(in)  :: Lamb_NS(NDIM)
+            real(kind=RP),             intent(in)  :: Lamb(NDIM)
 #endif
 !
 !           ---------------

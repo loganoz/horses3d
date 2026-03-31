@@ -39,6 +39,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseFileNameKey      = 'lamb vector base file name'
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseVectorKey        = "lamb vector base vector"
 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambInterpolationTypeKey       = "lamb vector interpolation"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambReadDirectoryKey           = "lamb vector dir"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorFileNameKey          = "lamb vector file name"
 
       END MODULE Physics_CAAKeywordsModule
@@ -62,6 +64,7 @@
      public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE ! NS solver
      public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP ! iNS solver
      public    IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP ! MU solver
+     public    NLambInterpolation
      public    computeGradients, flowIsNavierStokes
 
      public    ConstructPhysicsStorage_CAA, DestructPhysicsStorage_CAA, DescribePhysicsStorage_CAA, DescribePhysicsStorage_CAABaseFlow
@@ -102,6 +105,11 @@
 
 !!   The positions of the conservative variables of the base flow from the MU solver
      INTEGER, PARAMETER       :: IMC = 1 , IMSQRHOU = 2 , IMSQRHOV = 3 , IMSQRHOW = 4 , IMP = 5
+!
+!    --------------------------------
+!    Choice of the time interpolation for the Lamb vector (only linear is supported)
+!    --------------------------------
+     INTEGER, PARAMETER :: NLambInterpolation = 2 ! Linear interpolation
 !
 !    --------------------------------
 !    Choice of the gradient variables
