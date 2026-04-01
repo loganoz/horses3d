@@ -190,7 +190,7 @@ $(TARGET_MU): FORCE ./ProblemFile_MU.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_MU) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu ./ProblemFile_MU.o -L$(HOME_DIR)/lib $(HORSES_LIBS_MU)
 
 $(TARGET_CAA): FORCE ./ProblemFile_CAA.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CAA) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_CAA.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CAA)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CAA) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_caa ./ProblemFile_CAA.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CAA)
 
 
 # ---------- Executable macro -------------------
