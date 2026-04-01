@@ -125,6 +125,7 @@ MODULE HexMeshClass
             procedure :: ExportOrders                  => HexMesh_ExportOrders
             procedure :: ExportBoundaryMesh            => HexMesh_ExportBoundaryMesh
             procedure :: SaveSolution                  => HexMesh_SaveSolution
+            procedure :: SaveLambVector                => HexMesh_SaveLambVector
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
             procedure :: DefineAcousticElements        => HexMesh_DefineAcousticElements
@@ -3620,6 +3621,9 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
                pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+#ifdef ACOUSTIC
+               call writeArray(fid, e % storage % Lamb, position=pos)
+#else
                allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
@@ -3636,7 +3640,7 @@ slavecoord:             DO l = 1, 4
                call writeArray(fid, Q, position=pos)
 
                deallocate(Q)
-
+#endif
             end associate
          end do
          close(fid)
