@@ -236,7 +236,7 @@ allclean: FORCE clean
 	rm -f ./libproblemfile_mu.so
 	rm -f ./libproblemfile_mu.dylib
 	rm -f ./libproblemfile_mu.dSYM
-    rm -f ./libproblemfile_caa.so
+	rm -f ./libproblemfile_caa.so
 	rm -f ./libproblemfile_caa.dylib
 	rm -f ./libproblemfile_caa.dSYM
 
