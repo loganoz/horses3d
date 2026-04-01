@@ -1,0 +1,77 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/TaylorGreen8.mesh" 
+
+Polynomial order      = 1
+Number of time steps  = 10
+Output Interval       = 1
+autosave mode         = "iteration"
+autosave interval     = 100
+
+Convergence tolerance = 1.d-10
+dt                    = 0.1
+
+mach number           = 0.2
+Reynolds number       = 40.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+solution file name    = "RESULTS/LambTimeInterpolation.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/LambTimeInterpolation.hsol"
+riemann solver        = "lax-friedrichs"
+
+simulation type       = time-accurate
+time integration      = explicit
+explicit method       = RK3
+
+!
+! FOR THE ACOUSTICS SIMULATION
+!
+use lamb vector = .true.
+lamb vector base = "uniform"
+Lamb vector base vector = [0.1, 0.3, -0.2]
+lamb vector time interpolation = "linear"
+lamb vector dir = "RESULTS/LambVectorData"
+lamb vector file name = "testLambVector"
+
+base solver = ns
+qBase = uniform
+qBase vector = [11., 22., 33., 44., 55.]
+
+
+!
+! BOUNDARY CONDITIONS
+!
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
+
+#define statistics
+   sampling interval = 1
+#end
