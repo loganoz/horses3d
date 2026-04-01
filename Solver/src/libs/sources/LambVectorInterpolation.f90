@@ -19,10 +19,6 @@ Module LambVectorInterpolation  !
         procedure :: interpolate    => LVI_interpolate
     end type LambVectorInterpolation_t
 
-    integer,                       parameter :: KEYWORD_LENGTH           = 132
-    character(len=KEYWORD_LENGTH), parameter :: INTERPOLATION_CONSTANT_NAME    = "constant"
-    character(len=KEYWORD_LENGTH), parameter :: INTERPOLATION_LINEAR_NAME    = "linear"
-
 
     enum, bind(C)
         enumerator :: TYPE_CONSTANT = 1, TYPE_LINEAR
@@ -56,12 +52,12 @@ Module LambVectorInterpolation  !
                 self % interpolationType = TYPE_LINEAR
             end select
         else
-            self % interpolationType = TYPE_LINEAR
+            self % interpolationType = TYPE_CONSTANT
         end if
 
         call getFilenamesAndTimes(self, controlVariables)
 
-        self % currTimeIndex = 0
+        self % currTimeIndex = -1
 
     end subroutine LVI_construct
 
@@ -95,6 +91,7 @@ Module LambVectorInterpolation  !
         integer :: eID
 
         ! Read data from the only file that exists
+        self % currTimeIndex = 1
         filename = self % filenames(self % currTimeIndex)
         call mesh % LoadLambVector(filename, indLamb_=1)
         do eID = 1, mesh % no_of_elements

@@ -39,7 +39,9 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseFileNameKey      = 'lamb vector base file name'
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorBaseVectorKey        = "lamb vector base vector"
 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambInterpolationTypeKey       = "lamb vector interpolation"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambInterpolationTypeKey       = "lamb vector time interpolation"
+         character(len=KEYWORD_LENGTH), PARAMETER :: INTERPOLATION_CONSTANT_NAME    = "constant"
+         character(len=KEYWORD_LENGTH), PARAMETER :: INTERPOLATION_LINEAR_NAME      = "linear"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambReadDirectoryKey           = "lamb vector dir"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorFileNameKey          = "lamb vector file name"
 
@@ -107,9 +109,9 @@
      INTEGER, PARAMETER       :: IMC = 1 , IMSQRHOU = 2 , IMSQRHOV = 3 , IMSQRHOW = 4 , IMP = 5
 !
 !    --------------------------------
-!    Choice of the time interpolation for the Lamb vector (only linear is supported)
+!    Number of Lamb vectors to store for time interpolation (only constant or linear are supported)
 !    --------------------------------
-     INTEGER, PARAMETER :: NLambInterpolation = 2 ! Linear interpolation
+     INTEGER :: NLambInterpolation
 !
 !    --------------------------------
 !    Choice of the gradient variables
@@ -286,6 +288,22 @@
       timeref = Lref / refValues_ % V
 
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
+
+      ! Load the type of interpolation of the Lamb vector
+      if (controlVariables % logicalValueForKey(LAMB_VECTOR_KEY) .and. controlVariables % containsKey(LambInterpolationTypeKey)) then
+         keyword = controlVariables % stringValueForKey(LambInterpolationTypeKey, KEYWORD_LENGTH)
+         call toLower(keyword)
+
+         select case (keyword)
+         case (INTERPOLATION_CONSTANT_NAME)
+            NLambInterpolation = 1
+         case (INTERPOLATION_LINEAR_NAME)
+               NLambInterpolation = 2
+         end select
+      else ! Default to constant
+         NLambInterpolation = 1
+      end if
+
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues
