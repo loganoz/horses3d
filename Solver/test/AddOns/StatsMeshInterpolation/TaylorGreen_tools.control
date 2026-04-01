@@ -1,4 +1,5 @@
-tool type = "stats mesh interpolation"
+!tool type = "stats mesh interpolation"
+tool type = "Lamb vector mesh interpolation"
 
 mesh file name        = "MESH/mesh_lc05.msh"
 solution file name    = "RESULTS/TGV.rst"
@@ -14,6 +15,7 @@ stats mesh file name = "MESH/NS_mesh_lc05.hmesh"
 stats qbase file name = "RESULTS/NS/TGV.stats.hsol"
 stats sound velocity squared file name = "RESULTS/NS/TGV.SoundVelocitySquared.stats.hsol"
 stats gradient sound velocity squared file name = "RESULTS/NS/TGV.GradientSoundVelocitySquared.stats.hsol"
-
 stats lamb vector file name = "RESULTS/NS/TGV.Lamb.stats.hsol"
-lamb vector file name = "RESULTS/NS/TGV.Lamb.hsol"
+
+lamb vector dir = "RESULTS/NS/LambVectorData"
+lamb vector file name = "TGV"

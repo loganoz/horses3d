@@ -11,6 +11,7 @@ Program main
     use FWHTools
     use ConverStats
     use StatsMeshInterpolation, only: InterpolateStats
+    use LambVectorMeshInterpolation, only: InterpolateLambVector
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -65,6 +66,9 @@ Program main
     case("stats mesh interpolation")
         call Main_Header("HORSES additional proccesing tools: Stats Mesh Interpolation Pre-Proccesing",__DATE__,__TIME__)
         call InterpolateStats(controlVariables)
+    case("Lamb vector mesh interpolation")
+        call Main_Header("HORSES additional proccesing tools: Lamb Vector Mesh Interpolation Pre-Proccesing",__DATE__,__TIME__)
+        call InterpolateLambVector(controlVariables)
     case default
         call Main_Header("HORSES additional proccesing tools",__DATE__,__TIME__)
         write(STD_OUT,'(A)') "The requested tool type is not implemented"
