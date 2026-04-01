@@ -37,6 +37,7 @@ OBJS=	\
 	LocalIBMRefinementTool \
 	ConverStats \
 	StatsMeshInterpolation \
+	LambVectorMeshInterpolation \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)

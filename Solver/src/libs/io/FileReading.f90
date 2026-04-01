@@ -630,7 +630,7 @@ contains
          implicit none
          character(len=*) :: dirname
          character(len=*) :: basename
-         character(len=100), allocatable :: array(:)
+         character(len=*), allocatable :: array(:)
 
          real :: r
          integer :: fID, i, NFiles, reason

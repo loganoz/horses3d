@@ -13,7 +13,7 @@ module StatsMeshInterpolation
         real(rp), allocatable :: a2(:,:,:,:) ! soundVelocitySquared
         real(rp), allocatable :: grada2(:,:,:,:) ! gradSoundVelocitySquared
         real(rp), allocatable :: LambStats(:,:,:,:) ! Lamb vector stats
-        real(rp), allocatable :: Lamb(:,:,:,:) ! Lamb vector
+        ! real(rp), allocatable :: Lamb(:,:,:,:) ! Lamb vector
     end type StatsElementStorage_t
 
     enum, bind(C)
@@ -211,7 +211,7 @@ module StatsMeshInterpolation
                                     storage_e_out(eID) % a2(:,i,j,k) = storage_e_out(eID) % a2(:,i,j,k) + storage_e_in(probe % eID) % a2(:,ii,jj,kk) * probe % lxi(ii) * probe % leta(jj) * probe % lzeta(kk)
                                     storage_e_out(eID) % grada2(:,i,j,k) = storage_e_out(eID) % grada2(:,i,j,k) + storage_e_in(probe % eID) % grada2(:,ii,jj,kk) * probe % lxi(ii) * probe % leta(jj) * probe % lzeta(kk)
                                     storage_e_out(eID) % LambStats(:,i,j,k) = storage_e_out(eID) % LambStats(:,i,j,k) + storage_e_in(probe % eID) % LambStats(:,ii,jj,kk) * probe % lxi(ii) * probe % leta(jj) * probe % lzeta(kk)
-                                    storage_e_out(eID) % Lamb(:,i,j,k) = storage_e_out(eID) % Lamb(:,i,j,k) + storage_e_in(probe % eID) % Lamb(:,ii,jj,kk) * probe % lxi(ii) * probe % leta(jj) * probe % lzeta(kk)
+                                    ! storage_e_out(eID) % Lamb(:,i,j,k) = storage_e_out(eID) % Lamb(:,i,j,k) + storage_e_in(probe % eID) % Lamb(:,ii,jj,kk) * probe % lxi(ii) * probe % leta(jj) * probe % lzeta(kk)
                                 end do
                             end do
                         end do   
@@ -451,8 +451,8 @@ module StatsMeshInterpolation
             allocate(storage_e_out(eID) % LambStats(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
             storage_e_out(eID) % LambStats = 0.0_rp
             ! Allocate Lamb vector
-            allocate(storage_e_out(eID) % Lamb(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
-            storage_e_out(eID) % Lamb = 0.0_rp
+            ! allocate(storage_e_out(eID) % Lamb(1:NDIM, 0:M_out % elements(eID) % Nxyz(1), 0:M_out % elements(eID) % Nxyz(2), 0:M_out % elements(eID) % Nxyz(3)) )
+            ! storage_e_out(eID) % Lamb = 0.0_rp
         end do
     end subroutine allocateStorage
 
@@ -559,7 +559,7 @@ module StatsMeshInterpolation
         call readStatsLambVector(controlVariables, mesh, storage_e)
 
         ! Load Lamb vector
-        call readLambVector(controlVariables, mesh, storage_e)
+        ! call readLambVector(controlVariables, mesh, storage_e)
 
     end subroutine readStats
 
@@ -1081,82 +1081,82 @@ module StatsMeshInterpolation
         close(fID)
     end subroutine readStatsLambVector
 
-    subroutine readLambVector(controlVariables, mesh, storage_e)
-        use HexMeshClass
-        use StorageClass
-        use SolutionFile
-        use FTValueDictionaryClass
-        use Utilities, only: toLower
-        implicit None
-        TYPE(FTValueDictionary)         :: controlVariables
-        CLASS(HexMesh)                  :: mesh
-        type(StatsElementStorage_t) :: storage_e(mesh % no_of_elements)
+    ! subroutine readLambVector(controlVariables, mesh, storage_e)
+    !     use HexMeshClass
+    !     use StorageClass
+    !     use SolutionFile
+    !     use FTValueDictionaryClass
+    !     use Utilities, only: toLower
+    !     implicit None
+    !     TYPE(FTValueDictionary)         :: controlVariables
+    !     CLASS(HexMesh)                  :: mesh
+    !     type(StatsElementStorage_t) :: storage_e(mesh % no_of_elements)
 
-        !
-        ! Local variables
-        !
-        INTEGER                        :: fID, eID, fileType, no_of_elements, nodetype
-        integer                        :: i, j, k, lb, ub
-        integer(kind=AddrInt)          :: pos
-        integer                        :: no_stat_s, no_stats_read
-        character(len=LINE_LENGTH)     :: fileName
-        CHARACTER(LEN=LINE_LENGTH) :: LambFileNameKey           = "Lamb vector file name"
+    !     !
+    !     ! Local variables
+    !     !
+    !     INTEGER                        :: fID, eID, fileType, no_of_elements, nodetype
+    !     integer                        :: i, j, k, lb, ub
+    !     integer(kind=AddrInt)          :: pos
+    !     integer                        :: no_stat_s, no_stats_read
+    !     character(len=LINE_LENGTH)     :: fileName
+    !     CHARACTER(LEN=LINE_LENGTH) :: LambFileNameKey           = "Lamb vector file name"
 
 
-        ! Check that the user has specified the file to read from
-        call toLower(LambFileNameKey)
-        if (.not. controlVariables % containsKey(trim(LambFileNameKey))) then
-            print *, trim(LambFileNameKey), " not specified. Use:"
-            print *, trim(LambFileNameKey), " = path/to/Lamb.hsol"
-            errorMessage(STD_OUT)
-            error stop
-        end if
-        fileName = controlVariables % stringValueForKey(LambFileNameKey,requestedLength = LINE_LENGTH)
+    !     ! Check that the user has specified the file to read from
+    !     call toLower(LambFileNameKey)
+    !     if (.not. controlVariables % containsKey(trim(LambFileNameKey))) then
+    !         print *, trim(LambFileNameKey), " not specified. Use:"
+    !         print *, trim(LambFileNameKey), " = path/to/Lamb.hsol"
+    !         errorMessage(STD_OUT)
+    !         error stop
+    !     end if
+    !     fileName = controlVariables % stringValueForKey(LambFileNameKey,requestedLength = LINE_LENGTH)
 
-        ! Get the file type
-        fileType = getSolutionFileType(trim(fileName))
-        if ( (fileType .ne. SOLUTION_FILE) ) then
-            print *, "The file ", fileName, " is not a solution file."
-            errorMessage(STD_OUT)
-            error stop
-        end if
+    !     ! Get the file type
+    !     fileType = getSolutionFileType(trim(fileName))
+    !     if ( (fileType .ne. SOLUTION_FILE) ) then
+    !         print *, "The file ", fileName, " is not a solution file."
+    !         errorMessage(STD_OUT)
+    !         error stop
+    !     end if
         
-        ! Get the node type
-        nodeType = getSolutionFileNodeType(trim(fileName))
-        if ( nodeType .ne. mesh % nodeType ) then
-            print*, "WARNING: Stats file uses a different discretization nodes than the mesh."
-            errorMessage(STD_OUT)
-        end if
+    !     ! Get the node type
+    !     nodeType = getSolutionFileNodeType(trim(fileName))
+    !     if ( nodeType .ne. mesh % nodeType ) then
+    !         print*, "WARNING: Stats file uses a different discretization nodes than the mesh."
+    !         errorMessage(STD_OUT)
+    !     end if
         
-        ! Read the number of elements
-        no_of_elements = getSolutionFileNoOfElements(trim(fileName))
-        if ( no_of_elements .ne. mesh % no_of_elements ) then
-            write(STD_OUT,'(A,A)') "The number of elements stored in the stats file ", &
-                "do not match that of the mesh file"
-            errorMessage(STD_OUT)
-            error stop
-        end if
+    !     ! Read the number of elements
+    !     no_of_elements = getSolutionFileNoOfElements(trim(fileName))
+    !     if ( no_of_elements .ne. mesh % no_of_elements ) then
+    !         write(STD_OUT,'(A,A)') "The number of elements stored in the stats file ", &
+    !             "do not match that of the mesh file"
+    !         errorMessage(STD_OUT)
+    !         error stop
+    !     end if
 
         
-        ! Read elements data
-        fID = putSolutionFileInReadDataMode(trim(fileName))
-        do eID = 1, size(mesh % elements)
-            associate( e => mesh % elements(eID) )
-                pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
-                pos = pos + 5_AddrInt*SIZEOF_INT ! This is to skip the reading of the dimensions and shape in writeArray
+    !     ! Read elements data
+    !     fID = putSolutionFileInReadDataMode(trim(fileName))
+    !     do eID = 1, size(mesh % elements)
+    !         associate( e => mesh % elements(eID) )
+    !             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+    !             pos = pos + 5_AddrInt*SIZEOF_INT ! This is to skip the reading of the dimensions and shape in writeArray
 
-                ! Allocate Q
-                allocate(storage_e(eID) % Lamb(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+    !             ! Allocate Q
+    !             allocate(storage_e(eID) % Lamb(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
                 
-                ! Read and initialize sound velocity
-                read(fID, pos=pos) storage_e(eID) % Lamb(:,:,:,:)
+    !             ! Read and initialize sound velocity
+    !             read(fID, pos=pos) storage_e(eID) % Lamb(:,:,:,:)
 
-            end associate
-        end do
+    !         end associate
+    !     end do
 
-        ! Close the file
-        close(fID)
-    end subroutine readLambVector
+    !     ! Close the file
+    !     close(fID)
+    ! end subroutine readLambVector
 
     subroutine saveStats(mesh, storage_e, refs, iter, time, baseName)
         use HexMeshClass
@@ -1200,8 +1200,8 @@ module StatsMeshInterpolation
         call saveStatsLambVector(mesh, storage_e, refs, iter, time, fileName)
 
         ! Save Lamb vector
-        write(fileName,'(A,A)') trim(baseName),'.InterpolatedLamb.hsol'
-        call saveLambVector(mesh, storage_e, refs, iter, time, fileName)
+        ! write(fileName,'(A,A)') trim(baseName),'.InterpolatedLamb.hsol'
+        ! call saveLambVector(mesh, storage_e, refs, iter, time, fileName)
 
     end subroutine saveStats
 
@@ -1510,37 +1510,37 @@ module StatsMeshInterpolation
 
     end subroutine saveStatsLambVector
 
-    subroutine saveLambVector(mesh, storage_e, refs, iter, time, name)
-        use HexMeshClass
-        use SolutionFile
-        implicit none
-        class(HexMesh),      intent(in)        :: mesh
-        class(StatsElementStorage_t), intent(in) :: storage_e(:)
-        real(kind=RP),       intent(in)        :: refs(NO_OF_SAVED_REFS)
-        integer,             intent(in)        :: iter
-        real(kind=RP),       intent(in)        :: time
-        character(len=*),    intent(in)        :: name
+    ! subroutine saveLambVector(mesh, storage_e, refs, iter, time, name)
+    !     use HexMeshClass
+    !     use SolutionFile
+    !     implicit none
+    !     class(HexMesh),      intent(in)        :: mesh
+    !     class(StatsElementStorage_t), intent(in) :: storage_e(:)
+    !     real(kind=RP),       intent(in)        :: refs(NO_OF_SAVED_REFS)
+    !     integer,             intent(in)        :: iter
+    !     real(kind=RP),       intent(in)        :: time
+    !     character(len=*),    intent(in)        :: name
         
-        ! Local variables
-        integer                          :: fid, eID
-        integer                          :: no_stat_s
-        integer(kind=AddrInt)            :: pos 
-        real(kind=RP), allocatable       :: Q(:,:,:,:)
+    !     ! Local variables
+    !     integer                          :: fid, eID
+    !     integer                          :: no_stat_s
+    !     integer(kind=AddrInt)            :: pos 
+    !     real(kind=RP), allocatable       :: Q(:,:,:,:)
 
-        ! Create new file
-        call CreateNewSolutionFile(trim(name),SOLUTION_FILE, mesh % nodeType, mesh % no_of_Allelements, iter, time, refs)
+    !     ! Create new file
+    !     call CreateNewSolutionFile(trim(name),SOLUTION_FILE, mesh % nodeType, mesh % no_of_Allelements, iter, time, refs)
         
-        ! Write arrays
-        fID = putSolutionFileInWriteDataMode(trim(name))
-        do eID = 1, mesh % no_of_elements
-            pos = POS_INIT_DATA + (mesh % elements(eID) % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*mesh % elements(eID) % offsetIO*SIZEOF_RP
-            call writeArray(fid, storage_e(eID) % Lamb, position=pos)
-        end do
-        close(fID)
+    !     ! Write arrays
+    !     fID = putSolutionFileInWriteDataMode(trim(name))
+    !     do eID = 1, mesh % no_of_elements
+    !         pos = POS_INIT_DATA + (mesh % elements(eID) % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*mesh % elements(eID) % offsetIO*SIZEOF_RP
+    !         call writeArray(fid, storage_e(eID) % Lamb, position=pos)
+    !     end do
+    !     close(fID)
 
-        ! Close the file
-        call SealSolutionFile(trim(name))
+    !     ! Close the file
+    !     call SealSolutionFile(trim(name))
 
-    end subroutine saveLambVector
+    ! end subroutine saveLambVector
 
 end module StatsMeshInterpolation
