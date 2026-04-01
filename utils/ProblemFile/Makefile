@@ -67,11 +67,13 @@ ifeq ($(PLATFORM),MACOSX)
    TARGET_iNS=$(TARGET)_ins$(LIBSUFFIX)
    TARGET_CH=$(TARGET)_ch$(LIBSUFFIX)
    TARGET_MU=$(TARGET)_mu$(LIBSUFFIX)
+   TARGET_CAA=$(TARGET)_caa$(LIBSUFFIX)
    DYNLIB_FLAG_NS=-fPIC -shared -install_name @rpath/$(TARGET_NS) -o $(TARGET_NS)#
    DYNLIB_FLAG_NSSA=-fPIC -shared -install_name @rpath/$(TARGET_NSSA) -o $(TARGET_NSSA)
    DYNLIB_FLAG_iNS=-fPIC -shared -install_name @rpath/$(TARGET_iNS) -o $(TARGET_iNS)
    DYNLIB_FLAG_CH=-fPIC -shared -install_name @rpath/$(TARGET_CH) -o $(TARGET_CH)
    DYNLIB_FLAG_MU=-fPIC -shared -install_name @rpath/$(TARGET_MU) -o $(TARGET_MU)
+   DYNLIB_FLAG_CAA=-fPIC -shared -install_name @rpath/$(TARGET_CAA) -o $(TARGET_CAA)
 else ifeq ($(PLATFORM),LINUX)
    LIBSUFFIX=.so
    TARGET_NS=$(TARGET)_ns$(LIBSUFFIX)
@@ -79,11 +81,13 @@ else ifeq ($(PLATFORM),LINUX)
    TARGET_iNS=$(TARGET)_ins$(LIBSUFFIX)
    TARGET_CH=$(TARGET)_ch$(LIBSUFFIX)
    TARGET_MU=$(TARGET)_mu$(LIBSUFFIX)
+   TARGET_CAA=$(TARGET)_caa$(LIBSUFFIX)
    DYNLIB_FLAG_NS=-fPIC -shared -o $(TARGET_NS)
    DYNLIB_FLAG_NSSA=-fPIC -shared -o $(TARGET_NSSA)
    DYNLIB_FLAG_iNS=-fPIC -shared -o $(TARGET_iNS)
    DYNLIB_FLAG_CH=-fPIC -shared -o $(TARGET_CH)
    DYNLIB_FLAG_MU=-fPIC -shared -o $(TARGET_MU)
+   DYNLIB_FLAG_CAA=-fPIC -shared -o $(TARGET_CAA)
 endif
 
 
@@ -164,10 +168,11 @@ HORSES_LIBS_NSSA=-ltimeintegrator_nssa -ljacobian_nssa -ldiscretization_nssa -lm
 HORSES_LIBS_iNS=-ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_CH=-ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_MU=-ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_CAA=-ltimeintegrator_caa -ljacobian_caa -ldiscretization_caa -lmonitors_caa -lparticles_caa -lmesh_caa -lphysics_caa -lphysicscaa -lio -lspectral -lmpiutils -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 
-all: $(TARGET_NS) $(TARGET_NSSA) $(TARGET_iNS) $(TARGET_CH) $(TARGET_MU)
+all: $(TARGET_NS) $(TARGET_NSSA) $(TARGET_iNS) $(TARGET_CH) $(TARGET_MU) $(TARGET_CAA)
 
 $(TARGET_NS): FORCE ./ProblemFile_NS.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NS) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_NS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
@@ -183,7 +188,11 @@ $(TARGET_CH): FORCE ./ProblemFile_CH.o
 	
 $(TARGET_MU): FORCE ./ProblemFile_MU.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_MU) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu ./ProblemFile_MU.o -L$(HOME_DIR)/lib $(HORSES_LIBS_MU)
-	
+
+$(TARGET_CAA): FORCE ./ProblemFile_CAA.o
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CAA) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_CAA.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CAA)
+
+
 # ---------- Executable macro -------------------
 ./ProblemFile_NS.o: FORCE ./ProblemFile.f90
 	$(FC) -fPIC -shared -DNAVIERSTOKES $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -c ./ProblemFile.f90 -o $@
@@ -200,8 +209,12 @@ $(TARGET_MU): FORCE ./ProblemFile_MU.o
 ./ProblemFile_MU.o: FORCE ./ProblemFile.f90
 	$(FC) -fPIC -shared -DMULTIPHASE -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu -c ./ProblemFile.f90 -o $@
 
+./ProblemFile_CAA.o: FORCE ./ProblemFile.f90
+	$(FC) -fPIC -shared -DACOUSTIC $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_caa -c ./ProblemFile.f90 -o $@
+
+
 clean: FORCE
-	rm -f ./ProblemFile_NS.o ./ProblemFile_NSSA.o ./ProblemFile_iNS.o ./ProblemFile_CH.o ./ProblemFile_MU.o ./*.mod
+	rm -f ./ProblemFile_NS.o ./ProblemFile_NSSA.o ./ProblemFile_iNS.o ./ProblemFile_CH.o ./ProblemFile_MU.o ./ProblemFile_CAA.o ./*.mod
 	rm -f ./*__genmod.f90
 	
 allclean: FORCE clean
@@ -223,5 +236,8 @@ allclean: FORCE clean
 	rm -f ./libproblemfile_mu.so
 	rm -f ./libproblemfile_mu.dylib
 	rm -f ./libproblemfile_mu.dSYM
+    rm -f ./libproblemfile_caa.so
+	rm -f ./libproblemfile_caa.dylib
+	rm -f ./libproblemfile_caa.dSYM
 
 FORCE:
