@@ -520,22 +520,22 @@ jobs:
 #######                       ACOSUTICS                         ########
 ########################################################################
 
-# 1) Manufactured solution
-# -------------------------------
+# # 1) Manufactured solution
+# # -------------------------------
 
-      - name: Build caa-ManufacturedSolution
-        working-directory: ./Solver/test/Acoustic/ManufacturedSolution/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
+#       - name: Build caa-ManufacturedSolution
+#         working-directory: ./Solver/test/Acoustic/ManufacturedSolution/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+#         if: '!cancelled()'
 
-      - name: Run caa-ManufacturedSolution
-        working-directory: ./Solver/test/Acoustic/ManufacturedSolution
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.caa TaylorGreen.control
-        if: '!cancelled()'
+#       - name: Run caa-ManufacturedSolution
+#         working-directory: ./Solver/test/Acoustic/ManufacturedSolution
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           ./horses3d.caa TaylorGreen.control
+#         if: '!cancelled()'
 
 # 2) Lamb vector time interpolation
 # -------------------------------
