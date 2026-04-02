@@ -44,6 +44,7 @@
          character(len=KEYWORD_LENGTH), PARAMETER :: INTERPOLATION_LINEAR_NAME      = "linear"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambReadDirectoryKey           = "lamb vector dir"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorFileNameKey          = "lamb vector file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LambVectorCubeKey              = "lamb vector cube"
 
       END MODULE Physics_CAAKeywordsModule
 !
@@ -298,7 +299,7 @@
          case (INTERPOLATION_CONSTANT_NAME)
             NLambInterpolation = 1
          case (INTERPOLATION_LINEAR_NAME)
-               NLambInterpolation = 2
+            NLambInterpolation = 2
          end select
       else ! Default to constant
          NLambInterpolation = 1

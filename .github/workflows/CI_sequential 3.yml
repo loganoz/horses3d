@@ -553,3 +553,20 @@ jobs:
 #           source /opt/intel/oneapi/setvars.sh || true
 #           ./horses3d.caa LambTimeInterp.control
 #         if: '!cancelled()'
+
+# # 3) Lamb vector cube
+# # -------------------------------
+
+#       - name: Build caa-LambVectorCube
+#         working-directory: ./Solver/test/Acoustic/LambVectorCube/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+#         if: '!cancelled()'
+
+#       - name: Run caa-LambVectorCube
+#         working-directory: ./Solver/test/Acoustic/LambVectorCube
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           ./horses3d.caa LambTimeInterp.control
+#         if: '!cancelled()'
