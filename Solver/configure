@@ -107,7 +107,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Particles/FreeFall \
             ./Particles/RadiationHeat \
             ./Particles/Pouransari \
-            ./Particles/ParticleBoundaryCond "
+            ./Particles/ParticleBoundaryCond \
+            ./Acoustic/ManufacturedSolution \
+            ./Acoustic/LambVectorTimeInterpolation "
 
 ##################################################
 ## 	GENERATE TUTORIALS			##
@@ -152,6 +154,7 @@ for subdir in $TEST_CASES; do
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.caa ./test/$subdir
 done
 
 for subdir in $TUTORIAL_CASES; do

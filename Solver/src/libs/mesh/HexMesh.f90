@@ -125,6 +125,7 @@ MODULE HexMeshClass
             procedure :: ExportOrders                  => HexMesh_ExportOrders
             procedure :: ExportBoundaryMesh            => HexMesh_ExportBoundaryMesh
             procedure :: SaveSolution                  => HexMesh_SaveSolution
+            procedure :: SaveLambVector                => HexMesh_SaveLambVector
             procedure :: pAdapt                        => HexMesh_pAdapt
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
             procedure :: DefineAcousticElements        => HexMesh_DefineAcousticElements
@@ -3620,6 +3621,9 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
                pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+#ifdef ACOUSTIC
+               call writeArray(fid, e % storage % Lamb, position=pos)
+#else
                allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
@@ -3636,7 +3640,7 @@ slavecoord:             DO l = 1, 4
                call writeArray(fid, Q, position=pos)
 
                deallocate(Q)
-
+#endif
             end associate
          end do
          close(fid)
@@ -4116,45 +4120,38 @@ slavecoord:             DO l = 1, 4
 
 #ifdef ACOUSTIC
 
-      subroutine HexMesh_LoadLambVector( self, controlVariables)
+      subroutine HexMesh_LoadLambVector( self, filename, indLamb_)
          use Physics_CAAKeywordsModule
          use SolutionFile
          implicit none
          class(HexMesh)                       :: self
-         type(FTValueDictionary), intent(in)  :: controlVariables
+         character(len=*), intent(in)  :: filename
+         integer, optional, intent(in)        :: indLamb_
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          character(len=LINE_LENGTH)                :: loadFileName
-         integer                          :: fid, eID
+         integer                          :: fid, eID, indLamb
          integer(kind=AddrInt)            :: pos
          real(kind=RP), allocatable       :: Q(:,:,:,:)
 
-         !
-         ! Read Lamb.hsol file from control file
-         !
-         if (.not. controlVariables % containsKey(trim(LambVectorFileNameKey))) then
-            print *, "The keyword ", trim(LambVectorFileNameKey), " not defined. Use:"
-            print *, trim(LambVectorFileNameKey), " = path/to/file.Lamb.hsol"
-            error stop
-         end if
-         loadFileName = trim(controlVariables % stringValueForKey(LambVectorFileNameKey,LINE_LENGTH))
-         if ( getSolutionFileType(trim(loadFileName)) .ne. SOLUTION_FILE ) then
-            print *, "The file ", loadFileName, " is not a solution file."
-            error stop
+         if (present(indLamb_)) then
+            indLamb = indLamb_
+         else
+            indLamb = 2
          end if
 
 !
 !        Read arrays
 !        ------------
-         fID = putSolutionFileInReadDataMode(trim(loadFileName))
+         fID = putSolutionFileInReadDataMode(filename)
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
                pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
                pos = pos + 5_AddrInt*SIZEOF_INT
-               read(fID, pos=pos) self % elements(eID) % storage % Lamb_NS(1:NDIM,:,:,:)
+               read(fID, pos=pos) self % elements(eID) % storage % Lambread(1:NDIM,:,:,:,indLamb)
             end associate
          end do
 
@@ -4799,6 +4796,8 @@ slavecoord:             DO l = 1, 4
             deallocate(Q)
             end associate
          end do
+         ! Close the file
+         close(fID)
 
    End Subroutine HexMesh_LoadBaseFlowSolution_NS
 

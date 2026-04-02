@@ -1,7 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
@@ -81,27 +80,25 @@ module ProblemFileFunctions
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP), intent(in)          :: x(NDIM)
-         real(kind=RP), intent(in)          :: t
-         real(kind=RP), intent(in)          :: nHat(NDIM)
-         real(kind=RP), intent(inout)       :: Q(NCONS)
-         type(Thermodynamics_t), intent(in) :: thermodynamics_
-         type(Dimensionless_t),  intent(in) :: dimensionless_
-         type(RefValues_t),      intent(in) :: refValues_
+         real(kind=RP)  :: x(NDIM)
+         real(kind=RP)  :: t
+         real(kind=RP)  :: nHat(NDIM)
+         real(kind=RP)  :: Q(NCONS)
+         type(Thermodynamics_t), intent(in)  :: thermodynamics_
+         type(Dimensionless_t),  intent(in)  :: dimensionless_
+         type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
-         use VariableConversion, only: GetGradientValues_f
          implicit none
          real(kind=RP), intent(in)          :: x(NDIM)
          real(kind=RP), intent(in)          :: t
          real(kind=RP), intent(in)          :: nHat(NDIM)
          real(kind=RP), intent(in)          :: Q(NCONS)
          real(kind=RP), intent(inout)       :: U(NGRAD)
-         procedure(GetGradientValues_f)     :: GetGradients
          type(Thermodynamics_t), intent(in) :: thermodynamics_
          type(Dimensionless_t),  intent(in) :: dimensionless_
          type(RefValues_t),      intent(in) :: refValues_
@@ -130,34 +127,15 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors & 
-#ifdef FLOW
-         , thermodynamics_ &
-         , dimensionless_  &
-         , refValues_ & 
-#endif   
-#ifdef CAHNHILLIARD
-         , multiphase_ &
-#endif
-      )
+      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors)
          use SMConstants
          USE HexMeshClass
          use MonitorsClass
-         use fluiddata
-         use physicsstorage
          IMPLICIT NONE
          CLASS(HexMesh)               :: mesh
          REAL(KIND=RP)                :: time
          REAL(KIND=RP)                :: dt
          type(Monitor_t), intent(in) :: monitors
-#ifdef FLOW
-         type(Thermodynamics_t), intent(in)    :: thermodynamics_
-         type(Dimensionless_t),  intent(in)    :: dimensionless_
-         type(RefValues_t),      intent(in)    :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-         type(Multiphase_t),     intent(in)    :: multiphase_
-#endif
       END SUBROUTINE UserDefinedPeriodicOperation_f
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -166,9 +144,6 @@ module ProblemFileFunctions
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 ,multiphase_ &
-#endif
-#ifdef ACOUSTIC
-,Qbase, Lambbase, Lamb &
 #endif
 )
          use SMConstants
@@ -185,11 +160,6 @@ module ProblemFileFunctions
          type(RefValues_t),      intent(in)  :: refValues_
 #ifdef CAHNHILLIARD
          type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
-#ifdef ACOUSTIC
-         real(kind=RP),             intent(in)  :: Qbase(NCONSB)
-         real(kind=RP),             intent(in)  :: Lambbase(NDIM)
-         real(kind=RP),             intent(in)  :: Lamb(NDIM)
 #endif
       end subroutine UserDefinedSourceTermNS_f
 #endif
@@ -276,6 +246,52 @@ end module ProblemFileFunctions
 #endif
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
+#ifdef ACOUSTIC
+            !
+            ! Generate synthetic data for the Lamb vector
+            !
+            real(rp) :: time, x, y, z
+            integer :: eID, i, j, k, iter
+            character(len=100) :: name
+
+            ! Generate time data for t = 0.0
+            time = 0.0_rp
+            iter = 0
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(1,i,j,k)
+                  y = e % geom % x(2,i,j,k)
+                  z = e % geom % x(3,i,j,k)
+                  mesh % elements(eID) % storage % Lamb(:,i,j,k) = [x * time, y * time, z * time]
+               end do                  ; end do                ; end do
+               end associate
+            end do
+            name = "RESULTS/LambVectorData/testLambVector_0"
+            call mesh % SaveLambVector(iter, time, name)
+
+            ! Generate time data for t = 1.0
+            time = 1.0_rp
+            iter = 1
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(1,i,j,k)
+                  y = e % geom % x(2,i,j,k)
+                  z = e % geom % x(3,i,j,k)
+                  mesh % elements(eID) % storage % Lamb(:,i,j,k) = [x * time, y * time, z * time]
+               end do                  ; end do                ; end do
+               end associate
+            end do
+            name = "RESULTS/LambVectorData/testLambVector_1"
+            call mesh % SaveLambVector(iter, time, name)
+
+            ! Reset to zero
+            do eID = 1, mesh % no_of_elements
+               mesh % elements(eID) % storage % Lamb = 0.0_rp
+            end do
+
 #endif
          END SUBROUTINE UserDefinedFinalSetup
 !
@@ -394,35 +410,10 @@ end module ProblemFileFunctions
                end associate
             end do
 #endif
-!
-!           -----------------------------------
-!           Acoustic default initial condition
-!           -----------------------------------
-!
-#if defined(ACOUSTIC)
-            do eID = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          ny => mesh % elemeNts(eID) % nxyz(2), &
-                          Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  ! mesh % elements(eID) % storage % q(:,i,j,k) = [0.0_RP, 0.0_RP,0.0_RP,0.0_RP,0.0_RP] 
-                  mesh % elements(eID) % storage % q(:,i,j,k) = 0.0_RP 
-               end do;        end do;        end do
-               end associate
-            end do
-#endif
-         end subroutine UserDefinedInitialCondition
 
-         subroutine UserDefinedState1(x, t, nHat, Q & 
+         end subroutine UserDefinedInitialCondition
 #ifdef FLOW
-            , thermodynamics_ &
-            , dimensionless_  &
-            , refValues_ & 
-#endif
-#ifdef CAHNHILLIARD
-            , multiphase_ &
-#endif
-            )
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -431,30 +422,21 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
             real(kind=RP), intent(inout)  :: Q(NCONS)
-#ifdef FLOW
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
-#endif
-#ifdef CAHNHILLIARD
-            type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
          end subroutine UserDefinedState1
 
-#ifdef FLOW
-
-         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
-            use VariableConversion, only: GetGradientValues_f
             implicit none
             real(kind=RP), intent(in)          :: x(NDIM)
             real(kind=RP), intent(in)          :: t
             real(kind=RP), intent(in)          :: nHat(NDIM)
             real(kind=RP), intent(in)          :: Q(NCONS)
             real(kind=RP), intent(inout)       :: U(NGRAD)
-            procedure(GetGradientValues_f)     :: GetGradients
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
@@ -481,16 +463,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors &
-#ifdef FLOW
-         , thermodynamics_ &
-         , dimensionless_  &
-         , refValues_ & 
-#endif   
-#ifdef CAHNHILLIARD
-         , multiphase_ &
-#endif
-      )
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called before every time-step to allow periodic operations
@@ -500,21 +473,37 @@ end module ProblemFileFunctions
             use SMConstants
             USE HexMeshClass
             use MonitorsClass
-            use fluiddata
-            use physicsstorage
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
             REAL(KIND=RP)                :: dt
             type(Monitor_t), intent(in) :: monitors
-#ifdef FLOW
-            type(Thermodynamics_t), intent(in)    :: thermodynamics_
-            type(Dimensionless_t),  intent(in)    :: dimensionless_
-            type(RefValues_t),      intent(in)    :: refValues_
+#ifdef ACOUSTIC
+            CHARACTER(LEN=100)                  :: testName           = "Lamb vector time interpolation"
+            real(rp) :: x, y, z
+            integer :: eID, i, j, k, iter
+
+            if (time == 0.0_rp) return
+
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(1,i,j,k)
+                  y = e % geom % x(2,i,j,k)
+                  z = e % geom % x(3,i,j,k)
+                  if (norm2(mesh % elements(eID) % storage % Lamb(:,i,j,k) - [x * (time-dt), y * (time-dt), z * (time-dt)]) > 1e-8) then
+                     print *, "eID: ", eID
+                     print *, "Lamb:     ", mesh % elements(eID) % storage % Lamb(:,i,j,k)
+                     print *, "expected: ", [x * (time-dt), y * (time-dt), z * (time-dt)]
+                     print *, "Error in linear interpolation at time ", time
+                     WRITE(6,*) trim(testName), " ... Failed"
+                     error stop 99
+                  end if
+               end do                  ; end do                ; end do
+               end associate
+            end do
 #endif
-#ifdef CAHNHILLIARD
-            type(Multiphase_t),     intent(in)    :: multiphase_
-#endif
+            
          END SUBROUTINE UserDefinedPeriodicOperation
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -523,9 +512,6 @@ end module ProblemFileFunctions
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 , multiphase_ &
-#endif
-#ifdef ACOUSTIC
-, Qbase, Lambbase, Lamb &
 #endif
 )
 !
@@ -547,11 +533,6 @@ end module ProblemFileFunctions
             type(RefValues_t),      intent(in)  :: refValues_
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
-#ifdef ACOUSTIC
-            real(kind=RP),             intent(in)  :: Qbase(NCONSB)
-            real(kind=RP),             intent(in)  :: Lambbase(NDIM)
-            real(kind=RP),             intent(in)  :: Lamb(NDIM)
 #endif
 !
 !           ---------------
@@ -588,6 +569,7 @@ end module ProblemFileFunctions
 !           --------------------------------------------------------
 !
             use SMConstants
+            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
@@ -608,6 +590,19 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+            LOGICAL                            :: success
+
 
          END SUBROUTINE UserDefinedFinalize
 !
@@ -620,5 +615,7 @@ end module ProblemFileFunctions
 !        everything else is done.
 !        -----------------------------------------------
 !
-         IMPLICIT NONE  
+         IMPLICIT NONE
+         call system("rm RESULTS/LambVectorData/testLambVector_*")  
       END SUBROUTINE UserDefinedTermination
+      

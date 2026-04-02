@@ -51,6 +51,7 @@ Tests/TestMeshes/CylinderNSpol3_v2.mesh
 *.ns
 *.nssa
 *.ins
+*.caa
 bin/
 Makefile
 Makefile.template

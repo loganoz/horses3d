@@ -365,7 +365,9 @@ The keywords for the trip options are:
 | Lamb vector base | *CHARACTER*: Whether to set a uniform base Lamb vector or read it from a file. Options are: `file` or `uniform`. | Mandatory keyword if `use Lamb vector = .true.` |
 | Lamb vector base vector | *REAL*: The vector of the base Lamb vector. | Mandatory keyword if `Lamb vector base = uniform` |
 | Lamb vector base file name | *CHARACTER*: The path to the stats file of the base Lamb vector. | Mandatory keyword if `Lamb vector base = file`. |
-| Lamb vector file name | *CHARACTER*: The path to the file of the Lamb vector. | Mandatory keyword if `use Lamb vector = .true.`. |
+| Lamb vector time interpolation | *CHARACTER*: The type of time interpolation of the Lamb vector. Options are: `constant` or `linear`. | `constant` |
+| Lamb vector dir | *CHARACTER*: The path to the directory containing the Lamb vector files. | Mandatory keyword if `use Lamb vector = .true.`. |
+| Lamb vector file name | *CHARACTER*: The basename of the files containing the Lamb vector data. | Mandatory keyword if `use Lamb vector = .true.`. |
 
 When the base solver is compressible Navier-Stokes or multiphase, it is possible to input either the Mach number or a reference velocity. In the case of compressible Navier-Stokes, the Mach number and the reference velocity are related by
 \begin{equation}
@@ -378,3 +380,11 @@ V_{\text{ref}} = \text{M} \; a^2_1,
 \end{equation}
 where \(a_1\) is the sound velocity in the first fluid.
 When the base solver is incompressible Navier-Stokes, it is only possible to input a reference velocity.
+
+### Lamb vector time interpolation
+
+The data of the Lamb vector from the base flow simulation (NS, iNS or MU) is stored in different `.Lamb.hsol` files at several time instants. The time steps of the acoustics simulation might not match these time instants. Thus, a time interpolation is needed.
+
+The Lamb vector data is stored in files with names: `caseName_00000.Lamb.hsol`, `caseName_00001.Lamb.hsol`, `caseName_00002.Lamb.hsol`, etc. To perform the time interpolation, we consider the files `dir/to/lamb/caseName*`, where `Lamb vector dir = "dir/to/lamb/"` and `Lamb vector file name = "caseName"`. Next, we read all the times from these files and sort them in ascending order. Then, at each time step of the acoustics simulation, we interpolate in time.
+
+When `Lamb vector time interpolation = "constant"`, the Lamb vector is assumed constant throughout all the simulation and it is equal to the value of the Lamb vector from the first file. When `Lamb vector time interpolation = "linear"`, the Lamb vector is interpolated linearly between the previous and next data.

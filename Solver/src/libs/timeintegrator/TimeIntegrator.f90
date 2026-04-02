@@ -529,6 +529,7 @@
       use ActuatorLine, only: farm, ConstructFarm, DestructFarm, UpdateFarm, WriteFarmForces, FarmUpdateControlVars, WriteControlVars, SaveControllerState
 #endif
 #if defined(ACOUSTIC)
+      use LambVectorInterpolation
       use APESourceClass, only: apeSource, constructAPESource
 #endif
 
@@ -571,7 +572,7 @@
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
       logical                       :: saveGradients, saveSensor, saveLES, saveOrders, saveSource, saveLambVector
-      logical                       :: useTrip, ActuatorLineFlag, ActuatorLineControlFlag, readLamb_NS
+      logical                       :: useTrip, ActuatorLineFlag, ActuatorLineControlFlag
 
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 
@@ -586,7 +587,6 @@
       ActuatorLineFlag        = controlVariables % logicalValueForKey("use actuatorline")
       ActuatorLineControlFlag = controlVariables % logicalValueForKey("actuator use controller")
       saveOrders              = controlVariables % logicalValueForKey("save mesh order")
-      readLamb_NS             = .false.
 
 !
 !     ---------------
@@ -619,6 +619,7 @@
       call ConstructSponge(sponge,sem % mesh,controlVariables)
 #endif
 #if defined(ACOUSTIC)
+      call LambInterpolation % construct(controlVariables)
    call constructAPESource(apeSource, controlVariables)
 #endif
 !
@@ -779,8 +780,7 @@
          if(ActuatorLineFlag) call UpdateFarm(farm, t, sem % mesh)
 #endif
 #if defined(ACOUSTIC)
-         ! AJRTODO: Set readLamb_NS in terms of user input 
-         if (readLamb_NS) call sem % mesh % LoadLambVector(controlVariables)
+         call LambInterpolation % interpolate(sem % mesh, t)
 #endif
 !
 !        Perform time step

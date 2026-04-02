@@ -626,4 +626,47 @@ contains
                   deallocate(auxline)
                end subroutine getRealArrayFromStringNoCommasMulitpleSpaces
 
+      subroutine readFilesByGlob(dirname, basename, array)
+         implicit none
+         character(len=*) :: dirname
+         character(len=*) :: basename
+         character(len=*), allocatable :: array(:)
+
+         real :: r
+         integer :: fID, i, NFiles, reason
+         character(len=100) :: pathToFile, command
+
+         if (dirname(len(dirname):len(dirname)) .eq. "/") then
+            command = "ls -1 " // dirname // basename // "*"
+         else
+            command = "ls -1 " // dirname // "/" // basename // "*"
+         end if
+
+         ! get the files
+         call system(command // " > tmp_readFilesByGlob.txt")
+         open(fID,FILE='tmp_readFilesByGlob.txt',action="read")
+         
+         !how many
+         NFiles = 0
+         do
+            read(fID,FMT='(a)',iostat=reason) r
+            if (reason/=0) EXIT
+            NFiles = NFiles+1
+         end do
+         ! print *, "Number of files: " , NFiles
+         
+         allocate(array(NFiles))
+         rewind(fID)
+         do i = 1, NFiles
+            read(fID,'(a)') pathToFile
+            if (dirname(len(dirname):len(dirname)) .eq. "/") then
+               array(i) = trim(dirname) // trim(pathToFile)
+            else
+               array(i) = trim(dirname) // "/" // trim(pathToFile)
+            end if
+         end do
+         close(fID)
+         call system("rm tmp_readFilesByGlob.txt")
+      end subroutine
+
 end module FileReadingUtilities
