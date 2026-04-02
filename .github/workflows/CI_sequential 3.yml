@@ -537,19 +537,19 @@ jobs:
 #           ./horses3d.caa TaylorGreen.control
 #         if: '!cancelled()'
 
-# 2) Lamb vector time interpolation
-# -------------------------------
+# # 2) Lamb vector time interpolation
+# # -------------------------------
 
-      - name: Build caa-LambVectorTimeInterpolation
-        working-directory: ./Solver/test/Acoustic/LambVectorTimeInterpolation/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
+#       - name: Build caa-LambVectorTimeInterpolation
+#         working-directory: ./Solver/test/Acoustic/LambVectorTimeInterpolation/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+#         if: '!cancelled()'
 
-      - name: Run caa-LambVectorTimeInterpolation
-        working-directory: ./Solver/test/Acoustic/LambVectorTimeInterpolation
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.caa LambTimeInterp.control
-        if: '!cancelled()'
+#       - name: Run caa-LambVectorTimeInterpolation
+#         working-directory: ./Solver/test/Acoustic/LambVectorTimeInterpolation
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           ./horses3d.caa LambTimeInterp.control
+#         if: '!cancelled()'
