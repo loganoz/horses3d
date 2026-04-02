@@ -40,6 +40,7 @@ Module LambVectorInterpolation  !
         character(len=KEYWORD_LENGTH) :: keyword
 
         self % isActive = controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)
+        if (.not. self % isActive) return
 
         if (controlVariables % containsKey(LambInterpolationTypeKey)) then
             keyword = controlVariables % stringValueForKey(LambInterpolationTypeKey, KEYWORD_LENGTH)
@@ -47,7 +48,7 @@ Module LambVectorInterpolation  !
 
             select case (keyword)
             case (INTERPOLATION_CONSTANT_NAME)
-               self % interpolationType = TYPE_CONSTANT
+                self % interpolationType = TYPE_CONSTANT
             case (INTERPOLATION_LINEAR_NAME)
                 self % interpolationType = TYPE_LINEAR
             end select
@@ -134,9 +135,11 @@ Module LambVectorInterpolation  !
         t0 = self % times(self % currTimeIndex)
         t1 = self % times(self % currTimeIndex+1)
         alpha = (time - t0) / (t1 - t0)
+!$omp do schedule(runtime) private(eID)
         do eID = 1, mesh % no_of_elements
             mesh % elements(eID) % storage % Lamb(:,:,:,:) = mesh % elements(eID) % storage % Lambread(:,:,:,:,1) * (1.0_rp - alpha) + alpha *  mesh % elements(eID) % storage % Lambread(:,:,:,:,2)
         end do
+!$omp end do
 
     end subroutine LVI_interpolateLinear
 
