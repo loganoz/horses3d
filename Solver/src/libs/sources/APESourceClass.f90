@@ -24,6 +24,8 @@ Module APESourceClass  !
         logical :: isActive = .false.
         integer :: apeeq
         logical :: useLambVector = .false.
+        logical :: useCube = .false.
+        integer, allocatable :: cube_elements(:)
     contains
     end type apeSource_t
 
@@ -35,16 +37,21 @@ Module APESourceClass  !
 !           APE PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-    subroutine constructAPESource(self, controlVariables)
+    subroutine constructAPESource(self, mesh, controlVariables)
         use Physics_CAAKeywordsModule
         use FTValueDictionaryClass
+        use HexMeshClass
+        use FileReadingUtilities, only: GetRealArrayFromString
         implicit none
         type(apeSource_t) :: self
+        type(HexMesh)    :: mesh
         type(FTValueDictionary), intent(in)                     :: controlVariables
 
-        self % isActive = .false.
-        if (.not. controlVariables % logicalValueForKey(SOURCE_TERM_KEY)) return
-        self % isActive = .true.
+        ! Local variables
+        real(rp), allocatable :: cubeCoords(:)
+
+        self % isActive = controlVariables % logicalValueForKey(SOURCE_TERM_KEY)
+        if (.not. self % isActive) return
 
         ! Read APE equation from control file
         self % apeeq = controlVariables % getValueOrDefault(APE_NUMBER_KEY, APEEQ_4)
@@ -53,11 +60,96 @@ Module APESourceClass  !
             error stop
         end if
 
-        self % useLambVector = .false.
-        if (.not. controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) return
-        self % useLambVector = .true.
+        self % useLambVector = controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)
+
+        if (self % useLambVector) then
+            if (controlVariables % containsKey(LambVectorCubeKey)) then
+                self % useCube = .true.
+                ! Read cube coordinates
+                cubeCoords = GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorCubeKey,requestedLength = LINE_LENGTH))
+                if (size(cubeCoords) .ne. 6) then
+                    print *, "ERROR: size(cubeCoords) != 6"
+                    print *, "Cube coordinates read: ", cubeCoords
+                    print *, "[x0, x1, y0, y1, z0, z1] is expected."
+                    error stop
+                end if
+                ! Get elements inside cube
+                call findElementsInsideCube(mesh, cubeCoords, self % cube_elements)
+            end if
+        end if
 
     end subroutine constructAPESource
+!
+    subroutine findElementsInsideCube(mesh, cubeCoords, array)
+        use HexMeshClass
+        use IntegerDataLinkedList
+        implicit none
+        class(HexMesh), intent(in) :: mesh
+        real(rp), intent(in) :: cubeCoords(6)
+        integer, allocatable, intent(out) :: array(:)
+
+        ! Local variables
+        type(IntegerDataLinkedList_t) :: Data
+        integer :: eID
+
+        ! Find elements inside cube
+        Data = IntegerDataLinkedList_t(.false.)
+        do eID = 1, mesh % no_of_elements
+            if (intersect(mesh % elements(eID) % surfInfo % corners, cubeCoords)) then
+                call Data % Add(eID)
+            end if
+        end do
+        call Data % ExportToArray(array)
+        call Data % destruct
+
+    end subroutine findElementsInsideCube
+!
+    logical function intersect(corners, cube)
+        ! Returns true if the corners of the element are inside the cube.
+        ! Curved elements are considered straight-sided.
+        ! We define that the element intersects the cube if:
+        ! any x-coordinate of the corners belongs to [x0, x1] AND
+        ! any y-coordinate of the corners belongs to [y0, y1] AND
+        ! any z-coordinate of the corners belongs to [z0, z1]
+        use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT
+        implicit none
+        real(kind=RP), intent(in)   :: corners(NDIM,NODES_PER_ELEMENT)
+        real(kind=RP), intent(in)   :: cube(6) ! [x0, x1, y0, y1, z0, z1]
+
+        ! Local variables
+        logical :: isInside
+        integer :: i
+
+        isInside = .false.
+        do i = 1, NODES_PER_ELEMENT
+            if ((cube(1) <= corners(1,i)) .and. (corners(1,i) <= cube(2))) isInside = .true.
+        end do
+        if (.not. isInside) then
+            intersect = .false.
+            return
+        end if
+
+        isInside = .false.
+        do i = 1, NODES_PER_ELEMENT
+            if ((cube(3) <= corners(2,i)) .and. (corners(2,i) <= cube(4))) isInside = .true.
+        end do
+        if (.not. isInside) then
+            intersect = .false.
+            return
+        end if
+
+        isInside = .false.
+        do i = 1, NODES_PER_ELEMENT
+            if ((cube(5) <= corners(3,i)) .and. (corners(3,i) <= cube(6))) isInside = .true.
+        end do
+        if (.not. isInside) then
+            intersect = .false.
+            return
+        end if
+        ! At this point, isInside is true.
+        intersect = .true.
+
+    end function intersect
 !
     Subroutine addAPESource(self, mesh)
         type(apeSource_t)                                    :: self
@@ -69,7 +161,12 @@ Module APESourceClass  !
         select case (self % apeeq)
         case (APEEQ_4)
             if (self % useLambVector) then
-                call addAPE4Source(self, mesh)
+                if (self % useCube) then
+                    call addAPE4Source_withoutLamb(self, mesh)
+                    call addAPE4Source_onlyLamb(self, mesh)
+                else
+                    call addAPE4Source(self, mesh)
+                end if
             else
                 call addAPE4Source_withoutLamb(self, mesh)
             end if
@@ -131,5 +228,25 @@ Module APESourceClass  !
 
     End Subroutine addAPE4Source_withoutLamb
 !
+    Subroutine addAPE4Source_onlyLamb(self, mesh)
+        type(apeSource_t)                                    :: self
+        type(HexMesh), intent(inout)                         :: mesh
+    
+        ! Local variables
+        integer                                                 :: i, j, k, eID
+        real(rp)                                                :: qvel(NDIM)
+
+!$omp do schedule(runtime) private(i,j,k,eID,qvel)
+            do eID = 1, size(self % cube_elements)
+               associate ( e => mesh % elements(self % cube_elements(eID)) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                    qvel =  e % storage % Lambbase(:,i,j,k) - e % storage % Lamb(:,i,j,k)
+                    e % storage % S_NS(ICAAU:ICAAW,i,j,k) = e % storage % S_NS(ICAAU:ICAAW,i,j,k) + qvel
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
+    End Subroutine addAPE4Source_onlyLamb
 #endif
 End Module APESourceClass

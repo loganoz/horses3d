@@ -620,7 +620,7 @@
 #endif
 #if defined(ACOUSTIC)
       call LambInterpolation % construct(controlVariables)
-   call constructAPESource(apeSource, controlVariables)
+      call constructAPESource(apeSource, sem % mesh, controlVariables)
 #endif
 !
 !     ----------------------------------
