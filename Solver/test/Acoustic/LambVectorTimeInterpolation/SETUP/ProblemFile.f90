@@ -255,6 +255,8 @@ end module ProblemFileFunctions
             integer :: eID, i, j, k, iter
             character(len=100) :: name
 
+            call system("mkdir -p RESULTS/LambVectorData")
+
             ! Generate time data for t = 0.0
             time = 0.0_rp
             iter = 0
