@@ -52,6 +52,7 @@ module getTask
    character(len=*), parameter   :: OUTPUT_VARIABLES_FLAG="--output-variables="
    character(len=*), parameter   :: BOUNDARY_FILE_FLAG="--boundary-file="
    character(len=*), parameter   :: PARTITION_FILE_FLAG="--partition-file="
+   character(len=*), parameter   :: FLOW_EQS_FLAG="--flow-eqs=" ! AJRTODO: Documentar esto
    character(len=*), parameter   :: OUTPUT_FILE_TYPE="--output-type="
    character(len=*), parameter   :: WRITE_MESH_TYPE="--write-mesh="
 
@@ -372,6 +373,7 @@ module getTask
          use SolutionFile
          use Storage               , only: hasMPIranks, hasBoundaries, partitionFileName, boundaryFileName, flowEq
          use OutputVariables       , only: outScale, hasVariablesFlag, askedVariables, Lreference
+         use Utilities, only: toLower
          implicit none
          integer,                                 intent(out) :: taskType
          character(len=*),                        intent(out) :: meshName
@@ -592,6 +594,20 @@ module getTask
                case ("FE")
                   mode = MODE_FINITEELM
                end select
+               exit
+            end if
+         end do
+!
+!        Get the flow equations
+!        ------------
+         flowEq = "ns" ! Default
+         do i = 1, no_of_arguments
+            call get_command_argument(i, auxiliarName)
+            pos = index(trim(auxiliarName), FLOW_EQS_FLAG)
+            
+            if ( pos .ne. 0 ) then
+               flowEq = auxiliarName(pos+len_trim(FLOW_EQS_FLAG):len_trim(auxiliarName))
+               call toLower(flowEq)
                exit
             end if
          end do
