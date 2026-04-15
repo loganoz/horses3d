@@ -19,6 +19,10 @@ module OutputVariables
    use PhysicsStorage
    use Headers
    use Storage, only: NVARS, hasMPIranks
+   use PhysicsStorage_NSSA, only: IRHOTHETA
+   use PhysicsStorage_iNS, only: INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
+   use PhysicsStorage_MU, only: IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP
+   use PhysicsStorage_CAA, only: ICAARHO, ICAAU, ICAAV, ICAAW, ICAAP
 
    private
    public   no_of_outputVariables, preliminarNoOfVariables, askedVariables, getNoOfCommas
@@ -38,8 +42,9 @@ module OutputVariables
       enumerator :: P_V, P0_V , RHODOT_V, RHOUDOT_V, RHOVDOT_V, RHOWDOT_V
       enumerator :: RHOEDOT_V, CDOT_V, T_V, Mach_V, S_V, Vabs_V
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
-      enumerator :: RHOW_V, RHOE_V, C_V, Cp_V, Nxi_V, Neta_V
-      enumerator :: Nzeta_V, Nav_V, N_V
+      enumerator :: RHOW_V, RHOE_V, C_V, Cp_V
+      enumerator :: SQRHOU_V, SQRHOV_V, SQRHOW_V
+      enumerator :: Nxi_V, Neta_V, Nzeta_V, Nav_V, N_V
       enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V
       enumerator :: LAMBvec_V, LAMBx_V, LAMBy_V, LAMBz_V
       enumerator :: MPIRANK_V
@@ -86,6 +91,9 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: RHOEKey       = "rhoe"
    character(len=STR_VAR_LEN), parameter  :: cKey          = "c"
    character(len=STR_VAR_LEN), parameter  :: CpKey         = "Cp"
+   character(len=STR_VAR_LEN), parameter  :: SQRHOUKey     = "sqrhou"
+   character(len=STR_VAR_LEN), parameter  :: SQRHOVKey     = "sqrhov"
+   character(len=STR_VAR_LEN), parameter  :: SQRHOWKey     = "sqrhow"
    character(len=STR_VAR_LEN), parameter  :: NxiKey        = "Nxi"
    character(len=STR_VAR_LEN), parameter  :: NetaKey       = "Neta"
    character(len=STR_VAR_LEN), parameter  :: NzetaKey      = "Nzeta"
@@ -158,7 +166,9 @@ module OutputVariables
                                                                             PKey, P0Key, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
                                                                             CDOTKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
-                                                                            RHOEKey, cKey, CpKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
+                                                                            RHOEKey, cKey, CpKey, &
+                                                                            SQRHOUKey, SQRHOVKey, SQRHOWKey, &
+                                                                            NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
                                                                             XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, &
                                                                             LambKey, LambxKey, LambyKey, LambzKey, &
                                                                             mpiRankKey, &
@@ -291,6 +301,7 @@ module OutputVariables
          use SolutionFile
          use Storage
          use StatisticsMonitor
+         use Utilities, only: toLower
          implicit none
          integer, intent(in)          :: noOutput
          integer, intent(in)          :: outputVarNames(1:noOutput)
@@ -353,11 +364,26 @@ module OutputVariables
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
                case(P_V)
-                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP)*(Q(IRHOE,i,j,k) - 0.5_RP*&
-                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k))
-                  end do         ; end do         ; end do
-                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
+                  select case (trim(flowEq))
+                  case ("ns")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP)*(Q(IRHOE,i,j,k) - 0.5_RP*&
+                                          ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k))
+                     end do         ; end do         ; end do
+                     if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
+
+                  case ("ins")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(INSP,i,j,k)
+                     end do         ; end do         ; end do
+                     if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:) ! AJRTODO
+
+                  case ("mu")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(IMP,i,j,k)
+                     end do         ; end do         ; end do
+                     if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:) ! AJRTODO
+                  end select
 
               case(P0_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -492,7 +518,27 @@ module OutputVariables
                      output(var,i,j,k) = Q(IRHOE,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
+
+               case(SQRHOU_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IMSQRHOU,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:) ! AJRTODO
                
+               case(SQRHOV_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IMSQRHOV,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:) ! AJRTODO
+               
+               case(SQRHOW_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IMSQRHOW,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:) ! AJRTODO
+               
+               !AJRTODO: En la documentacion, poner que solo se pueden exportar Q para el caso MU
+
                case(LAMBx_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = Q(1,i,j,k)
@@ -802,9 +848,16 @@ module OutputVariables
 
 
                case(C_V)
-                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = Q(size(Q,1),i,j,k)
-                  end do         ; end do         ; end do
+                  select case (trim(flowEq))
+                  case ("ch")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(size(Q,1),i,j,k)
+                     end do         ; end do         ; end do
+                  case ("mu")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(IMC,i,j,k)
+                     end do         ; end do         ; end do
+                  end select
 
                case(CX_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -930,6 +983,7 @@ module OutputVariables
       end function outputVariablesForVariable
 
       subroutine OutputVariablesForPreliminarVariable(iVar, output)
+         use Storage               , only: flowEq
          implicit none
          integer, intent(in)     :: iVar
          integer, intent(out)    :: output(:)
@@ -937,16 +991,18 @@ module OutputVariables
          select case(iVar)
 
          case(Q_V)
-            if ( NVARS .eq. 5 ) then
-               output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V/)
-
-            elseif ( NVARS .eq. 6 ) then
-               output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V, C_V/)
-
-            elseif ( NVARS .eq. 1 ) then
-               output = (/C_V/)
-
-            end if
+            select case (trim(flowEq))
+              case ("ns")
+                  output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V/)
+              case ("nssa")
+                  output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V, C_V/)
+              case ("ins")
+                  output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, P_V/)
+              case ("ch")
+                  output = (/C_V/)
+              case ("mu")
+                  output = (/C_V, SQRHOU_V, SQRHOV_V, SQRHOW_V, P_V/)
+          end select
 
          case(QDot_V)
 
