@@ -52,7 +52,7 @@ module getTask
    character(len=*), parameter   :: OUTPUT_VARIABLES_FLAG="--output-variables="
    character(len=*), parameter   :: BOUNDARY_FILE_FLAG="--boundary-file="
    character(len=*), parameter   :: PARTITION_FILE_FLAG="--partition-file="
-   character(len=*), parameter   :: FLOW_EQS_FLAG="--flow-eqs=" ! AJRTODO: Documentar esto
+   character(len=*), parameter   :: FLOW_EQS_FLAG="--flow-eqs="
    character(len=*), parameter   :: OUTPUT_FILE_TYPE="--output-type="
    character(len=*), parameter   :: WRITE_MESH_TYPE="--write-mesh="
 

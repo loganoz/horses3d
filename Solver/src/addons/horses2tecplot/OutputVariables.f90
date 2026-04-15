@@ -376,13 +376,13 @@ module OutputVariables
                      do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                         output(var,i,j,k) = Q(INSP,i,j,k)
                      end do         ; end do         ; end do
-                     if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:) ! AJRTODO
+                     if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
 
                   case ("mu")
                      do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                         output(var,i,j,k) = Q(IMP,i,j,k)
                      end do         ; end do         ; end do
-                     if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:) ! AJRTODO
+                     if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
                   end select
 
               case(P0_V)
@@ -523,21 +523,19 @@ module OutputVariables
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = Q(IMSQRHOU,i,j,k)
                   end do         ; end do         ; end do
-                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:) ! AJRTODO
+                  if ( outScale ) output(var,:,:,:) = sqrt(refs(RHO_REF)) * refs(V_REF) * output(var,:,:,:)
                
                case(SQRHOV_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = Q(IMSQRHOV,i,j,k)
                   end do         ; end do         ; end do
-                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:) ! AJRTODO
+                  if ( outScale ) output(var,:,:,:) = sqrt(refs(RHO_REF)) * refs(V_REF) * output(var,:,:,:)
                
                case(SQRHOW_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = Q(IMSQRHOW,i,j,k)
                   end do         ; end do         ; end do
-                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:) ! AJRTODO
-               
-               !AJRTODO: En la documentacion, poner que solo se pueden exportar Q para el caso MU
+                  if ( outScale ) output(var,:,:,:) = sqrt(refs(RHO_REF)) * refs(V_REF) * output(var,:,:,:)
 
                case(LAMBx_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)

@@ -22,6 +22,7 @@ The options comprise following flags:
 | --output-basis=    | *CHARACTER*: Either *Homogeneous* (for equispaced nodes, or *Gauss*.)                                            | *Gauss*       |
 | --output-mode=     | *CHARACTER*: Either *multizone* or *FE*. The option *multizone* generates a Tecplot zone for each element. The option *FE* generates only one Tecplot zone for the fluid and one for each boundary (if *--boundary-file* is defined). Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot. | *multizone*   |
 | --output-variables=| *CHARACTER*: Output variables separated by commas. A complete description can be found in Section 2.             | Q             |
+| --flow-eqs=| *CHARACTER*: Solver generating the solution file. Options are: ns, ins, ch, mu, caa.             | ns             |
 | --dimensionless    | Specifies that the output quantities must be dimensionless.                                                     | Not Present   |
 | --partition-file=  | *CHARACTER*: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation.     | Not Present   |
 | --boundary-file=   | *CHARACTER*: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. | Not Present   |
@@ -90,6 +91,7 @@ The options are:
   </ul>
 </div>
 
+When `--flow-eqs=mu`, only the whole set of variables \(Q\) is supported.
 
 ## Statistics Files (*.stats.hsol)
 Statistics files can generate the standard variables as well as the following variables (being \(S_{ij}\) the components of the Reynolds Stress tensor):
