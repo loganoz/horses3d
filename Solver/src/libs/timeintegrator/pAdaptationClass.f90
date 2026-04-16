@@ -95,7 +95,7 @@ module pAdaptationClass
       logical                           :: Adapt                           ! Is the adaptator going to be used??
       logical                           :: Constructed      ! 
       logical                           :: restartFiles    = .FALSE.
-      logical                           :: UnSteady
+      logical                           :: UnSteady = .FALSE.
       integer                           :: NxyzMax(3)                      ! Maximum polynomial order in all the directions
       integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
       real(kind=RP)                     :: time_interval
