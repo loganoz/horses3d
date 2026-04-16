@@ -18,7 +18,7 @@ solution file name           = "RESULTS/Cylinder_acoustics_pAdaptationRL.hsol"
 save gradients with solution = .false.
 restart                      = .false.
 restart file name            = "RESULTS/Cylinder_acoustics_pAdaptationRL.hsol"
-simulation type              = unsteady-state
+simulation type              = time-accurate 
 
 Discretization nodes         = Gauss
 Riemann solver               = low dissipation roe
