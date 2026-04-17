@@ -1043,7 +1043,7 @@ module TessellationTypes
       real(kind=RP),            intent(in)   :: t
       real(kind=RP),  optional, intent(in)   :: angle 
       !-local-variables-----------------------
-      real(kind=RP) :: time, theta
+      real(kind=RP) :: theta
 
       if( present(angle) ) then 
 
@@ -1073,9 +1073,8 @@ module TessellationTypes
          return
       end if     
 #if defined(NAVIERSTOKES)
-      time = t * Lref/refValues% V
    
-      theta = this% angularVelocity * time
+      theta = this% angularVelocity * t
    
       this% rotationMatrix = 0.0_RP
    
@@ -1110,11 +1109,8 @@ module TessellationTypes
       class(STLfile), intent(inout):: this
       real(kind=RP),  intent(in)   :: t
 
-      real(kind=RP) :: time 
 #if defined(NAVIERSTOKES)
-      time = t * Lref/refValues% V
-   
-      this% ds = this% Velocity * time
+      this% ds = this% Velocity * t
 
       this% ds = this% ds/Lref
 #endif
