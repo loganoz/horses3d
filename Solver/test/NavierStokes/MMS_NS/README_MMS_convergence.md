@@ -1,74 +1,64 @@
-# MMS Convergence Verification Framework — HORSES3D
+# MMS Convergence Verification — HORSES3D
 
-Automated Method of Manufactured Solutions (MMS) convergence study for one
-solver per directory.  The three solver directories (NS, iNS, MU) share an
-identical layout and workflow.
+This directory contains an automated Method of Manufactured Solutions (MMS) convergence study for HORSES3D 
 
 ---
 
-## Directory structure
+## Directory layout
 
 ```
 <solver>/
 ├── SETUP/
-│   ├── generate_problemfile_<solver>.py   # symbolic source-term generator  <- edit here
+│   ├── generate_problemfile_<solver>.py   # symbolic source-term generator  ← edit here
 │   └── Makefile                           # compiles ProblemFile.f90
 ├── MESH/
-│   └── mesh<N>.h5                         # structured hex meshes (N^3 elements)
+│   └── mesh<N>.h5                         # structured hex meshes (N³ elements)
 ├── CONTROL/
-│   ├── mms_N<N>_P<P>.control             # auto-generated per run  (do not edit)
-│   └── mms_N<N>_P<P>.log                 # solver log per run      (do not edit)
+│   ├── mms_N<N>_P<P>.control             # auto-generated per run
+│   └── mms_N<N>_P<P>.log                 # solver log per run
 ├── RESULTS/
-│   └── MMS_N<N>_P<P>.hsol                # solver output           (do not edit)
-├── control_template.control               # solver settings  <- edit here
-├── run_convergence_<solver>.py            # study config and orchestration  <- edit here
-├── plot_convergence_<solver>.py           # plot styling (optional edit)
+│   └── MMS_N<N>_P<P>.hsol                # solver output
+├── control_template.control               # solver settings  ← edit here
+├── run_convergence_<solver>.py            # study configuration and orchestration  ← edit here
+├── plot_convergence_<solver>.py           # plotting (optional edits)
 └── errors.csv                             # accumulated results (auto-created)
 ```
 
+Files under `CONTROL/` and `RESULTS/` are generated automatically — there is no reason to edit them by hand.
+
 ---
 
-## Quick start
+## Running a study
 
-### 1 — Generate the problem file
+### Step 1 — Generate the problem file
 
 ```bash
 cd <solver>/SETUP
-# Edit Section 1 and Section 2 of generate_problemfile_<solver>.py (see below)
 python3 generate_problemfile_<solver>.py
 make
 ```
 
-This writes `ProblemFile.f90` with the MMS source terms and L2 error routine
-hard-coded, and compiles it into the solver binary.
+This derives the MMS source terms symbolically (via SymPy), writes them into `ProblemFile.f90`, and compiles that file into the solver binary. You need to redo this step whenever you change the manufactured solution or any physical parameter.
 
-> **Always recompile after changing the manufactured solution or physical
-> parameters.**
+### Step 2 — Prepare your meshes
 
-### 2 — Prepare meshes
+Structured hexahedral meshes go in `MESH/`, named `mesh<N>.h5` where `N` is the number of elements per side — for example `mesh3.h5`, `mesh4.h5`, `mesh5.h5`, `mesh6.h5`.
 
-Place structured hex meshes in `MESH/` named `mesh<N>.h5` where `N` is the
-number of elements per side (e.g. `mesh3.h5`, `mesh4.h5`, `mesh5.h5`,
-`mesh6.h5`).
+### Step 3 — Configure the run
 
-### 3 — Configure the run
+Open `run_convergence_<solver>.py` and set the paths and study parameters at the top of the file:
 
-Open `run_convergence_<solver>.py` and edit **Section 1** (paths) and
-**Section 2** (study parameters):
-
-| Parameter | Description |
+| Parameter | What it controls |
 |---|---|
-| `HORSES_BINARY` | Path to compiled solver binary |
-| `MESH_SIZES` | List of `N` values (elements per side) |
-| `P_VALUES` | Polynomial orders to sweep |
-| `DT` | Fixed time step (see note on time floor below) |
+| `HORSES_BINARY` | Path to the compiled solver binary |
+| `MESH_SIZES` | List of `N` values (elements per side) to sweep |
+| `P_VALUES` | Polynomial orders to test |
+| `DT` | Fixed time step (see the note on time-integration floors below) |
 | `T_FINAL` | End time |
 
-Additional solver settings (Riemann solver, viscosity model, etc.) live in
-`control_template.control`.  Only these tokens are filled automatically at
-runtime:
+Other solver settings — Riemann solver choice, viscosity model, boundary conditions — live in `control_template.control`. At runtime the script fills in the following placeholders automatically:
 
-| Token | Replaced by |
+| Token | Replaced with |
 |---|---|
 | `{MESH_FILE}` | Path to `mesh<N>.h5` |
 | `{SOLUTION_FILE}` | Path to output `.hsol` |
@@ -76,68 +66,56 @@ runtime:
 | `{DT}` | Time step |
 | `{N_STEPS}` | `round(T_FINAL / DT)` |
 
-### 4 — Run
+### Step 4 — Run
 
 ```bash
 python3 run_convergence_<solver>.py
-python3 run_convergence_<solver>.py --dry-run   # preview without running
+
+# Preview what would run without executing anything:
+python3 run_convergence_<solver>.py --dry-run
 ```
 
-Results are appended to `errors.csv` one row per case.  The script is
-**crash-safe**: if interrupted, re-running it skips already-completed
-`(nelems, P)` pairs.
+Each `(N, P)` pair appends one row to `errors.csv`. If the script is interrupted and restarted, it reads the CSV and skips cases that already finished — so you will not lose work.
 
-### 5 — Plot
+### Step 5 — Plot
 
 ```bash
 python3 plot_convergence_<solver>.py
+
+# Override paths:
 python3 plot_convergence_<solver>.py --csv path/to/errors.csv --outdir path/to/out
 ```
 
-Outputs `convergence.pdf` and `convergence.png` with three panels:
+This produces `convergence.pdf` and `convergence.png`, each with three panels:
 
-- **Left** — L2 error vs sqrt(NDOF) (combined h/p view)
-- **Centre** — h-convergence per p (log-log, best-fit slope vs theory p+1)
-- **Right** — p-convergence per mesh (empirical reduction factors annotated)
+- **Left** — L² error vs. √NDOF, giving a combined h/p overview
+- **Centre** — h-convergence per polynomial order in log-log, with best-fit slopes annotated against the theoretical p+1
+- **Right** — p-convergence per mesh, with empirical reduction factors between successive orders
 
 ---
 
-## Expected convergence rates
+## What to expect from the results
 
-For a smooth manufactured solution and a DG scheme of polynomial order p:
+For a smooth manufactured solution, a DG scheme of polynomial order p should give:
 
-- **h-convergence** (fixed p, refine mesh): slope ~= p+1 in log(error) vs log(h)
-- **p-convergence** (fixed mesh, increase p): exponential reduction
+- **h-convergence** (refine the mesh at fixed p): slope ≈ p+1 in log(error) vs. log(h)
+- **p-convergence** (increase p at fixed mesh): exponential error reduction
 
-**Even-odd oscillations** in h-slopes are a known property of the DGSEM on
-Gauss-Lobatto nodes (super-convergence alternates between p+1 and p+2 with the
-parity of p).  This is not a defect — it may appear or disappear depending on
-the symmetry of the chosen manufactured solution.
+**Even-odd oscillations in h-slopes** are a known feature of the DGSEM on Gauss-Lobatto nodes. Super-convergence alternates between p+1 and p+2 depending on the parity of p, and its magnitude depends on the symmetry of your manufactured solution. This is not a defect.
 
-**Time-integration floor**: if the time step is too large, temporal error
-dominates and curves flatten.  Faded markers in the plot flag cases where
-consecutive p-errors differ by less than a factor of 2.  Fix: reduce `DT`
-by 10x and re-run.
+**Time-integration floor:** if `DT` is too large, temporal error starts to dominate and the error curves flatten out. The plot marks these cases with faded markers (flagged when consecutive p-errors differ by less than a factor of 2). Fix: reduce `DT` by 10× and re-run.
 
 ---
 
 ## Changing the manufactured solution
 
-Open `generate_problemfile_<solver>.py` and edit **Section 2**.  Any smooth
-SymPy expression that is periodic on `[-1,1]^3` is valid.  Constraints by
-solver:
+Edit Section 2 of `generate_problemfile_<solver>.py`. Any smooth SymPy expression that is periodic on [−1, 1]³ will work. There are a few constraints to keep in mind per solver:
 
 ### Compressible NS
 
-- **Pressure must be strictly positive everywhere** — add a constant offset.
-  This avoids NaN in `T = p / (rho * R)`.
-- **Density must be strictly positive** — same pattern.
-- The velocity does **not** need to be divergence-free.  However, a
-  non-solenoidal choice adds a large density source term that can make
-  the problem stiff and require a smaller `DT`.
+Pressure and density must both be strictly positive everywhere. The simplest way to enforce this is to add a constant offset large enough to dominate the oscillation amplitude. A non-solenoidal velocity field is allowed, but it introduces a large density source term that can make the system stiff and may require a smaller `DT`.
 
 ```python
-# Variable-density example
 rho = RHO0 * (1 + 0.1*sp.sin(pi*x)*sp.sin(pi*y)*sp.sin(pi*z)*sp.cos(t))
 u   =  sp.sin(pi*x)*sp.cos(pi*y)*sp.cos(pi*z)*sp.sin(t)
 v   =  sp.cos(pi*x)*sp.sin(pi*y)*sp.cos(pi*z)*sp.sin(t)
@@ -147,13 +125,10 @@ p   =  1 + 0.1*sp.sin(pi*x)*sp.sin(pi*y)*sp.sin(pi*z)*sp.cos(t)
 
 ### Incompressible NS (iNS)
 
-The velocity **must satisfy** `du/dx + dv/dy + dw/dz = 0` identically.
-The easiest construction is to derive `u = curl(A)` from a vector potential `A`.
-The default field satisfies this condition exactly.
+The velocity field must be exactly divergence-free: ∂u/∂x + ∂v/∂y + ∂w/∂z = 0. The easiest construction is to derive `u = curl(A)` for some vector potential `A`. The default field satisfies this exactly; verify any new field before running.
 
 ```python
-# Verify divergence-free: d/dx(sin*cos*cos) + d/dy(cos*sin*cos) + d/dz(-2cos*cos*sin)
-# = pi*cos*cos*cos - pi*cos*cos*cos + 0 = 0  (check!)
+# d/dx(sin·cos·cos) + d/dy(cos·sin·cos) + d/dz(-2cos·cos·sin) = 0 ✓
 u =  sp.sin(pi*x)*sp.cos(pi*y)*sp.cos(pi*z)*sp.sin(t)
 v =  sp.cos(pi*x)*sp.sin(pi*y)*sp.cos(pi*z)*sp.sin(t)
 w = -2*sp.cos(pi*x)*sp.cos(pi*y)*sp.sin(pi*z)*sp.sin(t)
@@ -161,128 +136,110 @@ w = -2*sp.cos(pi*x)*sp.cos(pi*y)*sp.sin(pi*z)*sp.sin(t)
 
 ### Multiphase (MU)
 
-The phase field must satisfy `|phi| <= 1` pointwise.  Use an amplitude `|A| < 1`:
+The phase field must satisfy c ∈ [0, 1] pointwise. Using an amplitude |A| ≤ 1 around a mean of 0.5 guarantees this:
 
 ```python
-phi =  0.5*sp.sin(pi*x)*sp.sin(pi*y)*sp.sin(pi*z)*sp.cos(t)
+c = 0.5*(1 + A*sp.cos(pi*x)*sp.cos(pi*y)*sp.cos(pi*z)*sp.sin(t))  # |A| <= 1
 ```
+
+If you want clean p+1 slopes rather than the uniform super-convergence offset that the default fully-separable form produces, choose a `cMMS` that breaks the spatial symmetry.
+
+> **Remember to regenerate and recompile after every change:** `python3 generate_problemfile_<solver>.py && make`
 
 ---
 
-## Adding a body force (e.g. gravity)
+## Adding a body force
 
-To verify a module that adds gravity or another body force:
-
-1. Locate the source-term derivation block in `generate_problemfile_<solver>.py`
-   (look for the comment `Source term derivation`).
-
-2. Add the body-force contribution to the appropriate symbolic equation.
-   For NS gravity `g = (0, 0, -g_val)` acting on the momentum equations,
-   the z-momentum source gains an extra `-rho * g_val`:
+To verify a module that adds gravity or another body force, you only need to touch the generator. Find the source-term derivation block (look for the `# Source term derivation` comment) and add the force contribution to the appropriate equation. For example, to add gravitational acceleration in the z-direction to the NS momentum equations:
 
 ```python
-# Inside the source-term derivation block, after the existing S expressions:
-g_val = 9.81   # m/s^2 or non-dimensional equivalent
-# Subtract from the z-momentum source (HORSES3D sign convention: S appears on RHS)
+g_val = 9.81   # m/s² or your non-dimensional equivalent
 S_mom_z = S_mom_z - rho * g_val
 ```
 
-3. Re-run the generator and recompile.  The Fortran output will contain the
-   correct modified source term automatically.  No other file needs changing.
+SymPy will produce the correct modified source automatically. No other file needs changing.
 
 ---
 
 ## Verifying a new physics module
 
-General procedure for any new term (rotating frame, immersed boundary,
-turbulence model, surface tension, etc.):
+The general procedure is the same regardless of the module:
 
-1. Identify which equations and which terms are modified.
-2. Add the corresponding SymPy expressions to the generator's source-term block.
-3. Regenerate `ProblemFile.f90` and recompile (`make`).
-4. Run the sweep.
+1. Identify which equations are affected and which terms change.
+2. Add the corresponding SymPy expressions to the source-term derivation block in the generator.
+3. Regenerate `ProblemFile.f90` and recompile.
+4. Run the sweep and check the slopes.
 
-**Interpreting results:**
+Reading the results:
 
-| Observation | Likely cause |
+| What you see | Likely explanation |
 |---|---|
-| All slopes match p+1 | New module correctly implemented |
-| Slopes systematically low across all (N, p) | Bug in new module or source term mismatch |
-| Only finest-mesh / highest-p points low (faded markers) | Time-integration floor — reduce DT |
-| Slopes erratic, no clear trend | Check physical parameter consistency between generator and control file |
+| All slopes consistent with p+1 | Module is correctly implemented |
+| Slopes systematically low across all (N, p) | Bug in the new module, or a mismatch between the generator parameters and the control file |
+| Only the finest-mesh / highest-p points look low (faded markers) | Time-integration floor — reduce `DT` |
+| Slopes erratic with no clear trend | Check that physical parameters are consistent between the generator and `control_template.control` |
 
 ---
 
-## Keeping physical parameters consistent
+## Keeping parameters consistent
 
-The parameters in `generate_problemfile_<solver>.py` (e.g. `RHO0`, `GAMMA`,
-Reynolds number) **must match** those set in `control_template.control`.
-
-A mismatch does **not** produce a runtime error, but the source terms will be
-wrong and convergence will typically fail or give incorrect slopes.
+The physical parameters in `generate_problemfile_<solver>.py` (things like `RHO0`, `GAMMA`, `RE`) **must match** what is set in `control_template.control`. A mismatch will not cause a crash — the solver will simply run with incorrect source terms, and the slopes will be wrong in ways that can look confusing.
 
 ---
 
-## SymPy simplification options
+## SymPy simplification
 
-In **Section 3** of the generator:
+Section 3 of the generator exposes two settings:
 
 | `SIMPLIFY_STRATEGY` | Behaviour |
 |---|---|
-| `"auto"` (default) | Try `simplify()`, fall back to `trigsimp` after timeout |
-| `"simplify"` | Always use `simplify()` — thorough but slow |
-| `"trigsimp"` | Always use `trigsimp()` — fast; best for pure trig solutions |
+| `"auto"` (default) | Tries `simplify()`, falls back to `trigsimp` after a timeout |
+| `"simplify"` | Always uses `simplify()` — thorough but can be slow |
+| `"trigsimp"` | Always uses `trigsimp()` — fast; works well for pure trigonometric solutions |
 
-The `SIMPLIFY_TIMEOUT` variable (default 60 s) controls the fallback.
-If you see `simplify timed out` on stderr, this is normal for complex
-expressions.  Set `SIMPLIFY_STRATEGY = "trigsimp"` to skip the timeout.
+`SIMPLIFY_TIMEOUT` (default 60 s) controls how long `simplify()` is allowed to run before the fallback kicks in. Seeing `simplify timed out` on stderr is normal for complex expressions — set `SIMPLIFY_STRATEGY = "trigsimp"` to skip the wait entirely.
 
 ---
 
-## File reference — what to edit
+## Quick reference — what to edit
 
-| File | Edit? | What to change |
+| File | Edit? | Purpose |
 |---|---|---|
-| `SETUP/generate_problemfile_*.py` | **Yes** — Sections 1-2 | Physical params, manufactured solution, new physics terms |
-| `run_convergence_*.py` | **Yes** — Sections 1-2 | Paths, mesh sizes, P values, DT, T_FINAL |
+| `SETUP/generate_problemfile_*.py` | **Yes** — Sections 1–2 | Physical parameters, manufactured solution, new physics terms |
+| `run_convergence_*.py` | **Yes** — Sections 1–2 | Paths, mesh sizes, polynomial orders, `DT`, `T_FINAL` |
 | `control_template.control` | **Yes** | Solver-level settings (Riemann solver, BCs, viscosity model, etc.) |
-| `plot_convergence_*.py` | Optional — Section 1 | Colour scheme, reference slopes, floor threshold |
+| `plot_convergence_*.py` | Optional — Section 1 | Colour scheme, reference slopes, floor detection threshold |
 | `SETUP/Makefile` | Rarely | Compilation flags |
-| `errors.csv` | **Never** | Auto-generated; delete to force a fresh sweep |
-| `CONTROL/*.control` | **Never** | Auto-generated from template |
+| `errors.csv` | **Never** | Auto-generated; delete it if you want to force a clean sweep |
+| `CONTROL/*.control` | **Never** | Auto-generated from the template |
 | `CONTROL/*.log` | **Never** | Auto-generated solver logs |
 
 ---
 
-## Common issues
+## Troubleshooting
 
 **`ERROR: template not found`**
-Run the script from the directory containing `control_template.control`, or
-update `TEMPLATE_FILE` in Section 1.
+Run the script from the directory that contains `control_template.control`, or update `TEMPLATE_FILE` in Section 1.
 
 **`ERROR: could not read mms_l2_error.dat`**
-The solver ran but `UserDefinedFinalize` did not write output.  Check the log
-in `CONTROL/mms_N<N>_P<P>.log`.  Most common cause: binary compiled without
-the correct `#ifdef` flag (`NAVIERSTOKES`, `CAHNHILLIARD`, etc.). 
+The solver ran but `UserDefinedFinalize` did not write output. Check `CONTROL/mms_N<N>_P<P>.log`. The most common cause is that the binary was compiled without the correct preprocessor flag (`NAVIERSTOKES`, `CAHNHILLIARD`, etc.).
 
-**Slopes consistently below p+1 for all cases**
-Reduce `DT` by 10x and re-run.  Also verify that physical parameters in the
-generator match the control file.
+**Slopes consistently below p+1 for every case**
+First, reduce `DT` by 10× and re-run. If slopes stay low, verify that the physical parameters in the generator match `control_template.control` exactly.
 
-**Negative pressure / NaN during NS run**
-The manufactured pressure is not strictly positive.  Increase the constant
-offset in `p = 1 + ...` or reduce the oscillation amplitude. 
+**Negative pressure or NaN during an NS run**
+The manufactured pressure is not strictly positive somewhere. Increase the constant offset in the pressure expression or reduce the oscillation amplitude.
 
-**`simplify timed out`** (stderr during generator)
-Normal for complex expressions.  Set `SIMPLIFY_STRATEGY = "trigsimp"`.
+**`simplify timed out`** (printed to stderr during generation)
+This is normal for complex expressions. Set `SIMPLIFY_STRATEGY = "trigsimp"` in Section 3 of the generator.
 
 ---
 
 ## Dependencies
 
-| Tool | Purpose | Install |
+| Package | Purpose | Install |
 |---|---|---|
-| Python >= 3.9 | Runner and plotter | — |
+| Python ≥ 3.9 | Runner and plotter | — |
 | SymPy | Symbolic source-term derivation | `pip install sympy` |
 | NumPy | Quadrature weight computation | `pip install numpy` |
 | Matplotlib | Convergence plots | `pip install matplotlib` |
