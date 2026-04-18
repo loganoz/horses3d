@@ -23,6 +23,7 @@ module OutputVariables
    use PhysicsStorage_iNS, only: INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
    use PhysicsStorage_MU, only: IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP
    use PhysicsStorage_CAA, only: ICAARHO, ICAAU, ICAAV, ICAAW, ICAAP
+   use PhysicsStorage_CAA, only: NCONSB, IBRHO, IBU, IBV, IBW, IBP, IBA2
 
    private
    public   no_of_outputVariables, preliminarNoOfVariables, askedVariables, getNoOfCommas
@@ -47,6 +48,7 @@ module OutputVariables
       enumerator :: Nxi_V, Neta_V, Nzeta_V, Nav_V, N_V
       enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V
       enumerator :: LAMBvec_V, LAMBx_V, LAMBy_V, LAMBz_V
+      enumerator :: QBase_V, RHOBase_V, UBase_V, VBase_V, WBase_V, PBase_V, A2Base_V
       enumerator :: MPIRANK_V
       enumerator :: GRADV_V, UX_V, VX_V, WX_V
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
@@ -109,6 +111,13 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: LambxKey      = "lamb_x"
    character(len=STR_VAR_LEN), parameter  :: LambyKey      = "lamb_y"
    character(len=STR_VAR_LEN), parameter  :: LambzKey      = "lamb_z"
+   character(len=STR_VAR_LEN), parameter  :: QBaseKey      = "Qbase"
+   character(len=STR_VAR_LEN), parameter  :: RHOBaseKey    = "rhobase"
+   character(len=STR_VAR_LEN), parameter  :: UBaseKey      = "ubase"
+   character(len=STR_VAR_LEN), parameter  :: VBaseKey      = "vbase"
+   character(len=STR_VAR_LEN), parameter  :: WBaseKey      = "wbase"
+   character(len=STR_VAR_LEN), parameter  :: PBaseKey      = "pbase"
+   character(len=STR_VAR_LEN), parameter  :: A2BaseKey     = "A2base"
    character(len=STR_VAR_LEN), parameter  :: mpiRankKey    = "mpi_rank"
    character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
    character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
@@ -171,6 +180,7 @@ module OutputVariables
                                                                             NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
                                                                             XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, &
                                                                             LambKey, LambxKey, LambyKey, LambzKey, &
+                                                                            QBaseKey, RHOBaseKey, UBaseKey, VBaseKey, WBaseKey, PBaseKey, A2BaseKey, &
                                                                             mpiRankKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
@@ -340,27 +350,55 @@ module OutputVariables
                select case (outputVarNames(var))
 
                case(RHO_V)
-                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = Q(IRHO,i,j,k)
-                  end do         ; end do         ; end do
+                  select case (trim(flowEq))
+                  case("caa")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(ICAARHO,i,j,k)
+                     end do         ; end do         ; end do
+                  case default
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(IRHO,i,j,k)
+                     end do         ; end do         ; end do
+                  end select
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * output(var,:,:,:)
 
                case(U_V)
-                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
-                  end do         ; end do         ; end do
+                  select case (trim(flowEq))
+                  case("caa")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(ICAAU,i,j,k)
+                     end do         ; end do         ; end do
+                  case default
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
+                     end do         ; end do         ; end do
+                  end select
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
                case(V_V)
-                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
-                  end do         ; end do         ; end do
+                  select case (trim(flowEq))
+                  case("caa")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(ICAAV,i,j,k)
+                     end do         ; end do         ; end do
+                  case default
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
+                     end do         ; end do         ; end do
+                  end select
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
                case(W_V)
-                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
-                  end do         ; end do         ; end do
+                  select case (trim(flowEq))
+                  case("caa")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(ICAAW,i,j,k)
+                     end do         ; end do         ; end do
+                  case default
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
+                     end do         ; end do         ; end do
+                  end select
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
                case(P_V)
@@ -381,6 +419,12 @@ module OutputVariables
                   case ("mu")
                      do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                         output(var,i,j,k) = Q(IMP,i,j,k)
+                     end do         ; end do         ; end do
+                     if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
+                  
+                  case ("caa")
+                     do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                        output(var,i,j,k) = Q(ICAAP,i,j,k)
                      end do         ; end do         ; end do
                      if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
                   end select
@@ -551,6 +595,42 @@ module OutputVariables
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = Q(3,i,j,k)
                   end do         ; end do         ; end do
+               
+               case(RHOBase_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IBRHO,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * output(var,:,:,:)
+
+               case(UBase_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IBU,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
+
+               case(VBase_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IBV,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
+
+               case(WBase_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IBW,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
+
+               case(PBase_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IBP,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
+               
+               case(A2Base_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IBA2,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
                case(Nxi_V)
                   output(var,:,:,:) = e % Nsol(1)
@@ -972,6 +1052,9 @@ module OutputVariables
          
          case(LAMBvec_V)
             outputVariablesForVariable = 3
+         
+         case(QBase_V)
+            outputVariablesForVariable = NCONSB
 
          case default
             outputVariablesForVariable = 1
@@ -1000,6 +1083,8 @@ module OutputVariables
                   output = (/C_V/)
               case ("mu")
                   output = (/C_V, SQRHOU_V, SQRHOV_V, SQRHOW_V, P_V/)
+              case ("caa")
+                  output = (/RHO_V, U_V, V_V, W_V, P_V/)
           end select
 
          case(QDot_V)
@@ -1054,6 +1139,9 @@ module OutputVariables
 
          case(LAMBvec_V)
             output = (/LAMBx_V, LAMBy_V, LAMBz_V/)
+         
+         case(QBase_V)
+            output = (/RHOBase_V, UBase_V, VBase_V, WBase_V, PBase_V, A2Base_V/)
 
          case default
             output = iVar

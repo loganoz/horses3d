@@ -558,6 +558,8 @@ module Storage
                   NVARS = 1
               case ("mu")
                   NVARS = 5
+              case ("caa")
+                  NVARS = 5
               case default
                   NVARS = 5
           end select
