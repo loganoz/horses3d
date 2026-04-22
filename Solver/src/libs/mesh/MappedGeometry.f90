@@ -492,7 +492,7 @@ Module MappedGeometryClass
 !  -----------------------------------------
 !  Computation of the metric terms on a face
 !  -----------------------------------------
-   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot, sliding, fID,scale,IsMortar)
+   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, geom, hexMap, side, projType, eSide, rot, sliding, fID,scale,IsMortar)
       use PhysicsStorage
       use InterpolationMatrices
       implicit none
@@ -501,14 +501,13 @@ Module MappedGeometryClass
       integer,                   intent(in)     :: Nelf(2)  ! Element face pOrder (with rotation)
       integer,                   intent(in)     :: Nel(2)   ! Element face pOrder (without rotation)
       integer,                   intent(in)     :: Nel3D(3) ! Element pOrder
-      type(NodalStorage_t),      intent(in)     :: spAf(2)
-      type(NodalStorage_t),      intent(in)     :: spAe(3)
       type(MappedGeometry),      intent(in)     :: geom
       type(TransfiniteHexMap),   intent(in)     :: hexMap
       integer,                   intent(in)     :: side
       integer,                   intent(in)     :: projType
       integer,                   intent(in)     :: eSide
       integer,                   intent(in)     :: rot
+
       logical,   optional,       intent(in)     :: sliding 
       integer,   optional,       intent(in)     :: fID 
       real(kind=RP), optional,   intent(in)     :: scale
@@ -568,7 +567,7 @@ Module MappedGeometryClass
 !           Get face coordinates
 !           --------------------
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               call coordRotation(NodalStorage(Nf(1)) % x(i), NodalStorage(Nf(2)) % x(j), rot, xi, eta)
                x = [-1.0_RP, xi, eta]
                if (present(IsMortar)) then 
                   write(*,*)'calculating x before transfiniteMap,side ELEFT', x
@@ -583,10 +582,10 @@ Module MappedGeometryClass
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
-               dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,LEFT)
-               GradXi  (:,j,k) = GradXi  (:,j,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,LEFT)
-               GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,LEFT)
-               GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,LEFT)
+               dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * NodalStorage(Nel3D(1)) % v(i,LEFT)
+               GradXi  (:,j,k) = GradXi  (:,j,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(1)) % v(i,LEFT)
+               GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(1)) % v(i,LEFT)
+               GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(1)) % v(i,LEFT)
             end do           ; end do           ; end do
 !
 !           Swap orientation
@@ -598,7 +597,7 @@ Module MappedGeometryClass
 !           Get face coordinates
 !           --------------------
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               call coordRotation(NodalStorage(Nf(1)) % x(i), NodalStorage(Nf(2)) % x(j), rot, xi, eta)
                x = [ 1.0_RP, xi, eta ]
                if (present(IsMortar)) then 
                   write(*,*)'calculating x before transfiniteMap,side ERIGHT', x
@@ -614,15 +613,15 @@ Module MappedGeometryClass
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
-               dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,RIGHT)
-               GradXi  (:,j,k) = GradXi  (:,j,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
-               GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
-               GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
+               dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * NodalStorage(Nel3D(1)) % v(i,RIGHT)
+               GradXi  (:,j,k) = GradXi  (:,j,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(1)) % v(i,RIGHT)
+               GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(1)) % v(i,RIGHT)
+               GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(1)) % v(i,RIGHT)
             end do           ; end do           ; end do
 
          case(EBOTTOM)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               call coordRotation(NodalStorage(Nf(1)) % x(i), NodalStorage(Nf(2)) % x(j), rot, xi, eta)
                x = [xi, eta,-1.0_RP]
                if (present(IsMortar)) then 
                   write(*,*)'calculating x before transfiniteMap,side EBOTTOM', x
@@ -638,10 +637,10 @@ Module MappedGeometryClass
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
-               dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,BOTTOM)
-               GradXi  (:,i,j) = GradXi  (:,i,j) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,BOTTOM)
-               GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,BOTTOM)
-               GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,BOTTOM)
+               dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * NodalStorage(Nel3D(3)) % v(k,BOTTOM)
+               GradXi  (:,i,j) = GradXi  (:,i,j) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(3)) % v(k,BOTTOM)
+               GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(3)) % v(k,BOTTOM)
+               GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(3)) % v(k,BOTTOM)
             end do           ; end do           ; end do
 !
 !           Swap orientation
@@ -650,7 +649,7 @@ Module MappedGeometryClass
 
          case(ETOP)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               call coordRotation(NodalStorage(Nf(1)) % x(i), NodalStorage(Nf(2)) % x(j), rot, xi, eta)
                x = [xi, eta, 1.0_RP]
                if (present(IsMortar)) then 
                   write(*,*)'calculating x before transfiniteMap,side ETOP', x
@@ -666,15 +665,15 @@ Module MappedGeometryClass
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
-               dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,TOP)
-               GradXi  (:,i,j) = GradXi  (:,i,j) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
-               GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
-               GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
+               dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * NodalStorage(Nel3D(3)) % v(k,TOP)
+               GradXi  (:,i,j) = GradXi  (:,i,j) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(3)) % v(k,TOP)
+               GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(3)) % v(k,TOP)
+               GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(3)) % v(k,TOP)
             end do           ; end do           ; end do
 
          case(EFRONT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               call coordRotation(NodalStorage(Nf(1)) % x(i), NodalStorage(Nf(2)) % x(j), rot, xi, eta)
                x = [xi, -1.0_RP, eta]
                if (present(IsMortar)) then 
                   write(*,*)'calculating x before transfiniteMap,side EFRONT', x
@@ -690,10 +689,10 @@ Module MappedGeometryClass
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
-               dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,FRONT)
-               GradXi  (:,i,k) = GradXi  (:,i,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,FRONT)
-               GradEta (:,i,k) = GradEta (:,i,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,FRONT)
-               GradZeta(:,i,k) = GradZeta(:,i,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,FRONT)
+               dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * NodalStorage(Nel3D(2)) % v(j,FRONT)
+               GradXi  (:,i,k) = GradXi  (:,i,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(2)) % v(j,FRONT)
+               GradEta (:,i,k) = GradEta (:,i,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(2)) % v(j,FRONT)
+               GradZeta(:,i,k) = GradZeta(:,i,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(2)) % v(j,FRONT)
             end do           ; end do           ; end do
 !
 !           Swap orientation
@@ -702,7 +701,7 @@ Module MappedGeometryClass
 
          case(EBACK)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               call coordRotation(NodalStorage(Nf(1)) % x(i), NodalStorage(Nf(2)) % x(j), rot, xi, eta)
                x = [xi, 1.0_RP, eta]
                if (present(IsMortar)) then 
                   write(*,*)'calculating x before transfiniteMap,side EBACK', x
@@ -718,10 +717,10 @@ Module MappedGeometryClass
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
-               dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,BACK)
-               GradXi  (:,i,k) = GradXi  (:,i,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,BACK)
-               GradEta (:,i,k) = GradEta (:,i,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,BACK)
-               GradZeta(:,i,k) = GradZeta(:,i,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,BACK)
+               dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * NodalStorage(Nel3D(2)) % v(j,BACK)
+               GradXi  (:,i,k) = GradXi  (:,i,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(2)) % v(j,BACK)
+               GradEta (:,i,k) = GradEta (:,i,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(2)) % v(j,BACK)
+               GradZeta(:,i,k) = GradZeta(:,i,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * NodalStorage(Nel3D(2)) % v(j,BACK)
             end do           ; end do           ; end do
 
       end select
@@ -866,7 +865,7 @@ Module MappedGeometryClass
 !     -----------------------
       self % t1 = 0.0_RP
       do j = 0, Nf(2)   ; do l = 0, Nf(1)    ; do i = 0, Nf(1)
-         self % t1(:,i,j) = self % t1(:,i,j) + spAf(1) % D(i,l) * self % x(:,l,j)
+         self % t1(:,i,j) = self % t1(:,i,j) + NodalStorage(Nf(1)) % D(i,l) * self % x(:,l,j)
       end do            ; end do             ; end do
 !
 !     Tangent vectors could not be orthogonal to normal vectors (because of truncation errors)
@@ -885,7 +884,7 @@ Module MappedGeometryClass
 !
       self % surface = 0.0_RP
       do j = 0, Nf(2) ; do i = 0, Nf(1)
-         self % surface = self % surface + spAf(1) % w(i) * spAf(2) % w(j) * self % jacobian(i,j)
+         self % surface = self % surface + NodalStorage(Nf(1)) % w(i) * NodalStorage(Nf(2)) % w(j) * self % jacobian(i,j)
       end do          ; end do
 
    end subroutine ConstructMappedGeometryFace

@@ -115,7 +115,7 @@ MODULE Read_SpecMesh
 !        ********************************
 !
          Sliding=.true.
-         !Sliding=.false.
+         Sliding=.false.
 
          
          if ( MPI_Process % doMPIAction ) then
@@ -433,7 +433,7 @@ MODULE Read_SpecMesh
          logical :: sliding 
          !----------------------------------------------------------------------------------------
          sliding=.true. 
-         !sliding=.false.
+         sliding=.false.
 !
 !        ***************
 !        Initializations
@@ -1047,7 +1047,7 @@ MODULE Read_SpecMesh
          deallocate(globalToLocalNodeID)
          deallocate(globalToLocalElementID)
 
-         Sliding=.true.
+         Sliding=.false.
          mpi=.false.
          if (Sliding) then 
  

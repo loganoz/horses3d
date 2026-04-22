@@ -3595,7 +3595,6 @@ if (.not.self % nonconforming) then
                associate(eL => self % elements(f % elementIDs(1)))
                   !write(*,*) f%elementIDs(1)
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
-                                         NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
                                          f % projectionType(1), 1, 0 )
                end associate
@@ -3605,7 +3604,6 @@ if (.not.self % nonconforming) then
                  !write(*,*) f % NelRight
                  ! write(*,*)  f % NfRight
                call f % geom % construct(f % Nf, f % NelRight, f % NfRight, eR % Nxyz, &
-                                         NodalStorage(f % Nf), NodalStorage(eR % Nxyz), &
                                          eR % geom, eR % hexMap, f % elementSide(2), &
                                          f % projectionType(2), 2, 0 )
                end associate
@@ -3616,7 +3614,6 @@ if (.not.self % nonconforming) then
                  ! write(*,*) 'fl',f % NfLeft
                   !write(*,*) 'constructing geometry if face:',fID
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
-                                         NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
                                          f % projectionType(1), 1, 0 )
                end associate
@@ -3639,7 +3636,6 @@ if (.not.self % nonconforming) then
 
                associate(e => self % elements(f % elementIDs(side)))
                call f % geom % construct(f % Nf, Nelf, Nel, e % Nxyz, &
-                                         NodalStorage(f % Nf), NodalStorage(e % Nxyz), &
                                          e % geom, e % hexMap, f % elementSide(side), &
                                          f % projectionType(side), side, rot)
 
@@ -6138,7 +6134,7 @@ call elementMPIList % destruct
     if (.NOT.present(allmesh))  call self % ConstructMortars(nodes, self%n_slidingnewnodes, self%arr1, self%arr2,self%Mat,o, s, self%mortararr2,self%rotmortars, th, confor)
      
      self%sliding=.true.
-     self%slidingflux=.true.
+     self%slidingflux=.false.
      !write(*,*) 'tseM', TsetM(self%faces(1) % NfLeft(1), self%faces(1) % Nf(1), 1, 1) % T
    end subroutine HexMesh_RotateMesh
 
@@ -7320,7 +7316,6 @@ subroutine HexMesh_ConstructSlidingMortarsConforming(self, nodes, nelm, array1, 
            NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
            NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
            call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
-                                   NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                      eL % geom, eL % hexMap, f % elementSide(1), &
                                      f % projectionType(1), 1, 0,.true.,1,f%s(1),f%IsMortar)
 
@@ -7581,7 +7576,6 @@ do i=1, size(self%mortar_faces)
        NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
        NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
        call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
-                               NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                  eL % geom, eL % hexMap, f % elementSide(1), &
                                  f % projectionType(1), 1, 0,.true.,f%Mortarpos, f%s(1))
 
