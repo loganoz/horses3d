@@ -1898,7 +1898,7 @@ module SpatialDiscretization
          implicit none
          type(element), intent(in)  :: e
          real(kind=RP), intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)              :: omega(IX:IZ), u_g, v_g, w_g, u, v, w, p
+         real(kind=RP)              :: omega(IX:IZ), u_mesh, v_mesh, w_mesh, u, v, w, p
          real(kind=RP)              :: F(1:NCONS,IX:IZ)
          
          integer :: i,j,k
@@ -1909,10 +1909,10 @@ module SpatialDiscretization
             omega(3) = 0.0_RP
             ! loop inside the element 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-         ! compute the velocity of the grid (adimensional)
-            u_g = (e % geom % x(IZ,i,j,k)*omega(2)-omega(3)*e % geom % x(IY,i,j,k))!/refValues%V
-            v_g = (e % geom % x(IX,i,j,k)*omega(3)-omega(1)*e % geom % x(IZ,i,j,k))!/refValues%V
-            w_g = (e % geom % x(IY,i,j,k)*omega(1)-omega(2)*e % geom % x(IX,i,j,k))!/refValues%V
+         ! compute the velocity of the mesh 
+            u_mesh = (e % geom % x(IZ,i,j,k)*omega(2)-omega(3)*e % geom % x(IY,i,j,k))
+            v_mesh = (e % geom % x(IX,i,j,k)*omega(3)-omega(1)*e % geom % x(IZ,i,j,k))
+            w_mesh = (e % geom % x(IY,i,j,k)*omega(1)-omega(2)*e % geom % x(IX,i,j,k))
 
             u = e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k)
             v = e % storage % Q(IRHOV,i,j,k) / e % storage % Q(IRHO,i,j,k)
@@ -1921,28 +1921,29 @@ module SpatialDiscretization
    !
    !        X-Flux
    !        ------         
-            F(IRHO , IX ) = e % storage % Q(IRHOU,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * u_g)
-            F(IRHOU, IX ) = e % storage % Q(IRHOU,i,j,k) * u + p - (e % storage % Q(IRHOU,i,j,k) * u_g)
-            F(IRHOV, IX ) = e % storage % Q(IRHOU,i,j,k) * v - (e % storage % Q(IRHOV,i,j,k) * u_g)
-            F(IRHOW, IX ) = e % storage % Q(IRHOU,i,j,k) * w - (e % storage % Q(IRHOW,i,j,k) * u_g)
-            F(IRHOE, IX ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * u - (e % storage % Q(IRHOE,i,j,k) * u_g)
+            F(IRHO , IX ) = e % storage % Q(IRHOU,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * u_mesh)
+            F(IRHOU, IX ) = e % storage % Q(IRHOU,i,j,k) * u + p - (e % storage % Q(IRHOU,i,j,k) * u_mesh)
+            F(IRHOV, IX ) = e % storage % Q(IRHOU,i,j,k) * v - (e % storage % Q(IRHOV,i,j,k) * u_mesh)
+            F(IRHOW, IX ) = e % storage % Q(IRHOU,i,j,k) * w - (e % storage % Q(IRHOW,i,j,k) * u_mesh)
+            F(IRHOE, IX ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * u - (e % storage % Q(IRHOE,i,j,k) * u_mesh)
    !
    !        Y-Flux
    !        ------
-            F(IRHO , IY ) = e % storage % Q(IRHOV,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * v_g)
-            F(IRHOU ,IY ) = F(IRHOV,IX) - (e % storage % Q(IRHOU,i,j,k) * v_g)
-            F(IRHOV ,IY ) = e % storage % Q(IRHOV,i,j,k) * v + p - (e % storage % Q(IRHOV,i,j,k) * v_g)
-            F(IRHOW ,IY ) = e % storage % Q(IRHOV,i,j,k) * w - (e % storage % Q(IRHOW,i,j,k) * v_g)
-            F(IRHOE ,IY ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * v - (e % storage % Q(IRHOE,i,j,k) * v_g)
+            F(IRHO , IY ) = e % storage % Q(IRHOV,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * v_mesh)
+            F(IRHOU ,IY ) = e % storage % Q(IRHOV,i,j,k) * u - (e % storage % Q(IRHOU,i,j,k) * v_mesh)
+            F(IRHOV ,IY ) = e % storage % Q(IRHOV,i,j,k) * v + p - (e % storage % Q(IRHOV,i,j,k) * v_mesh)
+            F(IRHOW ,IY ) = e % storage % Q(IRHOV,i,j,k) * w - (e % storage % Q(IRHOW,i,j,k) * v_mesh)
+            F(IRHOE ,IY ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * v - (e % storage % Q(IRHOE,i,j,k) * v_mesh)
    !
    !        Z-Flux
    !        ------
-            F(IRHO ,IZ) = e % storage % Q(IRHOW,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * w_g)
-            F(IRHOU,IZ) = F(IRHOW,IX) - (e % storage % Q(IRHOU,i,j,k) * w_g)
-            F(IRHOV,IZ) = F(IRHOW,IY) - (e % storage % Q(IRHOV,i,j,k) * w_g)
-            F(IRHOW,IZ) = e % storage % Q(IRHOW,i,j,k) * w + p - (e % storage % Q(IRHOW,i,j,k) * w_g)
-            F(IRHOE,IZ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * w - (e % storage % Q(IRHOE,i,j,k) * w_g)
+            F(IRHO ,IZ) = e % storage % Q(IRHOW,i,j,k) - (e % storage % Q(IRHO,i,j,k)  * w_mesh)
+            F(IRHOU,IZ) = e % storage % Q(IRHOW,i,j,k) * u - (e % storage % Q(IRHOU,i,j,k) * w_mesh)
+            F(IRHOV,IZ) = e % storage % Q(IRHOW,i,j,k) * v - (e % storage % Q(IRHOV,i,j,k) * w_mesh)
+            F(IRHOW,IZ) = e % storage % Q(IRHOW,i,j,k) * w + p - (e % storage % Q(IRHOW,i,j,k) * w_mesh)
+            F(IRHOE,IZ) = ( e % storage % Q(IRHOE,i,j,k) + p ) * w - (e % storage % Q(IRHOE,i,j,k) * w_mesh)
 
+            
             contravariantFlux(:,i,j,k,IX) =    F(:,IX) * e % geom % jGradXi(IX,i,j,k)   &
                                              + F(:,IY) * e % geom % jGradXi(IY,i,j,k)   &
                                              + F(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
@@ -1958,6 +1959,7 @@ module SpatialDiscretization
          enddo;enddo;enddo
 
         end subroutine contravariantSMFlux
+
         subroutine SlidingMeshFluxCalculation(e,  contravariantFlux)
          type(element), intent(in)  :: e
          real(kind=RP), intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
