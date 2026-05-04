@@ -158,7 +158,7 @@ MODULE HexMeshClass
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
             procedure :: RotateMesh                    => HexMesh_RotateMesh      
-            procedure :: MarkSlidingElementsRadius     => HexMesh_MarkSlidingElementsRadius
+            procedure :: BuildSlidingMortarConnectivity     => HexMesh_BuildSlidingMortarConnectivity
             procedure :: MarkRadius                    => HexMesh_MarkRadius
             procedure :: RotateNodes                   => HexMesh_RotateNodes
             procedure :: Modifymesh                    => HexMesh_Modifymesh
@@ -6329,54 +6329,54 @@ call elementMPIList % destruct
    end do 
 
   end subroutine HexMesh_MarkRadius
-   subroutine HexMesh_MarkSlidingElementsRadius(self, rad, nelm, center, arr3, arr2, arr1, Mat, Connect,new_nFaces, face_nodes,face_othernodes,rotmortars)
+  
+  subroutine HexMesh_BuildSlidingMortarConnectivity(self, rad, nelm, center, pureSlidingElems, slidingMortarElems, mortarNeighborElems, slidingMortarConnectivity, Connect,new_nFaces, face_nodes,face_othernodes,rotmortars)
    IMPLICIT NONE 
    class(HexMesh), intent(inout)  :: self
 
    real(kind=RP), intent(in) :: rad 
    real(kind=RP), intent(in) :: center(2)
    integer, intent(in)    :: nelm
-   integer, intent(inout) :: arr3(nelm) !32 !384
-   integer, intent(inout) :: arr2(nelm) !32   !48
-   integer, intent(inout) :: arr1(nelm)  !32  !48
-   integer, intent(inout) :: Mat(nelm,12) !32   !48 9
-   integer, intent(inout) :: Connect(nelm, 9, 6)  !32  !48 9 6 
-   !integer, intent(inout) :: Connect(48, 3, 6)
+   integer, intent(inout) :: pureSlidingElems(nelm) !sliding elements fully inside the region (no mortar)
+   integer, intent(inout) :: slidingMortarElems(nelm) !sliding elements at the interface (require mortars)
+   integer, intent(inout) :: mortarNeighborElems(nelm) !associated non-sliding neighbors across the interface (require mortars)  
+   integer, intent(inout) :: slidingMortarConnectivity(nelm,12) ! slidingMortarConnectivity(i,:) :
+!   Data structure describing the mortar interface configuration for each slidingMortarElems(i). Each row encodes the connectivity between:
+!   - a sliding interface element,
+!   - its neighboring sliding element,
+!   - and the associated non-sliding (mortar) element.
+!
+!   Column description:
+!     (1)  : ID of the sliding interface element (current element)
+!     (2)  : ID of the neighboring sliding element across the interface
+!     (3)  : ID of the neighboring non-sliding element (mortar element)
+!     (4)  : local face index of (1) connected to the mortar interface
+!     (5)  : local face index of (2) connected to the mortar interface
+!     (6)  : local face index of (3) connected to the mortar interface
+!     (7)  : rotation of face (1)
+!     (8)  : rotation of face (2)
+!     (9)  : rotation of face (3)
+!     (10) : additional neighboring non-sliding element (connectivity extension)
+!     (11) : corresponding local face index for (10)
+!     (12) : rotation associated with (10)
+!
+!   This structure is used to fully reconstruct mortar connectivity and orientation between sliding and non-sliding regions.
+
+   integer, intent(inout) :: Connect(nelm, 9, 6)
    integer, intent(inout) :: new_nFaces 
-   integer, intent(inout) :: face_nodes(nelm,4)!32 
-   integer, intent(inout) :: face_othernodes(nelm,4)!32 
-   integer, intent(inout) :: rotmortars(nelm*2) !64 !96
+   integer, intent(inout) :: face_nodes(nelm,4)
+   integer, intent(inout) :: face_othernodes(nelm,4)
+   integer, intent(inout) :: rotmortars(nelm*2) 
 
-   integer :: eID, eID2, eID3, e, m, fID2, faceNumber, faceNumber1, faceNumber2
-   integer ::  i,f, ff ,fff, z, j, jj, jjj, ll,l, lll, k, kk, no, v,zz, f1,f2,ind1,ind2,ind3,sp
-   integer ::ar2(nelm)
-   integer :: faceNodeIDs(4)
-   integer :: faceNodeIDs1(4)
-   integer :: faceNodeIDs2(4)
-   integer :: nodeIDs(8)
-   integer :: nodeIDs1(8)
-   integer :: nodeIDs2(8)
+   integer :: elemID, neighborElemID, candidateElemID
+   integer ::  i, j, faceIdx2, elemCount, nodeIdxA, nodeIdxB,ind1,ind2,ind3, iNode, iNode2, iNode3
+   integer ::  iNodeCheck, isTopRegion, isBottomRegion, hasNodeBelowCenter, isAlreadyConnected, sharedNodeCounter, nNodesInsideRadius
 
-   real(kind=RP) :: NODESS(4,3)
-   real(kind=RP) :: NODES2(4,3)
+   integer :: coordY 
 
-   integer :: rota 
-
-   real(kind=RP) :: XR(4,3)
-   real(kind=RP) :: MNODES(nelm,4,3) !32   !48 5 3
-   real(kind=RP) :: NODES(4,3)!32 
-   real(kind=RP) :: theta 
-   real(KIND=RP) :: ROT(3,3)
-   integer :: Matrot(nelm,9) !32   !48 9 
-   integer :: Matrott(nelm,9) !32   !48 9 
-   integer :: facer(nelm,2)!32  !48 2
-   integer :: y 
-   y      = 3
-   facer  = 0
-   f      = 0
-   l      = 0
-   ll     = 0
-   
+   coordY      = 3
+   nNodesInsideRadius      = 0
+   elemCount      = 0
    new_nFaces = size(self % faces)
    
    
@@ -6385,20 +6385,19 @@ call elementMPIList % destruct
    !========================
    do i = 1, size(self % elements)
    
-      f = 0
+      nNodesInsideRadius = 0
    
       do j = 1, 8
    
          if ( ( (self % Nodes(self % elements(i) % nodeIDs(j)) % X(1) - center(1))**2 + &
-                (self % Nodes(self % elements(i) % nodeIDs(j)) % X(y) - center(2))**2 ) <= rad**2 ) then 
-            f = f + 1
+                (self % Nodes(self % elements(i) % nodeIDs(j)) % X(coordY) - center(2))**2 ) <= rad**2 ) then 
+                  nNodesInsideRadius = nNodesInsideRadius + 1
          end if 
    
       end do  
    
-      if (f == 8) then
+      if (nNodesInsideRadius == 8) then
          self % elements(i) % sliding = .true.
-         ll = ll + 1
       end if 
    
    end do 
@@ -6407,32 +6406,32 @@ call elementMPIList % destruct
    !========================
    ! Detect interface (mortar) elements
    !========================
-   l = 0
+   elemCount = 0
    
    do i = 1, size(self % elements)
    
       if (self % elements(i) % sliding) then 
    
-         eID = self % elements(i) % eID
+         elemID = self % elements(i) % eID
    
          do j = 1, 6
    
-            if (self % faces(self % elements(i) % faceIDs(j)) % elementIDs(1) == eID) then 
-               eID2 = self % faces(self % elements(i) % faceIDs(j)) % elementIDs(2)
+            if (self % faces(self % elements(i) % faceIDs(j)) % elementIDs(1) == elemID) then 
+               neighborElemID = self % faces(self % elements(i) % faceIDs(j)) % elementIDs(2)
             else   
-               eID2 = self % faces(self % elements(i) % faceIDs(j)) % elementIDs(1)
+               neighborElemID = self % faces(self % elements(i) % faceIDs(j)) % elementIDs(1)
             end if 
    
-            if (eID2 /= 0) then 
+            if (neighborElemID /= 0) then 
    
-               if (self % elements(eID2) % sliding) then 
+               if (self % elements(neighborElemID) % sliding) then 
                   cycle
                else 
-                  self % elements(eID) % MortarFaces(j)   = 1
-                  self % elements(eID) % sliding_newnodes = .true.
+                  self % elements(elemID) % MortarFaces(j)   = 1
+                  self % elements(elemID) % sliding_newnodes = .true.
    
-                  l = l + 1
-                  arr2(l) = eID
+                  elemCount = elemCount + 1
+                  slidingMortarElems(elemCount) = elemID
    
                   new_nFaces = new_nFaces + 1
                end if 
@@ -6445,55 +6444,60 @@ call elementMPIList % destruct
    
    end do
 
-   ll=0
-   l=0
+   elemCount=0
   
-   !do i=1, size(arr2)
-   !   write(*,*) 'arr2 i=',i, arr2(i)
-   !end do 
-   Mat=0
-   do i=1,size(arr2)
-      Mat(i,1)=arr2(i)
-      ll=0
-      lll=0
-      no=0
-      !check the position of the element
-      do l = 1, 8
+   slidingMortarConnectivity=0
 
-         if (self % nodes(self % elements(arr2(i)) % nodeIDs(l)) % X(y) > 0.0_RP) then 
+   do i=1,size(slidingMortarElems)
+      slidingMortarConnectivity(i,1)=slidingMortarElems(i)
+      isTopRegion=0
+      isBottomRegion=0
+      hasNodeBelowCenter=0
+
+      ! --------------------------------------------------
+      ! Classify element location relative to rotation center
+      ! (top or bottom region)
+      ! --------------------------------------------------
+
+      do iNode = 1, 8
+
+         if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(iNode)) % X(coordY) > 0.0_RP) then 
       
-            do z = 1, 8 
-               if (self % nodes(self % elements(arr2(i)) % nodeIDs(z)) % X(y) < 0.0_RP) then 
-                  no = 1
+            do iNodeCheck = 1, 8 
+               if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(iNodeCheck)) % X(coordY) < 0.0_RP) then 
+                  hasNodeBelowCenter = 1
                end if 
             end do 
       
-            if (no == 0) then 
-               ll = 1
+            if (hasNodeBelowCenter == 0) then 
+               isTopRegion = 1
                exit 
             end if 
       
          end if 
       
       
-         if (self % nodes(self % elements(arr2(i)) % nodeIDs(l)) % X(y) < 0.0_RP) then 
-            lll = 1
+         if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(iNode)) % X(coordY) < 0.0_RP) then 
+            isBottomRegion = 1
             exit 
          end if 
       
       end do
       !it's on the top of the circle 
-      if (ll==1) then 
+      if (isTopRegion==1) then 
           do j=1,6
-              if (self%faces(self%elements(arr2(i))%faceIDs(j))%elementIDs(1)==arr2(i)) then 
-                  eID3=self%faces(self%elements(arr2(i))%faceIDs(j))%elementIDs(2)
+              if (self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)==slidingMortarElems(i)) then 
+               candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(2)
                else   
-                  eID3=self%faces(self%elements(arr2(i))%faceIDs(j))%elementIDs(1)
+                  candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)
                end if
-               if (eID3==0) cycle 
-               if (.not.self%elements(eID3)%sliding) then 
-                  Mat(i,4)=j 
-                  Mat(i,7)=self%faces(self%elements(arr2(i))%faceIDs(j))%rotation 
+               if (candidateElemID==0) cycle 
+               if (.not.self%elements(candidateElemID)%sliding) then 
+                  slidingMortarConnectivity(i,4)=j 
+                  slidingMortarConnectivity(i,7)=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%rotation 
+                  ! --------------------------------------------------
+                  ! Assign local face node ordering for mortar construction
+                  ! --------------------------------------------------
                   select case (j)
 
                   case (1)
@@ -6523,91 +6527,83 @@ call elementMPIList % destruct
                   end select
    
                end if 
-               if ((eID3 /= 0) .and. (self % elements(eID3) % sliding_newnodes)) then
-
-                  if (Mat(i,2) == 0) then
+               ! --------------------------------------------------
+               ! Search for adjacent sliding element across the interface
+               ! using geometric node-based comparison
+               ! --------------------------------------------------
+               if ((candidateElemID /= 0) .and. (self % elements(candidateElemID) % sliding_newnodes)) then
+                  if (slidingMortarConnectivity(i,2) == 0) then
                
-                     do k = 1, 8
+                     do nodeIdxA = 1, 8
                
-                        if (Mat(i,2) == 0) then
+                        if (slidingMortarConnectivity(i,2) == 0) then
                
-                           do kk = 1, 8    !!!!!!!!
+                           do nodeIdxB = 1, 8    !!!!!!!!
                
-                              if (Mat(i,2) == 0) then
-               
-                                 sp = 0
-               
-                                 if (self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1) >= center(1)) then 
-               
-                                    if ( (self % nodes(self % elements(eID3) % nodeIDs(k)) % X(1) <  &
-                                          self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1)) .and. &
-                                         (self % nodes(self % elements(eID3) % nodeIDs(kk)) % X(y) >= center(2)) .and. &
-                                         (self % nodes(self % elements(eID3) % nodeIDs(k)) % X(y) >  &
-                                          self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(3)) .and. &
-                                         (Mat(i,3) == 0) ) then 
-               
-                                       Mat(i,2) = eID3 
+                              if (slidingMortarConnectivity(i,2) == 0) then
+                                 if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) >= center(1)) then 
+                                    if ( (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) <  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) >= center(2)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) >  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3)) .and. &
+                                         (slidingMortarConnectivity(i,3) == 0) ) then 
+            
+                                          slidingMortarConnectivity(i,2) = candidateElemID 
                                        exit
                
                                     end if 
-               
                                  end if 
                
+                                 if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) <= center(1)) then 
                
-                                 if (self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1) <= center(1)) then 
+                                    if ( (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) <  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) >= center(2)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) <  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3)) .and. &
+                                         (slidingMortarConnectivity(i,3) == 0) ) then 
                
-                                    if ( (self % nodes(self % elements(eID3) % nodeIDs(k)) % X(1) <  &
-                                          self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1)) .and. &
-                                         (self % nodes(self % elements(eID3) % nodeIDs(kk)) % X(y) >= center(2)) .and. &
-                                         (self % nodes(self % elements(eID3) % nodeIDs(k)) % X(y) <  &
-                                          self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(3)) .and. &
-                                         (Mat(i,3) == 0) ) then 
-               
-                                       Mat(i,2) = eID3 
+                                          slidingMortarConnectivity(i,2) = candidateElemID 
                                        exit
                
                                     end if 
-               
-                                 end if 
-               
-                              end if 
-               
+                                 end if              
+                              end if              
                            end do 
                
                         end if 
                
-                        if (Mat(i,2) /= 0) exit
+                        if (slidingMortarConnectivity(i,2) /= 0) exit
                
-                     end do
-               
+                     end do         
                   end if 
                
                end if
-               !if (Mat(i,1)==125) then 
-               !   Mat(i,2)=10
-               !   Mat(i,3)=9
-               !end if 
           end do 
-          !now we have the sliding neighbour element, we search for the non sliding neighbour (mortar)
+         ! --------------------------------------------------
+         ! Determine matching face on mortar element that connects
+         ! back to the sliding neighbor (interface consistency)
+         ! --------------------------------------------------
           do j = 1, 6
 
-            if (Mat(i,2) /= 0) then 
+            if (slidingMortarConnectivity(i,2) /= 0) then 
          
-               if (self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % elementIDs(1) == Mat(i,2)) then 
-                  eID3 = self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % elementIDs(2)
+               if (self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,2)) then 
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(2)
                else   
-                  eID3 = self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % elementIDs(1)
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1)
                end if
          
-               if (eID3 /= 0) then 
+               if (candidateElemID /= 0) then 
          
-                  if (.not. self % elements(eID3) % sliding) then 
+                  if (.not. self % elements(candidateElemID) % sliding) then 
          
-                     Mat(i,3) = eID3
-                     arr1(i)  = eID3
-                     Mat(i,5) = j 
+                     slidingMortarConnectivity(i,3) = candidateElemID
+                     mortarNeighborElems(i)  = candidateElemID
+                     slidingMortarConnectivity(i,5) = j 
          
-                     Mat(i,8) = self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % rotation
+                     slidingMortarConnectivity(i,8) = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % rotation
          
                   end if  
          
@@ -6616,23 +6612,25 @@ call elementMPIList % destruct
             end if 
          
          end do
+
+         
          do j = 1, 6
 
-            if (Mat(i,3) /= 0) then 
+            if (slidingMortarConnectivity(i,3) /= 0) then 
          
-               if (self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % elementIDs(1) == Mat(i,3)) then 
-                  eID3 = self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % elementIDs(2)
+               if (self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,3)) then 
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(2)
                else   
-                  eID3 = self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % elementIDs(1)
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1)
                end if
          
-               if (eID3 == Mat(i,2)) then 
+               if (candidateElemID == slidingMortarConnectivity(i,2)) then 
          
-                  Mat(i,6) = j 
+                  slidingMortarConnectivity(i,6) = j 
          
-                  self % elements(Mat(i,3)) % MortarFaces(j) = 1 
+                  self % elements(slidingMortarConnectivity(i,3)) % MortarFaces(j) = 1 
          
-                  Mat(i,9) = self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % rotation
+                  slidingMortarConnectivity(i,9) = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % rotation
          
                end if 
          
@@ -6641,17 +6639,22 @@ call elementMPIList % destruct
          end do
       end if 
       !it's on the bottom of the circle 
-      if (lll==1) then
+      if (isBottomRegion==1) then
       do j=1,6
-          if (self%faces(self%elements(arr2(i))%faceIDs(j))%elementIDs(1)==arr2(i)) then 
-              eID3=self%faces(self%elements(arr2(i))%faceIDs(j))%elementIDs(2)
+          if (self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)==slidingMortarElems(i)) then 
+            candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(2)
            else   
-              eID3=self%faces(self%elements(arr2(i))%faceIDs(j))%elementIDs(1)
+            candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)
            end if
-           if (eID3==0) cycle 
-           if (.not.self%elements(eID3)%sliding) then 
-              Mat(i,4)=j 
-              Mat(i,7)=self%faces(self%elements(arr2(i))%faceIDs(j))%rotation
+           if (candidateElemID==0) cycle 
+           if (.not.self%elements(candidateElemID)%sliding) then 
+            slidingMortarConnectivity(i,4)=j 
+            slidingMortarConnectivity(i,7)=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%rotation
+
+            ! --------------------------------------------------
+            ! Assign local face node ordering for mortar construction
+            ! --------------------------------------------------
+
               select case (j)
 
               case (1)
@@ -6680,53 +6683,47 @@ call elementMPIList % destruct
 
               end select
            end if 
-           if ( (eID3 /= 0) .and. (self % elements(eID3) % sliding_newnodes) ) then
+           if ( (candidateElemID /= 0) .and. (self % elements(candidateElemID) % sliding_newnodes) ) then
 
-            if (Mat(i,2) == 0) then
+            if (slidingMortarConnectivity(i,2) == 0) then
+ 
+               do nodeIdxA = 1, 8
          
-               do k = 1, 8
+                  if (slidingMortarConnectivity(i,2) /= 0) exit
          
-                  if (Mat(i,2) /= 0) exit
+                  do nodeIdxB = 1, 8
          
-                  do kk = 1, 8
-         
-                     if (Mat(i,2) /= 0) exit
-         
-                     ! -------------------------------
-                     ! Cas côté gauche
-                     ! -------------------------------
-                     if ( self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1) <= center(1) ) then
+                     if (slidingMortarConnectivity(i,2) /= 0) exit
+                     ! --- Left side of the rotation center ---
+                     if ( self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) <= center(1) ) then
          
                         if ( &
-                           self % nodes(self % elements(eID3) % nodeIDs(k)) % X(1) >  &
-                           self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1) .and. &
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) >  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) .and. &
          
-                           self % nodes(self % elements(eID3) % nodeIDs(kk)) % X(y) <= center(2) .and. &
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) <= center(2) .and. &
          
-                           self % nodes(self % elements(eID3) % nodeIDs(k)) % X(y) <  &
-                           self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(3) ) then
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) <  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3) ) then
          
-                           Mat(i,2) = eID3
+                              slidingMortarConnectivity(i,2) = candidateElemID
                            exit
          
                         end if
                      end if
-         
-                     ! -------------------------------
-                     ! Cas côté droit
-                     ! -------------------------------
-                     if ( self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1) >= center(1) ) then
+                     ! --- Right side of the rotation center ---
+                     if ( self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) >= center(1) ) then
          
                         if ( &
-                           self % nodes(self % elements(eID3) % nodeIDs(k)) % X(1) >  &
-                           self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(1) .and. &
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) >  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) .and. &
          
-                           self % nodes(self % elements(eID3) % nodeIDs(kk)) % X(y) <= center(2) .and. &
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) <= center(2) .and. &
          
-                           self % nodes(self % elements(eID3) % nodeIDs(k)) % X(y) >  &
-                           self % nodes(self % elements(arr2(i)) % nodeIDs(kk)) % X(3) ) then
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) >  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3) ) then
          
-                           Mat(i,2) = eID3
+                              slidingMortarConnectivity(i,2) = candidateElemID
                            exit
          
                         end if
@@ -6739,24 +6736,29 @@ call elementMPIList % destruct
          
          end if
       end do 
+
+      ! --------------------------------------------------
+      ! Identify non-sliding neighbor (mortar element) 
+      ! connected to the sliding neighbor across the interface
+      ! --------------------------------------------------
       do j = 1, 6
 
-         if (Mat(i,2) /= 0) then 
+         if (slidingMortarConnectivity(i,2) /= 0) then 
       
-            if (self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % elementIDs(1) == Mat(i,2)) then 
-               eID3 = self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % elementIDs(2)
+            if (self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,2)) then 
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(2)
             else   
-               eID3 = self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % elementIDs(1)
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1)
             end if
       
-            if (eID3 /= 0) then 
-               if (.not. self % elements(eID3) % sliding) then 
+            if (candidateElemID /= 0) then 
+               if (.not. self % elements(candidateElemID) % sliding) then 
       
-                  Mat(i,3) = eID3
-                  arr1(i)  = eID3
-                  Mat(i,5) = j 
+                  slidingMortarConnectivity(i,3) = candidateElemID
+                  mortarNeighborElems(i)  = candidateElemID
+                  slidingMortarConnectivity(i,5) = j 
       
-                  Mat(i,8) = self % faces(self % elements(Mat(i,2)) % faceIDs(j)) % rotation
+                  slidingMortarConnectivity(i,8) = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % rotation
       
                end if 
             end if     
@@ -6764,127 +6766,131 @@ call elementMPIList % destruct
          end if 
       
       end do
+
+      ! --------------------------------------------------
+      ! Locate the corresponding face on the mortar element 
+      ! that connects back to the sliding neighbor
+      ! (ensures interface consistency and orientation)
+      ! --------------------------------------------------
+
       do j = 1, 6
 
-         if (Mat(i,3) /= 0) then 
+         if (slidingMortarConnectivity(i,3) /= 0) then 
       
-            if (self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % elementIDs(1) == Mat(i,3)) then 
-               eID3 = self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % elementIDs(2)
+            if (self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,3)) then 
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(2)
             else   
-               eID3 = self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % elementIDs(1)
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1)
             end if
       
-            if (eID3 == Mat(i,2)) then 
+            if (candidateElemID == slidingMortarConnectivity(i,2)) then 
       
-               Mat(i,6) = j 
+               slidingMortarConnectivity(i,6) = j 
       
-               self % elements(Mat(i,3)) % MortarFaces(j) = 1 
+               self % elements(slidingMortarConnectivity(i,3)) % MortarFaces(j) = 1 
       
-               Mat(i,9) = self % faces(self % elements(Mat(i,3)) % faceIDs(j)) % rotation
+               slidingMortarConnectivity(i,9) = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % rotation
       
             end if 
       
          end if 
       
       end do
-      !if (Mat(i,1)==125) then 
-      !   Mat(i,2)=10
-      !   arr1(i)=9
-      !   Mat(i,3)=9
-      !   self%elements(Mat(i,3))%MortarFaces(3)=1 
-      !end if 
    end if 
    end do 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+      ! --------------------------------------------------
+      ! Consistency checks:
+      ! verify that sliding and mortar connectivity relations
+      ! are correctly defined and physically valid
+      ! --------------------------------------------------
 
-
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   do i = 1, size(arr2)
-
-      !write(*,*) 'Mat(i=', Mat(i,:)
+   do i = 1, size(slidingMortarElems)
    
-      if ((Mat(i,2) .NE. 0) .AND. (Mat(i,3) .NE. 0)) then
+      if ((slidingMortarConnectivity(i,2) .NE. 0) .AND. (slidingMortarConnectivity(i,3) .NE. 0)) then
    
-         if (.not. self%elements(Mat(i,1))%sliding_newnodes) write(*,*) 'for i=', i, '(i,1) is not sliding_newnodes'
-         if (.not. self%elements(Mat(i,2))%sliding_newnodes) write(*,*) 'for i=', i, '(i,2) is not sliding_newnodes'
-         if (self%elements(Mat(i,3))%sliding_newnodes)       write(*,*) 'for i', i, '(i,3) is sliding_newnodes'
-         if (self%elements(Mat(i,3))%sliding)                write(*,*) 'for i', i, '(i,3) is sliding'
+         if (.not. self%elements(slidingMortarConnectivity(i,1))%sliding_newnodes) write(*,*) 'for i=', i, '(i,1) is not sliding_newnodes'
+         if (.not. self%elements(slidingMortarConnectivity(i,2))%sliding_newnodes) write(*,*) 'for i=', i, '(i,2) is not sliding_newnodes'
+         if (self%elements(slidingMortarConnectivity(i,3))%sliding_newnodes)       write(*,*) 'for i', i, '(i,3) is sliding_newnodes'
+         if (self%elements(slidingMortarConnectivity(i,3))%sliding)                write(*,*) 'for i', i, '(i,3) is sliding'
    
-         eID  = self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1)
-         eID2 = self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2)
+         elemID  = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(1)
+         neighborElemID = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(2)
    
-         if (eID == Mat(i,1)) then
-            if (self%elements(eID2)%sliding) write(*,*) 'problem with (i,4)'
+         if (elemID == slidingMortarConnectivity(i,1)) then
+            if (self%elements(neighborElemID)%sliding) write(*,*) 'problem with (i,4)'
          else
-            if (self%elements(eID)%sliding) write(*,*) 'problem with (i,4)'
+            if (self%elements(elemID)%sliding) write(*,*) 'problem with (i,4)'
          end if
    
-         if ((eID .NE. Mat(i,1)) .AND. (eID2 .NE. Mat(i,1))) write(*,*) 'problem with (i,4) line 6195'
+         if ((elemID .NE. slidingMortarConnectivity(i,1)) .AND. (neighborElemID .NE. slidingMortarConnectivity(i,1))) write(*,*) 'problem with (i,4) line 6195'
    
    
-         eID  = self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1)
-         eID2 = self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2)
+         elemID  = self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(1)
+         neighborElemID = self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(2)
    
-         if (eID == Mat(i,2)) then
-            if (self%elements(eID2)%sliding) write(*,*) 'problem with (i,5)'
+         if (elemID == slidingMortarConnectivity(i,2)) then
+            if (self%elements(neighborElemID)%sliding) write(*,*) 'problem with (i,5)'
          else
-            if (self%elements(eID)%sliding) write(*,*) 'problem with (i,5)'
+            if (self%elements(elemID)%sliding) write(*,*) 'problem with (i,5)'
          end if
    
-         if ((eID .NE. Mat(i,2)) .AND. (eID2 .NE. Mat(i,2))) write(*,*) 'problem with (i,5) line 6203'
+         if ((elemID .NE. slidingMortarConnectivity(i,2)) .AND. (neighborElemID .NE. slidingMortarConnectivity(i,2))) write(*,*) 'problem with (i,5) line 6203'
    
    
-         eID  = self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1)
-         eID2 = self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2)
+         elemID  = self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(1)
+         neighborElemID = self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(2)
    
-         if (eID == Mat(i,3)) then
-            if (.not. self%elements(eID2)%sliding) write(*,*) 'problem with (i,6)'
+         if (elemID == slidingMortarConnectivity(i,3)) then
+            if (.not. self%elements(neighborElemID)%sliding) write(*,*) 'problem with (i,6)'
          else
-            if (.not. self%elements(eID)%sliding) write(*,*) 'problem with (i,6)'
+            if (.not. self%elements(elemID)%sliding) write(*,*) 'problem with (i,6)'
          end if
    
-         if ((eID .NE. Mat(i,3)) .AND. (eID2 .NE. Mat(i,3))) write(*,*) 'problem with (i,5) line 6211'
+         if ((elemID .NE. slidingMortarConnectivity(i,3)) .AND. (neighborElemID .NE. slidingMortarConnectivity(i,3))) write(*,*) 'problem with (i,5) line 6211'
    
       end if
    
    end do
    
-   
+   ! --------------------------------------------------
+   ! Build element-to-element connectivity graph 
+   ! based on shared nodes between sliding interface elements
+   ! --------------------------------------------------
    connect = 0
    
    
-   do i = 1, size(arr2)
+   do i = 1, size(slidingMortarElems)
    
       do j = 1, 6
    
-         if ( (self%faces(self%Elements(Mat(i,1))%faceIDs(j))%elementIDs(1) .NE. 0) .AND. &
-              (self%faces(self%Elements(Mat(i,1))%faceIDs(j))%elementIDs(2) .NE. 0) ) then
+         if ( (self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(1) .NE. 0) .AND. &
+              (self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(2) .NE. 0) ) then
    
-            eID = self%faces(self%Elements(Mat(i,1))%faceIDs(j))%elementIDs(1)
+               elemID = self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(1)
    
-            if (.NOT. self%elements(eID)%sliding) then
+            if (.NOT. self%elements(elemID)%sliding) then
    
-               Mat(i,10) = self%faces(self%elements(Mat(i,1))%faceIDs(j))%elementIDs(1)
-               Mat(i,12) = self%faces(self%elements(Mat(i,1))%faceIDs(j))%rotation
+               slidingMortarConnectivity(i,10) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(1)
+               slidingMortarConnectivity(i,12) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%rotation
    
-               do jj = 1, 6
-                  if (self%faces(self%elements(eID)%faceIDs(jj))%elementIDs(1) == Mat(i,1)) Mat(i,11) = jj
-                  if (self%faces(self%elements(eID)%faceIDs(jj))%elementIDs(2) == Mat(i,1)) Mat(i,11) = jj
+               do faceIdx2 = 1, 6
+                  if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(1) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
+                  if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(2) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
                end do
    
             else
    
-               eID = self%faces(self%Elements(Mat(i,1))%faceIDs(j))%elementIDs(2)
+               elemID = self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(2)
    
-               if (.NOT. self%elements(eID)%sliding) then
+               if (.NOT. self%elements(elemID)%sliding) then
    
-                  Mat(i,10) = self%faces(self%elements(Mat(i,1))%faceIDs(j))%elementIDs(2)
-                  Mat(i,12) = self%faces(self%elements(Mat(i,1))%faceIDs(j))%rotation
+                  slidingMortarConnectivity(i,10) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(2)
+                  slidingMortarConnectivity(i,12) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%rotation
    
-                  do jj = 1, 6
-                     if (self%faces(self%elements(eID)%faceIDs(jj))%elementIDs(1) == Mat(i,1)) Mat(i,11) = jj
-                     if (self%faces(self%elements(eID)%faceIDs(jj))%elementIDs(2) == Mat(i,1)) Mat(i,11) = jj
+                  do faceIdx2 = 1, 6
+                     if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(1) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
+                     if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(2) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
                   end do
    
                end if
@@ -6901,10 +6907,10 @@ call elementMPIList % destruct
    if (MPI_Process % doMPIAction) then
       if (.NOT. mpi_partition % Constructed) then
    
-         open(unit=10, file="Mat.txt", action="write")
+         open(unit=10, file="slidingMortarConnectivity.txt", action="write")
    
-         do i = 1, size(arr2)
-            write(10,*) (Mat(i,j), j=1,12)
+         do i = 1, size(slidingMortarElems)
+            write(10,*) (slidingMortarConnectivity(i,j), j=1,12)
          end do
    
          close(10)
@@ -6912,32 +6918,35 @@ call elementMPIList % destruct
       end if
    end if
    
+   ! --------------------------------------------------
+   !  Detect neighboring sliding elements sharing common nodes
+   ! --------------------------------------------------
    
-   do i = 1, size(arr2)
+   do i = 1, size(slidingMortarElems)
    
-      k = 2
-      Connect(i,1,1) = arr2(i)
+      nodeIdxA = 2
+      Connect(i,1,1) = slidingMortarElems(i)
       Connect(i,1,2) = i
    
-      do l = 1, size(arr2)
-         do ll = 1, 8
-            do lll = 1, 8
+      do elemCount = 1, size(slidingMortarElems)
+         do iNode2 = 1, 8
+            do iNode3 = 1, 8
    
-               if ((self%elements(arr2(i))%nodeIDs(ll) == self%elements(arr2(l))%nodeIDs(lll)) .AND. &
-                   arr2(i) .ne. arr2(l)) then
+               if ((self%elements(slidingMortarElems(i))%nodeIDs(iNode2) == self%elements(slidingMortarElems(elemCount))%nodeIDs(iNode3)) .AND. &
+               slidingMortarElems(i) .ne. slidingMortarElems(elemCount)) then
    
-                  no = 0
+                  isAlreadyConnected = 0
    
-                  do kk = 2, 9
-                     if (Connect(i,kk,1) == arr2(l)) then
-                        no = 1
+                  do nodeIdxB = 2, 9
+                     if (Connect(i,nodeIdxB,1) == slidingMortarElems(elemCount)) then
+                        isAlreadyConnected = 1
                      end if
                   end do
    
-                  if (no .ne. 1) then
-                     Connect(i,k,1) = arr2(l)
-                     Connect(i,k,2) = l
-                     k = k + 1
+                  if (isAlreadyConnected .ne. 1) then
+                     Connect(i,nodeIdxA,1) = slidingMortarElems(elemCount)
+                     Connect(i,nodeIdxA,2) = elemCount
+                     nodeIdxA= nodeIdxA + 1
                   end if
    
                end if
@@ -6948,24 +6957,27 @@ call elementMPIList % destruct
    
    end do
    
+   ! --------------------------------------------------
+   ! Store local indices of shared nodes for each neighbor pair
+   ! --------------------------------------------------
+
+   do i = 1, size(slidingMortarElems)
    
-   do i = 1, size(arr2)
+      elemID = Connect(i,1,1)
    
-      eID = Connect(i,1,1)
+      do iNodeCheck = 2, 9
    
-      do z = 2, 9
+         neighborElemID = Connect(i,iNodeCheck,1)
+         sharedNodeCounter    = 3
    
-         eID2 = Connect(i,z,1)
-         v    = 3
+         if ((elemID .ne. 0) .and. (neighborElemID .ne. 0)) then
    
-         if ((eID .ne. 0) .and. (eID2 .ne. 0)) then
+            do iNode2 = 1, 8
+               do iNode3 = 1, 8
    
-            do ll = 1, 8
-               do lll = 1, 8
-   
-                  if (self%elements(eID)%nodeIDs(ll) == self%elements(eID2)%nodeIDs(lll)) then
-                     Connect(i,z,v) = ll
-                     v = v + 1
+                  if (self%elements(elemID)%nodeIDs(iNode2) == self%elements(neighborElemID)%nodeIDs(iNode3)) then
+                     Connect(i,iNodeCheck,sharedNodeCounter) = iNode2
+                     sharedNodeCounter = sharedNodeCounter + 1
                   end if
    
                end do
@@ -6983,7 +6995,7 @@ call elementMPIList % destruct
    
          open(unit=10, file="connect.txt", action="write")
    
-         do i = 1, size(arr2)
+         do i = 1, size(slidingMortarElems)
             !do j=1,9
             !do k=1,6
             write(10,*) (connect(i,:,:))
@@ -6996,91 +7008,68 @@ call elementMPIList % destruct
       end if
    end if
    
-   
-   l = 0
+   ! --------------------------------------------------
+   ! Extract sliding elements that do not require mortars
+   ! (fully internal sliding region)
+   ! --------------------------------------------------
+   elemCount = 0
    
    do i = 1, size(self%elements)
    
       if ((self%elements(i)%sliding) .and. .not.(self%elements(i)%sliding_newnodes)) then
-         l = l + 1
-         arr3(l) = i
+         elemCount = elemCount + 1
+         pureSlidingElems(elemCount) = i
       end if
    
    end do
 
 
-   do i = 1, size(arr2)
+   do i = 1, size(slidingMortarElems)
 
-      if ((Mat(i,2) .NE. 0) .AND. (Mat(i,3) .NE. 0)) then
+      if ((slidingMortarConnectivity(i,2) .NE. 0) .AND. (slidingMortarConnectivity(i,3) .NE. 0)) then
    
-         if (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%rotation .NE. Mat(i,7)) &
-            write(*,*) 'problem with rotation of mat(i7)'
+         if (self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%rotation .NE. slidingMortarConnectivity(i,7)) &
+            write(*,*) 'problem with rotation of slidingMortarConnectivity(i7)'
    
-         if ((self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(1) .NE. Mat(i,1)) .AND. &
-             (self%faces(self%elements(Mat(i,1))%faceIDs(Mat(i,4)))%elementIDs(2) .NE. Mat(i,1))) &
+         if ((self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(1) .NE. slidingMortarConnectivity(i,1)) .AND. &
+             (self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(2) .NE. slidingMortarConnectivity(i,1))) &
             write(*,*) 'problem with face i1'
    
    
-         if (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation .NE. Mat(i,8)) &
-            write(*,*) 'problem with rotation of mat(i8)'
+         if (self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%rotation .NE. slidingMortarConnectivity(i,8)) &
+            write(*,*) 'problem with rotation of slidingMortarConnectivity(i8)'
    
-         if ((self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(1) .NE. Mat(i,2)) .AND. &
-             (self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%elementIDs(2) .NE. Mat(i,2))) &
+         if ((self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(1) .NE. slidingMortarConnectivity(i,2)) .AND. &
+             (self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(2) .NE. slidingMortarConnectivity(i,2))) &
             write(*,*) 'problem with face i2'
    
    
-         if (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%rotation .NE. Mat(i,9)) &
-            write(*,*) 'problem with rotation of mat(i9)'
+         if (self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%rotation .NE. slidingMortarConnectivity(i,9)) &
+            write(*,*) 'problem with rotation of slidingMortarConnectivity(i9)'
    
-         if ((self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(1) .NE. Mat(i,3)) .AND. &
-             (self%faces(self%elements(Mat(i,3))%faceIDs(Mat(i,6)))%elementIDs(2) .NE. Mat(i,3))) &
+         if ((self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(1) .NE. slidingMortarConnectivity(i,3)) .AND. &
+             (self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(2) .NE. slidingMortarConnectivity(i,3))) &
             write(*,*) 'problem with face i3'
    
       end if
    
    end do
+   ! --------------------------------------------------
+   ! Ensure uniqueness of connectivity mappings
+   ! (no duplicated sliding, neighbor, or mortar assignments)
+   ! --------------------------------------------------
    
-   
-   !Mat=Matrot
-   
-   
-   do i = 1, size(arr2)
-   
-      if ((Mat(i,2) .NE. 0) .AND. (Mat(i,3) .NE. 0)) then
-   
-         nodeIDs1    = self%elements(Mat(i,3))%nodeIDs
-         nodeIDs2    = self%elements(Mat(i,2))%nodeIDs
-         faceNumber1 = Mat(i,6)
-         faceNumber2 = Mat(i,5)
-   
-         do j = 1, 4
-            faceNodeIDs1(j) = nodeIDs1(localFaceNode(j,faceNumber1))
-            faceNodeIDs2(j) = nodeIDs2(localFaceNode(j,faceNumber2))
-         end do
-   
-         facer(i,1) = facerotation(masterNodeIDs = faceNodeIDs1, slaveNodeIDs = faceNodeIDs2)
-         facer(i,2) = facerotation(masterNodeIDs = faceNodeIDs2, slaveNodeIDs = faceNodeIDs1)
-   
-      end if
-   
-   end do
-   
-   
-   ind1 = 0
-   ind2 = 0
-   ind3 = 0
-   
-   do i = 1, size(arr2)
+   do i = 1, size(slidingMortarElems)
    
       ind1 = 0
       ind2 = 0
       ind3 = 0
    
-      do l = 1, size(arr2)
+      do j = 1, size(slidingMortarElems)
    
-         if (Mat(i,1) == Mat(l,1)) ind1 = ind1 + 1
-         if (Mat(i,2) == Mat(l,2)) ind2 = ind2 + 1
-         if (Mat(i,3) == Mat(l,3)) ind3 = ind3 + 1
+         if (slidingMortarConnectivity(i,1) == slidingMortarConnectivity(j,1)) ind1 = ind1 + 1
+         if (slidingMortarConnectivity(i,2) == slidingMortarConnectivity(j,2)) ind2 = ind2 + 1
+         if (slidingMortarConnectivity(i,3) == slidingMortarConnectivity(j,3)) ind3 = ind3 + 1
    
       end do
    
@@ -7090,15 +7079,18 @@ call elementMPIList % destruct
    
    end do
    
+   ! --------------------------------------------------
+   ! Final validation of face connectivity and rotation consistency
+   ! across sliding-mortar interfaces
+   ! --------------------------------------------------
+   do i = 1, size(slidingMortarElems)
    
-   do i = 1, size(arr2)
-   
-      if (Mat(i,2) .NE. 0) then
-         Mat(i,8) = self%faces(self%elements(Mat(i,2))%faceIDs(Mat(i,5)))%rotation
+      if (slidingMortarConnectivity(i,2) .NE. 0) then
+         slidingMortarConnectivity(i,8) = self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%rotation
       end if
    
    end do
-  end subroutine HexMesh_MarkSlidingElementsRadius
+  end subroutine HexMesh_BuildSlidingMortarConnectivity
 
   subroutine HexMesh_RotateNodes(self, theta, omega, nelm, n, m, new_nNodes, new_nodes, &
                               arr1, arr2, arr3, Connect, o, s, face_nodes, face_othernodes, &
@@ -7568,7 +7560,7 @@ if (.not. self%sliding) then
    arr1 = 0
    arr2 = 0
 
-   call self % MarkSlidingElementsRadius(1.01_RP, nelm, center, arr3, arr2, arr1, &
+   call self % BuildSlidingMortarConnectivity(1.01_RP, nelm, center, arr3, arr2, arr1, &
                                          Mat, Connect, new_nFaces, face_nodes, &
                                          face_othernodes, rotmortars)
 end if
