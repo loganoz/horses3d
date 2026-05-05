@@ -130,10 +130,15 @@ MODULE HexMeshClass
             procedure :: pAdapt_MPI                    => HexMesh_pAdapt_MPI
             procedure :: DefineAcousticElements        => HexMesh_DefineAcousticElements
             procedure :: UpdateHOArrays                => HexMesh_UpdateHOArrays
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
-            procedure :: SaveLambVectorStatistics      => HexMesh_SaveLambVectorStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
+#endif
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+            procedure :: SaveLambVectorStatistics      => HexMesh_SaveLambVectorStatistics
+#endif
+#if defined(ACOUSTIC)
+            procedure :: SavePressureSquaredStatistics      => HexMesh_SavePressureSquaredStatistics
 #endif
 #if defined(NAVIERSTOKES)
             procedure :: saveSoundVelocitySquaredStatistics => HexMesh_saveSoundVelocitySquaredStatistics
@@ -3940,6 +3945,84 @@ slavecoord:             DO l = 1, 4
 
 #endif
 
+#if defined(ACOUSTIC)
+      subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID, fileType
+         integer                          :: no_of_written_vars, no_stat_s
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities
+!        ---------------------------
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+
+!        Create new file
+!        ---------------
+         fileType = STATS_FILE
+         if ( saveGradients .and. computeGradients ) fileType = STATS_AND_GRADIENTS_FILE
+         call CreateNewSolutionFile(trim(name), fileType, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         ! Set the number of written variables for the correct offset
+         no_stat_s = 9 ! S_ij
+         no_of_written_vars = no_stat_s + NCONS ! 9 + NCONS
+         if (saveGradients .and. computeGradients) no_of_written_vars = no_of_written_vars + NGRAD * NDIM
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*no_of_written_vars*e % offsetIO*SIZEOF_RP
+            ! Write S_ij
+            call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
+            ! Write state variables
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
+            write(fid) Q
+            deallocate(Q)
+            ! Write gradients
+            if ( saveGradients .and. computeGradients ) then
+               allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               ! UX
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
+               write(fid) Q
+               ! UY
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
+               write(fid) Q
+               ! UZ
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:no_stat_s+NCONS+NDIM*NGRAD,:,:,:)
+               write(fid) Q
+               deallocate(Q)
+            end if
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SaveStatistics
+
+#endif
+
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       subroutine HexMesh_SaveLambVectorStatistics(self, iter, time, name, lblimits, ublimits)
          use SolutionFile
@@ -3999,7 +4082,59 @@ slavecoord:             DO l = 1, 4
 
       end subroutine HexMesh_SaveLambVectorStatistics
 #endif
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+
+#if defined(ACOUSTIC)
+      subroutine HexMesh_SavePressureSquaredStatistics(self, iter, time, name, lblimits, ublimits)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         integer,             intent(in)        :: lblimits, ublimits
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer                          :: no_stat_s
+         integer(kind=AddrInt)            :: pos
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities
+!        ---------------------------        
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*e % offsetIO*SIZEOF_RP
+            call writeArray(fid, e % storage % stats % data(lblimits:ublimits,:,:,:), position=pos)
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SavePressureSquaredStatistics
+#endif
+
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
       subroutine HexMesh_ResetStatistics(self)
          implicit none
          class(HexMesh)       :: self
@@ -4788,9 +4923,8 @@ slavecoord:             DO l = 1, 4
             read(fID) Q
             ! Initialize density
             self % elements(eID) % storage % Qbase(IBRHO,:,:,:) = Q(IRHO,:,:,:)
-            ! Initialize pressure and sound velocity
+            ! Initialize pressure
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-               ! Initialize pressure
                self % elements(eID) % storage % Qbase(IBP,i,j,k) = PressureBaseFlow_NS(Q(:,i,j,k))
             end do                  ; end do                   ; end do
             deallocate(Q)
@@ -4802,7 +4936,6 @@ slavecoord:             DO l = 1, 4
    End Subroutine HexMesh_LoadBaseFlowSolution_NS
 
    Subroutine HexMesh_LoadBaseSoundVelocity_NS(self, controlVariables)
-      use VariableConversion_CAA, only: PressureBaseFlow_NS
       use Physics_CAAKeywordsModule
       Implicit None
       CLASS(HexMesh)                  :: self
