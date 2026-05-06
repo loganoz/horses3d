@@ -7092,398 +7092,399 @@ call elementMPIList % destruct
    end do
   end subroutine HexMesh_BuildSlidingMortarConnectivity
 
-  subroutine HexMesh_RotateNodes(self, theta, omega, nelm, n, m, new_nNodes, new_nodes, &
-                              arr1, arr2, arr3, Connect, o, s, face_nodes, face_othernodes, &
-                              numBFacePoints, oldnnode)
+subroutine HexMesh_RotateNodes(self, theta, omega, nelm, n, m, new_nNodes, new_nodes, &
+                              slidingMortarElems, pureSlidingElems, Connect, offsetParams, scaleParams, &
+                              mortarFaceNodes, nonMortarFaceNodes, numBFacePoints, oldnnode, rotationAxis)
 
-   IMPLICIT NONE
+   implicit none
+
+   ! =========================
+   ! Arguments
+   ! =========================
 
    class(HexMesh), intent(inout) :: self
 
-   real(KIND=RP), intent(in)     :: theta
-   real(KIND=RP), intent(inout)  :: omega
+   real(KIND=RP), intent(in)     :: theta        ! rotation angle
+   real(KIND=RP), intent(inout)  :: omega        ! cumulative rotation parameter
 
-   integer, intent(in)           :: nelm
-   integer, intent(in)           :: n
-   integer, intent(in)           :: m
+   integer, intent(in)           :: nelm         ! max number of elements
+   integer, intent(in)           :: n, m         ! discretization / rotation counters
 
    integer, intent(inout)        :: new_nNodes
    type(Node), intent(inout)     :: new_nodes(new_nNodes)
 
-   integer, intent(in)           :: arr1(nelm)
-   integer, intent(in)           :: arr2(nelm)
-   integer, intent(in)           :: arr3(nelm)
-   integer, intent(in)           :: Connect(nelm, 9, 6)
+   integer, intent(in) :: slidingMortarElems(nelm) ! sliding elements at interface (need mortars)
+   integer, intent(in) :: pureSlidingElems(nelm)   ! sliding elements fully inside region
 
-   real(kind=RP), intent(inout)  :: o(4)
-   real(kind=RP), intent(inout)  :: s(4)
+   integer, intent(in) :: Connect(nelm, 9, 6) ! connectivity graph
 
-   integer, intent(inout)        :: face_nodes(nelm,4)
-   integer, intent(inout)        :: face_othernodes(nelm,4)
+   real(kind=RP), intent(inout) :: offsetParams(4) ! geometric offsets (mortar mapping)
+   real(kind=RP), intent(inout) :: scaleParams(4)  ! geometric scaling (mortar mapping)
 
-   integer, intent(inout)        :: numBFacePoints
-   integer, intent(inout)        :: oldnnode
+   integer, intent(inout) :: mortarFaceNodes(nelm,4)   ! face nodes (local indexing)
+   integer, intent(inout) :: nonMortarFaceNodes(nelm,4)   ! complementary face nodes
 
+   integer, intent(inout) :: numBFacePoints
+   integer, intent(inout) :: oldnnode
+
+   integer, intent(in) :: rotationAxis ! solver convention: 1=X, 2=Z, 3=Y
 
    ! =========================
    ! Local variables
    ! =========================
 
-   real(KIND=RP) :: ROT(3,3)
-   real(KIND=RP) :: XYZ(8,3)
-   real(KIND=RP) :: XR(3)
+   real(KIND=RP) :: ROT(3,3)                     ! rotation matrix
+   real(KIND=RP) :: rotatedNodeCoords(8,3)       ! rotated coordinates of element nodes
+   real(KIND=RP) :: nodeCoord(3)                 ! temporary node coordinate
 
-   real(KIND=RP) :: Xflat(3,2,2)
-   real(KIND=RP) :: Xpatch(3,numBFacePoints,numBFacePoints)
+   real(KIND=RP) :: Xflat(3,2,2)                 ! planar face (2x2)
+   real(KIND=RP) :: Xpatch(3,numBFacePoints,numBFacePoints) ! curved face patch
 
-   integer :: i, l, eID, eID2
-   integer :: nm, j, k, kk, z
-   integer :: ll, lll, kkk, zz
+   integer :: i, j, uIdx, vIdx, ll, neighborFace, zz
+   integer :: newNodeCounter                        ! new node counter
+   integer :: eID                                   ! element ID
 
-   real(kind=RP) :: ss(2), oo(2)
-   real(kind=RP) :: x, lb, ls, lss
+   integer :: periodicShiftIndex                    ! periodic alignment indicator
+   real(kind=RP) :: mortarShiftParam                ! geometric parameter
 
-   logical :: offset
-   integer :: inter(8)
+   integer :: nodeRemapLocal(8)                     ! local remapping of duplicated nodes
 
-   real(KIND=RP) :: corners(3,8)
-   real(KIND=RP) :: points1(3,2,2)
-   real(KIND=RP) :: points2(3,numBFacePoints,numBFacePoints)
-
-   real(kind=RP) :: xxx(3, 0:1, 0:1)
-   real(kind=RP) :: NODES(128,3)
+   real(KIND=RP) :: corners(3,8)                    ! element corners
+   real(KIND=RP) :: faceCorners(3,2,2)              ! flat face
+   real(KIND=RP) :: facePatchPoints(3,numBFacePoints,numBFacePoints)
 
    real(KIND=RP) :: uNodes(numBFacePoints)
    real(KIND=RP) :: vNodes(numBFacePoints)
-
 
    ! =========================
    ! Initialization
    ! =========================
 
-   s      = 0.0_RP
-   o      = 0.0_RP
-   oo     = 0.0_RP
-   ss     = 0.0_RP
+   offsetParams = 0.0_RP
+   scaleParams  = 0.0_RP
 
-   XYZ    = 0.0_RP
-   XR     = 0.0_RP
+   rotatedNodeCoords = 0.0_RP
+   nodeCoord         = 0.0_RP
 
-   inter  = 0
-   offset = .false.
+   nodeRemapLocal = 0
 
-   nm     = MOD(m, n)
-   kkk    = 1
+   ! Detect potential periodic alignment after rotation
+   periodicShiftIndex = MOD(m, n)
 
-   points1 = 0.0_RP
-
+   faceCorners = 0.0_RP
 
    ! =========================
    ! Parameter computation
    ! =========================
 
-   x = 1.0_RP - nm * (2.0_RP / n)
-   x = (-40.0_RP / (4.0_RP * DATAN(1.0_RP))) * omega + 1.0_RP
+   ! Detect alignment-driven geometric correction
+   mortarShiftParam = 1.0_RP - periodicShiftIndex * (2.0_RP / n)
 
-   !write(*,*) 'x=', x
-
+   ! Rotation-dependent scaling (linked to omega evolution)
+   mortarShiftParam = (-40.0_RP / (4.0_RP * DATAN(1.0_RP))) * omega + 1.0_RP
 
    ! =========================
    ! Copy existing nodes
    ! =========================
 
    do i = 1, oldnnode
-
       new_nodes(i)%X      = self%nodes(i)%X
       new_nodes(i)%globID = self%nodes(i)%globID
-
-      ! if (i .ne. new_nodes(i) % globID) write(*,*) 'we are at line 6131 of hex mesh...'
-
    end do
-   do i = 1, size(self%elements)
 
+   ! Mark nodes belonging to sliding elements
+   do i = 1, size(self%elements)
       if (self%elements(i)%sliding) then
-   
          do j = 1, 8
             new_nodes(self%elements(i)%nodeIDs(j))%tbrotated = .true.
          end do
-   
       end if
-   
    end do
-   
-   
-   l = SIZE(self%nodes) + 1
-   
-   
-   !X
-   ROT = 0.0_RP
-   ROT(1,1) = 1.0_RP
-   ROT(2,2) = COS(theta)
-   ROT(2,3) = -SIN(theta)
-   ROT(3,2) = SIN(theta)
-   ROT(3,3) = COS(theta)
-   
-   
-   !Z
-   ROT = 0.0_RP
-   ROT(1,1) = COS(theta)
-   ROT(2,2) = COS(theta)
-   ROT(3,3) = 1.0_RP
-   ROT(1,2) = -SIN(theta)
-   ROT(2,1) = SIN(theta)
-   
-   
-   !Y
-   ROT = 0.0_RP
-   ROT(1,1) = COS(-theta)
-   ROT(2,2) = 1.0_RP
-   ROT(3,3) = COS(-theta)
-   ROT(1,3) = SIN(-theta)
-   ROT(3,1) = -SIN(-theta)
-   
-   
-   o(1) = (1.0_RP + x) / 2.0_RP
-   o(2) = -o(1)
-   !oo(1) = -o(1)
-   
-   o(3) = (x - 1.0_RP) / 2.0_RP
-   o(4) = -o(3)
-   !oo(2) = -o(2)
-   
-   s(1) = 1.0_RP - o(1)
-   s(2) = s(1)
-   !ss(1) = s(1)
-   
-   s(3) = x - o(2)
-   s(4) = s(3)
-   !ss(2) = s(2)
-   
-   
-   o(1) = (x - 1.0_RP) / 2.0_RP  !-0.5
-   o(2) = (1.0_RP - x) / 2.0_RP  !0.5
-   o(3) = (1.0_RP + x) / 2.0_RP  !0.5
-   o(4) = (-x - 1.0_RP) / 2.0_RP !-0.5
-   
-   s(1) = o(1) + 1.0_RP
-   s(2) = 1.0_RP - o(2)
-   s(3) = 1.0_RP - o(3)
-   s(4) = o(4) + 1.0_RP
 
-   !allocate (Xpatch(3,self%numBFacePoints,self%numBFacePoints))
-    z=1
-    do i = 1, self % no_of_elements
+   newNodeCounter = SIZE(self%nodes) + 1
 
-      if (self%elements(i)%sliding) then
+   ! =========================
+   ! Rotation matrix
+   ! =========================
+
+   select case(rotationAxis)
+
+   case(1)  ! X-axis
+      ROT=0.0_RP
+      ROT(1,1)=1.0_RP 
+      ROT(2,2)=COS(theta)
+      ROT(2,3)=-SIN(theta)
+      ROT(3,2)=SIN(theta)
+      ROT(3,3)=COS(theta)
+
+   case(2)  ! Z-axis
+      ROT=0.0_RP
+      ROT(1,1)=COS(theta)
+      ROT(2,2)=COS(theta)
+      ROT(3,3)=1.0_RP 
+      ROT(1,2)=-SIN(theta)
+      ROT(2,1)=SIN(theta)
+
+   case(3)  ! Y-axis (solver convention)
+      ROT=0.0_RP
+      ROT(1,1)=COS(-theta)
+      ROT(2,2)=1.0_RP
+      ROT(3,3)=COS(-theta) 
+      ROT(1,3)=SIN(-theta)
+      ROT(3,1)=-SIN(-theta)
+
+   end select
+
+   ! =========================
+   ! Mortar geometric parameters
+   ! =========================
+
+   offsetParams(1) = (mortarShiftParam - 1.0_RP) / 2.0_RP
+   offsetParams(2) = (1.0_RP - mortarShiftParam) / 2.0_RP
+   offsetParams(3) = (1.0_RP + mortarShiftParam) / 2.0_RP
+   offsetParams(4) = (-mortarShiftParam - 1.0_RP) / 2.0_RP
+
+   scaleParams(1) = offsetParams(1) + 1.0_RP
+   scaleParams(2) = 1.0_RP - offsetParams(2)
+   scaleParams(3) = 1.0_RP - offsetParams(3)
+   scaleParams(4) = offsetParams(4) + 1.0_RP
+
+   ! =========================
+   ! Rotate sliding element geometry
+   ! - Applies rotation matrix to element corner nodes
+   ! - Updates surface representation:
+   !     * Linear faces (2x2 nodes)
+   !     * Curved face patches (high-order surfaces)
+   ! =========================
+   do i = 1, self%no_of_elements
+
+      if (.not. self%elements(i)%sliding) cycle
    
-         if (self % elements(i) % SurfInfo % IsHex8) then
+      eID = i
    
-            do zz = 1, 8
-               corners(:,zz) = MATMUL(ROT, self % elements(i) % SurfInfo % corners(:,zz))
-            end do !z
+      ! =========================
+      ! Case 1: Hex8 element (corner-based geometry)
+      ! =========================
+      if (self%elements(eID)%SurfInfo%IsHex8) then
    
-            self % elements(i) % SurfInfo % corners = corners
+         do zz = 1, 8
+            corners(:,zz) = MATMUL(ROT, self%elements(eID)%SurfInfo%corners(:,zz))
+         end do
    
-         else
+         self%elements(eID)%SurfInfo%corners = corners
    
-            do j = 1, 6
+      else
    
-               if (allocated(self % elements(i) % SurfInfo % facePatches(j) % uKnots)) then
+         ! =========================
+         ! Case 2: High-order faces
+         ! =========================
+         do j = 1, 6
    
-                  if (self % elements(i) % SurfInfo % facePatches(j) % noOfKnots(1) == 2) then
+            if (.not. allocated(self%elements(eID)%SurfInfo%facePatches(j)%uKnots)) cycle
    
-                     points1 = self % elements(i) % SurfInfo % facePatches(j) % points
+            ! ---------------------------------
+            ! Flat face (2x2)
+            ! ---------------------------------
+            if (self%elements(eID)%SurfInfo%facePatches(j)%noOfKnots(1) == 2) then
    
-                     if (self % elements(i) % sliding) then
-                        Xflat(:,1,1) = MATMUL(ROT, points1(:,1,1))
-                        Xflat(:,2,1) = MATMUL(ROT, points1(:,2,1))
-                        Xflat(:,2,2) = MATMUL(ROT, points1(:,2,2))
-                        Xflat(:,1,2) = MATMUL(ROT, points1(:,1,2))
+               faceCorners = self%elements(eID)%SurfInfo%facePatches(j)%points
    
-                        self % elements(i) % SurfInfo % facePatches(j) % points = Xflat
-                     end if
+               Xflat(:,1,1) = MATMUL(ROT, faceCorners(:,1,1))
+               Xflat(:,2,1) = MATMUL(ROT, faceCorners(:,2,1))
+               Xflat(:,2,2) = MATMUL(ROT, faceCorners(:,2,2))
+               Xflat(:,1,2) = MATMUL(ROT, faceCorners(:,1,2))
    
-                  else
+               self%elements(eID)%SurfInfo%facePatches(j)%points = Xflat
    
-                     !if (.not.allocated(uNodes)) allocate(uNodes(size(self % elements(i) % SurfInfo % facePatches(j) % uKnots)))
-                     !if (.not.allocated(vNodes)) allocate(vNodes(size(self % elements(i) % SurfInfo % facePatches(j) % vKnots)))
-                     !write(*,*) 'sizeUnodes',size(uNodes)
-                     !write(*,*) 'size self % elements(i) % SurfInfo % facePatches(j) %uKnots', size(self % elements(i) % SurfInfo % facePatches(j) %uKnots)
+            else
    
-                     uNodes = self % elements(i) % SurfInfo % facePatches(j) % uKnots
-                     vNodes = self % elements(i) % SurfInfo % facePatches(j) % vKnots
+               ! ---------------------------------
+               ! Curved face (high-order patch)
+               ! ---------------------------------
+               uNodes = self%elements(eID)%SurfInfo%facePatches(j)%uKnots
+               vNodes = self%elements(eID)%SurfInfo%facePatches(j)%vKnots
    
-                     !if (.not.allocated(points2))  allocate(points2(3,size(uNodes), size(vNodes)))
+               facePatchPoints = self%elements(eID)%SurfInfo%facePatches(j)%points
    
-                     points2 = self % elements(i) % SurfInfo % facePatches(j) % points
+               do uIdx = 1, numBFacePoints
+                  do vIdx = 1, numBFacePoints
+                     Xpatch(:,vIdx,uIdx) = MATMUL(ROT, facePatchPoints(:,vIdx,uIdx))
+                  end do
+               end do
    
-                     if (self % elements(i) % sliding) then
-   
-                        !rotate face patch curved
-                        do k = 1, numBFacePoints
-                           do kk = 1, numBFacePoints
-                              Xpatch(:,kk,k) = MATMUL(ROT, points2(:,kk,k))
-                           end do
-                        end do
-   
-                        if (.not. self%sliding) then
-                           call self % elements(i) % SurfInfo % facePatches(j) % destruct
-                        end if
-   
-                        call self % elements(i) % SurfInfo % facePatches(j) % construct(uNodes, vNodes, Xpatch)
-   
-                     end if
-   
-                  end if
-   
-                  z = z + 1
-   
+               if (.not. self%sliding) then
+                  call self%elements(eID)%SurfInfo%facePatches(j)%destruct
                end if
    
-            end do !j
+               call self%elements(eID)%SurfInfo%facePatches(j)%construct(uNodes, vNodes, Xpatch)
    
-         end if
+            end if
    
-      end if !self%elements(i)%sliding
+         end do ! j
    
-   end do !i
-    !deallocate(points2)
-    !deallocate(uNodes)
-    !deallocate(vNodes)
-    !deallocate(Xpatch)
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    l=oldnnode+1
-
-
-    do i = 1, size(arr2)
-
-      if (.not. (self % elements(arr2(i)) % sliding)) then
-         write(*,*) "problem elem arr2"
       end if
    
+   end do ! i
+
+   ! =========================
+   ! Rotate interface sliding elements (with mortars)
+   ! - Rotate element nodes
+   ! - Update interface nodes
+   ! - Duplicate nodes to enforce non-conformity
+   ! - Maintain connectivity across mortar interface
+   ! =========================
+
+   newNodeCounter = oldnnode + 1
+
+   do i = 1, size(slidingMortarElems)
+
+      ! Safety check: ensure element is marked as sliding
+      if (.not. self % elements(slidingMortarElems(i)) % sliding) then
+         write(*,*) "problem elem slidingMortarElems"
+      end if
+
+      ! -------------------------
+      ! Compute rotated coordinates of element nodes
+      ! -------------------------
       do j = 1, 8
-   
-         if (self % elements(arr2(i)) % nodeIDs(j) .LE. oldnnode) then
-   
-            if (self % elements(arr2(i)) % nodeIDs(j) == 0) then
+
+         if (self % elements(slidingMortarElems(i)) % nodeIDs(j) .LE. oldnnode) then
+
+            if (self % elements(slidingMortarElems(i)) % nodeIDs(j) == 0) then
                write(*,*) 'node ', j, 'of element', i, '=0 wtf'
             end if
-   
-            XR = self % nodes(self % elements(arr2(i)) % nodeIDs(j)) % X
-            XYZ(j,:) = MATMUL(ROT, XR)
-   
+
+            nodeCoord = self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(j)) % X
+            rotatedNodeCoords(j,:) = MATMUL(ROT, nodeCoord)
+
          else
-            XYZ(j,:) = 0.0_RP
+            rotatedNodeCoords(j,:) = 0.0_RP
          end if
-   
+
       end do
-   
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,1))) % X = XYZ(face_othernodes(i,1),:)
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,2))) % X = XYZ(face_othernodes(i,2),:)
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,3))) % X = XYZ(face_othernodes(i,3),:)
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,4))) % X = XYZ(face_othernodes(i,4),:)
-   
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,1))) % rotated = .true.
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,2))) % rotated = .true.
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,3))) % rotated = .true.
-      new_nodes(self % elements(arr2(i)) % nodeIDs(face_othernodes(i,4))) % rotated = .true.
-   
-      inter = 0
-   
-      ! do j=5, 8
+
+      ! -------------------------
+      ! Update nodes on non-mortar side (no duplication)
+      ! -------------------------
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,1))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,1),:)
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,2))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,2),:)
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,3))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,3),:)
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,4))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,4),:)
+
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,1))) % rotated = .true.
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,2))) % rotated = .true.
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,3))) % rotated = .true.
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,4))) % rotated = .true.
+
+      nodeRemapLocal = 0
+
+      ! -------------------------
+      ! Handle mortar interface (node duplication + remapping)
+      ! -------------------------
       if (.not. self%sliding) then
-   
+
+         ! Create duplicated nodes for non-conforming interface
          do j = 1, 4
-   
-            if (self % elements(arr2(i)) % nodeIDs(face_nodes(i,j)) .LE. oldnnode) then
-   
-               if (self % elements(arr2(i)) % nodeIDs(face_nodes(i,j)) .GT. oldnnode) then
+
+            if (self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) .LE. oldnnode) then
+
+               if (self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) .GT. oldnnode) then
                   write(*,*) 'problem logistic 0'
                end if
-   
-               new_nodes(l) % globID = l
-               new_nodes(l) % X = XYZ(face_nodes(i,j),:)
-               new_nodes(l) % rotated = .true.
-   
-               inter(face_nodes(i,j)) = l
-               l = l + 1
-   
-               do k = 2, 3
-                  do kkk = 3, 6
-   
-                     eID = Connect(i,k,1)
-   
+
+               new_nodes(newNodeCounter) % globID = newNodeCounter
+               new_nodes(newNodeCounter) % X = rotatedNodeCoords(mortarFaceNodes(i,j),:)
+               new_nodes(newNodeCounter) % rotated = .true.
+
+               nodeRemapLocal(mortarFaceNodes(i,j)) = newNodeCounter
+               newNodeCounter = newNodeCounter + 1
+
+               ! Propagate new node IDs to neighboring elements
+               do uIdx = 2, 3
+                  do neighborFace = 3, 6
+
+                     eID = Connect(i,uIdx,1)
+
                      if (eID .ne. 0) then
-   
+
                         do ll = 1, 8
-   
-                           if (self % elements(arr2(i)) % nodeIDs(face_nodes(i,j)) == &
+
+                           if (self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) == &
                                self % elements(eID) % nodeIDs(ll)) then
-   
-                              self % elements(eID) % nodeIDs(ll) = inter(face_nodes(i,j))
-   
-                              if (inter(face_nodes(i,j)) == 0) then
+
+                              self % elements(eID) % nodeIDs(ll) = nodeRemapLocal(mortarFaceNodes(i,j))
+
+                              if (nodeRemapLocal(mortarFaceNodes(i,j)) == 0) then
                                  write(*,*) 'element', eID, 'is receiving 0 for node', ll
                               end if
-   
-                           end if
-   
-                        end do !ll
-   
-                     end if
-   
-                  end do !kkk
-               end do !k
-   
-            end if
-   
-         end do !j
-   
-         ! do j=5,8
-         do j = 1, 4
-   
-            if ((self % elements(arr2(i)) % nodeIDs(face_nodes(i,j))) .LE. oldnnode) then
-   
-               if (inter(face_nodes(i,j)) == 0) then
-                  write(*,*) 'element', arr2(i), 'is receiving 0 for node 5', &
-                             self % elements(arr2(i)) % nodeIDs(face_nodes(i,j))
-               end if
-   
-               self % elements(arr2(i)) % nodeIDs(face_nodes(i,j)) = inter(face_nodes(i,j))
-   
-            end if
-   
-         end do !j
-   
-      end if
-   
-   end do
-  
-   do i = 1, size(arr3)
 
-      if (.not. (self % elements(arr3(i)) % sliding)) then
-         write(*,*) "problem elem arr2"
+                           end if
+
+                        end do !ll
+
+                     end if
+
+                  end do !neighborFace
+               end do !uIdx
+
+            end if
+
+         end do !j
+
+         ! Replace original node IDs with duplicated ones
+         do j = 1, 4
+
+            if ((self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j))) .LE. oldnnode) then
+
+               if (nodeRemapLocal(mortarFaceNodes(i,j)) == 0) then
+                  write(*,*) 'element', slidingMortarElems(i), 'is receiving 0 for node 5', &
+                             self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j))
+               end if
+
+               self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) = nodeRemapLocal(mortarFaceNodes(i,j))
+
+            end if
+
+         end do !j
+
       end if
-   
+
+   end do
+
+
+   ! =========================
+   ! Rotate interior sliding elements (no mortars)
+   ! - Simple rotation of all nodes
+   ! - No duplication or connectivity updates
+   ! =========================
+
+   do i = 1, size(pureSlidingElems)
+
+      ! Safety check
+      if (.not. (self % elements(pureSlidingElems(i)) % sliding)) then
+         write(*,*) "problem elem slidingMortarElems"
+      end if
+
+      ! Rotate all nodes
       do j = 1, 8
-   
-         XR = self % nodes(self % elements(arr3(i)) % nodeIDs(j)) % X
-         XYZ(j,:) = MATMUL(ROT, XR)
-   
+
+         nodeCoord = self % nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % X
+         rotatedNodeCoords(j,:) = MATMUL(ROT, nodeCoord)
+
       end do
-   
+
+      ! Update node coordinates if not already rotated
       do j = 1, 8
-   
-         if (.not. new_nodes(self % elements(arr3(i)) % nodeIDs(j)) % rotated) then
-   
-            new_nodes(self % elements(arr3(i)) % nodeIDs(j)) % X = XYZ(j,:)
-            new_nodes(self % elements(arr3(i)) % nodeIDs(j)) % rotated = .true.
-   
+
+         if (.not. new_nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % rotated) then
+
+            new_nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % X = rotatedNodeCoords(j,:)
+            new_nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % rotated = .true.
+
          end if
-   
+
       end do
-   
+
    end do
 
 end subroutine HexMesh_RotateNodes
@@ -7536,13 +7537,13 @@ real(kind=RP)                 :: PI
 logical                       :: success
 
 integer                       :: dealloc_status
-integer                       :: sn, eID, fID
+integer                       :: sn, eID, fID, rotationAxis
 
 allocate(new_nodes(newnNodes))
 
 new_nNodes = 0
 new_nFaces = 0
-
+rotationAxis = 3
 th = theta
 self%omega = self%omega + theta
 !theta=self%omega
@@ -7570,14 +7571,14 @@ new_nNodes = SIZE(self % nodes)
 if (.not. self%sliding) then
 
    call self % RotateNodes(theta, self%omega, nelm, n, m, new_nNodes, new_nodes, &
-                           arr1, arr2, arr3, Connect, o, s, face_nodes, &
-                           face_othernodes, numBFacePoints, oldnnode)
+                           arr2, arr3, Connect, o, s, face_nodes, &
+                           face_othernodes, numBFacePoints, oldnnode, rotationAxis)
 
 else
 
    call self % RotateNodes(theta, self%omega, nelm, n, m, new_nNodes, new_nodes, &
-                           self%arr1, self%arr2, self%arr3, self%Connect, o, s, &
-                           self%face_nodes, self%face_othernodes, numBFacePoints, oldnnode)
+                           self%arr2, self%arr3, self%Connect, o, s, &
+                           self%face_nodes, self%face_othernodes, numBFacePoints, oldnnode, rotationAxis)
 
 end if
 
