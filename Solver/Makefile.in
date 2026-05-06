@@ -163,6 +163,7 @@ ifeq '$(WITH_MKL)''YES'
   else #ifort
   	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	FFLAGS+= -qmkl
+  	INCLUDEO+= -I$(MKLROOT)/include
   endif
 endif
 
