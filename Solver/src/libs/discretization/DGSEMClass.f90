@@ -678,7 +678,7 @@ Module DGSEMClass
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients, loadFromNSSA, withSensor, saveLES, saveLambVector, isRootOnly
+         logical                                :: saveGradients, loadFromNSSA, withSensor, saveLES, isRootOnly
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 		 
 		 if (present(onlyRoot)) then
@@ -708,12 +708,18 @@ Module DGSEMClass
 !
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             saveLES = controlVariables % logicalValueForKey(saveLESToSolutionKey)
-            saveLambVector = controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)
             IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN           
                write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-               call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor, saveLES, saveLambVector_=saveLambVector)
+               call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor, saveLES)
 #ifdef ACOUSTIC
                call self % mesh % SaveBaseFlow(initial_iteration, initial_time, solutionName)
+#endif
+#ifdef FLOW
+               if (controlVariables % logicalValueForKey(saveLambVectorKey)) then
+                  solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
+                  solutionName = trim(getFileName(solutionName))
+                  call self % mesh % SaveLambVector(initial_iteration, initial_time, solutionName)
+               end if
 #endif
                !TDG: ADD PARTICLES WRITE WITH IFDEF
             END IF 

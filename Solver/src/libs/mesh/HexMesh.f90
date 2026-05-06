@@ -3367,7 +3367,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_, saveSource_, saveLambVector_)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_, saveSource_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -3379,7 +3379,6 @@ slavecoord:             DO l = 1, 4
          logical, optional,   intent(in)        :: saveSensor_
          logical, optional,   intent(in)        :: saveLES_
          logical, optional,   intent(in)        :: saveSource_
-         logical, optional,   intent(in)        :: saveLambVector_
 !
 !        ---------------
 !        Local variables
@@ -3437,11 +3436,6 @@ slavecoord:             DO l = 1, 4
             saveSource = saveSource_
          else
             saveSource = .false.
-         end if
-         if (present(saveLambVector_)) then
-            saveLambVector = saveLambVector_
-         else
-            saveLambVector = .false.
          end if
 
          if (saveGradients .and. computeGradients) then
@@ -3552,12 +3546,6 @@ slavecoord:             DO l = 1, 4
 !        --------------
          call SealSolutionFile(trim(name))
 
-#ifdef FLOW
-         if (saveLambVector) then
-            call HexMesh_SaveLambVector(self, iter, time, name)
-         end if
-#endif
-
       end subroutine HexMesh_SaveSolution
 
       subroutine HexMesh_SaveLambVector(self, iter, time, name)
@@ -3611,7 +3599,8 @@ slavecoord:             DO l = 1, 4
 !
 !        Create new file
 !        ---------------
-         filename = trim(getFileName(name)) // ".Lamb.hsol"
+         ! filename = trim(getFileName(name)) // ".Lamb.hsol"
+         WRITE(filename,'(2A,I10.10,A)')  TRIM(getFileName(name)),'_',iter,'.Lamb.hsol'
          call CreateNewSolutionFile(trim(filename), SOLUTION_FILE, self % nodeType, &
                                     self % no_of_allElements, iter, time, refs)
 !
