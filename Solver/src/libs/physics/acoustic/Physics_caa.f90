@@ -63,7 +63,7 @@
 !        ---------------
          real(kind=RP)              :: velocity_term
 
-         velocity_term = Qbase(ICAAU)*Q(IBU) + Qbase(ICAAV)*Q(IBV) + Qbase(ICAAW)*Q(IBW) + Q(ICAAP)/Qbase(IBRHO)
+         velocity_term = Qbase(IBU)*Q(ICAAU) + Qbase(IBV)*Q(ICAAV) + Qbase(IBW)*Q(ICAAW) + Q(ICAAP)/Qbase(IBRHO)
 !
 !        X-Flux
 !        ------         
@@ -105,7 +105,7 @@
 !        only X-Flux
 !        ------         
          F(ICAARHO) = 0.0_RP
-         F(ICAAU) = Qbase(ICAAU)*Q(IBU) + Qbase(ICAAV)*Q(IBV) + Qbase(ICAAW)*Q(IBW) + Q(ICAAP)/Qbase(IBRHO)
+         F(ICAAU) = Qbase(IBU)*Q(ICAAU) + Qbase(IBV)*Q(ICAAV) + Qbase(IBW)*Q(ICAAW) + Q(ICAAP)/Qbase(IBRHO)
          F(ICAAV) = 0.0_RP
          F(ICAAW) = 0.0_RP
          F(ICAAP) = Qbase(IBA2) * Qbase(IBRHO) * Q(ICAAU) + Qbase(IBU) * Q(ICAAP)
@@ -130,7 +130,7 @@
 
 !        The dot product is mantained in the two basis, as is only a rotation
 !        vec{u_0}_cartesian /dot /vec{u'}_cartesian =  vec{u_0}_rotated /dot /vec{u'}_rotated  
-         velocity_term = Qbase(ICAAU)*Q(IBU) + Qbase(ICAAV)*Q(IBV) + Qbase(ICAAW)*Q(IBW) + Q(ICAAP)/Qbase(IBRHO)
+         velocity_term = Qbase(IBU)*Q(ICAAU) + Qbase(IBV)*Q(ICAAV) + Qbase(IBW)*Q(ICAAW) + Q(ICAAP)/Qbase(IBRHO)
 !
 !        Flux dot n
 !        ------         
