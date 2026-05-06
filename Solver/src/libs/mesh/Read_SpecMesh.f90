@@ -115,7 +115,7 @@ MODULE Read_SpecMesh
 !        ********************************
 !
          Sliding=.true.
-         Sliding=.false.
+         Sliding=.true.
 
          
          if ( MPI_Process % doMPIAction ) then
@@ -388,7 +388,8 @@ MODULE Read_SpecMesh
              center(1)=0.0_RP
              center(2)=0.0_RP
              rad=1.01_RP
-             call self % RotateMesh(rad, center, numBFacePoints, nodes, .FALSE.)
+             write(*,*) "calling sliding in specmeshfile"
+             call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, .FALSE.)
 
           end if 
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
@@ -607,7 +608,7 @@ MODULE Read_SpecMesh
             center(1)=0.0_RP
             center(2)=0.0_RP
             rad=1.01_RP
-            call self % RotateMesh(rad, center, numBFacePoints, nodes, .FALSE.)
+            call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, .FALSE.)
 
          end if 
 
@@ -1054,7 +1055,7 @@ MODULE Read_SpecMesh
             center(1)=0.0_RP
             center(2)=0.0_RP
             rad=1.01_RP
-            call self % RotateMesh(rad, center, numBFacePoints, nodes, mpi)
+            call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, mpi)
 
          end if 
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_

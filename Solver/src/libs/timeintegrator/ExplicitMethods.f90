@@ -253,7 +253,7 @@ MODULE ExplicitMethods
                      rad=1.01_RP
                      angle=(omega(2)*deltaT) * auxiliar(k)
        
-                     CALL MESH % RotateMesh(rad=rad, center=center, numBFacePoints=NB, nodes=mesh%nodeType, mpi=.FALSE. , angle = angle)
+                     CALL MESH % UpdateSlidingMesh(rotationRadius=rad, rotationCenter=center, numBFacePoints=NB, nodes=mesh%nodeType, useMPI=.FALSE. , angle = angle)
                   end if
                   if ( present(dts) ) then
                      if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
@@ -285,7 +285,7 @@ MODULE ExplicitMethods
                      center(2)=0.0_RP
                      rad=1.01_RP
                      angle=(omega(2)*deltaT) * auxiliar(k)
-                     CALL MESH % RotateMesh(rad=rad, center=center, numBFacePoints=NB, nodes=mesh%nodeType, mpi=.FALSE. , angle = angle)
+                     CALL MESH % UpdateSlidingMesh(rotationRadius=rad, rotationCenter=center, numBFacePoints=NB, nodes=mesh%nodeType, useMPI=.FALSE. , angle = angle)
                   end if
                   if ( present(dts) ) then
                      if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
