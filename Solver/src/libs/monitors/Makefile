@@ -16,6 +16,7 @@ LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
 		./build_ns/SurfaceIntegrals.o \
 		./build_ns/VolumeIntegrals.o \
 		./build_ns/ResidualsMonitor.o \
+		./build_ns/RigidMotionFrame.o \
 		./build_ns/SurfaceMonitor.o \
 		./build_ns/VolumeMonitor.o \
 		./build_ns/Monitors.o \
@@ -29,6 +30,7 @@ LIBOBJS_NSSA = 	./build_nssa/MonitorDefinitions.o \
 		./build_nssa/SurfaceIntegrals.o \
 		./build_nssa/VolumeIntegrals.o \
 		./build_nssa/ResidualsMonitor.o \
+		./build_nssa/RigidMotionFrame.o \
 		./build_nssa/SurfaceMonitor.o \
 		./build_nssa/VolumeMonitor.o \
 		./build_nssa/Monitors.o
@@ -39,6 +41,7 @@ LIBOBJS_iNS = 	./build_ins/MonitorDefinitions.o \
 		./build_ins/SurfaceIntegrals.o \
 		./build_ins/VolumeIntegrals.o \
 		./build_ins/ResidualsMonitor.o \
+		./build_ins/RigidMotionFrame.o \
 		./build_ins/SurfaceMonitor.o \
 		./build_ins/VolumeMonitor.o \
 		./build_ins/Monitors.o
@@ -49,6 +52,7 @@ LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
 		./build_ch/SurfaceIntegrals.o \
 		./build_ch/VolumeIntegrals.o \
 		./build_ch/ResidualsMonitor.o \
+		./build_ch/RigidMotionFrame.o \
 		./build_ch/SurfaceMonitor.o \
 		./build_ch/VolumeMonitor.o \
 		./build_ch/Monitors.o
@@ -59,6 +63,7 @@ LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
 		./build_mu/SurfaceIntegrals.o \
 		./build_mu/VolumeIntegrals.o \
 		./build_mu/ResidualsMonitor.o \
+		./build_mu/RigidMotionFrame.o \
 		./build_mu/SurfaceMonitor.o \
 		./build_mu/VolumeMonitor.o \
 		./build_mu/Monitors.o

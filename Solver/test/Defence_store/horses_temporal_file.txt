@@ -1,0 +1,4 @@
+RESULTS/surfaces/WPFS_moving_store_IBM_bc001_0000000000.surf.hsol
+RESULTS/surfaces/WPFS_moving_store_IBM_bc001_0000001362.surf.hsol
+RESULTS/surfaces/WPFS_moving_store_IBM_bc001_0000002735.surf.hsol
+RESULTS/surfaces/WPFS_moving_store_IBM_bc001_0000004109.surf.hsol

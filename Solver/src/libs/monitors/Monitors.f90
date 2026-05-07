@@ -395,7 +395,7 @@ module MonitorsClass
 !        Update surface monitors
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, autosave, dt )
+            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, autosave, dt, t )
          end do
 !
 !        Update statistics

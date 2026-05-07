@@ -1,0 +1,16 @@
+tool type = "local p refinement"
+
+mesh file name   = "MESH/WPFS_NoFins_background_mesh_hexas_g1_mesh.h5"
+Polynomial order = 2
+
+solution file name = "RESULTS/WPFS_store_pblocks.hsol"
+
+! Region 1 is checked first, so put the inner/highest-p block first.
+x regions orders = [4, 3]
+y regions orders = [4, 3]
+z regions orders = [4, 3]
+
+x regions limits = [2, 8, 0, 10]
+y regions limits = [-7, 0.5, -10, 3.5]
+z regions limits = [-0.5, 2, -2, 3.5]
+

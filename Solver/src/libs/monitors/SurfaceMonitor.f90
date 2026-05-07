@@ -23,6 +23,9 @@ module SurfaceMonitorClass
    type SurfaceMonitor_t
       logical                         :: active
       logical                         :: isDimensionless, IBM = .false.
+      logical                         :: useMotionFrame = .false.
+      logical                         :: directionBodyFrame = .false.
+      logical                         :: CofRBodyFrame = .false.
       integer                         :: ID
       real(kind=RP)                   :: direction(NDIM)
       real(kind=RP)                   :: CofR(NDIM)
@@ -33,6 +36,7 @@ module SurfaceMonitorClass
       character(len=STR_LEN_MONITORS) :: monitorName
       character(len=STR_LEN_MONITORS) :: fileName
       character(len=STR_LEN_MONITORS) :: variable
+      character(len=STR_LEN_MONITORS) :: frameName
       contains
          procedure   :: Initialization => SurfaceMonitor_Initialization
          procedure   :: Update         => SurfaceMonitor_Update
@@ -82,6 +86,9 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: paramFile
          character(len=STR_LEN_MONITORS)  :: directionName
          character(len=STR_LEN_MONITORS)  :: CofRName
+         character(len=STR_LEN_MONITORS)  :: frameName
+         character(len=STR_LEN_MONITORS)  :: directionFrameName
+         character(len=STR_LEN_MONITORS)  :: CofRFrameName
          integer, allocatable             :: marker
          character(len=STR_LEN_MONITORS)  :: markerName
          integer                          :: pos, i, STLNum
@@ -104,11 +111,50 @@ module SurfaceMonitorClass
          call readValueInRegion ( trim ( paramFile )  , "reference surface" , self % referenceSurface , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "direction"         , directionName           , in_label , "# end" )
          call readValueInRegion ( trim ( paramFile )  , "cofr"              , CofRName                , in_label , "# end" )
+         call readValueInRegion ( trim ( paramFile )  , "frame"             , frameName               , in_label , "# end" )
+         call readValueInRegion ( trim ( paramFile )  , "direction frame"   , directionFrameName      , in_label , "# end" )
+         call readValueInRegion ( trim ( paramFile )  , "cofr frame"        , CofRFrameName           , in_label , "# end" )
 !
 !        Enable the monitor
 !        ------------------
          self % active = .true.
          allocate ( self % values(BUFFER_SIZE) )
+
+         self % direction          = 0.0_RP
+         self % CofR               = 0.0_RP
+         self % useMotionFrame     = .false.
+         self % directionBodyFrame = .false.
+         self % CofRBodyFrame      = .false.
+         self % frameName          = CleanMonitorString(frameName)
+
+         if ( len_trim(self % frameName) .gt. 0 ) self % useMotionFrame = .true.
+
+         directionFrameName = CleanMonitorString(directionFrameName)
+         select case ( trim(directionFrameName) )
+         case ("", "global")
+            self % directionBodyFrame = .false.
+         case ("body", "frame")
+            self % directionBodyFrame = .true.
+         case default
+            print*, "Direction frame must be global or body for surface monitor ", self % ID, "."
+            error stop "error stopped"
+         end select
+
+         CofRFrameName = CleanMonitorString(CofRFrameName)
+         select case ( trim(CofRFrameName) )
+         case ("", "global")
+            self % CofRBodyFrame = .false.
+         case ("body", "frame")
+            self % CofRBodyFrame = .true.
+         case default
+            print*, "CofR frame must be global or body for surface monitor ", self % ID, "."
+            error stop "error stopped"
+         end select
+
+         if ( (self % directionBodyFrame .or. self % CofRBodyFrame) .and. .not. self % useMotionFrame ) then
+            print*, "Surface monitor ", self % ID, " uses body-frame data but does not specify Frame."
+            error stop "error stopped"
+         end if
 !
 !        Get the surface marker
 !        ----------------------
@@ -348,7 +394,30 @@ module SurfaceMonitorClass
          end if
       end subroutine SurfaceMonitor_Initialization
 
-      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition, iter, autosave, dt )
+      function CleanMonitorString(value) result(cleanValue)
+         implicit none
+         character(len=*), intent(in) :: value
+         character(len=STR_LEN_MONITORS) :: cleanValue
+
+         integer :: n
+
+         cleanValue = adjustl(value)
+         cleanValue = trim(cleanValue)
+         n = len_trim(cleanValue)
+
+         if (n >= 2) then
+            if ((cleanValue(1:1) == '"' .and. cleanValue(n:n) == '"') .or. &
+                (cleanValue(1:1) == "'" .and. cleanValue(n:n) == "'")) then
+               if (n == 2) then
+                  cleanValue = ""
+               else
+                  cleanValue = cleanValue(2:n-1)
+               end if
+            end if
+         end if
+      end function CleanMonitorString
+
+      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition, iter, autosave, dt, time )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
@@ -358,13 +427,25 @@ module SurfaceMonitorClass
 !
          use SurfaceIntegrals
          use IBMClass
+         use RigidMotionFrameClass, only: GetRigidMotionFramePose
          implicit none
          class   (  SurfaceMonitor_t )   :: self
          class   (  HexMesh       )      :: mesh
          integer                         :: bufferPosition, iter, STLNum
          real(kind=RP)                   :: F(NDIM)
-         real(kind=RP)                   :: dt
+         real(kind=RP)                   :: dt, time
+         real(kind=RP)                   :: monitorDirection(NDIM), monitorCofR(NDIM)
+         real(kind=RP)                   :: frameCenter(NDIM), frameRotation(NDIM,NDIM)
          logical                         :: autosave
+
+         monitorDirection = self % direction
+         monitorCofR      = self % CofR
+
+         if ( self % useMotionFrame ) then
+            call GetRigidMotionFramePose(self % frameName, time, frameCenter, frameRotation)
+            if ( self % directionBodyFrame ) monitorDirection = matmul(frameRotation, self % direction)
+            if ( self % CofRBodyFrame )      monitorCofR      = frameCenter + matmul(frameRotation, self % CofR)
+         end if
 
          if( self% IBM ) then 
             STLNum = self% marker
@@ -407,7 +488,7 @@ module SurfaceMonitorClass
                F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
             end if
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
-            self % values(bufferPosition) = dot_product(F, self % direction)
+            self % values(bufferPosition) = dot_product(F, monitorDirection)
 
          case ("viscous-force")
             if( self% IBM ) then 
@@ -418,7 +499,7 @@ module SurfaceMonitorClass
                F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE, iter)
             end if
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
-            self % values(bufferPosition) = dot_product(F, self % direction)
+            self % values(bufferPosition) = dot_product(F, monitorDirection)
 
          case ("force")
             if( self% IBM ) then 
@@ -429,7 +510,7 @@ module SurfaceMonitorClass
                F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             end if 
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
-            self % values(bufferPosition) = dot_product(F, self % direction)
+            self % values(bufferPosition) = dot_product(F, monitorDirection)
 
          case ("lift")
             if( self% IBM ) then 
@@ -440,7 +521,7 @@ module SurfaceMonitorClass
                F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             end if 
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
-            self % values(bufferPosition) = dot_product(F, self % direction)
+            self % values(bufferPosition) = dot_product(F, monitorDirection)
 
          case ("drag")
             if (flowIsNavierStokes) then
@@ -461,21 +542,21 @@ module SurfaceMonitorClass
                end if 
             end if
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
-            self % values(bufferPosition) = dot_product(F, self % direction)
+            self % values(bufferPosition) = dot_product(F, monitorDirection)
 
          case ("moment")
             if( self% IBM ) then 
                STLNum = self% marker
                call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave )
-               F = IBMMomentIntegral( mesh% IBM, STLNum, self % CofR )
+               F = IBMMomentIntegral( mesh% IBM, STLNum, monitorCofR )
             else
                ! wait to be completed
-               ! F = VectorSurfaceMomentIntegral(mesh, self % marker, TOTAL_FORCE, self % CofR, iter)
+               ! F = VectorSurfaceMomentIntegral(mesh, self % marker, TOTAL_FORCE, monitorCofR, iter)
                F = 0
             end if 
-            ! Cm = M / (0.5 * ρ * V^2 * S * Lref)
+            ! Cm = M / (0.5 * rho * V^2 * S * Lref)
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
-            self % values(bufferPosition) = dot_product(F, self % direction)
+            self % values(bufferPosition) = dot_product(F, monitorDirection)
 
          case ("pressure-average")
             self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE, iter)
@@ -568,8 +649,12 @@ module SurfaceMonitorClass
          if ( from % active) then
             to % active          = from % active
             to % isDimensionless = from % isDimensionless
+            to % useMotionFrame  = from % useMotionFrame
+            to % directionBodyFrame = from % directionBodyFrame
+            to % CofRBodyFrame   = from % CofRBodyFrame
             to % ID              = from % ID
             to % direction       = from % direction
+            to % CofR            = from % CofR
             to % marker          = from % marker
             
             safedeallocate(to % referenceSurface)
@@ -586,6 +671,7 @@ module SurfaceMonitorClass
             to % monitorName     = from % monitorName
             to % fileName        = from % fileName
             to % variable        = from % variable
+            to % frameName       = from % frameName
          else
             to % active = .FALSE.
          end if

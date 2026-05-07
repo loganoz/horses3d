@@ -1,0 +1,6 @@
+hmesh file = "MESH/WPFS_moving_store_IBM_0000000000.hmesh"
+! hsol file  = "RESULTS/WPFS_moving_store_IBM_0000004500.hsol"
+hsol files pattern = "RESULTS/WPFS_moving_store_IBM_*.hsol"
+output variables = Mach, rho, Ux, Uy, Uz ! , Qcrit ! Sxx,Syy,Szz ! rho, V, p ,Sxx,Syy,Szz! For stats in incompressible V=Vmeam because V come from Urho
+output mode = FE
+dimensionless = .true.

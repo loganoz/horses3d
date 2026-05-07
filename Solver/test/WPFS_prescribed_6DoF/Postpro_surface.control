@@ -1,0 +1,10 @@
+hmesh file = "./MESH/WPFS_moving_store_IBM_bc001_0000000000.surf.hmesh"
+! hsol file      = "./RESULTS/surfaces/WPFS_moving_store_IBM_bc001_0000002996.surf.hsol"
+hsol files pattern = "RESULTS/surfaces/WPFS_moving_store_IBM_bc001_*.hsol"
+additional variables = "[u_tau,turb]" ! Activar para uta para Cf y turb para yplus 
+output variables = Cp , Cf, yplus, wall_distance !, rho,V,p ! rho,V,p !Cf,eID,Cp, u_tau, wall_distance, wall_shear, mu_ns, yplus, Cf
+output mode = FE
+!output basis = Homogeneous ! Gauss
+!output order = 3 ! Guarda la solucion con otro polinomio, usando nodos equiespaciados "homogeneous". No interpola correctamente
+dimensionless = .true.
+!has gradients = .true.

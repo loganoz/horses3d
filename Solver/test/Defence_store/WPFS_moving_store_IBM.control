@@ -1,0 +1,117 @@
+/* Control file for a mesh-only wing+pylon smoke test */
+Flow equations        = "NS"
+mesh file name        = "MESH/WPFS_NoFins_background_mesh_hexas_g1_mesh.h5"
+
+Polynomial order      = 1
+Number of time steps  = 500000
+Output Interval       = 1
+autosave mode         = "iteration"
+autosave interval     = 100
+
+mach number           = 0.10d0
+Reynolds number       = 1.0d6
+AOA theta             = 0.0d0
+AOA phi               = 0.0d0
+reference temperature (k) = 293.0d0
+
+solution file name    = "RESULTS/WPFS_moving_store_IBM.hsol"
+save gradients with solution = .false.
+restart               = .false.  ! - The problem file already says the initial condition
+restart file name     = "RESULTS/WPFS_store_IBM_p1_0000430000.hsol"
+Discretization nodes    = Gauss-Lobatto ! Gauss (Default) or Gauss-Lobatto
+averaging               = Chandrasekar ! Only with split-form . Combined with Lax-Friedrichs high stability
+inviscid discretization = Split-Form ! Standard (Default) of Split-Form
+viscous discretization  = BR1 ! BR1, BR2(Default) or IP
+riemann solver          = Lax-Friedrichs ! roe (less dissipative) or Lax-Friedrichs (more dissipative)
+
+!-- Time integrator
+simulation type       = time-accurate
+time integration      = explicit
+explicit method       = RK3
+convergence tolerance = 1.0d-8
+cfl                   = 0.50d0
+dcfl                  = 0.50d0
+
+partitioning          = SFC
+
+!--STL
+stl file name         = "MESH/store.stl"
+
+#define IBM
+  name = store
+  active = .true.
+  describe = .true.
+  number of interpolation points = 15
+  band region = .true.
+  band region coefficient = 1.5
+  compute distance = .true.
+  clip axis = 0
+  aab = .true.
+#end
+
+#define stlboundary store
+  moving = .true.
+  type = user-defined
+#end
+
+#define boundary background.freestream
+  type = FreeSlipWall
+#end
+
+#define boundary background.inlet
+  type = Inflow
+#end
+
+#define boundary background.outlet
+  type = Outflow
+#end
+
+#define boundary background.symmetry
+  type = FreeSlipWall
+#end
+
+#define boundary wingpylon.wall
+  type = NoSlipWall
+#end
+
+! -- #define surface monitor 1
+! --   Name = drag
+! --   Marker = wingpylon.wall
+! --   Variable = drag
+! --   Direction = [1.0d0, 0.0d0, 0.0d0]
+! --   Reference surface = 1.0d0
+! -- #end
+! -- 
+! -- #define surface monitor 2
+! --   Name = lift
+! --   Marker = wingpylon.wall
+! --   Variable = lift
+! --   Direction = [0.0d0, 1.0d0, 0.0d0]
+! --   Reference surface = 1.0d0
+! -- #end
+
+#define surface monitor 1
+  Name = drag
+  Marker = store
+  Variable = drag
+  Direction = [1.0d0, 0.0d0, 0.0d0]
+  Reference surface = 1.0d0
+#end
+
+#define surface monitor 2
+  Name = lift
+  Marker = store
+  Variable = lift
+  Direction = [0.0d0, 1.0d0, 0.0d0]
+  Reference surface = 1.0d0
+#end
+
+! Export surfaces------------------------------
+! Run one iteration once the simulation is converged
+boundaries to save      = [wingpylon.wall, store] ! Solo superficie
+slice z coordinates     = [0.1]
+! slice z limits          = [-4000.0,6000.0,-1000,1000] ! si lo quiero todo, no poner limites
+surface save timestep   = 2.2201125637404066E-02
+surface save gradients  = .false.
+surface save utau       = .true. ! Activar para Cf 
+surface save turbulent = .true. ! Activar para yplus
