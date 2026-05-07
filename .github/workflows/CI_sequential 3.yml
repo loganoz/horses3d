@@ -102,8 +102,7 @@ jobs:
       - name: Compile horses3d
         working-directory: ./Solver
         run: |
-         set -e
-         source /opt/intel/oneapi/setvars.sh
+         source /opt/intel/oneapi/setvars.sh || true
          make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
 

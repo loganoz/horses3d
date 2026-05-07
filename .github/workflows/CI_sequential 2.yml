@@ -27,19 +27,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # compiler: ['gfortran','ifort']
-        # mode: ['RELEASE', 'DEBUG']
-        compiler: ['ifort']
-        mode: ['DEBUG']
+        compiler: ['gfortran','ifort']
+        mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
         mkl: ['YES','NO']
         hdf5: ['YES','NO']
         exclude:
-        #- compiler: gfortran
-        #  mkl: 'YES'          
-        #- compiler: gfortran
-        #  hdf5: 'NO'          
+        - compiler: gfortran
+          mkl: 'YES'          
+        - compiler: gfortran
+          hdf5: 'NO'          
         - compiler: ifort
           mkl: 'NO'       
         - compiler: ifort
