@@ -159,7 +159,6 @@ module ProbeClass
             case ("u")
             case ("v")
             case ("w")
-            case("pressuresquared")
             case default
                print*, 'Probe variable "',trim(self % variable),'" not implemented.'
                print*, "Options available are:"
@@ -405,11 +404,6 @@ module ProbeClass
             case("w")
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
                   var(i,j,k) = Q(ICAAW,i,j,k)
-               end do            ; end do             ; end do
-            
-            case("pressuresquared")
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-                  var(i,j,k) = Q(ICAAP,i,j,k)**2
                end do            ; end do             ; end do
 #endif
             end select
