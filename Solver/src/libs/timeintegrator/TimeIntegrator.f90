@@ -935,7 +935,7 @@
          end if
          ! Lamb vector autosave
          if ( self % lambsave % Autosave(k+1) ) then
-            call sem % mesh % SaveLambVector(k+1,t,SolutionFileName)
+            call sem % mesh % SaveLambVector(k+1,t,SolutionFileName, controlVariables)
          end if
 !
 !        Save surfaces solution

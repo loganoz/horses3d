@@ -74,82 +74,11 @@ Module APESourceClass  !
                     error stop
                 end if
                 ! Get elements inside cube
-                call findElementsInsideCube(mesh, cubeCoords, self % cube_elements)
+                call mesh % findElementsInsideCube(cubeCoords, self % cube_elements)
             end if
         end if
 
     end subroutine constructAPESource
-!
-    subroutine findElementsInsideCube(mesh, cubeCoords, array)
-        use HexMeshClass
-        use IntegerDataLinkedList
-        implicit none
-        class(HexMesh), intent(in) :: mesh
-        real(rp), intent(in) :: cubeCoords(6)
-        integer, allocatable, intent(out) :: array(:)
-
-        ! Local variables
-        type(IntegerDataLinkedList_t) :: Data
-        integer :: eID
-
-        ! Find elements inside cube
-        Data = IntegerDataLinkedList_t(.false.)
-        do eID = 1, mesh % no_of_elements
-            if (intersect(mesh % elements(eID) % surfInfo % corners, cubeCoords)) then
-                call Data % Add(eID)
-            end if
-        end do
-        call Data % ExportToArray(array)
-        call Data % destruct
-
-    end subroutine findElementsInsideCube
-!
-    logical function intersect(corners, cube)
-        ! Returns true if the corners of the element are inside the cube.
-        ! Curved elements are considered straight-sided.
-        ! We define that the element intersects the cube if:
-        ! any x-coordinate of the corners belongs to [x0, x1] AND
-        ! any y-coordinate of the corners belongs to [y0, y1] AND
-        ! any z-coordinate of the corners belongs to [z0, z1]
-        use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT
-        implicit none
-        real(kind=RP), intent(in)   :: corners(NDIM,NODES_PER_ELEMENT)
-        real(kind=RP), intent(in)   :: cube(6) ! [x0, x1, y0, y1, z0, z1]
-
-        ! Local variables
-        logical :: isInside
-        integer :: i
-
-        isInside = .false.
-        do i = 1, NODES_PER_ELEMENT
-            if ((cube(1) <= corners(1,i)) .and. (corners(1,i) <= cube(2))) isInside = .true.
-        end do
-        if (.not. isInside) then
-            intersect = .false.
-            return
-        end if
-
-        isInside = .false.
-        do i = 1, NODES_PER_ELEMENT
-            if ((cube(3) <= corners(2,i)) .and. (corners(2,i) <= cube(4))) isInside = .true.
-        end do
-        if (.not. isInside) then
-            intersect = .false.
-            return
-        end if
-
-        isInside = .false.
-        do i = 1, NODES_PER_ELEMENT
-            if ((cube(5) <= corners(3,i)) .and. (corners(3,i) <= cube(6))) isInside = .true.
-        end do
-        if (.not. isInside) then
-            intersect = .false.
-            return
-        end if
-        ! At this point, isInside is true.
-        intersect = .true.
-
-    end function intersect
 !
     Subroutine addAPESource(self, mesh)
         type(apeSource_t)                                    :: self
