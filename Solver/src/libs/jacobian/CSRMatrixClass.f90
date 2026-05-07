@@ -69,8 +69,7 @@ MODULE CSRMatrixClass
          integer        :: ia(*), ja(*)
          real(kind=RP)  :: x(*), y(*)
       end subroutine mkl_dcsrgemv
-   end interface
-   
+   end interface   
 !
 !========
  CONTAINS
@@ -768,6 +767,9 @@ MODULE CSRMatrixClass
    !  -> v needs to be allocated beforehand
    !  ----------------------------------------------------
    function CSR_MatVecMul( A,u, trans) result(v)
+#ifdef HAS_MKL
+      use MKL_SPBLAS, only: SPARSE_OPERATION_NON_TRANSPOSE
+#endif
       implicit none
       !-arguments--------------------------------------------------------------------
       class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
@@ -775,7 +777,7 @@ MODULE CSRMatrixClass
       logical, optional, intent(in)    :: trans   !< A matrix is transposed?
       real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
       !------------------------------------------------------------------------------
-      integer           :: i,j
+      integer           :: i,j,stat
       REAL(KIND=RP)     :: rsum
       character(len=1)  :: transInfo
       !------------------------------------------------------------------------------
@@ -795,7 +797,11 @@ MODULE CSRMatrixClass
       end if
     
 #ifdef HAS_MKL
-      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
+!      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
+      ! This call was changed because the function mkl_dcsrgemv was deprecated.
+      ! See: https://www.intel.com/content/www/us/en/docs/onemkl/developer-reference-fortran/2023-1/mkl-csrgemv.html
+      ! TODO: Check that the new function performs as expected.
+      stat = mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0_rp, A % mkl_options % csrA, A % mkl_options % descrA, u, 0.0_rp, v)
 #else
       if (transInfo == 't') error stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
