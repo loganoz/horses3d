@@ -84,6 +84,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/Cylinder_pAdaptationRL_GaussLobatto \
             ./NavierStokes/ABLBoundaryMapping \
             ./NavierStokes/ActuatorLineController \
+            ./NavierStokes/MMS_NS \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
@@ -93,6 +94,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/CylinderVreman \
             ./IncompressibleNS/ActuatorLineInterpolation \
             ./IncompressibleNS/NACA0012 \
+            ./IncompressibleNS/MMS_iNS \
             ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/Convergence_cs \
@@ -104,6 +106,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Multiphase/Pipe \
             ./Multiphase/Monopole_pAdaptationRL \
             ./Multiphase/ActuatorLineInterpolation \
+            ./Multiphase/MMS_MU \
             ./Particles/FreeFall \
             ./Particles/RadiationHeat \
             ./Particles/Pouransari \
