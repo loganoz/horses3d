@@ -795,7 +795,7 @@ MODULE CSRMatrixClass
       end if
     
 #ifdef HAS_MKL
-      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
+!      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
 #else
       if (transInfo == 't') error stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
