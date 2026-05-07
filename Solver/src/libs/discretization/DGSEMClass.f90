@@ -718,7 +718,7 @@ Module DGSEMClass
                if (controlVariables % logicalValueForKey(saveLambVectorKey)) then
                   solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
                   solutionName = trim(getFileName(solutionName))
-                  call self % mesh % SaveLambVector(initial_iteration, initial_time, solutionName)
+                  call self % mesh % SaveLambVector(initial_iteration, initial_time, solutionName, controlVariables)
                end if
 #endif
                !TDG: ADD PARTICLES WRITE WITH IFDEF

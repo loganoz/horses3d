@@ -51,6 +51,8 @@ module PhysicsStorage
    real(kind=RP), protected     :: timeref
 
    character(len=*), parameter   :: REFERENCE_LENGTH_KEY = "reference length (m)" 
+   CHARACTER(LEN=*), parameter   :: LambVectorCubeKey = "lamb vector cube"
+
 
 #if (!defined(FLOW)) && (defined(CAHNHILLIARD))
    integer, parameter :: NCONS = NCOMP

@@ -169,6 +169,7 @@ MODULE HexMeshClass
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
+            procedure :: findElementsInsideCube        => HexMesh_findElementsInsideCube
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -3548,7 +3549,39 @@ slavecoord:             DO l = 1, 4
 
       end subroutine HexMesh_SaveSolution
 
-      subroutine HexMesh_SaveLambVector(self, iter, time, name)
+      subroutine HexMesh_SaveLambVector(self, iter, time, name, controlVariables)
+         use PhysicsStorage, only: LambVectorCubeKey
+         use SolutionFile
+         use MPI_Process_Info
+         use MappedGeometryClass, only: vCross, ComputeVorticity
+         use FileReadingUtilities, only: GetRealArrayFromString
+         implicit none
+         class(HexMesh)                         :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         TYPE(FTValueDictionary), optional, intent(in)    :: controlVariables
+
+         ! Local variables
+         real(rp) :: cubeCoords(6) ! [x0, x1, y0, y1, z0, z1]
+
+         if ( present(controlVariables) .and. controlVariables % containsKey(LambVectorCubeKey)) then
+            ! Read cube coordinates
+            cubeCoords = GetRealArrayFromString( controlVariables % StringValueForKey(LambVectorCubeKey,requestedLength = LINE_LENGTH))
+            if (size(cubeCoords) .ne. 6) then
+               print *, "ERROR: size(cubeCoords) != 6"
+               print *, "Cube coordinates read: ", cubeCoords
+               print *, "[x0, x1, y0, y1, z0, z1] is expected."
+               error stop
+            end if
+            call HexMesh_SaveLambVector_subregion(self, iter, time, name, cubeCoords)
+         else
+            call HexMesh_SaveLambVector_all(self, iter, time, name)
+         end if
+
+      end subroutine HexMesh_SaveLambVector
+
+      subroutine HexMesh_SaveLambVector_all(self, iter, time, name)
          use SolutionFile
          use MPI_Process_Info
          use MappedGeometryClass, only: vCross, ComputeVorticity
@@ -3638,7 +3671,129 @@ slavecoord:             DO l = 1, 4
 !        --------------
          call SealSolutionFile(trim(filename))
 
-      end subroutine HexMesh_SaveLambVector
+      end subroutine HexMesh_SaveLambVector_all
+
+      subroutine HexMesh_SaveLambVector_subregion(self, iter, time, name, cubeCoords)
+         use SolutionFile
+         use MPI_Process_Info
+         use MappedGeometryClass, only: vCross, ComputeVorticity
+         implicit none
+         class(HexMesh)                         :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         real(rp),            intent(in)        :: cubeCoords(6) ! [x0, x1, y0, y1, z0, z1]
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
+         character(len=LINE_LENGTH)       :: fileName
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+         integer                          :: i, j, k
+         real(kind=RP), dimension(NDIM)   :: vorticity, velocity, LambVector
+
+         integer :: local_dofs, global_dofs_offset, all_elements_inside, n_elements_before
+         integer, allocatable :: elementsInside(:)
+
+         !
+         ! Compute the elements inside the region (cube)
+         !
+         call self % findElementsInsideCube(cubeCoords, elementsInside)
+         !
+         ! Compute offset
+         !
+         local_dofs = 0
+         do eID = 1, size(elementsInside)
+            associate(e => self % elements(elementsInside(eID)))
+            local_dofs = local_dofs + product( e % Nxyz + 1)
+            end associate
+         end do
+         global_dofs_offset = 0
+         all_elements_inside = 0
+         n_elements_before = 0
+         if ( MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+            call mpi_exscan(local_dofs, global_dofs_offset, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_exscan(size(elementsInside), n_elements_before, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(size(elementsInside), all_elements_inside, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+         end if
+         if ( MPI_Process % isRoot ) then
+            global_dofs_offset = 0
+            n_elements_before = 0
+         end if
+         !
+         ! Write the file
+         !
+         ! Gather reference quantities
+#if defined(NAVIERSTOKES)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+#elif defined(INCNS)
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
+#elif defined(ACOUSTIC)
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+#else
+         refs = 0.0_RP
+#endif
+         ! Create new file
+         WRITE(filename,'(2A,I10.10,A)')  TRIM(getFileName(name)),'_',iter,'.Lamb.hsol'
+         call CreateNewSolutionFile(trim(filename), SOLUTION_FILE, self % nodeType, &
+                                    all_elements_inside, iter, time, refs)
+
+         ! Write array to file
+         fID = putSolutionFileInWriteDataMode(trim(filename))
+         do eID = 1, size(elementsInside)
+            associate( e => self % elements(elementsInside(eID)) )
+               pos = POS_INIT_DATA + n_elements_before*5_AddrInt*SIZEOF_INT + 1_AddrInt*global_dofs_offset*NDIM*SIZEOF_RP
+
+               ! Write the Lamb vector
+#ifdef ACOUSTIC
+               ! Already computed for acoustics
+               call writeArray(fid, e % storage % Lamb, position=pos)
+#else
+               ! To be computed for the rest of solvers
+               allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+                  call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
+#if defined(NAVIERSTOKES)
+                  velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
+#elif defined(INCNS)
+                  velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
+#endif
+                  call vCross(velocity, vorticity, LambVector)
+                  Q(:,i,j,k) = LambVector
+               end do                  ; end do                   ; end do
+
+               call writeArray(fid, Q, position=pos)
+               deallocate(Q)
+#endif
+            end associate
+         end do
+         ! Close the file
+         close(fid)
+         call SealSolutionFile(trim(filename))
+
+      end subroutine HexMesh_SaveLambVector_subregion
 
 #ifdef ACOUSTIC
       subroutine HexMesh_SaveBaseFlow(self, iter, time, name)
@@ -6931,4 +7086,74 @@ call elementMPIList % destruct
       safedeallocate(total_z)
 
    end subroutine HexMesh_DefineAcousticElements
+
+   subroutine HexMesh_findElementsInsideCube(mesh, cubeCoords, array)
+      use IntegerDataLinkedList
+      implicit none
+      class(HexMesh), intent(in) :: mesh
+      real(rp), intent(in) :: cubeCoords(6) ! [x0, x1, y0, y1, z0, z1]
+      integer, allocatable, intent(out) :: array(:)
+
+      ! Local variables
+      type(IntegerDataLinkedList_t) :: Data
+      integer :: eID
+
+      ! Find elements inside cube
+      Data = IntegerDataLinkedList_t(.false.)
+      do eID = 1, mesh % no_of_elements
+         if (intersect(mesh % elements(eID) % surfInfo % corners, cubeCoords)) then
+               call Data % Add(eID)
+         end if
+      end do
+      call Data % ExportToArray(array)
+      call Data % destruct
+
+   end subroutine HexMesh_findElementsInsideCube
+
+   logical function intersect(corners, cube)
+      ! Returns true if the corners of the element are inside the cube.
+      ! Curved elements are considered straight-sided.
+      ! We define that the element intersects the cube if:
+      ! any x-coordinate of the corners belongs to [x0, x1] AND
+      ! any y-coordinate of the corners belongs to [y0, y1] AND
+      ! any z-coordinate of the corners belongs to [z0, z1]
+      use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT
+      implicit none
+      real(kind=RP), intent(in)   :: corners(NDIM,NODES_PER_ELEMENT)
+      real(kind=RP), intent(in)   :: cube(6) ! [x0, x1, y0, y1, z0, z1]
+
+      ! Local variables
+      logical :: isInside
+      integer :: i
+
+      isInside = .false.
+      do i = 1, NODES_PER_ELEMENT
+         if ((cube(1) <= corners(1,i)) .and. (corners(1,i) <= cube(2))) isInside = .true.
+      end do
+      if (.not. isInside) then
+         intersect = .false.
+         return
+      end if
+
+      isInside = .false.
+      do i = 1, NODES_PER_ELEMENT
+         if ((cube(3) <= corners(2,i)) .and. (corners(2,i) <= cube(4))) isInside = .true.
+      end do
+      if (.not. isInside) then
+         intersect = .false.
+         return
+      end if
+
+      isInside = .false.
+      do i = 1, NODES_PER_ELEMENT
+         if ((cube(5) <= corners(3,i)) .and. (corners(3,i) <= cube(6))) isInside = .true.
+      end do
+      if (.not. isInside) then
+         intersect = .false.
+         return
+      end if
+      ! At this point, isInside is true.
+      intersect = .true.
+
+   end function intersect
 END MODULE HexMeshClass
