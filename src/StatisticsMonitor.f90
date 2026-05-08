@@ -1,5 +1,5 @@
 #include "Includes.h"
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
 module StatisticsMonitor
    use SMConstants
    use HexMeshClass
@@ -54,6 +54,7 @@ module StatisticsMonitor
       logical        :: saveLambVector
       logical        :: saveSoundVelocitySquared
       logical        :: saveGradSoundVelocitySquared
+      logical        :: savePressureSquared
       contains
          procedure   :: Construct    => StatisticsMonitor_Construct
          procedure   :: Update       => StatisticsMonitor_Update
@@ -70,13 +71,14 @@ module StatisticsMonitor
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared)
+      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared, savePressureSquared)
          use ParamfileRegions
          use PhysicsStorage, only: NCONS, NGRAD
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
          logical, intent(in)           :: saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared
+         logical, intent(in)           :: savePressureSquared
          integer, allocatable          :: Nsample, i0, Ndump, Nreset
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
@@ -87,10 +89,12 @@ module StatisticsMonitor
          self % saveLambVector = saveLambVector
          self % saveSoundVelocitySquared = saveSoundVelocitySquared
          self % saveGradSoundVelocitySquared = saveGradSoundVelocitySquared
+         self % savePressureSquared = savePressureSquared
          if (saveGradients) NO_OF_VARIABLES = NO_OF_VARIABLES + NGRAD * NDIM
          if (saveLambVector) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
          if (saveSoundVelocitySquared) NO_OF_VARIABLES = NO_OF_VARIABLES + 1
          if (saveGradSoundVelocitySquared) NO_OF_VARIABLES = NO_OF_VARIABLES + NDIM
+         if (savePressureSquared) NO_OF_VARIABLES = NO_OF_VARIABLES + 1
 !
 !        Search for the parameters in the case file
 !        ------------------------------------------
@@ -180,6 +184,7 @@ module StatisticsMonitor
          write(fileName,'(A,A)') trim(solution_file),'.stats.hsol'
          if ( self % state .ne. OFF) then
             call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
             ! Save Lamb vector
             lblimits = NO_OF_VARIABLES_Sij + NCONS
             if (self % saveGradients) lblimits = lblimits + NDIM * NGRAD
@@ -187,6 +192,7 @@ module StatisticsMonitor
             ublimits = lblimits + NDIM - 1
             write(fileName,'(A,A)') trim(solution_file),'.Lamb.stats.hsol'
             if (self % saveLambVector) call mesh % SaveLambVectorStatistics(iter, t, trim(fileName), lblimits, ublimits)
+#endif
 #ifdef NAVIERSTOKES
             ! Save sound velocity
             lblimits = NO_OF_VARIABLES_Sij + NCONS
@@ -205,6 +211,15 @@ module StatisticsMonitor
             ublimits = lblimits + NDIM - 1
             write(fileName,'(A,A)') trim(solution_file),'.GradientSoundVelocitySquared.stats.hsol'
             if (self % saveGradSoundVelocitySquared) call mesh % saveGradientSoundVelocitySquaredStatistics(iter, t, trim(filename), lblimits, ublimits)
+#endif
+#ifdef ACOUSTIC
+            ! Save pressure squared
+            lblimits = NO_OF_VARIABLES_Sij + NCONS
+            if (self % saveGradients) lblimits = lblimits + NDIM * NGRAD
+            lblimits = lblimits + 1
+            ublimits = lblimits
+            write(fileName,'(A,A)') trim(solution_file),'.PressureSquared.stats.hsol'
+            if (self % savePressureSquared) call mesh % SavePressureSquaredStatistics(iter, t, trim(fileName), lblimits, ublimits)
 #endif
          end if
 
@@ -472,6 +487,51 @@ module StatisticsMonitor
                end associate
             end do
 #endif
+
+#ifdef ACOUSTIC
+         !  if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
+            limits(1) = NO_OF_VARIABLES_Sij + ICAARHO
+            limits(2) = NO_OF_VARIABLES_Sij + NCONS
+            limits(3:7) = limits(2)
+            ! if (self % saveGradients) then
+            !    limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD ! U_x
+            !    limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD ! U_y
+            !    limits(5) = NO_OF_VARIABLES_Sij + NCONS + NDIM * NGRAD ! U_z
+            !    limits(6:8) = limits(5)
+            ! end if
+            if (self % savePressureSquared) limits(6) = limits(5) + 1
+            
+            inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
+            ratio = self % no_of_samples * inv_nsamples_plus_1
+
+            do eID = 1, size(mesh % elements)
+               associate(e    => mesh % elements(eID), &
+                         data => mesh % elements(eID) % storage % stats % data)
+
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+                  data(U,i,j,k)  = data(U,i,j,k)  * ratio + e % storage % Q(ICAAU,i,j,k) * inv_nsamples_plus_1
+                  data(V,i,j,k)  = data(V,i,j,k)  * ratio + e % storage % Q(ICAAV,i,j,k) * inv_nsamples_plus_1
+                  data(W,i,j,k)  = data(W,i,j,k)  * ratio + e % storage % Q(ICAAW,i,j,k) * inv_nsamples_plus_1
+                  data(UU,i,j,k) = data(UU,i,j,k) * ratio + POW2( e % storage % Q(ICAAU,i,j,k) ) * inv_nsamples_plus_1
+                  data(VV,i,j,k) = data(VV,i,j,k) * ratio + POW2( e % storage % Q(ICAAV,i,j,k) ) * inv_nsamples_plus_1
+                  data(WW,i,j,k) = data(WW,i,j,k) * ratio + POW2( e % storage % Q(ICAAW,i,j,k) ) * inv_nsamples_plus_1
+                  data(UV,i,j,k) = data(UV,i,j,k) * ratio + e % storage % Q(ICAAU,i,j,k) * e % storage % Q(ICAAV,i,j,k) * inv_nsamples_plus_1
+                  data(UW,i,j,k) = data(UW,i,j,k) * ratio + e % storage % Q(ICAAU,i,j,k) * e % storage % Q(ICAAW,i,j,k) * inv_nsamples_plus_1
+                  data(VW,i,j,k) = data(VW,i,j,k) * ratio + e % storage % Q(ICAAV,i,j,k) * e % storage % Q(ICAAW,i,j,k) * inv_nsamples_plus_1
+                  data(limits(1):limits(2),i,j,k) = data(limits(1):limits(2),i,j,k) * ratio + e % storage % Q(:,i,j,k) * inv_nsamples_plus_1
+                  ! if (self % saveGradients) then
+                  !     data(limits(2)+1:limits(3),i,j,k) = data(limits(2)+1:limits(3),i,j,k) * ratio + e % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
+                  !     data(limits(3)+1:limits(4),i,j,k) = data(limits(3)+1:limits(4),i,j,k) * ratio + e % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
+                  !     data(limits(4)+1:limits(5),i,j,k) = data(limits(4)+1:limits(5),i,j,k) * ratio + e % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
+                  ! end if
+                  if (self % savePressureSquared) then
+                     data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + POW2( e % storage % Q(ICAAP,i,j,k) ) * inv_nsamples_plus_1
+                  end if
+               end do                  ; end do                   ; end do
+
+               end associate
+            end do
+#endif 
 
          self % no_of_samples = self % no_of_samples + 1
          
