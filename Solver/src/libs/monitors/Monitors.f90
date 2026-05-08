@@ -11,7 +11,7 @@ module MonitorsClass
 #ifdef FLOW
    use ProbeClass
 #endif
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
    use StatisticsMonitor
    use SurfaceMonitorClass
 #endif
@@ -47,7 +47,7 @@ module MonitorsClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
       class(SurfaceMonitor_t)      , allocatable :: surfaceMonitors(:)
 #endif
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
       type(StatisticsMonitor_t)                  :: stats
 #endif
       contains
@@ -89,11 +89,13 @@ module MonitorsClass
          logical                         :: saveGradients, saveLambVector
          logical                         :: saveSoundVelocitySquared
          logical                         :: saveGradSoundVelocitySquared
+         logical                         :: savePressureSquared
 		   logical                         :: monitorMem =.FALSE.
 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveLambVectorToStatsKey = "save lamb vector stats"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveSoundVelocitySquaredToStatsKey = "save sound velocity squared stats"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveGradSoundVelocitySquaredToStatsKey = "save gradient sound velocity squared stats"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: savePressureSquaredToStatsKey = "save pressure squared stats"
 !
 !        Setup the buffer
 !        ----------------
@@ -153,12 +155,13 @@ module MonitorsClass
          end do
 #endif
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToStatsKey)
          saveSoundVelocitySquared = controlVariables % logicalValueForKey(saveSoundVelocitySquaredToStatsKey)
          saveGradSoundVelocitySquared = controlVariables % logicalValueForKey(saveGradSoundVelocitySquaredToStatsKey)
-         call Monitors % stats     % Construct(mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared)
+         savePressureSquared = controlVariables % logicalValueForKey(savePressureSquaredToStatsKey)
+         call Monitors % stats     % Construct(mesh, saveGradients, saveLambVector, saveSoundVelocitySquared, saveGradSoundVelocitySquared, savePressureSquared)
 #endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
@@ -527,7 +530,7 @@ module MonitorsClass
             end do
 #endif
 !
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE) || defined(ACOUSTIC)
 !
 !              Write statistics
 !              ----------------
