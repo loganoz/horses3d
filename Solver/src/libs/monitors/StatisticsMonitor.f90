@@ -478,6 +478,8 @@ module StatisticsMonitor
                   if (self % saveLambVector) then
                      call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), dimensionless, gradvel_x, gradvel_y, gradvel_z)
                      call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)
+                     mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) * mesh % elements(eID) % storage % Q(IMC,:,:,:)
+                     mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
                      velocity = e % storage % Q(IMSQRHOU:IMSQRHOW,i,j,k) / sqrt( e % storage % rho(i,j,k) )
                      call vCross(velocity, vorticity, LambVector)
                      data(limits(5)+1:limits(6),i,j,k) = data(limits(5)+1:limits(6),i,j,k) * ratio + LambVector * inv_nsamples_plus_1
