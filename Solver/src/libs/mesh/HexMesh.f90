@@ -3590,6 +3590,16 @@ slavecoord:             DO l = 1, 4
          use SolutionFile
          use MPI_Process_Info
          use MappedGeometryClass, only: vCross, ComputeVorticity
+#if (defined(NAVIERSTOKES) && !(defined(SPALARTALMARAS)) )
+         use VariableConversion_NS, only: getVelocityGradients_STATE, Pressure
+#elif (defined(NAVIERSTOKES) && (defined(SPALARTALMARAS)) )
+         use VariableConversion_NSSA, only: getVelocityGradients_STATE, Pressure
+#elif defined(INCNS)
+         use VariableConversion_iNS, only: getVelocityGradients
+#elif defined(MULTIPHASE)
+         use VariableConversion_MU, only: getVelocityGradients
+         use FluidData_MU, only: dimensionless
+#endif
          implicit none
          class(HexMesh)                         :: self
          integer,             intent(in)        :: iter
@@ -3607,6 +3617,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP), allocatable       :: Q(:,:,:,:)
          integer                          :: i, j, k
          real(kind=RP), dimension(NDIM)   :: vorticity, velocity, LambVector
+         real(kind=RP), dimension(NDIM)   :: gradvel_x, gradvel_y, gradvel_z
 !
 !        Gather reference quantities
 !        ---------------------------
@@ -3654,12 +3665,19 @@ slavecoord:             DO l = 1, 4
                allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-                  call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
 #if defined(NAVIERSTOKES)
+                  call getVelocityGradients_State(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
                   velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
 #elif defined(INCNS)
+                  call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)                  
                   velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
+#elif defined(MULTIPHASE)
+                  call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), dimensionless, gradvel_x, gradvel_y, gradvel_z)
+                  self % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) * self % elements(eID) % storage % Q(IMC,:,:,:)
+                  self % elements(eID) % storage % rho = min(max(self % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
+                  velocity = e % storage % Q(IMSQRHOU:IMSQRHOW,i,j,k) / sqrt( e % storage % rho(i,j,k) )
 #endif
+                  call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)                  
                   call vCross(velocity, vorticity, LambVector)
                   Q(:,i,j,k) = LambVector
                end do                  ; end do                   ; end do
@@ -3682,6 +3700,16 @@ slavecoord:             DO l = 1, 4
          use SolutionFile
          use MPI_Process_Info
          use MappedGeometryClass, only: vCross, ComputeVorticity
+#if (defined(NAVIERSTOKES) && !(defined(SPALARTALMARAS)) )
+         use VariableConversion_NS, only: getVelocityGradients_STATE, Pressure
+#elif (defined(NAVIERSTOKES) && (defined(SPALARTALMARAS)) )
+         use VariableConversion_NSSA, only: getVelocityGradients_STATE, Pressure
+#elif defined(INCNS)
+         use VariableConversion_iNS, only: getVelocityGradients
+#elif defined(MULTIPHASE)
+         use VariableConversion_MU, only: getVelocityGradients
+         use FluidData_MU, only: dimensionless
+#endif
          implicit none
          class(HexMesh)                         :: self
          integer,             intent(in)        :: iter
@@ -3694,13 +3722,14 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer                          :: fid, eID
+         integer                          :: fid, eID, ierr
          integer(kind=AddrInt)            :: pos
          character(len=LINE_LENGTH)       :: fileName
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
          integer                          :: i, j, k
          real(kind=RP), dimension(NDIM)   :: vorticity, velocity, LambVector
+         real(kind=RP), dimension(NDIM)   :: gradvel_x, gradvel_y, gradvel_z
 
          integer :: local_dofs, global_dofs_offset, all_elements_inside, n_elements_before
          integer, allocatable :: elementsInside(:)
@@ -3779,12 +3808,19 @@ slavecoord:             DO l = 1, 4
                ! To be computed for the rest of solvers
                allocate(Q(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-                  call ComputeVorticity(e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), vorticity)
 #if defined(NAVIERSTOKES)
+                  call getVelocityGradients_State(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)
                   velocity = e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
 #elif defined(INCNS)
+                  call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), gradvel_x, gradvel_y, gradvel_z)                  
                   velocity = e % storage % Q(INSRHOU:INSRHOW,i,j,k) / e % storage % Q(INSRHO,i,j,k)
+#elif defined(MULTIPHASE)
+                  call getVelocityGradients(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), dimensionless, gradvel_x, gradvel_y, gradvel_z)
+                  self % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2)) * self % elements(eID) % storage % Q(IMC,:,:,:)
+                  self % elements(eID) % storage % rho = min(max(self % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
+                  velocity = e % storage % Q(IMSQRHOU:IMSQRHOW,i,j,k) / sqrt( e % storage % rho(i,j,k) )
 #endif
+                  call ComputeVorticity(gradvel_x, gradvel_y, gradvel_z, vorticity)                  
                   call vCross(velocity, vorticity, LambVector)
                   Q(:,i,j,k) = LambVector
                end do                  ; end do                   ; end do

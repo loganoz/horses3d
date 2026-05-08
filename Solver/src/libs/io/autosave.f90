@@ -131,8 +131,8 @@ module AutosaveClass
 !        -----------------------------
          self % enable = .false.
          self % mode   = AUTOSAVE_UNDEFINED
-         !self % iter_interval = huge(1)
-         !self % time_interval = huge(1.0_RP)
+         self % iter_interval = huge(1)
+         self % time_interval = huge(1.0_RP)
 
       end if
 !
@@ -188,6 +188,8 @@ module AutosaveClass
          self % mode   = AUTOSAVE_UNDEFINED
          self % iter_interval = huge(1)
          self % time_interval = huge(1.0_RP)
+         self % nextAutosaveTime = t0 + self % time_interval
+         self % performAutosave = .false.
          return
       end if
 !
