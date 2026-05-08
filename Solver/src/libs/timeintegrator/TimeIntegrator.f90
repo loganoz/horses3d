@@ -18,7 +18,7 @@
       USE Physics
       USE ExplicitMethods
       USE IMEXMethods
-      use AutosaveClass                   , only: Autosave_t, AUTOSAVE_BY_TIME
+      use AutosaveClass                   , only: Autosave_t, AUTOSAVE_BY_TIME, Autosave_LambVectorConfigure
       use StopwatchClass
       use MPI_Process_Info
       use TimeIntegratorDefinitions
@@ -53,6 +53,7 @@
          type(Autosave_t)                       :: autosave
          class(pAdaptation_t), allocatable      :: pAdaptator
          type(adaptiveTimeStep_t)               :: adaptiveTimeStep
+         type(Autosave_t)                       :: lambSave
          type(MultiTauEstim_t)                  :: TauEstimator
          character(len=LINE_LENGTH)             :: integration_method
          integer                                :: RKStep_key
@@ -337,6 +338,8 @@
 
          call self % TauEstimator % construct(controlVariables, sem)
 
+         call Autosave_LambVectorConfigure(self % lambsave, controlVariables, initial_time)
+
          if (.not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(/)')
@@ -571,7 +574,7 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, saveLES, saveOrders, saveSource, saveLambVector
+      logical                       :: saveGradients, saveSensor, saveLES, saveOrders, saveSource
       logical                       :: useTrip, ActuatorLineFlag, ActuatorLineControlFlag
 
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
@@ -655,7 +658,6 @@
       saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
       saveLES          = controlVariables % logicalValueForKey(saveLESToSolutionKey)
       saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
-      saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)
 !
 !     -----------------------
 !     Check initial residuals
@@ -919,7 +921,7 @@
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES, saveSource, saveLambVector)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES, saveSource)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -930,6 +932,10 @@
                call SaveControllerState(farm, SolutionFileName, k+1, t)
             end if
 #endif
+         end if
+         ! Lamb vector autosave
+         if ( self % lambsave % Autosave(k+1) ) then
+            call sem % mesh % SaveLambVector(k+1,t,SolutionFileName, controlVariables)
          end if
 !
 !        Save surfaces solution
@@ -1053,7 +1059,7 @@
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource, saveLambVector)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES, saveSource)
 #if defined(FLOW) 
       use SpongeClass, only: sponge, WriteBaseFlowSponge
 #endif
@@ -1072,7 +1078,6 @@
       logical,          intent(in) :: saveSensor
       logical,          intent(in) :: saveLES
       logical,          intent(in) :: saveSource
-      logical,          intent(in) :: saveLambVector
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -1080,8 +1085,8 @@
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource, saveLambVector)
-#if defined(FLOW) 
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES, saveSource)
+#if defined(FLOW)
       call WriteBaseFlowSponge(sponge, sem % mesh, k, t)
 #endif
    END SUBROUTINE SaveRestart
@@ -1105,8 +1110,9 @@
       integer, parameter :: DO_NOTHING  = 0
       integer, parameter :: AUTOSAVE    = 1
       integer, parameter :: ADAPT       = 2
-      integer, parameter :: SURFSAVE     = 3
-      integer, parameter :: DONT_KNOW   = 4
+      integer, parameter :: SURFSAVE    = 3
+      integer, parameter :: LAMBSAVE    = 4
+      integer, parameter :: DONT_KNOW   = 5
       integer, save :: next_time_will = DONT_KNOW
       !----------------------------------------------------------
 
@@ -1116,6 +1122,7 @@
       self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
       surfacesMesh % autosave % performAutosave = .FALSE.
+      self % lambsave   % performAutosave = .FALSE.
       dt_out = dt_in
 
 !
@@ -1152,7 +1159,7 @@
                end if
 
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime, self % lambsave % nextAutosaveTime],1)
             end if
 
          case (ADAPT)
@@ -1172,7 +1179,7 @@
                end if
 
                self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime, self % lambsave % nextAutosaveTime],1)
             end if
 
          case (SURFSAVE)
@@ -1192,16 +1199,27 @@
                end if
 
                surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime, self % lambsave % nextAutosaveTime],1)
+            end if
+         
+         case (LAMBSAVE)
+
+            if ( self % lambsave % nextAutosaveTime < (t + dt_out) ) then
+               dt_out = self % lambsave % nextAutosaveTime - t
+               self % lambsave % performAutosave = .TRUE.
+
+               self % lambsave % nextAutosaveTime = self % lambsave % nextAutosaveTime + self % lambsave % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime, self % lambsave % nextAutosaveTime],1)
             end if
 
          case (DONT_KNOW)
 
             if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
                   surfacesMesh % autosave % mode      == AUTOSAVE_BY_TIME .or. &
-                  self % autosave % mode              == AUTOSAVE_BY_TIME) then
+                  self % autosave % mode              == AUTOSAVE_BY_TIME .or. &
+                  self % lambsave % mode              == AUTOSAVE_BY_TIME) then
 
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime, self % lambsave % nextAutosaveTime],1)
                dt_temp = self % CorrectDt (t, dt_out)
                dt_out  = dt_temp
             else

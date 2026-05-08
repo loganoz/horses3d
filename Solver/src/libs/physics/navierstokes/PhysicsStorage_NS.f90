@@ -145,7 +145,7 @@
       SUBROUTINE ConstructPhysicsStorage_NS( controlVariables, Lref, timeref, success )
       USE FTValueDictionaryClass
       USE Physics_NSKeywordsModule
-      use mainKeywordsModule, only: saveLambVectorToSolutionKey
+      use mainKeywordsModule, only: saveLambVectorKey
       use Utilities, only: toLower, almostEqual
 !
 !     ---------
@@ -275,7 +275,7 @@
       end if
 
       ! If Lamb vector is requested, computeGradient should be enabled
-      if (controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)) then
+      if (controlVariables % logicalValueForKey(saveLambVectorKey)) then
          if (.not. computeGradients) then
             print *, trim(COMPUTE_GRADIENTS_KEY), " should be enabled to compute the Lamb vector."
             error stop

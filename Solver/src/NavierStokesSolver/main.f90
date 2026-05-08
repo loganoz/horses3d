@@ -34,7 +34,7 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients, saveSensor, saveLES, saveSource, saveLambVector
+      LOGICAL                             :: success, saveGradients, saveSensor, saveLES, saveSource
 	  logical                             :: generateMonitor = .TRUE.
 	  logical                             :: optimizePartitionLevel=.FALSE.
 	  logical                             :: isMLRK=.FALSE.
@@ -204,8 +204,10 @@
          saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
          saveLES          = controlVariables % logicalValueForKey(saveLESToSolutionKey)
          saveSource       = controlVariables % logicalValueForKey(saveSourceToSolutionKey)
-         saveLambVector   = controlVariables % logicalValueForKey(saveLambVectorToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveLES, saveSource, saveLambVector)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveLES, saveSource)
+         if (controlVariables % logicalValueForKey(saveLambVectorKey)) then
+            call sem % mesh % saveLambVector(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, controlVariables)
+         endif
          if ( sem % particles % active ) then
             call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
          end if

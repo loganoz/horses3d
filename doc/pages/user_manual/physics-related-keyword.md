@@ -15,7 +15,10 @@ title: Physics related keywords
 | AOA phi                   | *REAL*: Angle of attack (degrees), based on the spherical coordinates azimuthal angle (\(\varphi\)) definition       | 0.0                    |
 | LES model                 | *CHARACTER*(\*): Options are: Vreman, Wale, Smagorinsky, None                                                       | None                   |
 | Wall model                | *CHARACTER*:                                                                                                       | linear                 |
-| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. Saved with the same frequency as the solution. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. The frequency of the saving is determined by `save Lamb vector mode` and `save Lamb vector interval`. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector mode | *CHARACTER*: The mode to save the Lamb vector. Options are: `time` or `iteration`. |  Mandatory keyword if `save Lamb vector = .true.` |
+| save Lamb vector interval | *REAL* or *INTEGER*: The frequency to save the Lamb vector. If `save Lamb vector mode = time`, the Lamb vector is saved every `save Lamb vector interval` seconds of simulated time. If `save Lamb vector mode = iteration`, the Lamb vector is saved every `save Lamb vector interval` iterations. |  Mandatory keyword if `save Lamb vector = .true.` |
+| Lamb vector cube | *REAL*: It is possible to save and compute the Lamb vector only in a cubic region. The six coordinates defining the cube: \([x_0, x_1, y_0, y_1, z_0, z_1]\) |
 | save Lamb vector stats | *LOGICAL*: Whether to save the Lamb vector statistics or not. Options are: `.true.` or `.false.`. |  `.false.` |
 | save sound velocity squared stats | *LOGICAL*: Whether to save the sound velocity squared statistics or not. A new file `solution_file.SoundVelocitySquared.stats.hsol` is created. Options are: `.true.` or `.false.`. |  `.false.` |
 | save gradient sound velocity squared stats | *LOGICAL*: Whether to save the gradient of the sound velocity squared or not. A new file `solution_file.GradientSoundVelocitySquared.stats.hsol` is created. Options are: `.true.` or `.false.`. |  `.false.` |
@@ -161,7 +164,9 @@ This solver is run with the binary horses3d.ins.
 | artificial compressibility factor | *REAL*: Artificial compressibility factor \(c_0^2\)                                                | --            |
 | gravity acceleration (m/s^2)    | *REAL*: Value of gravity acceleration                                                             | --            |
 | gravity direction                | *REAL*: Array containing direction of gravity. Eg. \( [0.0,-1.0,0.0] \)                             | --            |
-| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. Saved with the same frequency as the solution. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. The frequency of the saving is determined by `save Lamb vector mode` and `save Lamb vector interval`. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector mode | *CHARACTER*: The mode to save the Lamb vector. Options are: `time` or `iteration`. |  Mandatory keyword if `save Lamb vector = .true.` |
+| save Lamb vector interval | *REAL* or *INTEGER*: The frequency to save the Lamb vector. If `save Lamb vector mode = time`, the Lamb vector is saved every `save Lamb vector interval` seconds of simulated time. If `save Lamb vector mode = iteration`, the Lamb vector is saved every `save Lamb vector interval` iterations. |  Mandatory keyword if `save Lamb vector = .true.` |
 | save Lamb vector stats | *LOGICAL*: Whether to save the Lamb vector statistics or not. Options are: `.true.` or `.false.`. |  `.false.` |
 
 
@@ -235,7 +240,9 @@ This solver is run with the binary horses3d.mu.
 | chemical characteristic time (s) | *REAL*: \(t_{CH}\) controls the speed of the phase separation                                         | --            |
 | interface width (m)              | *REAL*: \(\epsilon\) controls the interface width between the phases                                   | --            |
 | interface tension (N/m)          | *REAL*: \(\sigma\) controls the interface tension between the phases                                   | --            |
-| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. Saved with the same frequency as the solution. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector | *LOGICAL*: Whether to save the Lamb vector or not. The frequency of the saving is determined by `save Lamb vector mode` and `save Lamb vector interval`. Options are: `.true.` or `.false.`. |  `.false.` |
+| save Lamb vector mode | *CHARACTER*: The mode to save the Lamb vector. Options are: `time` or `iteration`. |  Mandatory keyword if `save Lamb vector = .true.` |
+| save Lamb vector interval | *REAL* or *INTEGER*: The frequency to save the Lamb vector. If `save Lamb vector mode = time`, the Lamb vector is saved every `save Lamb vector interval` seconds of simulated time. If `save Lamb vector mode = iteration`, the Lamb vector is saved every `save Lamb vector interval` iterations. |  Mandatory keyword if `save Lamb vector = .true.` |
 | save Lamb vector stats | *LOGICAL*: Whether to save the Lamb vector statistics or not. Options are: `.true.` or `.false.`. |  `.false.` |
 
 
