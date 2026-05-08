@@ -372,6 +372,8 @@ The keywords for the trip options are:
 | Lamb vector base | *CHARACTER*: Whether to set a uniform base Lamb vector or read it from a file. Options are: `file` or `uniform`. | Mandatory keyword if `use Lamb vector = .true.` |
 | Lamb vector base vector | *REAL*: The vector of the base Lamb vector. | Mandatory keyword if `Lamb vector base = uniform` |
 | Lamb vector base file name | *CHARACTER*: The path to the stats file of the base Lamb vector. | Mandatory keyword if `Lamb vector base = file`. |
+| save pressure squared stats | *LOGICAL*: Whether to save the squared pressure statistics or not. Options are: `.true.` or `.false.`. | `.false.`. |
+
 
 When the base solver is compressible Navier-Stokes or multiphase, it is possible to input either the Mach number or a reference velocity. In the case of compressible Navier-Stokes, the Mach number and the reference velocity are related by
 \begin{equation}
