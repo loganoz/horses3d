@@ -1,13 +1,15 @@
 module MMS
+   use SMConstants
+   use SolutionFile
    implicit none
    public evalManufacturedSolution, compareLambVector
+
    contains
       pure subroutine evalManufacturedSolution(x, y, z, t, res)
          use SMConstants
-         use PhysicsStorage_CAA
          implicit none
          real(rp), intent(in)  :: x, y, z, t
-         real(rp), intent(out) :: res(NCONS)
+         real(rp), intent(out) :: res(5)
 
          real(rp) :: rho_ms, u_ms, v_ms, w_ms, e_ms
 
@@ -17,16 +19,15 @@ module MMS
          w_ms = cos(x+y+z)*exp(-t)
          e_ms = rho_ms * (u_ms**2+v_ms**2+w_ms**2) / 2.0_rp + 1.0_rp
 
-         res(IRHO) = rho_ms
-         res(IRHOU) = rho_ms * u_ms
-         res(IRHOV) = rho_ms * v_ms
-         res(IRHOW) = rho_ms * w_ms
-         res(IRHOE) = rho_ms * e_ms
+         res(1) = rho_ms
+         res(2) = rho_ms * u_ms
+         res(3) = rho_ms * v_ms
+         res(4) = rho_ms * w_ms
+         res(5) = rho_ms * e_ms
       end subroutine
 
       pure subroutine evalLambVector(x, y, z, t, res)
          use SMConstants
-         use PhysicsStorage_CAA
          implicit none
          real(rp), intent(in)  :: x, y, z, t
          real(rp), intent(out) :: res(NDIM)
@@ -38,7 +39,6 @@ module MMS
 
       pure subroutine evalLambVectorIntegral(x, y, z, t, res)
          use SMConstants
-         use PhysicsStorage_CAA
          implicit none
          real(rp), intent(in)  :: x, y, z, t
          real(rp), intent(out) :: res(NDIM)
@@ -48,13 +48,13 @@ module MMS
          res(IZ) = (-sin(x + y + z)**2 - sin(x + y + z)*cos(x + y + z))*exp(-2.0_rp*t)/2.0_rp + sin(x + y + z)**2/2.0_rp + sin(x + y + z)*cos(x + y + z)/2.0_rp
       end subroutine
 
-      subroutine compareLambVector(mesh, success)
+      subroutine compareLambVector(Nelem, elements, success)
          use SMConstants
-         USE HexMeshClass
-         use SolutionFile
+         use ElementClass
          implicit none
-         class(HexMesh) :: mesh
-         logical, intent(out) :: success
+         integer, intent(in) :: Nelem
+         type(Element)  :: elements(Nelem)
+         logical, intent(inout) :: success
 
          ! Local variables
          INTEGER                            :: eID
@@ -69,20 +69,20 @@ module MMS
          open(newunit=fid, file="RESULTS/TGV_0000000020.Lamb.hsol", status="old", action="read", &
             form="unformatted" , access="stream")
 
-         do eID = 1, SIZE(mesh % elements)
-               Nx = mesh % elements(eID) % Nxyz(1)
-               Ny = mesh % elements(eID) % Nxyz(2)
-               Nz = mesh % elements(eID) % Nxyz(3)
+         do eID = 1, SIZE( elements)
+               Nx =  elements(eID) % Nxyz(1)
+               Ny =  elements(eID) % Nxyz(2)
+               Nz =  elements(eID) % Nxyz(3)
 
                ! Compare the values obtained (saved in file) with the analytical ones
                allocate(u_h(1:NDIM,0:Nx,0:Ny,0:Nz))
-               pos = POS_INIT_DATA + (mesh % elements(eID) % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*mesh % elements(eID) % offsetIO*SIZEOF_RP
+               pos = POS_INIT_DATA + ( elements(eID) % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM* elements(eID) % offsetIO*SIZEOF_RP
                read(fid, pos=pos) u_h
 
                DO k = 0, Nz
                   DO j = 0, Ny
                      DO i = 0, Nx
-                        x = mesh % elements(eID) % geom % x(:,i,j,k)
+                        x =  elements(eID) % geom % x(:,i,j,k)
                         call evalLambVector(x(1),x(2),x(3),t, u)
 
                         Qerror = maxval(abs(u_h(:,i,j,k) - u))
@@ -102,12 +102,12 @@ module MMS
 
       end subroutine compareLambVector
 
-      subroutine compareLambVectorStats(mesh, t, success)
+      subroutine compareLambVectorStats(Nelem, elements, t, success)
          use SMConstants
-         USE HexMeshClass
-         use SolutionFile
+         use ElementClass
          implicit none
-         class(HexMesh) :: mesh
+         integer, intent(in) :: Nelem
+         type(Element)  :: elements(Nelem)
          real(rp), intent(in) :: t
          logical, intent(out) :: success
 
@@ -119,24 +119,23 @@ module MMS
          real(rp), allocatable :: u_h(:,:,:,:)
          real(rp) :: Qerror
 
-
          open(newunit=fid, file="RESULTS/TGV.Lamb.stats.hsol", status="old", action="read", &
             form="unformatted" , access="stream")
 
-         do eID = 1, SIZE(mesh % elements)
-               Nx = mesh % elements(eID) % Nxyz(1)
-               Ny = mesh % elements(eID) % Nxyz(2)
-               Nz = mesh % elements(eID) % Nxyz(3)
+         do eID = 1, SIZE(elements)
+               Nx =  elements(eID) % Nxyz(1)
+               Ny =  elements(eID) % Nxyz(2)
+               Nz =  elements(eID) % Nxyz(3)
 
                ! Compare the values obtained (saved in file) with the analytical ones
                allocate(u_h(1:NDIM,0:Nx,0:Ny,0:Nz))
-               pos = POS_INIT_DATA + (mesh % elements(eID) % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM*mesh % elements(eID) % offsetIO*SIZEOF_RP
+               pos = POS_INIT_DATA + ( elements(eID) % globID)*5_AddrInt*SIZEOF_INT + 1_AddrInt*NDIM* elements(eID) % offsetIO*SIZEOF_RP
                read(fid, pos=pos) u_h
 
                DO k = 0, Nz
                   DO j = 0, Ny
                      DO i = 0, Nx
-                        x = mesh % elements(eID) % geom % x(:,i,j,k)
+                        x =  elements(eID) % geom % x(:,i,j,k)
                         call evalLambVectorIntegral(x(1),x(2),x(3),t, u)
                         u = u / t
 
@@ -279,26 +278,8 @@ end module MMS
                DO k = 0, Nz
                   DO j = 0, Ny
                      DO i = 0, Nx 
-
-                         x = mesh % elements(eID) % geom % x(:,i,j,k)
+                        x = mesh % elements(eID) % geom % x(:,i,j,k)
                         call evalManufacturedSolution(x(1), x(2), x(3), 0.0_rp, mesh % elements(eID) % storage % Q(:,i,j,k))
-                       
-                        !  rho = rho_0
-                        !  u   =  u_0 * sin(x(1)/L) * cos(x(2)/L) * cos(x(3)/L) 
-                        !  v   = -u_0 * cos(x(1)/L) * sin(x(2)/L) * cos(x(3)/L)
-                        !  w   =  0.0_RP
-                        !  p   =   p_0 + rho_0 / 16.0_RP * (                          &
-                        !        cos(2.0_RP*x(1)/L)*cos(2.0_RP*x(3)/L) +                  &
-                        !        2.0_RP*cos(2.0_RP*x(2)/L) + 2.0_RP*cos(2.0_RP*x(1)/L) +  &
-                        !        cos(2.0_RP*x(2)/L)*cos(2.0_RP*x(3)/L)                    &
-                        !        )
-
-                        !  mesh % elements(eID) % storage % Q(1,i,j,k) = rho
-                        !  mesh % elements(eID) % storage % Q(2,i,j,k) = rho*u
-                        !  mesh % elements(eID) % storage % Q(3,i,j,k) = rho*v
-                        !  mesh % elements(eID) % storage % Q(4,i,j,k) = rho*w
-                        !  mesh % elements(eID) % storage % Q(5,i,j,k) = p / (gamma - 1.0_RP) + 0.5_RP * rho * (u*u + v*v + w*w)
-
                      END DO
                   END DO
                END DO 
@@ -782,13 +763,13 @@ end module MMS
             ! Lamb vector comparison
             !
             Qsuccess = .true.
-            call compareLambVector(mesh, Qsuccess)
+            call compareLambVector(SIZE(mesh % elements), mesh % elements, Qsuccess)
             CALL FTAssertEqual(expectedValue = .true., &
                                actualValue   = Qsuccess, &
                                msg           = "Error when comparing the Lamb vector.")
             
             Qsuccess = .true.
-            call compareLambVectorStats(mesh, time, Qsuccess)
+            call compareLambVectorStats(SIZE(mesh % elements), mesh % elements, time, Qsuccess)
             CALL FTAssertEqual(expectedValue = .true., &
                                actualValue   = Qsuccess, &
                                msg           = "Error when comparing the Lamb vector stats.")
