@@ -840,3 +840,20 @@ jobs:
           ./horses3d.ns Cylinder_pAdaptationRL_GaussLobatto.control
         if: '!cancelled()'
 
+#
+# 38) Lamb vector computation and stats
+# --------------------------------------------
+
+      - name: Build LambVector
+        working-directory: ./Solver/test/NavierStokes/LambVector/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run LambVector
+        working-directory: ./Solver/test/NavierStokes/LambVector
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreen.control
+        if: '!cancelled()'
