@@ -114,8 +114,7 @@ MODULE Read_SpecMesh
 !        Check if a mesh partition exists
 !        ********************************
 !
-         Sliding=.true.
-         Sliding=.true.
+         Sliding=.false.
 
          
          if ( MPI_Process % doMPIAction ) then
