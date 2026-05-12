@@ -23,6 +23,7 @@ MODULE HexMeshClass
       use BoundaryConditions,               only: BCs
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
       use PartitionedMeshClass            , only: mpi_partition
+      use InterpolationMatrices           , only: Tset, TsetM
       use IBMClass
 #if defined(NAVIERSTOKES)
       use WallDistance
@@ -87,8 +88,10 @@ MODULE HexMeshClass
          type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
+         type(Face)   , dimension(:), allocatable  :: mortar_faces         !Mortars for sliding meshes, 4:1 mortars are embeded in faces
          type(Element), dimension(:), allocatable  :: elements
          type(MPI_FacesSet_t)                      :: MPIfaces
+         type(MPI_FacesSet_t)                      :: MPImortar_faces
          type(IBM_type)                            :: IBM
          type(Zone_t), dimension(:), allocatable   :: zones
 		 type(MultiLevel_RK)                       :: MLRK
@@ -106,6 +109,24 @@ MODULE HexMeshClass
          integer,                     allocatable  :: HO_ElementsSequential(:) !List of sequential elements with polynomial order greater than 1
          integer,                     allocatable  :: elements_acoustics(:)    !List of elements with acoustic polynomial order adaptation
          integer,                     allocatable  :: elements_aerodynamics(:) !List of elements with standard polynomial order adaptation
+         logical                                   :: nonconforming= .FALSE. 
+         logical                                   :: sliding= .FALSE.
+         logical                                   :: slidingflux= .FALSE.
+         real(kind=RP)                             :: omega=0.0_RP
+         !!!!!
+         integer :: numBFacePoints
+         integer :: numSlidingElements
+         integer :: numSlidingInterfaceElements 
+         integer, allocatable       :: arr1(:)
+         integer, allocatable       :: arr2(:)
+         integer, allocatable       :: arr3(:)
+         integer, allocatable       :: mortararr1(:,:)
+         integer, allocatable       :: mortararr2(:,:)
+         integer, allocatable       ::face_nodes(:,:)
+         integer, allocatable       ::face_othernodes(:,:)
+         integer, allocatable       :: Mat(:,:)
+         integer, allocatable       :: Connect(:,:,:)
+         integer, allocatable       :: rotmortars(:)
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -162,9 +183,13 @@ MODULE HexMeshClass
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
             procedure :: UpdateMPIFacesAviscflux       => HexMesh_UpdateMPIFacesAviscflux
+            procedure :: UpdateMPIFacesMortarflux      => HexMesh_UpdateMPIFacesMortarflux
+            procedure :: UpdateMPIFacesGradMortarflux  => HexMesh_UpdateMPIFacesGradMortarflux
             procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
             procedure :: GatherMPIFacesAviscFlux       => HexMesh_GatherMPIFacesAviscFlux
+            procedure :: GatherMPIFacesMortarFlux      => HexMesh_GatherMPIFacesMortarFlux
+            procedure :: GatherMPIFacesGradMortarFlux  => HexMesh_GatherMPIFacesGradMortarFlux
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
@@ -175,6 +200,14 @@ MODULE HexMeshClass
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
             procedure :: findElementsInsideCube        => HexMesh_findElementsInsideCube
+            procedure :: UpdateSlidingMesh             => HexMesh_UpdateSlidingMesh
+            procedure :: BuildSlidingMortarConnectivity     => HexMesh_BuildSlidingMortarConnectivity
+            procedure :: IdentifySlidingRegion         => HexMesh_IdentifySlidingRegion
+            procedure :: RotateSlidingMesh             => HexMesh_RotateSlidingMesh
+            procedure :: Modifymesh                    => HexMesh_Modifymesh
+            procedure :: ConstructSlidingMortarsConforming =>  HexMesh_ConstructSlidingMortarsConforming
+            procedure :: ConstructMortars              =>HexMesh_ConstructMortars
+
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
@@ -353,127 +386,319 @@ MODULE HexMeshClass
 
       end function GetOriginalNumberOfFaces
 
-      SUBROUTINE ConstructFaces( self, success )
-!
-!     -------------------------------------------------------------
-!     Go through the elements and find the unique faces in the mesh
-!     -------------------------------------------------------------
-!
-         use IntegerArrayLinkedListTable
-         IMPLICIT NONE
-         TYPE(HexMesh) :: self
-         LOGICAL       :: success
+SUBROUTINE ConstructFaces( self, success, numberOfElements, HorsesMortars, globalToLocalElementID)  !mod
+   !
+   !     -------------------------------------------------------------
+   !     Go through the elements and find the unique faces in the mesh
+   !     -------------------------------------------------------------
+   !
+            use IntegerArrayLinkedListTable       
+            IMPLICIT NONE
+            TYPE(HexMesh), target   :: self
+            LOGICAL                 :: success
+            INTEGER,optional        :: numberOfElements
+            INTEGER, optional       :: HorsesMortars(6, 6*SIZE( self % elements ))
+            INTEGER, optional       :: globalToLocalElementID(self % no_of_allElements)
+   
+            INTEGER                 :: eID, eIDM, faceNumber, faceNumberM
+            INTEGER                 :: faceID
+            INTEGER                 :: nodeIDs(8), faceNodeIDs(4), j, i, k, l
+            INTEGER                 :: MnodeIDs(8), MfaceNodeIDs(4)
+            type(Table_t)           :: table
+            logical                 :: ConformingMesh 
+            INTEGER                 :: nbface, nintface, nmaster, nslave, nintfacec, mID
+   
+            ConformingMesh=.TRUE.
+            nbface=0
+            nintface=0
+            nmaster=0
+            nslave=0
+            nintfacec=0
+            if (present(numberOfElements)) ConformingMesh=.FALSE.
+            table = Table_t(size(self % nodes))
+   
+            self % numberOfFaces = 0
+            DO eID = 1, SIZE( self % elements )
+   
+               nodeIDs = self % elements(eID) % nodeIDs
 
-         INTEGER                 :: eID, faceNumber
-         INTEGER                 :: faceID
-         INTEGER                 :: nodeIDs(8), faceNodeIDs(4), j
-         type(Table_t)           :: table
+               DO faceNumber = 1, 6
+   
+               IF (self%elements(eID)%MortarFaces(faceNumber)==0 .OR. &
+               self%elements(eID)%MortarFaces(faceNumber)>=2)   then ! keep the same
 
-         table = Table_t(size(self % nodes))
+               IF(self%elements(eID)%MortarFaces(faceNumber)>=2 .AND. &
+               .not.present(globalToLocalElementID))  CYCLE  
 
-         self % numberOfFaces = 0
-         DO eID = 1, SIZE( self % elements )
-
-            nodeIDs = self % elements(eID) % nodeIDs
-            DO faceNumber = 1, 6
-               DO j = 1, 4
-                  faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
-               END DO
-
-               faceID = table % ContainsEntry(faceNodeIDs)
-               IF ( faceID .ne. 0 )     THEN
-!
-!                 --------------------------------------------------------------
-!                 Add this element to the slave side of the face associated with
-!                 these nodes.
-!                 --------------------------------------------------------------
-!
-                  self % faces(faceID) % elementIDs(2)  = eID
-                  self % faces(faceID) % elementSide(2) = faceNumber
-                  self % faces(faceID) % FaceType       = HMESH_INTERIOR
-                  self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
-                                                                       slaveNodeIDs  = faceNodeIDs                      )
-               ELSE
-!
-!                 ------------------
-!                 Construct new face
-!                 ------------------
-!
-                  self % numberOfFaces = self % numberOfFaces + 1
-
-                  IF(self % numberOfFaces > SIZE(self % faces))     THEN
-
-                     call table % Destruct
-                     PRINT *, "Too many faces for # of elements:", self % numberOfFaces, " vs ", SIZE(self % faces)
-                     success = .FALSE.
-                     RETURN
-                  END IF
-
-                  CALL self % faces(self % numberOfFaces) % Construct(ID  = self % numberOfFaces, &
-                                                                      nodeIDs = faceNodeIDs, &
-                                                                      elementID = eID,       &
-                                                                      side = faceNumber)
-
-                  self % faces(self % numberOfFaces) % boundaryName = &
-                           self % elements(eID) % boundaryName(faceNumber)
-!
-!                 ----------------------------------------------
-!                 Mark which face is associated with these nodes
-!                 ----------------------------------------------
-!
-                  call table % AddEntry(faceNodeIDs)
+               IF(self%elements(eID)%MortarFaces(faceNumber)>=2 .AND. &
+               present(globalToLocalElementID))  THEN  
+                  IF(globalToLocalElementID(HorsesMortars(3,(eID*6)-5+faceNumber-1)).NE.-1)  CYCLE
                END IF
-            END DO
+   
+                     DO j = 1, 4
+                        faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+                     END DO
+   
+                     faceID = table % ContainsEntry(faceNodeIDs)
+                     IF ( faceID .ne. 0 )     THEN
+                     nintfacec=nintfacec+1
+      !
+      !                 --------------------------------------------------------------
+      !                 Add this element to the slave side of the face associated with
+      !                 these nodes.
+      !                 --------------------------------------------------------------
+      
+                        self % faces(faceID) % elementIDs(2)  = eID
+                        self % faces(faceID) % elementSide(2) = faceNumber
+                        self % faces(faceID) % FaceType       = HMESH_INTERIOR
+                        self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
+                                                                           slaveNodeIDs  = faceNodeIDs                      )
+                        !self % faces(faceID) % rotation       = 0
+                                                         
+                     !write(*,*) 'rotation', self % faces(faceID) % rotation
+                     ELSE!
+      !                 ------------------
+      !                 Construct new face
+      !                 ------------------
+      !
+                        self % numberOfFaces = self % numberOfFaces + 1
+                        nintface=nintface+1
+                        IF(self % numberOfFaces > SIZE(self % faces))     THEN
+   
+                           call table % Destruct
+                           PRINT *, "Too many faces for # of elements (interior):", self % numberOfFaces, " vs ", SIZE(self % faces)
+                           write(*,*) 'nintface=', nintface
+                           write(*,*) 'nmaster=' , nmaster 
+                           write(*,*) 'nslave=' , nslave
+                           write(*,*) 'nint_constructed=' ,nintfacec
+                           success = .FALSE.
+                           RETURN
+                        END IF
+   
+                        CALL self % faces(self % numberOfFaces) % Construct(ID  = self % numberOfFaces, &
+                                                                           nodeIDs = faceNodeIDs, &
+                                                                           elementID = eID,       &
+                                                                           side = faceNumber)
+   
+                        self % faces(self % numberOfFaces) % boundaryName = &
+                                 self % elements(eID) % boundaryName(faceNumber)
+   
+                        self % faces(self % numberOfFaces) % IsMortar=0
+                        IF(self%elements(eID)%MortarFaces(faceNumber)>=2 .AND. present(globalToLocalElementID))then
+                        if (globalToLocalElementID(HorsesMortars(3,(eID*6)-5+faceNumber-1))==-1) THEN 
+                           self % faces(self % numberOfFaces) % FaceType       = HMESH_INTERIOR
+                           self % faces(self % numberOfFaces) % IsMortar=2
+                           self % faces(self % numberOfFaces) % Mortarpos=MODULO(self%elements(eID)%MortarFaces(faceNumber),20)
+                           self % faces(self % numberOfFaces) %elementIDs(2)=self % faces(self % numberOfFaces) %elementIDs(1)
+                           self % faces(self % numberOfFaces) %elementIDs(1)=0
+                           self % faces(self % numberOfFaces) % elementSide(2) = faceNumber
+                           !write(*,*)'masterface in otherprocess'
+                        end if
+                        END IF 
+      
+      !                 ----------------------------------------------
+      !                 Mark which face is associated with these nodes
+      !                 ----------------------------------------------
+      
+                        call table % AddEntry(faceNodeIDs)
+                     END IF
+                  END IF 
+                  IF (self%elements(eID)%MortarFaces(faceNumber)==1) THEN    !we construct the new big face and the 4 small faces
+                  write(*,*) 'big mortar face construction line 431'
+                  DO j = 1, 4
+                     faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+                  END DO
 
-         END DO
+                     self % numberOfFaces = self % numberOfFaces + 1
 
-         call table % Destruct
+                     nmaster=nmaster+1
 
-      END SUBROUTINE ConstructFaces
 
-      subroutine GetElementsFaceIDs(self)
-         implicit none
-         type(HexMesh), intent(inout)  :: self
+                     IF(self % numberOfFaces > SIZE(self % faces))     THEN
+                        call table % Destruct
+                        PRINT *, "Too many faces for # of elements (master):", self % numberOfFaces, " vs ", SIZE(self % faces)
+                        write(*,*) 'nintface=', nintface
+                        write(*,*) 'nmaster=' , nmaster 
+                        write(*,*) 'nslave=' , nslave
+                        write(*,*) 'nint_constructed=' ,nintfacec
+                        success = .FALSE.
+                        RETURN
+                     END IF
+                     
+   
+                     CALL self % faces(self % numberOfFaces) % Construct(ID  = self % numberOfFaces, &
+                     nodeIDs = faceNodeIDs, &
+                     elementID = eID,       &
+                     side = faceNumber)
+
+                     self % faces(self % numberOfFaces) % FaceType       = HMESH_INTERIOR
+   
+                     self % faces(self % numberOfFaces) % boundaryName = &
+                              self % elements(eID) % boundaryName(faceNumber)
+
+                     call table % AddEntry(faceNodeIDs)
+
+                     self % faces(self % numberOfFaces) % IsMortar=1
+                     mID=self % numberOfFaces
+                     allocate(self % faces(mID) % Mortar(4))
+                     write(*,*)' allocated mortar 4'
+                     self % faces(mID) % Mortar = 0
+                     DO l=1, 4  
+                        eIDM=HorsesMortars(l + 2, (eID*6)-5 + faceNumber-1)
+                        IF ((present(globalToLocalElementID))) THEN 
+                        IF (globalToLocalElementID(eIDM)==-1) then
+                        !write(*,*)'slaveface in other process'
+                           self % faces(mID) % n_mpi_mortar = self % faces(mID) % n_mpi_mortar + 1 
+                        cycle
+                        end if
+                        END IF
+                        self % numberOfFaces = self % numberOfFaces + 1
+                        nslave=nslave+1
+                        self % faces(mID) % Mortar(l) = self % numberOfFaces
+                        IF(self % numberOfFaces > SIZE(self % faces))     THEN
+                           call table % Destruct
+                           PRINT *, "Too many faces for # of elements (slaves):", self % numberOfFaces, " vs ", SIZE(self % faces)
+                           write(*,*) 'nintface=', nintface
+                           write(*,*) 'nmaster=' , nmaster 
+                           write(*,*) 'nslave=' , nslave
+                           write(*,*) 'nint_constructed=' ,nintfacec
+                           success = .FALSE.
+                           RETURN
+                        END IF
+   
+                        IF(eIDM==0)     THEN
+                           call table % Destruct
+                           PRINT *, "Mortar error:"
+                           success = .FALSE.
+                           RETURN
+                        END IF
+   
+                        if (faceNumber==1) faceNumberM=2
+                        if (faceNumber==2) faceNumberM=1
+                        if (faceNumber==3) faceNumberM=5
+                        if (faceNumber==4) faceNumberM=6
+                        if (faceNumber==5) faceNumberM=3
+                        if (faceNumber==6) faceNumberM=4
+
+
+                        IF (present(globalToLocalElementID)) then
+                        MnodeIDs = self % elements(globalToLocalElementID(eIDM)) % nodeIDs
+                     ELSE         
+                        MnodeIDs = self % elements(eIDM) % nodeIDs
+                     END IF
+                        DO j = 1, 4
+                           MfaceNodeIDs(j) = MnodeIDs(localFaceNode(j,faceNumberM))
+                        END DO
+                        !construct small slave mortar 
+                        !the left side (1) of a small slave mortar is always the big mortar
+                        CALL self % faces(self % numberOfFaces) % Construct(ID  = self % numberOfFaces, &
+                        nodeIDs = MfaceNodeIDs, &
+                        elementID = eID,       &
+                        side = faceNumber)
+                        IF (present(globalToLocalElementID)) then
+                        self % faces(self % numberOfFaces) % boundaryName = &
+                                 self % elements(globalToLocalElementID(eIDM)) % boundaryName(faceNumberM)
+                        self % faces(self % numberOfFaces) % elementIDs(2)  = globalToLocalElementID(eIDM)
+                     ELSE  
+                        self % faces(self % numberOfFaces) % boundaryName = &
+                                 self % elements(eIDM) % boundaryName(faceNumberM)
+                        self % faces(self % numberOfFaces) % elementIDs(2)  = eIDM
+                     END IF
+                        self % faces(self % numberOfFaces) % elementSide(2) = faceNumberM
+                        self % faces(self % numberOfFaces) % FaceType       = HMESH_INTERIOR
+                        ! self % faces(self % numberOfFaces) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
+                        !                                                            slaveNodeIDs  = faceNodeIDs                      )         
+                        self % faces(self % numberOfFaces) % rotation       =0
+                        self % faces(self % numberOfFaces) % IsMortar=2
+                        self % faces(self % numberOfFaces) % Mortarpos=l
+                        call table % AddEntry(MfaceNodeIDs)
+                        self % faces(mID) % Mortar(l) = self % numberOfFaces
+                     END DO !l
+                  END IF  
+                  
+               END DO !faceNumber
+   
+            END DO !eID 
+   
+            call table % Destruct
+
+            write(*,*)"construction done"
+   
+         END SUBROUTINE ConstructFaces
+   
+   subroutine GetElementsFaceIDs(self)       !mod
+      implicit none
+      type(HexMesh), intent(inout)  :: self
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: fID, eL, eR, e, side
-
-         do fID = 1, size(self % faces)
-            select case (self % faces(fID) % faceType)
-            case (HMESH_INTERIOR)
+      integer  :: fID, eL, eR, e, side, k
+      k=0
+      do fID = 1, size(self % faces)
+         select case (self % faces(fID) % faceType)
+         case (HMESH_INTERIOR)
+            !select case (self % faces(fID) % IsMortar)  
+            if (self % faces(fID) % faceType==HMESH_INTERIOR .AND. self%faces(fID)%IsMortar==0) then !conforming
                eL = self % faces(fID) % elementIDs(1)
                eR = self % faces(fID) % elementIDs(2)
+            !  if (self%elements(el)%sliding_newnodes) then 
+            !   write(*,*) 'element', el,'sliding new nodes line 565 hexmesh'
+            !   write(*,*) 'right element eR', eR 
+            !  end if 
 
+               ! if (.not.(self%elements(el)%sliding_newnodes) .and. (self%elements(el)%sliding)) then 
+               !  write(*,*) 'element', el,'just sliding  line 570 hexmesh'
+               ! write(*,*) 'right eR', eR 
+               ! end if 
+               !if (eR==0) then 
+               !write(*,*)'er=0; fID:', fID 
+               !k=k+1
+               !end if 
+            !write(*,*) eL, eR 
+            !write(*,*) fID 
                self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
                self % elements(eR) % faceIDs(self % faces(fID) % elementSide(2)) = fID
                self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
                self % elements(eR) % faceSide(self % faces(fID) % elementSide(2)) = 2
+            end if 
+            if (self % faces(fID) % faceType==HMESH_INTERIOR .AND. self%faces(fID)%IsMortar==1) then !Big master
 
-            case (HMESH_BOUNDARY)
                eL = self % faces(fID) % elementIDs(1)
                self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
                self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
+            end if 
+            if (self % faces(fID) % faceType==HMESH_INTERIOR .AND. self%faces(fID)%IsMortar==2) then
 
-            case (HMESH_MPI)
-               side = maxloc(self % faces(fID) % elementIDs, 1)
+               eR = self % faces(fID) % elementIDs(2)
+               self % elements(eR) % faceIDs(self % faces(fID) % elementSide(2)) = fID
+               self % elements(eR) % faceSide(self % faces(fID) % elementSide(2)) = 2
 
-               e = self % faces(fID) % elementIDs(side)
-               self % elements(e) % faceIDs(self % faces(fID) % elementSide(side)) = fID
-               self % elements(e) % faceSide(self % faces(fID) % elementSide(side)) = side
-               self % elements(e) % hasSharedFaces = .true.
+            end if  
 
-            case (HMESH_UNDEFINED)
-               eL = self % faces(fID) % elementIDs(1)
-               self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
-               self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
+         case (HMESH_BOUNDARY)
+            eL = self % faces(fID) % elementIDs(1)
+            self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
+            self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
 
-            end select
-         end do
+         case (HMESH_MPI)
+            side = maxloc(self % faces(fID) % elementIDs, 1)
 
-      end subroutine GetElementsFaceIDs
+            e = self % faces(fID) % elementIDs(side)
+            self % elements(e) % faceIDs(self % faces(fID) % elementSide(side)) = fID
+            self % elements(e) % faceSide(self % faces(fID) % elementSide(side)) = side
+            self % elements(e) % hasSharedFaces = .true.
+
+         case (HMESH_UNDEFINED)
+            eL = self % faces(fID) % elementIDs(1)
+            self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
+            self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
+
+         end select
+      end do
+      ! write(*,*)'nfaces with er=0:', k
+   end subroutine getElementsFaceIDs
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -496,13 +721,14 @@ MODULE HexMeshClass
 !        ---------------
 !
          integer, dimension(4), parameter :: NEXTNODE = (/2,3,4,1/)
-         INTEGER :: j
+         INTEGER :: j,l
+
 !
 !        Rotate until both first nodes match (each j corresponds to a 90deg rotation)
 !        -----------------------------------
          DO j = 1, 4
             IF(masterNodeIDs(1) == slaveNodeIDs(j)) EXIT
-         END DO
+         END DO 
 !
 !        Check whether the orientation is same or opposite
 !        -------------------------------------------------
@@ -513,6 +739,117 @@ MODULE HexMeshClass
          end if
 
       END FUNCTION faceRotation
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   INTEGER pure FUNCTION facerotation4sliding(masterNodeIDs, slaveNodeIDs)
+      IMPLICIT NONE 
+      INTEGER, DIMENSION(4), intent(in) :: masterNodeIDs, slaveNodeIDs
+
+      !if ((masterNodeIDs(1)==slaveNodeIDs(2)) .AND. (masterNodeIDs(4)==slaveNodeIDs(3))) then 
+      !   facerotation4sliding=0
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(3)) .AND. (masterNodeIDs(4)==slaveNodeIDs(4))) then 
+      !   facerotation4sliding=1
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(4)) .AND. (masterNodeIDs(4)==slaveNodeIDs(1))) then 
+      !   facerotation4sliding=2
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(1)) .AND. (masterNodeIDs(4)==slaveNodeIDs(2))) then 
+      !   facerotation4sliding=3
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(4)) .AND. (masterNodeIDs(4)==slaveNodeIDs(3))) then 
+      !   facerotation4sliding=4
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(1)) .AND. (masterNodeIDs(4)==slaveNodeIDs(4))) then 
+      !   facerotation4sliding=5
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(2)) .AND. (masterNodeIDs(4)==slaveNodeIDs(1))) then 
+      !   facerotation4sliding=6
+      !elseif ((masterNodeIDs(1)==slaveNodeIDs(3)) .AND. (masterNodeIDs(4)==slaveNodeIDs(2))) then 
+      !   facerotation4sliding=7
+      !end if 
+
+      !if (((masterNodeIDs(1)==slaveNodeIDs(1)) .AND. (masterNodeIDs(2)==slaveNodeIDs(2))) .OR. &
+      !((slaveNodeIDs(1)==masterNodeIDs(1)) .AND. (slaveNodeIDs(2)==masterNodeIDs(2)))) then 
+      !   facerotation4sliding=0
+     ! elseif (((masterNodeIDs(1)==slaveNodeIDs(2)) .AND. (masterNodeIDs(2)==slaveNodeIDs(3))) .OR. &
+      !   ((slaveNodeIDs(1)==masterNodeIDs(2)) .AND. (slaveNodeIDs(2)==masterNodeIDs(3)))) then 
+      !   facerotation4sliding=1
+      !elseif (((masterNodeIDs(1)==slaveNodeIDs(3)) .AND. (masterNodeIDs(2)==slaveNodeIDs(4))) .OR. &
+      !   ((slaveNodeIDs(1)==masterNodeIDs(3)) .AND. (slaveNodeIDs(2)==masterNodeIDs(4)))) then 
+      !   facerotation4sliding=2
+     ! elseif (((masterNodeIDs(1)==slaveNodeIDs(4)) .AND. (masterNodeIDs(2)==slaveNodeIDs(1))) .OR. &
+      !!   ((slaveNodeIDs(1)==masterNodeIDs(4)) .AND. (slaveNodeIDs(2)==masterNodeIDs(1)))) then 
+      !   facerotation4sliding=3
+      !elseif (((masterNodeIDs(1)==slaveNodeIDs(1)) .AND. (masterNodeIDs(2)==slaveNodeIDs(4))) .OR. &
+      !   ((slaveNodeIDs(1)==masterNodeIDs(1)) .AND. (slaveNodeIDs(2)==masterNodeIDs(4)))) then 
+      !   facerotation4sliding=4
+      !elseif (((masterNodeIDs(1)==slaveNodeIDs(2)) .AND. (masterNodeIDs(2)==slaveNodeIDs(1))) .OR. &
+      !   ((slaveNodeIDs(1)==masterNodeIDs(2)) .AND. (slaveNodeIDs(2)==masterNodeIDs(1)))) then 
+      !   facerotation4sliding=5
+      !elseif (((masterNodeIDs(1)==slaveNodeIDs(3)) .AND. (masterNodeIDs(2)==slaveNodeIDs(2))) .OR. &
+      !!   ((slaveNodeIDs(1)==masterNodeIDs(3)) .AND. (slaveNodeIDs(2)==masterNodeIDs(2)))) then 
+      !   facerotation4sliding=6
+      !elseif (((masterNodeIDs(1)==slaveNodeIDs(4)) .AND. (masterNodeIDs(2)==slaveNodeIDs(3))) .OR. &
+      !   ((slaveNodeIDs(1)==masterNodeIDs(4)) .AND. (slaveNodeIDs(2)==masterNodeIDs(3)))) then 
+      !   facerotation4sliding=7
+      !end if 
+
+      if (((masterNodeIDs(3)==slaveNodeIDs(2)) .AND. (masterNodeIDs(4)==slaveNodeIDs(1))) .OR. &
+      ((slaveNodeIDs(2)==masterNodeIDs(3)) .AND. (slaveNodeIDs(1)==masterNodeIDs(4)))) then 
+         facerotation4sliding=0
+      elseif (((masterNodeIDs(1)==slaveNodeIDs(1)) .AND. (masterNodeIDs(2)==slaveNodeIDs(2))) .OR. &
+         ((slaveNodeIDs(3)==masterNodeIDs(3)) .AND. (slaveNodeIDs(4)==masterNodeIDs(4)))) then 
+            facerotation4sliding=7
+      end if 
+   END FUNCTION facerotation4sliding
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   INTEGER FUNCTION faceRotationnodes(masterNodeIDs, slaveNodeIDs)
+   IMPLICIT NONE
+   REAL(kind=RP), DIMENSION(4,3), intent(in) :: masterNodeIDs, slaveNodeIDs !< Node IDs
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+   integer, dimension(4), parameter :: NEXTNODE = (/2,3,4,1/)
+   INTEGER :: j,l
+   integer :: coord 
+   logical :: success 
+   real(kind=RP) :: tol 
+!
+!        Rotate until both first nodes match (each j corresponds to a 90deg rotation)
+!        -----------------------------------
+
+   coord=0
+   success=.FALSE.
+   tol=0.00000001_RP
+   DO j = 1, 4
+      coord=0
+     ! write(*,*) ' in facerotationnodes j=', j
+      call CompareTwoNodesALL(masterNodeIDs(1,:), slaveNodeIDs(j,:), success, coord, tol)
+     ! write(*,*) 'success', success
+     ! write(*,*) 'coord', coord
+      IF (success ) then 
+        ! write(*,*) 'its a success'
+         EXIT
+      END IF  
+     ! IF(masterNodeIDs(1) == slaveNodeIDs(j)) EXIT
+   END DO 
+!
+!        Check whether the orientation is same or opposite
+!        -------------------------------------------------
+  ! write(*,*) 'coord', coord 
+   !if (success) write(*,*) 'success'
+   coord=0
+   success=.FALSE.
+  ! write(*,*) 'line 752 j=',j
+   call CompareTwoNodesALL(masterNodeIDs(2,:), slaveNodeIDs(NEXTNODE(j),:), success, coord, tol)
+   IF (success ) THEN 
+    !if ( masterNodeIDS(2) == slaveNodeIDs(NEXTNODE(j)) ) then
+      faceRotationnodes = j - 1
+   else
+      faceRotationnodes = j + 3
+   end if
+! write(*,*) 'faceRotationNodes', faceRotationnodes
+END FUNCTION faceRotationnodes   
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -737,7 +1074,7 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE CompareTwoNodes(x1, x2, success, coord)
+      SUBROUTINE CompareTwoNodes(x1, x2, success, coord, tol)
       IMPLICIT NONE
 !
 !-------------------------------------------------------------------
@@ -756,6 +1093,7 @@ slavecoord:             DO l = 1, 4
       REAL(KIND=RP) :: x2(3)
       LOGICAL       :: success
       INTEGER       :: coord
+      REAL(KIND=RP), OPTIONAL :: tol
 !
 !     --------------------
 !     Local variables
@@ -769,7 +1107,8 @@ slavecoord:             DO l = 1, 4
       IF (coord == 0) THEN
 
          DO i = 1,3
-            IF ( AlmostEqual( x1(i), x2(i) ) ) THEN
+            write(*,*) 'comparing', x1(i), 'with', x2(i)
+            IF ( AlmostEqual( x1(i), x2(i), tol ) ) THEN
                counter = counter + 1
             ELSE
                coord = i
@@ -805,6 +1144,75 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE CompareTwoNodesALL(x1, x2, success, coord, tol)
+         IMPLICIT NONE
+   !
+   !-------------------------------------------------------------------
+   ! Comparison of two nodes. If two of the three coordinates are the
+   ! same, there is success. If there is success, the coordinate which
+   ! is not the same is saved. If the initial value of coord is not 0,
+   ! only that coordinate is checked.
+   !-------------------------------------------------------------------
+   !
+   !
+   !     --------------------
+   !     External variables
+   !     --------------------
+   !
+         REAL(KIND=RP) :: x1(3)
+         REAL(KIND=RP) :: x2(3)
+         LOGICAL       :: success
+         INTEGER       :: coord
+         REAL(KIND=RP), OPTIONAL :: tol
+   !
+   !     --------------------
+   !     Local variables
+   !     --------------------
+   !
+         INTEGER :: i
+         INTEGER :: counter
+   
+         counter = 0
+   
+         IF (coord == 0) THEN
+   
+            DO i = 1,3
+               !write(*,*) 'comparing', x1(i), 'with', x2(i)
+               IF ( AlmostEqual( x1(i), x2(i), tol ) ) THEN
+                  counter = counter + 1
+               ELSE
+                  coord = i
+               ENDIF
+            ENDDO
+   
+            IF (counter==3) THEN
+               success = .TRUE.
+            ELSE
+               success = .FALSE.
+            ENDIF
+   
+         ELSE
+   
+            DO i = 1,3
+               IF (i /= coord) THEN
+                  IF ( AlmostEqual( x1(i), x2(i) ) ) THEN
+                     counter = counter + 1
+                  ENDIF
+               ENDIF
+            ENDDO
+   
+            IF (counter.ge.2) THEN
+               success = .TRUE.
+            ELSE
+               success = .FALSE.
+            ENDIF
+   
+         ENDIF
+   
+   
+         END SUBROUTINE CompareTwoNodesALL
+
+
       SUBROUTINE CompareTwoNodesRelax(x1, x2, success, coord, min_edge_length)
       IMPLICIT NONE
 !
@@ -956,7 +1364,7 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !        Local variables
 !        ---------------
-!
+!     
          integer  :: fIDs(6)
          integer  :: eID, i, locLevel, lID
          logical :: HOElements
@@ -977,19 +1385,41 @@ slavecoord:             DO l = 1, 4
 
                if (compute_element) then
                   fIDs = self % elements(eID) % faceIDs
-                  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
-                                                                     self % faces(fIDs(1)),&
-                                                                     self % faces(fIDs(2)),&
-                                                                     self % faces(fIDs(3)),&
-                                                                     self % faces(fIDs(4)),&
-                                                                     self % faces(fIDs(5)),&
-                                                                     self % faces(fIDs(6)) )
+                  if (.not.self%sliding) then 
+                     if (.not.self%nonconforming) then
+                        call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                           self % faces(fIDs(1)),&
+                                                                           self % faces(fIDs(2)),&
+                                                                           self % faces(fIDs(3)),&
+                                                                           self % faces(fIDs(4)),&
+                                                                           self % faces(fIDs(5)),&
+                                                                           self % faces(fIDs(6)) )
+                     else 
+                        call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                           fFR=self % faces(fIDs(1)),&
+                                                                           fBK=self % faces(fIDs(2)),&
+                                                                           fBOT=self % faces(fIDs(3)),&
+                                                                           fR=self % faces(fIDs(4)),&
+                                                                           fT=self % faces(fIDs(5)),&
+                                                                           fL=self % faces(fIDs(6)),&
+                                                                           faces=self % faces )   
+                     end if 
+                  else 
+                     call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                        fFR=self % faces(fIDs(1)),&
+                                                                        fBK=self % faces(fIDs(2)),&
+                                                                        fBOT=self % faces(fIDs(3)),&
+                                                                        fR=self % faces(fIDs(4)),&
+                                                                        fT=self % faces(fIDs(5)),&
+                                                                        fL=self % faces(fIDs(6)),&
+                                                                        faces=self % mortar_faces )  
+                  end if 
                endif
             end do
 !$omp end do
          else
 		    ! The following differentiation is needed due to problem on AnisFAS NS
-			if (present(Level)) then
+			if (present(Level)) then ! AJRTODO: Implement mortars for this case (level is present)
 				locLevel = Level
 !$omp do schedule(runtime) private(fIDs, eID)
 				do lID = 1, self % MLRK % MLIter(locLevel,8)
@@ -1012,7 +1442,7 @@ slavecoord:             DO l = 1, 4
 !$omp end do
 			else
 !$omp do schedule(runtime) private(fIDs)
-				do eID = 1, size(self % elements)
+            do eID = 1, size(self % elements)
 											  
 
 				   compute_element = .true.
@@ -1020,18 +1450,40 @@ slavecoord:             DO l = 1, 4
 
 				   if (compute_element) then
 					  fIDs = self % elements(eID) % faceIDs
-					  call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
-																		 self % faces(fIDs(1)),&
-																		 self % faces(fIDs(2)),&
-																		 self % faces(fIDs(3)),&
-																		 self % faces(fIDs(4)),&
-																		 self % faces(fIDs(5)),&
-																		 self % faces(fIDs(6)) )
+					  if (.not.self%sliding) then 
+                     if (.not.self%nonconforming) then
+                        call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                           self % faces(fIDs(1)),&
+                                                                           self % faces(fIDs(2)),&
+                                                                           self % faces(fIDs(3)),&
+                                                                           self % faces(fIDs(4)),&
+                                                                           self % faces(fIDs(5)),&
+                                                                           self % faces(fIDs(6)) )
+                     else 
+                        call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                           fFR=self % faces(fIDs(1)),&
+                                                                           fBK=self % faces(fIDs(2)),&
+                                                                           fBOT=self % faces(fIDs(3)),&
+                                                                           fR=self % faces(fIDs(4)),&
+                                                                           fT=self % faces(fIDs(5)),&
+                                                                           fL=self % faces(fIDs(6)),&
+                                                                           faces=self % faces )
+                     end if
+                  else 
+                     call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                                        fFR=self % faces(fIDs(1)),&
+                                                                        fBK=self % faces(fIDs(2)),&
+                                                                        fBOT=self % faces(fIDs(3)),&
+                                                                        fR=self % faces(fIDs(4)),&
+                                                                        fT=self % faces(fIDs(5)),&
+                                                                        fL=self % faces(fIDs(6)),&
+                                                                        faces=self % mortar_faces )
+                  end if
 				   endif
 				end do
 !$omp end do
-			end if 
-         end if
+			end if ! present(Level)
+         end if ! HOElements
 
       end subroutine HexMesh_ProlongSolutionToFaces
 !
@@ -1073,13 +1525,35 @@ slavecoord:             DO l = 1, 4
 			 do eID = 1, size(self % elements)
 										   
 				fIDs = self % elements(eID) % faceIDs
-				call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
-																	self % faces(fIDs(1)),&
-																	self % faces(fIDs(2)),&
-																	self % faces(fIDs(3)),&
-																	self % faces(fIDs(4)),&
-																	self % faces(fIDs(5)),&
-																	self % faces(fIDs(6)) )
+				if (.not.self%sliding) then 
+               if (.not.self%nonconforming) then 
+                  call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+                                                                  fFR=self % faces(fIDs(1)),&
+                                                                  fBK=self % faces(fIDs(2)),&
+                                                                  fBOT=self % faces(fIDs(3)),&
+                                                                  fR=self % faces(fIDs(4)),&
+                                                                  fT=self % faces(fIDs(5)),&
+                                                                  fL=self % faces(fIDs(6)))
+               else 
+                  call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+                                                                  fFR=self % faces(fIDs(1)),&
+                                                                  fBK=self % faces(fIDs(2)),&
+                                                                  fBOT=self % faces(fIDs(3)),&
+                                                                  fR=self % faces(fIDs(4)),&
+                                                                  fT=self % faces(fIDs(5)),&
+                                                                  fL=self % faces(fIDs(6)),&
+                                                                  faces=self % faces )
+               end if 
+            else 
+               call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+                                                                  fFR=self % faces(fIDs(1)),&
+                                                                  fBK=self % faces(fIDs(2)),&
+                                                                  fBOT=self % faces(fIDs(3)),&
+                                                                  fR=self % faces(fIDs(4)),&
+                                                                  fT=self % faces(fIDs(5)),&
+                                                                  fL=self % faces(fIDs(6)),&
+                                                                  faces=self % mortar_faces )
+            end if 
 			 end do
 !$omp end do
          end if
@@ -1355,6 +1829,7 @@ slavecoord:             DO l = 1, 4
                fID = MPIfaces % faces(domain) % faceIDs(mpifID)
                thisSide = MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
+
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
                   MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_x(1:nEqn,i,j)
                   counter = counter + nEqn
@@ -1486,6 +1961,7 @@ slavecoord:             DO l = 1, 4
 		end associate
 #endif
       end subroutine HexMesh_UpdateMPIFacesAviscFlux
+
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -1582,12 +2058,150 @@ slavecoord:             DO l = 1, 4
       end subroutine HexMesh_UpdateMPIFacesBaseSolution
 #endif
 !
+      !////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_UpdateMPIFacesMortarFlux(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvMortarFlux(domain, nEqn)
+         end do
+!
+!        ***********
+!        Send H flux
+!        ***********
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               if (f % Ismortar==2) then 
+                  do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                     self % MPIfaces % faces(domain) % Flux_M_Send(counter:counter+nEqn-1) = &
+                        f % storage(1) % MortarFlux(:,i,j)
+                     counter = counter + nEqn
+                  end do               ; end do
+                  !write(*,*) 'update', f % storage(1) % MortarFlux
+               end if 
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendMortarFlux(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesMortarFlux
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_UpdateMPIFacesGradMortarFlux(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter, d 
+         integer, parameter :: otherSide(2) = (/2,1/)
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvMortarGradFlux(domain, nEqn)
+         end do
+!
+!        ***********
+!        Send H flux
+!        ***********
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather 
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               if (f % Ismortar==2) then 
+                  do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1) 
+                     self % MPIfaces % faces(domain) % GradFlux_M_Send(counter:counter+nEqn-1) = &
+                        f % storage(1) % GradMortarFlux(:,1,i,j)
+                     counter = counter + nEqn
+                  end do               ; end do            
+                  do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1) 
+                     self % MPIfaces % faces(domain) % GradFlux_M_Send(counter:counter+nEqn-1) = &
+                        f % storage(1) % GradMortarFlux(:,2,i,j)
+                     counter = counter + nEqn
+                  end do               ; end do  
+                  do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1) 
+                     self % MPIfaces % faces(domain) % GradFlux_M_Send(counter:counter+nEqn-1) = &
+                        f % storage(1) % GradMortarFlux(:,3,i,j)
+                     counter = counter + nEqn
+                  end do               ; end do  
+               end if 
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendMortarGradFlux(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesGradMortarFlux
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !     --------------------------------------------------------------------------------
 !     Subroutine to gather the MPIFaces solution Q (From MPI Storage to Faces Storage)
 !     --------------------------------------------------------------------------------
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
+         use FaceClass
          implicit none
          !-arguments----------------------------------------------------------
          class(HexMesh)    :: self
@@ -1619,6 +2233,9 @@ slavecoord:             DO l = 1, 4
                   f % storage(otherSide(thisSide)) % Q(1:nEqn,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
+               if (f % IsMortar==2) then 
+                  call f % Interpolatebig2small(nEqn, f)
+               end if 
                end associate
             end do
          end do
@@ -1638,7 +2255,7 @@ slavecoord:             DO l = 1, 4
 #ifdef _HAS_MPI_
          !-local-variables----------------------------------------------------
          integer            :: mpifID, fID, thisSide, domain
-         integer            :: i, j, k, counter
+         integer            :: i, j, k, l, counter
          integer, parameter :: otherSide(2) = (/2,1/)
          !--------------------------------------------------------------------
 
@@ -1672,6 +2289,17 @@ slavecoord:             DO l = 1, 4
                   f % storage(otherSide(thisSide)) % U_z(1:nEqn,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
+
+               if (f % IsMortar==2) then 
+                  !write(*,*) 'gradient mpi ux before interpolation', f % storage(otherSide(thisSide)) % U_x
+                   !write(*,*) 'gradient mpi uy before interpolation', f % storage(otherSide(thisSide)) % U_y
+                   !write(*,*) 'gradient mpi uz before interpolation', f % storage(otherSide(thisSide)) % U_z
+                   do l=1,3
+                      call f % Interpolatebig2small(nEqn, f,grad=l)
+                   end do 
+ 
+ 
+                end if 
                end associate
             end do
          end do
@@ -1766,6 +2394,118 @@ slavecoord:             DO l = 1, 4
 #endif
       end subroutine HexMesh_GatherMPIFacesBaseSolution
 #endif
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_GatherMPIFacesMortarFlux(self, nEqn)
+         implicit none
+         class(HexMesh)      :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter,p
+         integer, parameter :: otherSide(2) = [2, 1]
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForMortarFlux
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+                  if (f%Ismortar==1) then 
+                     associate(fStar => f % storage(1) % Fstar)
+                        do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                           fStar(:,i,j) = fStar(:,i,j) + &
+                              self % MPIfaces % faces(domain) % Flux_M_Recv(counter:counter+nEqn-1)
+                           counter = counter + nEqn
+                        end do               ; end do
+                        !write(*,*) 'fstar mpi', fstar 
+                     end associate
+            end if 
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesMortarFlux
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_GatherMPIFacesGradMortarFlux(self, nEqn)
+         implicit none
+         class(HexMesh)      :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter, d
+         integer, parameter :: otherSide(2) = [2, 1]
+
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForMortarGradFlux
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+                  if (f%Ismortar==1) then 
+                     associate(unStar => f % storage(1) % unStar)
+                        do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1) 
+                           unStar(:,1,i,j) = unStar(:,1,i,j) + &
+                              self % MPIfaces % faces(domain) % GradFlux_M_Recv(counter:counter+nEqn-1)
+                           counter = counter + nEqn
+                        end do               ; end do       
+                        do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1) 
+                           unStar(:,2,i,j) = unStar(:,2,i,j) + &
+                              self % MPIfaces % faces(domain) % GradFlux_M_Recv(counter:counter+nEqn-1)
+                           counter = counter + nEqn
+                        end do               ; end do  
+                        do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1) 
+                           unStar(:,3,i,j) = unStar(:,3,i,j) + &
+                              self % MPIfaces % faces(domain) % GradFlux_M_Recv(counter:counter+nEqn-1)
+                           counter = counter + nEqn
+                        end do               ; end do  
+                        !write(*,*) unStar
+                     end associate
+            end if 
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesGradMortarFlux
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -2403,88 +3143,167 @@ slavecoord:             DO l = 1, 4
          integer               , intent(in)    :: nodes
          integer, optional     , intent(in)    :: facesList(:)
          !-local-variables----------------------------------------------
-         integer  :: fID, SideL, SideR, side, counter
+         integer  :: fID, SideL, SideR, side, counter, l
          integer  :: NelL(2), NelR(2)    ! Polynomial orders on left and right of a face
          integer  :: Nel(2,2)            ! Polynomial orders on left and right of a face - for MPI
          integer  :: globID
          integer  :: Nxyz(NDIM)
          integer  :: domain, MPI_NDOFS(MPI_Process % nProcs), mpifID
+         integer  :: MPI_MNDOFS(MPI_Process % nProcs)
          integer  :: num_of_Faces, ii, k
          integer, parameter :: other(2) = [2, 1]
+         real(kind=RP) :: offset(2)
          !--------------------------------------------------------------
 
-         if ( present(facesList) ) then
-            num_of_Faces = size(facesList)
-         else
-            num_of_Faces = size(self % faces)
-         end if
+        if ( present(facesList) ) then
+           num_of_Faces = size(facesList)
+        else
+           num_of_Faces = size(self % faces)
+        end if
 !
 !        ---------------------------------------------------------------------------
 !        Send polynomial orders across MPI faces
 !           -> Currently doing for all MPI faces (not taking into account facesList)
 !        ---------------------------------------------------------------------------
 !
-         if (mpi_partition % Constructed) call self % UpdateMPIFacesPolynomial
+        if (mpi_partition % Constructed) call self % UpdateMPIFacesPolynomial
 !
 !        ------------------------
 !        Link faces with elements
 !        ------------------------
 !
-         do ii = 1, num_of_Faces
+        do ii = 1, num_of_Faces
 
-            if ( present(facesList) ) then
-               fID = facesList(ii)
-            else
-               fID = ii
-            end if
-            associate (  f => self % faces(fID)   )
+           if ( present(facesList) ) then
+              fID = facesList(ii)
+           else
+              fID = ii
+           end if
+           associate (  f => self % faces(fID)   )
 
-            select case (f % faceType)
-            case (HMESH_INTERIOR)
-               associate(eL => self % elements(f % elementIDs(1)), &
-                         eR => self % elements(f % elementIDs(2))   )
+           select case (f % faceType)
+           case (HMESH_INTERIOR)
+              select case (f % IsMortar)
+              case (0, 2)   
+               !write(*,*) 'line 2664 f % IsMortar', f % IsMortar,'fID', f%ID, 'f % elementIDs(1)',f % elementIDs(1),'f % elementIDs(2)',f % elementIDs(2)
+               if (f % elementIDs(1)==0) then 
+                  associate(eR => self % elements(f % elementIDs(2))   )
+                     NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+                     NelL = NelR
+                  end associate 
+               end if 
+               if (f % elementIDs(2)==0) then 
+                  associate(eL => self % elements(f % elementIDs(1))   )
+                     NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+                     NelR = NelL
+                  end associate 
+                  end if 
+               if ((f % elementIDs(1) .ne. 0) .and.  (f % elementIDs(2) .ne. 0) ) then 
+                 associate(eL => self % elements(f % elementIDs(1)), &
+                             eR => self % elements(f % elementIDs(2))   )
+!
+!                 Get polynomial orders of elements
+!                 ---------------------------------
+                 NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+                 NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+!
+!                 Fill connectivity of element type
+!                 ---------------------------------
+                 SideL = f % elementSide(1)
+                 SideR = f % elementSide(2)
+!
+!                 Construct connectivity
+!                 ----------------------
+
+                 if (NelL(1)==-1 .or. NelL(2)==-1) then 
+                  write(*,*) 'line 2681; NelL of face', f%id,'=', NelL,'el', el%eID,'ftype', f%facetype 
+                 end if 
+                 if (NelR(1)==-1 .or. NelR(2)==-1) then 
+                  write(*,*) 'line 2683; NelR of face', f%id,'=', NelR,'er', er%eID,'ftype', f%facetype
+                 end if 
+                 eL % NumberOfConnections(SideL) = 1
+                 call eL % Connection(SideL) % Construct(eR % GlobID, eR % Nxyz)
+
+                 eR % NumberOfConnections(SideR) = 1
+                 call eR % Connection(SideR) % Construct(eL % GlobID, eL % Nxyz)
+                 end associate
+               end if 
+                 if (f % Ismortar==2) then 
+                 offset(1)=0.5_RP!!!!!!!if
+                 offset(2)=0.5_RP
+                  call f % LinkWithElements(NelL, NelR, nodes, offset)!!!!!!!
+                   !write(*,*) NelL, NelR 
+                  !write(*,*) 'after construction :', f % NelLeft, f % NelLeft
+                                    !write(*,*) 'li,ki,g mortar slave face'
+                 elseif (f % Ismortar ==0) then 
+                 call f % LinkWithElements(NelL, NelR, nodes)!!!!!!!
+                 end if 
+               
+              case (1, 3) 
+               !if (f % Ismortar==3) write(*,*) 'Ismorta=3 2699 hex'
+                 associate(eL => self % elements(f % elementIDs(1)))
+!
+!                 Get polynomial orders of elements
+!                 ---------------------------------
+                 NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+                 NelR = NelL
+                  !if (f %Ismortar==3) write(*,*) 'mortar 3, face', f%ID
+                 ! NumberOfConnections = 4 ????
+                 ! write(*,*)'NELL 2708', NelL 
+                 end associate
+                  if (NelL(1)==-1 .or. NelL(2)==-1) then 
+                     if (f%IsMortar==3) then 
+                        associate(eL => self % elements(f % elementIDs(2)))
+                           NelL = eL % Nxyz(axisMap(:, f % elementSide(2)))
+                           NelR = NelL
+                        end associate 
+                           write(*,*) 'now Nell and NelR',NelL, NelR 
+                     end if 
+                  end if 
+                 call f % LinkWithElements(NelL, NelR, nodes)   
+                 !if (f %Ismortar==3) write(*,*) ' line 2720 hexmesh mortar 3, face', f%ID, 'Nf',f%Nf
+
+
+              end select  
+
+           case (HMESH_BOUNDARY)
+              associate(eL => self % elements(f % elementIDs(1)))
 !
 !              Get polynomial orders of elements
 !              ---------------------------------
-               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
-               NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
-!
-!              Fill connectivity of element type
-!              ---------------------------------
-               SideL = f % elementSide(1)
-               SideR = f % elementSide(2)
-!
-!              Construct connectivity
-!              ----------------------
-               eL % NumberOfConnections(SideL) = 1
-               call eL % Connection(SideL) % Construct(eR % GlobID, eR % Nxyz)
+              NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+              NelR = NelL
 
-               eR % NumberOfConnections(SideR) = 1
-               call eR % Connection(SideR) % Construct(eL % GlobID, eL % Nxyz)
-               end associate
+              ! Default NumberOfConnections = 0
+              end associate
 
-               call f % LinkWithElements(NelL, NelR, nodes)
-
-            case (HMESH_BOUNDARY)
-               associate(eL => self % elements(f % elementIDs(1)))
-!
-!              Get polynomial orders of elements
-!              ---------------------------------
-               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
-               NelR = NelL
-
-               ! Default NumberOfConnections = 0
-               end associate
-
-               call f % LinkWithElements(NelL, NelR, nodes)
+              call f % LinkWithElements(NelL, NelR, nodes)
 
 !           case (HMESH_MPI): Do nothing. MPI faces are constructed in the next step.
 
-            end select
+           end select
 
 
-            end associate
-         end do
+           end associate
+        end do
+      
+        !!!!only for sliding mortars 
+       ! if (self%sliding) then 
+        ! do ii = 1, size(self%mortar_faces)
+           ! associate (  f => self % mortar_faces(ii)   )
+              ! associate(eL => self % elements(f % elementIDs(1)), &
+                 ! eR => self % elements(f % elementIDs(2))   )
+   !
+   !                 Get polynomial orders of elements
+   !                 ---------------------------------
+              ! NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+              ! NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+              ! call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%s)
+               !end associate 
+            !end associate 
+         !end do 
+        !end if 
+
 !
 !        -----------------------------------------------
 !        Gather faces polynomial and link MPI faces
@@ -2504,28 +3323,43 @@ slavecoord:             DO l = 1, 4
                   fID  = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                   side = self % MPIfaces % faces(domain) % elementSide(mpifID)   ! face side 1/2
 
-                  associate( f => self % faces(fID) )
-                  associate( e => self % elements(maxval(f % elementIDs)) )
-
+                 associate( f => self % faces(fID) )
+                 associate( e => self % elements(maxval(f % elementIDs)) )
+                  select case (f % IsMortar)
+                  case (0, 2)   
                   sideL = f % elementSide(side)                                  ! element side 1/2/3/4/5/6
-
                   Nel(:,      side ) = e % Nxyz(axisMap(:,sideL))
                   Nel(:,other(side)) = self % MPIfaces % faces(domain) % Nrecv(counter:counter+1)
-
-                  call f % LinkWithElements(Nel(:,1), Nel(:,2), nodes)
-
-                  Nxyz   = self % MPIfaces % faces(domain) % Nrecv(counter+2:counter+4)
+                  if (f % IsMortar == 2) then 
+                   offset=0.5_RP
+                   call f % LinkWithElements(Nel(:,1), Nel(:,2), nodes, offset)
+                  elseif (f % IsMortar == 0 ) then 
+                   call f % LinkWithElements(Nel(:,1), Nel(:,2), nodes)
+                  end if 
+                   Nxyz   = self % MPIfaces % faces(domain) % Nrecv(counter+2:counter+4)
                   globID = self % MPIfaces % faces(domain) % Nrecv(counter+5)
-
+ 
                   e % NumberOfConnections (sideL) = 1
                   call e % Connection(sideL) % construct (globID,Nxyz)
                   counter = counter + 6
+               case (1)
+                 sideL = f % elementSide(side)                                  ! element side 1/2/3/4/5/6
 
-                  end associate
-                  end associate
-               end do
-            end do
-         end if
+                 Nel(:,      side ) = e % Nxyz(axisMap(:,sideL))
+                 Nel(:,other(side))= Nel(:,      side ) 
+                 call f % LinkWithElements(Nel(:,1), Nel(:,2), nodes)
+
+                 Nxyz   = self % MPIfaces % faces(domain) % Nrecv(counter+2:counter+4)
+                 globID = self % MPIfaces % faces(domain) % Nrecv(counter+5)
+
+                 e % NumberOfConnections (sideL) = 1
+                 call e % Connection(sideL) % construct (globID,Nxyz)
+               end select 
+                 end associate
+                 end associate
+              end do
+           end do
+        end if
 #endif
 !
 !        --------------------------
@@ -2533,11 +3367,11 @@ slavecoord:             DO l = 1, 4
 !           TODO: This can be optimized when facesList is present
 !        --------------------------
 !
-         if ( MPI_Process % doMPIAction ) then
-            if ( .not. allocated(self % MPIfaces % faces) ) return
+        if ( MPI_Process % doMPIAction ) then
+           if ( .not. allocated(self % MPIfaces % faces) ) return
 #if _HAS_MPI_
             MPI_NDOFS = 0
-
+            MPI_MNDOFS = 0
             do domain = 1, MPI_Process % nProcs
 			   if (self % MPIfaces % faces(domain) % no_of_faces <= 0) cycle 
 			   
@@ -2545,26 +3379,49 @@ slavecoord:             DO l = 1, 4
                   fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                   associate( fc => self % faces(fID) )
                   MPI_NDOFS(domain) = MPI_NDOFS(domain) + product(fc % Nf + 1)
+                  if (fc % IsMortar == 1 .OR. fc % IsMortar == 2) then 
+                        MPI_MNDOFS(domain) = MPI_MNDOFS(domain) + product(fc % Nf + 1)
+                  end if 
                   end associate
                end do
             end do
 
 #if defined(NAVIERSTOKES)
-            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS)
+         if (.not.self % nonconforming) then 
+           call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS)
+         else 
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS, MPI_MNDOFS)
+         end if 
 #elif defined(INCNS)
+         if (.not.self % nonconforming) then             
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
-#elif defined(CAHNHILLIARD) && !defined(MULTIPHASE)
-            call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
-#elif defined(MULTIPHASE)
-            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
-#elif defined(ACOUSTIC)
-            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, NCONSB_in=NCONSB)
-#endif
-
-#endif
+         else
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, MPI_MNDOFS)
          end if
+#elif defined(CAHNHILLIARD) && !defined(MULTIPHASE)
+         if (.not.self % nonconforming) then 
+            call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
+         else
+            call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS, MPI_MNDOFS)
+         end if
+#elif defined(MULTIPHASE)
+         if (.not.self % nonconforming) then 
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
+         else
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, MPI_MNDOFS)
+         end if
+#elif defined(ACOUSTIC)
+         if (.not.self % nonconforming) then 
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, NCONSB_in=NCONSB)
+         else
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS, MPI_MNDOFS, NCONSB_in=NCONSB)
+         end if
+#endif
 
-      end subroutine HexMesh_SetConnectivitiesAndLinkFaces
+#endif
+        end if
+
+     end subroutine HexMesh_SetConnectivitiesAndLinkFaces
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -2615,16 +3472,13 @@ slavecoord:             DO l = 1, 4
 		 sharedDomain = 0
          do domain = 1, MPI_Process % nProcs
             if ( no_of_mpifaces(domain) .ne. 0 ) then
+
                call self % MPIfaces % faces(domain) % Construct(no_of_mpifaces(domain))
 			   
 			   self % MPIfaces % nDomainShared = self % MPIfaces % nDomainShared+1
 			   sharedDomain(self % MPIfaces % nDomainShared) = domain
             end if
          end do
-		 ! Reallocate listDomain
-		 safedeallocate(self % MPIfaces % listDomain)
-		 allocate(self % MPIfaces % listDomain(self % MPIfaces % nDomainShared))
-		 self % MPIfaces % listDomain    = sharedDomain(1:self % MPIfaces % nDomainShared)
 !
 !        -------------
 !        Assign values
@@ -2639,17 +3493,19 @@ slavecoord:             DO l = 1, 4
             side = partition % element_mpifaceSide(bFace)
             eSide = partition % mpiface_elementSide(bFace)
             fID = self % elements(eID) % faceIDs(side)
+
 !
 !           Change the face to a HMESH_MPI
 !           ------------------------------
             associate(f => self % faces(fID))
             f % faceType = HMESH_MPI
             f % rotation = partition % mpiface_rotation(bFace)
+
             f % elementIDs(eSide) = eID
+
             f % elementIDs(otherSide(eSide)) = HMESH_NONE   ! This makes sense since elementIDs are in local numbering...
             f % elementSide(eSide) = side
             f % elementSide(otherSide(eSide)) = partition % element_mpifaceSideOther(bFace)
-
             if (eSide == RIGHT) f % nodeIDs = f % nodeIDs (invRot (:,f % rotation) )
             end associate
 
@@ -2662,9 +3518,16 @@ slavecoord:             DO l = 1, 4
             no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
             self % MPIfaces % faces(domain) % faceIDs(no_of_mpifaces(domain)) = fID
             self % MPIfaces % faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
-
+               write(*,*) 'curent partition:', partition%ID 
+               write(*,*) 'shared partition:', domain
+                        !if (f % IsMortar==1) then 
+              ! write(*,*) 'MPI Big Mortar fID', fID 
+            !elseif (f % IsMortar==2) then 
+              ! write(*,*) 'MPI slave Mortar fID', fID 
+            !end if
          end do
-
+                 write(*,*) 'number mpifaces', no_of_mpifaces
+      
       end subroutine HexMesh_UpdateFacesWithPartition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2719,7 +3582,10 @@ slavecoord:             DO l = 1, 4
 !
 !        Generate a local copy of SurfInfo
 !        ---------------------------------
+         !write(*,*) 'allocating surInfo line 3262'
          allocate ( SurfInfo(self % no_of_elements) )
+         !write(*,*) 'allocated surInfo line 3262'
+
          do ii=1, num_of_elements
             if ( present(elementList) ) then
                eID = elementList(ii)
@@ -2809,66 +3675,117 @@ slavecoord:             DO l = 1, 4
             select case (f % faceType)
 
             case (HMESH_INTERIOR)
-               eIDLeft  = f % elementIDs(1)
-               SideIDL  = f % elementSide(1)
-               NSurfL   = SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
+               if (f % IsMortar==0 .OR. f % IsMortar==2) then
+                  eIDLeft  = f % elementIDs(1)
+                  SideIDL  = f % elementSide(1)
+                  !write(*,*)'line 3153 of HexMesh, eid:',eIDLeft
+                  !if (self%elements(eIDLeft)%sliding) write(*,*)'its sliding element'
+                  !if (self%elements(eIDLeft)%sliding_newnodes) write(*,*)'its sliding_newnodes element'
+               !if (eIDLeft==0 ) cycle 
+                  NSurfL   = SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
+                  
 
-               eIDRight = f % elementIDs(2)
-               SideIDR  = f % elementSide(2)
-               NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
+                  eIDRight = f % elementIDs(2)
+                  SideIDR  = f % elementSide(2)
+                  !write(*,*)'line 3159 of HexMesh, eid:',eIDRight
+                  !if (self%elements(eIDRight)%sliding) write(*,*)'its sliding element'
+                  !if (self%elements(eIDRight)%sliding_newnodes) write(*,*)'its sliding_newnodes element'
+                  !if (eIDRight==0 ) cycle 
+                  NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
 
 !              If both surfaces are of order 1.. There's no need to continue analyzing face
 !              ----------------------------------------------------------------------------
-               if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
-                  cycle
-               elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
-                  cycle
-               elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
-                  cycle
-               elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
-                  cycle
-               elseif (any(NSurfL /= NSurfR)) then ! Only works for mesh files with isotropic boundary orders
-                  write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
-                  write(STD_OUT,*) '   Face:    ', fID
-                  write(STD_OUT,*) '   Elements:', f % elementIDs
-                  write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
-                  write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
-               end if
+                  if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
+                     cycle
+                  elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
+                     cycle
+                  elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
+                     cycle
+                  elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
+                     cycle
+                  elseif (any(NSurfL /= NSurfR)) then ! Only works for mesh files with isotropic boundary orders
+                     write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
+                     write(STD_OUT,*) '   Face:    ', fID
+                     write(STD_OUT,*) '   Elements:', f % elementIDs
+                     write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+                     write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
+                  end if
 
-               CLN(1) = min(f % NfLeft(1),f % NfRight(1))
-               CLN(2) = min(f % NfLeft(2),f % NfRight(2))
+                  CLN(1) = min(f % NfLeft(1),f % NfRight(1))
+                  CLN(2) = min(f % NfLeft(2),f % NfRight(2))
 !
 !              Adapt the curved face order to the polynomial order
 !              ---------------------------------------------------
-               if ( any(CLN < NSurfL) ) then
-                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, &
-                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &
-                                                                            NodalStorage(CLN(2)) % xCGL,faceCL)
-                  deallocate(faceCL)
-               end if
+                  if ( any(CLN < NSurfL) ) then
+                     allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                    !! if (size(SurfInfo(eIDLeft) % facePatches(SideIDL)%points(1,:,1))==2) then 
+                     !write(*,*) 'size points(1,:,1)',size(SurfInfo(eIDLeft) % facePatches(SideIDL)%points(1,:,1))
+                     !write(*,*) 'size points(1,1,:)',size(SurfInfo(eIDLeft) % facePatches(SideIDL)%points(1,1,:))
+                     !   write(*,*)'here we are, eIDLeft=', eIDLeft 
+                     !   write(*,*) 'isSliding?', self%elements(eIDLeft)%sliding
+                    !    write(*,*) 'isSliding new nodes?', self%elements(eIDLeft)%sliding_newnodes
+                     !   write(*,*) 'ID of the face', f%ID 
+                     !   write(*,*) 'Mortar face', f%IsMortar
+                     !end if 
+                     call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
+                     call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
+                     call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &
+                                                                              NodalStorage(CLN(2)) % xCGL,faceCL)
+                    ! write(*,*) 'line 3391 of hexmesh, NodalStorage(CLN(1)) % xCGL',NodalStorage(CLN(1)) % xCGL
+                    ! write(*,*) 'line 3392 of hexmesh, NodalStorage(CLN(2)) % xCGL',NodalStorage(CLN(2)) % xCGL
+                    ! write(*,*) 'line 3393 of hexmesh, faceCLL',faceCL
 
-               select case ( f % rotation )
-               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
-                  if (CLN(1) /= CLN(2)) then
-                     buffer = CLN(1)
-                     CLN(1) = CLN(2)
-                     CLN(2) = buffer
+                     deallocate(faceCL)
                   end if
-               end select
 
-               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?      
-                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
-                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
-                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
-                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
-                                                                             NodalStorage(CLN(2)) % xCGL,faceCL)
-                  deallocate(faceCL)
-               end if
+                  select case ( f % rotation )
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
+                     if (CLN(1) /= CLN(2)) then
+                        buffer = CLN(1)
+                        CLN(1) = CLN(2)
+                        CLN(2) = buffer
+                     end if
+                  end select
 
+                  if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?      
+                     allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                     call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
+                     call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
+                     call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
+                                                                              NodalStorage(CLN(2)) % xCGL,faceCL)
+                     deallocate(faceCL)
+                  end if
+               end if 
+               if (f % IsMortar==1 .OR. f % IsMortar==3) then 
+                 ! if (f%IsMortar==3) write(*,*)'line 3414 HexMesh mortar is 3'
+                  eIDLeft  = f % elementIDs(1)
+                  SideIDL  = f % elementSide(1)
+                  if (eIDLeft==-1) write(*,*) 'line 3443 eIDLeft==-1 f % f % elementIDs==',f % elementIDs
+                  NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+   
+                  if     (SurfInfo(eIDLeft) % IsHex8 .or. all(NSurfL == 1)) cycle
+   
+                  if (self % anisotropic  .and. (.not. self % meshIs2D) ) then
+                     CLN = bfOrder(f % zone)
+                  else
+                     CLN(1) = f % NfLeft(1)
+                     CLN(2) = f % NfLeft(2)
+                  end if
+   !
+   !              Adapt the curved face order to the polynomial order
+   !              ---------------------------------------------------
+                  if ( any(CLN < NSurfL) ) then
+                     allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                     call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                                                                                           CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
+                     call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
+                     call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &
+                                                                               NodalStorage(CLN(2)) % xCGL,faceCL)
+                     deallocate(faceCL)
+                  end if
+               end if 
             case (HMESH_BOUNDARY)
                eIDLeft  = f % elementIDs(1)
                SideIDL  = f % elementSide(1)
@@ -2953,6 +3870,17 @@ slavecoord:             DO l = 1, 4
             end if
 
             if (SurfInfo(eID) % IsHex8) then
+               !if (eID==170 ) then 
+               !   write(*,*)'SurfInfo(eID) % corners of', eID, SurfInfo(eID) % corners
+               !end if 
+               !if (eID==167) then
+               !   write(*,*)'SurfInfo(eID) % corners of', eID, SurfInfo(eID) % corners
+               !end if 
+
+               !if (self%elements(eID)%sliding_newnodes) then
+                  !write(*,*)'sliding newnodes'
+                  !write(*,*)'SurfInfo(eID) % corners of', eID, SurfInfo(eID) % corners
+               !end if 
                call hex8Map % setCorners(SurfInfo(eID) % corners)
                hexMap => hex8Map
             else
@@ -2978,14 +3906,39 @@ slavecoord:             DO l = 1, 4
             end if
 
             associate(f => self % faces(fID))
+               !write(*,*) 'faceID= ', fID 
+               !write(*,*) 'mortar type', f % IsMortar
             select case(f % faceType)
             case(HMESH_INTERIOR, HMESH_BOUNDARY)
+               if (self%nonconforming) then
+               select case (f % IsMortar)
+               case (0, 1)
                associate(eL => self % elements(f % elementIDs(1)))
+                  !write(*,*) f%elementIDs(1)
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
                                          f % projectionType(1), 1, 0 )
                end associate
-
+               case (2) 
+               associate(eR => self % elements(f % elementIDs(2)))
+                 ! write(*,*) f%elementIDs(2)
+                 !write(*,*) f % NelRight
+                 ! write(*,*)  f % NfRight
+               call f % geom % construct(f % Nf, f % NelRight, f % NfRight, eR % Nxyz, &
+                                         eR % geom, eR % hexMap, f % elementSide(2), &
+                                         f % projectionType(2), 2, 0 )
+               end associate
+               end select 
+            else 
+               associate(eL => self % elements(f % elementIDs(1)))
+                  !write(*,*) f%elementIDs(1)
+                 ! write(*,*) 'fl',f % NfLeft
+                  !write(*,*) 'constructing geometry if face:',fID
+               call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+                                         eL % geom, eL % hexMap, f % elementSide(1), &
+                                         f % projectionType(1), 1, 0 )
+               end associate
+            end if
             case(HMESH_MPI)
                side = maxloc(f % elementIDs, dim=1)
 
@@ -3027,10 +3980,20 @@ slavecoord:             DO l = 1, 4
             associate(f => self % faces(fID))
             select case(f % faceType)
             case(HMESH_INTERIOR)
+               if (f % IsMortar ==0 .OR. f % IsMortar == 2) then 
                f % geom % h = min(minval(self % elements(f % elementIDs(1)) % geom % jacobian), &
                                   minval(self % elements(f % elementIDs(2)) % geom % jacobian)) &
                         / maxval(f % geom % jacobian)
+               !if (f % geom % h==0.0_RP) then 
+               !   write(*,*)'self % elements(f % elementIDs(1)) % geom % jacobian',self % elements(f % elementIDs(1)) % geom % jacobian
+               !   write(*,*)'self % elements(f % elementIDs(2)) % geom % jacobian',self % elements(f % elementIDs(2)) % geom % jacobian
+               !end if 
+               elseif(f % IsMortar==1 .or. f % IsMortar==3) then 
+                  f % geom % h = minval(self % elements(f % elementIDs(1)) % geom % jacobian) &
+                  / maxval(f % geom % jacobian)
+               end if 
             case(HMESH_BOUNDARY)
+                              !write(*,*) 'jacface', f % geom % jacobian
                f % geom % h = minval(self % elements(f % elementIDs(1)) % geom % jacobian) &
                         / maxval(f % geom % jacobian)
             case(HMESH_MPI)
@@ -3415,13 +4378,6 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = 0.0_RP
          refs(MACH_REF)  = 0.0_RP
-#elif defined(ACOUSTIC)
-         refs(GAMMA_REF) = thermodynamics % gamma
-         refs(RGAS_REF)  = thermodynamics % R
-         refs(RHO_REF)   = refValues      % rho
-         refs(V_REF)     = refValues      % V
-         refs(T_REF)     = refValues      % T
-         refs(MACH_REF)  = dimensionless  % Mach
 #else
          refs = 0.0_RP
 #endif
@@ -4905,85 +5861,13 @@ slavecoord:             DO l = 1, 4
          if (present(with_gradients) ) with_gradients = gradients
 
       END SUBROUTINE HexMesh_LoadSolution
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
+
+
 #if defined(ACOUSTIC)
-
-   subroutine HexMesh_InitializeBaseFlow(self, controlVariables)
-      use Physics_CAAKeywordsModule
-      use FileReadingUtilities, only: getRealArrayFromString
-      Implicit None
-      CLASS(HexMesh)                  :: self
-      class(FTValueDictionary)        :: controlVariables
-
-      
-      character(len=LINE_LENGTH) :: qBaseMode
-      character(len=LINE_LENGTH) :: fileName, statsSolverKey
-      real(kind=RP)              :: QbaseUniform(1:NCONSB)
-
-      !
-      ! Read base flow variables
-      !
-      ! Load which solver generated the stats file
-      statsSolverKey = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
-
-      qBaseMode = controlVariables % stringValueForKey(trim(qBaseKey), requestedLength = LINE_LENGTH)
-      call ToLower(qBaseMode)
-      if ( trim(qBaseMode) .eq. trim(qBaseByFile) ) then
-         !
-         ! Read Qbase from file
-         !
-         ! Check that the user has specified the file to read from
-         if (.not. controlVariables % containsKey(trim(qBaseFileNameKey))) then
-            print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no file specified. Use:"
-            print *, trim(qBaseFileNameKey), " = filename"
-            errorMessage(STD_OUT)
-            error stop
-         end if
-         ! Load the base flow from the specified stats file
-         fileName = controlVariables % stringValueForKey(qBaseFileNameKey,requestedLength = LINE_LENGTH)
-         call self % LoadBaseFlowSolution(controlVariables, fileName, statsSolverKey)
-      elseif ( trim(qBaseMode) .eq. trim(qbaseByUniformField) ) then
-         !
-         ! Read Qbase uniform field from control file
-         !
-         ! Check that the user has specified the field
-         if (.not. controlVariables % containsKey(trim(qBaseVectorKey))) then
-            print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no vector specified. Use:"
-            print *, trim(qBaseVectorKey), " = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]"
-            errorMessage(STD_OUT)
-            error stop
-         end if
-         ! Read the field
-         QbaseUniform = 0.0_RP
-         QbaseUniform = GetRealArrayFromString( controlVariables % StringValueForKey(qBaseVectorKey,requestedLength = LINE_LENGTH))
-         ! Set uniform field
-         call self % SetUniformBaseFlow(QbaseUniform)
-      else
-         print*, 'Unknown qBase mode "',trim(qBaseMode),'".'
-         print*, "Implemented modes are:"
-         print*, "   * ", trim(qBaseByFile)
-         print*, "   * ", trim(qbaseByUniformField)
-         errorMessage(STD_OUT)
-         error stop
-      end if
-
-      !
-      ! Finally, load the Lamb vector into the LambBase array
-      !
-      if (controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) then
-         call self % LoadLambBase(controlVariables)
-      end if
-!
-   end subroutine HexMesh_InitializeBaseFlow
-!
-!////////////////////////////////////////////////////////////////////////
-!
     Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
         Implicit None
          CLASS(HexMesh)                  :: self
-         real(kind=RP), dimension(1:NCONSB), intent(in)  :: Q_in
+         real(kind=RP), dimension(1:NCONS), intent(in)  :: Q_in
 !
 !        ---------------
 !        Local variables
@@ -4991,7 +5875,7 @@ slavecoord:             DO l = 1, 4
          INTEGER                        :: eID, eq
 
          do eID = 1, size(self % elements)
-            do eq = 1,NCONSB
+            do eq = 1,NCONS
                 self % elements(eID) % storage % Qbase(eq,:,:,:) = Q_in(eq)
             end do
          end do
@@ -5412,6 +6296,7 @@ slavecoord:             DO l = 1, 4
 
       end subroutine HexMesh_ProlongBaseSolutionToFaces
 #endif
+  !
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -5667,10 +6552,23 @@ slavecoord:             DO l = 1, 4
             allocate(fe % geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
             if( self% IBM% active ) then
                fe % geom % dWall = huge(1.0_RP)
+               if (fe%IsMortar==3) then 
+                  if(.not. allocated(self%mortar_faces(fe%mortar(1))%geom%dwall)) then 
+                     allocate(self%mortar_faces(fe%mortar(1))% geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+                     self%mortar_faces(fe%mortar(1))%geom%dwall=fe % geom % dWall
+                  end if 
+                  if (size(fe%mortar)==2) then 
+                  if(.not. allocated(self%mortar_faces(fe%mortar(2))%geom%dwall)) then 
+                     allocate(self%mortar_faces(fe%mortar(2))% geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+                     self%mortar_faces(fe%mortar(2))%geom%dwall=fe % geom % dWall
+                  end if 
+                  end if 
+               end if 
             endif
             
             if( .not. self% IBM% active ) then
                do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
+                  
                   xP = fe % geom % x(:,i,j)
 
                   minimumDistance = HUGE(1.0_RP)
@@ -5682,6 +6580,18 @@ slavecoord:             DO l = 1, 4
                   fe % geom % dWall(i,j) = sqrt(minimumDistance)
 
                 end do                ; end do
+                if (fe%IsMortar==3) then 
+                  if(.not. allocated(self%mortar_faces(fe%mortar(1))%geom%dwall)) then 
+                     allocate(self%mortar_faces(fe%mortar(1))%geom%dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+                     self%mortar_faces(fe%mortar(1))%geom%dwall=fe % geom % dWall
+                  end if 
+                  if (size(fe%mortar)==2) then 
+                  if(.not. allocated(self%mortar_faces(fe%mortar(2))%geom%dwall)) then 
+                     allocate(self%mortar_faces(fe%mortar(2))%geom%dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+                     self%mortar_faces(fe%mortar(2))%geom%dwall=fe % geom % dWall
+                  end if 
+               end if 
+               end if 
             end if
             
             end associate
@@ -5812,6 +6722,7 @@ slavecoord:             DO l = 1, 4
       logical :: Face_St, FaceComputeQdot
       character(len=LINE_LENGTH) :: time_int
       character(len=LINE_LENGTH) :: mg_smoother
+      real(kind=RP), dimension(:,:,:),     pointer :: Qff
       !-----------------------------------------------------------
 
       if ( present(Face_Storage) ) then
@@ -5872,11 +6783,26 @@ slavecoord:             DO l = 1, 4
       if (Face_St) then
          do fID = 1, size(self % faces)
             associate ( f => self % faces(fID) )
-            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot)
-            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot)
+               if (f % IsMortar==2) then 
+                  call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot, Mortar=.TRUE.)
+                  call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot, Mortar=.TRUE.)
+               else 
+               call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot)
+               call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot)
+            end if 
+
             end associate
          end do
       end if
+
+      if (self%sliding) then 
+         do fID = 1, size(self % mortar_faces)
+            associate ( f => self % mortar_faces(fID) )
+                  call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot, Mortar=.TRUE.)
+                  call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot, Mortar=.TRUE.)
+            end associate
+         end do 
+      end if 
 
 !     Point element storage
 !     ---------------------
@@ -6078,9 +7004,8 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    logical :: analyticalJac   ! Do we need analytical Jacobian storage?
    type(Element)   , pointer :: e
    type(Face)      , pointer :: f
-   real(kind=RP)             :: sensor_value
 
-#if (!defined(NAVIERSTOKES) || !defined(INCNS))
+#if (!defined(NAVIERSTOKES))
    logical, parameter            :: computeGradients = .true.
 #endif
    !---------------------------------------------------
@@ -6130,9 +7055,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
       if ( all( e % Nxyz == NNew(:,eID)) ) then
          cycle
       else
-         sensor_value = e % storage % sensor
          call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
-         e % storage % sensor = sensor_value
 !$omp critical
          self % Nx(eID) = NNew(1,eID)
          self % Ny(eID) = NNew(2,eID)
@@ -6255,7 +7178,7 @@ end subroutine HexMesh_pAdapt_MPI
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
       type(Face)      , pointer :: f
-#if (!defined(NAVIERSTOKES) || !(defined(INCNS)))
+#if (!defined(NAVIERSTOKES))
       logical, parameter            :: computeGradients = .true.
 #endif
       !---------------------------------------------------
@@ -6511,7 +7434,6 @@ end subroutine HexMesh_pAdapt_MPI
 
 
    end subroutine HexMesh_Assign
-
    subroutine HexMesh_UpdateHOArrays(self)
       implicit none
       !-arguments-----------------------------------------
@@ -6610,8 +7532,8 @@ end subroutine HexMesh_pAdapt_MPI
 call elementMPIList % destruct 
 
    end subroutine HexMesh_UpdateHOArrays
-   
-!
+
+   !
 !////////////////////////////////////////////////////////////////////////
 !  Multi Level Runge-Kutta 
 !////////////////////////////////////////////////////////////////////////
@@ -7325,4 +8247,2290 @@ call elementMPIList % destruct
       intersect = .true.
 
    end function intersect
+
+   subroutine HexMesh_UpdateSlidingMesh(self, rotationRadius, rotationCenter, numBFacePoints, nodes, useMPI, angle, rotateEntireMesh)
+
+      use Physics
+      use PartitionedMeshClass
+      use MPI_Process_Info
+   
+      implicit none 
+   
+      class(HexMesh), intent(inout)        :: self
+   
+      real(kind=RP), intent(inout)         :: rotationRadius 
+      real(kind=RP), intent(inout)         :: rotationCenter(2)
+   
+      !integer, intent(inout)              :: dir2D
+   
+      integer, intent(inout)               :: numBFacePoints
+      integer                              :: nodes
+   
+      logical, intent(in)                  :: useMPI 
+      real(kind=RP), intent(in), optional  :: angle
+      logical, intent(in), optional        :: rotateEntireMesh
+   
+   
+      !========================
+      ! Sliding / mesh data
+      !========================
+      integer :: numSlidingElements
+      integer :: numSlidingInterfaceElements 
+   
+   
+      !========================
+      ! Temporary storage
+      !========================
+      type(node), allocatable :: tmp_nodes(:)
+   
+   
+      !========================
+      ! Scalars
+      !========================
+      integer :: inter 
+      integer :: originalNodeCount
+      integer :: numberOfNodes
+      integer :: originalFaceCount
+   
+      integer :: l, i, j 
+   
+      logical :: success
+      logical :: isConforming = .FALSE.
+   
+   
+      !========================
+      ! Geometry / math
+      !========================
+      real(kind=RP) :: offsetParams(4)
+      real(kind=RP) :: scaleParams(4)
+      real(kind=RP) :: th
+   
+      real(kind=RP) :: PI 
+      real(kind=RP) :: theta
+
+
+      !self%sliding=.false.
+      if (.not. self % sliding) then
+         call self % IdentifySlidingRegion(rotationRadius, rotationCenter, numSlidingElements, numSlidingInterfaceElements)
+      end if
+      
+      !if (present(rotateEntireMesh) .AND. (.not. self%sliding)) self%sliding=.TRUE.
+      
+      if (.not. self % sliding) then
+      
+        originalNodeCount = size(self % nodes)
+      
+         allocate(tmp_nodes(originalNodeCount))
+      
+         do i = 1, originalNodeCount
+            call ConstructNode(tmp_nodes(i), self % nodes(i) % x, self % nodes(i) % globID)
+         end do 
+      
+         do i = 1, originalNodeCount
+            call self % nodes(i) % destruct
+         end do 
+      
+         safedeallocate(self % nodes)
+      
+         numberOfNodes = size(tmp_nodes) + 2 * numSlidingInterfaceElements
+         allocate(self % nodes(numberOfNodes))
+      
+         do i = 1, originalNodeCount
+            call ConstructNode(self % nodes(i), tmp_nodes(i) % x, tmp_nodes(i) % globID)
+         end do 
+      
+         safedeallocate(tmp_nodes)
+      
+      else 
+      
+         numberOfNodes = size(self % nodes)
+         originalNodeCount       = numberOfNodes - 2 * self % numSlidingInterfaceElements
+      
+      end if
+  
+      PI    = 4.0_RP * DATAN(1.0_RP)
+      theta = PI / 160.0_RP
+      
+      
+      !========================
+      ! Allocation
+      !========================
+      if (.not. allocated(self % arr1))             allocate(self % arr1(numSlidingInterfaceElements))
+      if (.not. allocated(self % arr2))             allocate(self % arr2(numSlidingInterfaceElements))
+      if (.not. allocated(self % mortararr1))       allocate(self % mortararr1(numSlidingInterfaceElements, 2))
+      if (.not. allocated(self % mortararr2))       allocate(self % mortararr2(numSlidingInterfaceElements, 2))
+      if (.not. allocated(self % arr3))             allocate(self % arr3(numSlidingElements))
+      if (.not. allocated(self % Mat))              allocate(self % Mat(numSlidingInterfaceElements, 12))
+      if (.not. allocated(self % face_nodes))       allocate(self % face_nodes(numSlidingInterfaceElements, 4))
+      if (.not. allocated(self % face_othernodes))  allocate(self % face_othernodes(numSlidingInterfaceElements, 4))
+      if (.not. allocated(self % Connect))          allocate(self % Connect(numSlidingInterfaceElements, 9, 6))
+      if (.not. allocated(self % rotmortars))       allocate(self % rotmortars(2 * numSlidingInterfaceElements))
+      
+      
+      !========================
+      ! Initialization (first pass only)
+      !========================
+      if (.not. self % sliding) then
+      
+         self % arr1             = 0
+         self % arr2             = 0
+         self % arr3             = 0
+         self % Mat              = 0
+         self % Connect          = 0
+         self % face_nodes       = 0
+         self % face_othernodes  = 0
+      
+         self % numSlidingInterfaceElements = numSlidingInterfaceElements
+         self % numSlidingElements         = numSlidingElements
+         self % numBFacePoints    = numBFacePoints
+      
+      end if 
+      
+      
+      !========================
+      ! Optional angle override
+      !========================
+      if (present(angle)) theta = angle
+      
+      !self%omega=self%omega+theta 
+      
+      
+      !========================
+      ! Core mesh modification
+      !========================
+      call self % Modifymesh( &
+         nodes, self % numSlidingInterfaceElements, self % arr1, self % arr2, self % arr3, self % Mat, &
+         rotationCenter, offsetParams, scaleParams, self % face_nodes, self % face_othernodes, &
+         self % rotmortars, th, numberOfNodes, self % numBFacePoints, originalNodeCount, theta )
+
+         if (.not. present(rotateEntireMesh)) then 
+
+            do l = 1, size(self % arr2)
+         
+               do j = 1, 6
+         
+                  if (self % elements(self % arr2(l)) % MortarFaces(j) == 1) then 
+                     !self % mortararr2(l,1) = self % arr2(l)
+                     self % mortararr2(l,1) = self % Mat(l,1)
+                     self % mortararr2(l,2) = self % Mat(l,4)
+         
+                     self % elements(self % arr2(l)) % MortarFaces = 0
+                  end if 
+         
+                  if (self % elements(self % arr1(l)) % MortarFaces(j) == 1) then 
+                     !self % mortararr1(l,1) = self % arr1(l)
+                     self % mortararr1(l,1) = self % Mat(l,3)
+                     !self % mortararr1(l,2) = j
+                     self % mortararr1(l,2) = self % Mat(l,6)
+         
+                     self % elements(self % arr1(l)) % MortarFaces = 0
+                  end if 
+         
+               end do 
+         
+            end do 
+         
+         end if 
+         
+         originalFaceCount = size(self % faces)
+         
+         !========================
+         ! Destroy old faces
+         !========================
+
+         if (.not. self % sliding) then 
+         
+            !write(*,*) 'about to destruct faces'
+         
+            do i = 1, size(self % faces)
+               call self % faces(i) % Destruct
+            end do 
+         
+         end if 
+         
+         !========================
+         ! Reallocate faces
+         !========================
+
+         if (.not. self % sliding) then 
+            safedeallocate(self % faces)
+            allocate(self % faces(originalFaceCount + numSlidingInterfaceElements))
+         end if 
+         
+         
+         !========================
+         ! Rebuild mesh topology
+         !========================
+
+         if (.not. self % sliding) call ConstructFaces(self, success)
+         
+         if (.not. self % sliding) then 
+         
+            if (allocated(self % zones)) then 
+               do i = 1, size(self % zones)
+                  call self % zones(i) % destruct
+               end do
+               deallocate(self % zones)
+            end if 
+         
+            call self % ConstructZones()
+            call getElementsFaceIDs(self)
+            call self % DefineAsBoundaryFaces()
+         
+            if (.not. MPI_Process % doMPIRootAction) then
+               call self % CheckIfMeshIs2D()
+            end if
+         
+         end if
+
+      !if ( dir2D .ne. 0 ) then
+      !   call SetMappingsToCrossProduct
+       !  call self % CorrectOrderFor2DMesh(dir2D)
+      !end if
+         if (.not. present(rotateEntireMesh)) then 
+
+            do l = 1, size(self % arr2)
+         
+               self % faces(self % elements(self % arr2(l)) % faceIDs(self % mortararr2(l,2))) % IsMortar = 3
+               self % faces(self % elements(self % arr2(l)) % faceIDs(self % mortararr2(l,2))) % faceType = 1
+         
+               self % faces(self % elements(self % arr1(l)) % faceIDs(self % mortararr1(l,2))) % IsMortar = 3
+               self % faces(self % elements(self % arr1(l)) % faceIDs(self % mortararr1(l,2))) % faceType = 1
+         
+            end do 
+               
+            do l = 1, size(self % faces)
+               if (self % faces(l) % faceType == -1) then 
+                  self % faces(l) % faceType = 1
+               end if 
+            end do
+         
+         end if 
+         
+         !========================
+         ! Connectivity
+         !========================
+
+         if (.not. self % sliding) then
+            call self % SetConnectivitiesAndLinkFaces(nodes)
+         end if 
+         
+         !========================
+         ! Destroy old geometry
+         !========================
+
+         do l = 1, self % no_of_elements
+            call self % elements(l) % geom % destruct
+         end do
+         
+         do l = 1, size(self % faces)
+            call self % faces(l) % geom % destruct
+         end do
+         
+         !========================
+         ! Reconstruct geometry
+         !========================
+         call self % ConstructGeometry()
+         
+         !========================
+         ! Mortar geometry cleanup
+         !========================
+         !if ( th .EQ. 0.0_RP ) isConforming=.TRUE. 
+         !self%omega=self%omega
+         
+         if (allocated(self % mortar_faces)) then 
+         
+            do l = 1, size(self % mortar_faces)
+               call self % mortar_faces(l) % geom % destruct
+            end do 
+         
+            !do l=1, size(self%mortar_faces)
+            !   call self % mortar_faces(l) % destruct
+            !end do 
+            !deallocate(self%mortar_faces)
+         
+            ! self%slidingflux=.true.
+         
+         end if
+
+         if (.not. present(rotateEntireMesh)) then
+            call self % ConstructMortars(nodes, self % numSlidingInterfaceElements, &
+               self % arr1, self % arr2, self % Mat, offsetParams, scaleParams, &
+               self % mortararr2, self % rotmortars, th, isConforming )
+         end if
+         
+         
+         self % sliding     = .true.
+         self % slidingflux = .false.
+
+   end subroutine HexMesh_UpdateSlidingMesh
+
+
+   subroutine HexMesh_IdentifySlidingRegion (self, rotationRadius, rotationCenter, numSlidingElements, numSlidingInterfaceElements)
+      IMPLICIT NONE 
+      class(HexMesh), intent(inout)  :: self
+      real(kind=RP), intent(in) :: rotationRadius 
+      real(kind=RP), intent(in) :: rotationCenter(2) 
+      integer, intent(inout) :: numSlidingElements
+      integer, intent(inout) :: numSlidingInterfaceElements
+   
+      integer :: elementID, neighborElementID
+      integer ::  i, j, numNodesInsideRadius
+      integer :: new_nFaces
+   
+   
+      numSlidingInterfaceElements=0
+      numSlidingElements=0
+      new_nFaces=SIZE(self % faces)
+      
+       ! =========================
+       ! Detect elements fully contained
+       ! inside the sliding radius
+       ! =========================
+   
+      do i=1, size(self%elements)
+   
+       numNodesInsideRadius=0
+   
+         do j=1,8
+            if (((self%Nodes(self%elements(i)%nodeIDs(j))%X(1)-rotationCenter(1))**2 +&
+            (self%Nodes(self%elements(i)%nodeIDs(j))%X(3)-rotationCenter(2))**2) .le. rotationRadius**2)  then 
+   
+               numNodesInsideRadius=numNodesInsideRadius+1
+   
+            end if 
+         end do  
+   
+         if (numNodesInsideRadius==8) then
+   
+            self%elements(i)%sliding=.true.
+            numSlidingElements=numSlidingElements+1
+   
+         end if 
+   
+      end do 
+   
+       ! =========================
+       ! Detect sliding interface elements
+       ! requiring duplicated nodes
+       ! =========================
+   
+      do i=1, size(self%elements)
+   
+         if (self%elements(i)%sliding) then 
+   
+           elementID=self%elements(i)%eID
+            do j=1,6
+   
+              if (self%faces(self%elements(i)%faceIDs(j))%elementIDs(1)==elementID) then 
+   
+                   neighborElementID=self%faces(self%elements(i)%faceIDs(j))%elementIDs(2)
+   
+              else   
+   
+                   neighborElementID=self%faces(self%elements(i)%faceIDs(j))%elementIDs(1)
+   
+              end if 
+   
+              if (neighborElementID .ne. 0) then 
+   
+                  if (self%elements(neighborElementID)%sliding) then 
+                     cycle
+                  else 
+   
+                     self%elements(elementID)%sliding_newnodes=.true.
+                     numSlidingInterfaceElements=numSlidingInterfaceElements+1
+                     new_nFaces=new_nFaces + 1
+   
+                  end if 
+   
+              end if
+   
+            end do
+   
+         end if
+   
+      end do 
+   
+     end subroutine HexMesh_IdentifySlidingRegion
+  
+  subroutine HexMesh_BuildSlidingMortarConnectivity(self, rad, nelm, center, pureSlidingElems, slidingMortarElems, mortarNeighborElems, slidingMortarConnectivity, neighborConnectivity,new_nFaces, face_nodes,face_othernodes,rotmortars)
+   IMPLICIT NONE 
+   class(HexMesh), intent(inout)  :: self
+
+   real(kind=RP), intent(in) :: rad 
+   real(kind=RP), intent(in) :: center(2)
+   integer, intent(in)    :: nelm
+   integer, intent(inout) :: pureSlidingElems(nelm) !sliding elements fully inside the region (no mortar)
+   integer, intent(inout) :: slidingMortarElems(nelm) !sliding elements at the interface (require mortars)
+   integer, intent(inout) :: mortarNeighborElems(nelm) !associated non-sliding neighbors across the interface (require mortars)  
+   integer, intent(inout) :: slidingMortarConnectivity(nelm,12) ! slidingMortarConnectivity(i,:) :
+!   Data structure describing the mortar interface configuration for each slidingMortarElems(i). Each row encodes the connectivity between:
+!   - a sliding interface element,
+!   - its neighboring sliding element,
+!   - and the associated non-sliding (mortar) element.
+!
+!   Column description:
+!     (1)  : ID of the sliding interface element (current element)
+!     (2)  : ID of the neighboring sliding element across the interface
+!     (3)  : ID of the neighboring non-sliding element (mortar element)
+!     (4)  : local face index of (1) connected to the mortar interface
+!     (5)  : local face index of (2) connected to the mortar interface
+!     (6)  : local face index of (3) connected to the mortar interface
+!     (7)  : rotation of face (1)
+!     (8)  : rotation of face (2)
+!     (9)  : rotation of face (3)
+!     (10) : additional neighboring non-sliding element (connectivity extension)
+!     (11) : corresponding local face index for (10)
+!     (12) : rotation associated with (10)
+!
+!   This structure is used to fully reconstruct mortar connectivity and orientation between sliding and non-sliding regions.
+
+   integer, intent(inout) :: neighborConnectivity(nelm, 9, 6)
+   integer, intent(inout) :: new_nFaces 
+   integer, intent(inout) :: face_nodes(nelm,4)
+   integer, intent(inout) :: face_othernodes(nelm,4)
+   integer, intent(inout) :: rotmortars(nelm*2) 
+
+   integer :: elemID, neighborElemID, candidateElemID
+   integer ::  i, j, faceIdx2, elemCount, nodeIdxA, nodeIdxB,ind1,ind2,ind3, iNode, iNode2, iNode3
+   integer ::  iNodeCheck, isTopRegion, isBottomRegion, hasNodeBelowCenter, isAlreadyConnected, sharedNodeCounter, nNodesInsideRadius
+
+   integer :: coordY 
+
+   coordY      = 3
+   nNodesInsideRadius      = 0
+   elemCount      = 0
+   new_nFaces = size(self % faces)
+   
+   
+   !========================
+   ! Detect sliding elements
+   !========================
+   do i = 1, size(self % elements)
+   
+      nNodesInsideRadius = 0
+   
+      do j = 1, 8
+   
+         if ( ( (self % Nodes(self % elements(i) % nodeIDs(j)) % X(1) - center(1))**2 + &
+                (self % Nodes(self % elements(i) % nodeIDs(j)) % X(coordY) - center(2))**2 ) <= rad**2 ) then 
+                  nNodesInsideRadius = nNodesInsideRadius + 1
+         end if 
+   
+      end do  
+   
+      if (nNodesInsideRadius == 8) then
+         self % elements(i) % sliding = .true.
+      end if 
+   
+   end do 
+   
+   
+   !========================
+   ! Detect interface (mortar) elements
+   !========================
+   elemCount = 0
+   
+   do i = 1, size(self % elements)
+   
+      if (self % elements(i) % sliding) then 
+   
+         elemID = self % elements(i) % eID
+   
+         do j = 1, 6
+   
+            if (self % faces(self % elements(i) % faceIDs(j)) % elementIDs(1) == elemID) then 
+               neighborElemID = self % faces(self % elements(i) % faceIDs(j)) % elementIDs(2)
+            else   
+               neighborElemID = self % faces(self % elements(i) % faceIDs(j)) % elementIDs(1)
+            end if 
+   
+            if (neighborElemID /= 0) then 
+   
+               if (self % elements(neighborElemID) % sliding) then 
+                  cycle
+               else 
+                  self % elements(elemID) % MortarFaces(j)   = 1
+                  self % elements(elemID) % sliding_newnodes = .true.
+   
+                  elemCount = elemCount + 1
+                  slidingMortarElems(elemCount) = elemID
+   
+                  new_nFaces = new_nFaces + 1
+               end if 
+   
+            end if 
+   
+         end do 
+   
+      end if 
+   
+   end do
+
+   elemCount=0
+  
+   slidingMortarConnectivity=0
+
+   do i=1,size(slidingMortarElems)
+      slidingMortarConnectivity(i,1)=slidingMortarElems(i)
+      isTopRegion=0
+      isBottomRegion=0
+      hasNodeBelowCenter=0
+
+      ! --------------------------------------------------
+      ! Classify element location relative to rotation center
+      ! (top or bottom region)
+      ! --------------------------------------------------
+
+      do iNode = 1, 8
+
+         if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(iNode)) % X(coordY) > 0.0_RP) then 
+      
+            do iNodeCheck = 1, 8 
+               if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(iNodeCheck)) % X(coordY) < 0.0_RP) then 
+                  hasNodeBelowCenter = 1
+               end if 
+            end do 
+      
+            if (hasNodeBelowCenter == 0) then 
+               isTopRegion = 1
+               exit 
+            end if 
+      
+         end if 
+      
+      
+         if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(iNode)) % X(coordY) < 0.0_RP) then 
+            isBottomRegion = 1
+            exit 
+         end if 
+      
+      end do
+      !it's on the top of the circle 
+      if (isTopRegion==1) then 
+          do j=1,6
+              if (self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)==slidingMortarElems(i)) then 
+               candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(2)
+               else   
+                  candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)
+               end if
+               if (candidateElemID==0) cycle 
+               if (.not.self%elements(candidateElemID)%sliding) then 
+                  slidingMortarConnectivity(i,4)=j 
+                  slidingMortarConnectivity(i,7)=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%rotation 
+                  ! --------------------------------------------------
+                  ! Assign local face node ordering for mortar construction
+                  ! --------------------------------------------------
+                  select case (j)
+
+                  case (1)
+                     face_nodes(i,:)      = (/1,2,5,6/)   !!!
+                     face_othernodes(i,:) = (/3,4,7,8/)
+   
+                  case (2)
+                     face_nodes(i,:)      = (/4,3,7,8/)
+                     face_othernodes(i,:) = (/1,2,6,5/)
+   
+                  case (3)
+                     face_nodes(i,:)      = (/1,2,3,4/)
+                     face_othernodes(i,:) = (/5,6,7,8/)
+   
+                  case (4)
+                     face_nodes(i,:)      = (/6,2,3,7/)
+                     face_othernodes(i,:) = (/5,1,4,8/)
+   
+                  case (5)
+                     face_nodes(i,:)      = (/5,6,7,8/)
+                     face_othernodes(i,:) = (/1,2,3,4/)
+   
+                  case (6)
+                     face_nodes(i,:)      = (/5,1,4,8/)
+                     face_othernodes(i,:) = (/6,2,3,7/)
+   
+                  end select
+   
+               end if 
+               ! --------------------------------------------------
+               ! Search for adjacent sliding element across the interface
+               ! using geometric node-based comparison
+               ! --------------------------------------------------
+               if ((candidateElemID /= 0) .and. (self % elements(candidateElemID) % sliding_newnodes)) then
+                  if (slidingMortarConnectivity(i,2) == 0) then
+               
+                     do nodeIdxA = 1, 8
+               
+                        if (slidingMortarConnectivity(i,2) == 0) then
+               
+                           do nodeIdxB = 1, 8    !!!!!!!!
+               
+                              if (slidingMortarConnectivity(i,2) == 0) then
+                                 if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) >= center(1)) then 
+                                    if ( (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) <  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) >= center(2)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) >  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3)) .and. &
+                                         (slidingMortarConnectivity(i,3) == 0) ) then 
+            
+                                          slidingMortarConnectivity(i,2) = candidateElemID 
+                                       exit
+               
+                                    end if 
+                                 end if 
+               
+                                 if (self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) <= center(1)) then 
+               
+                                    if ( (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) <  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) >= center(2)) .and. &
+                                         (self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) <  &
+                                          self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3)) .and. &
+                                         (slidingMortarConnectivity(i,3) == 0) ) then 
+               
+                                          slidingMortarConnectivity(i,2) = candidateElemID 
+                                       exit
+               
+                                    end if 
+                                 end if              
+                              end if              
+                           end do 
+               
+                        end if 
+               
+                        if (slidingMortarConnectivity(i,2) /= 0) exit
+               
+                     end do         
+                  end if 
+               
+               end if
+          end do 
+         ! --------------------------------------------------
+         ! Determine matching face on mortar element that connects
+         ! back to the sliding neighbor (interface consistency)
+         ! --------------------------------------------------
+          do j = 1, 6
+
+            if (slidingMortarConnectivity(i,2) /= 0) then 
+         
+               if (self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,2)) then 
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(2)
+               else   
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1)
+               end if
+         
+               if (candidateElemID /= 0) then 
+         
+                  if (.not. self % elements(candidateElemID) % sliding) then 
+         
+                     slidingMortarConnectivity(i,3) = candidateElemID
+                     mortarNeighborElems(i)  = candidateElemID
+                     slidingMortarConnectivity(i,5) = j 
+         
+                     slidingMortarConnectivity(i,8) = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % rotation
+         
+                  end if  
+         
+               end if    
+         
+            end if 
+         
+         end do
+
+         
+         do j = 1, 6
+
+            if (slidingMortarConnectivity(i,3) /= 0) then 
+         
+               if (self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,3)) then 
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(2)
+               else   
+                  candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1)
+               end if
+         
+               if (candidateElemID == slidingMortarConnectivity(i,2)) then 
+         
+                  slidingMortarConnectivity(i,6) = j 
+         
+                  self % elements(slidingMortarConnectivity(i,3)) % MortarFaces(j) = 1 
+         
+                  slidingMortarConnectivity(i,9) = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % rotation
+         
+               end if 
+         
+            end if 
+         
+         end do
+      end if 
+      !it's on the bottom of the circle 
+      if (isBottomRegion==1) then
+      do j=1,6
+          if (self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)==slidingMortarElems(i)) then 
+            candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(2)
+           else   
+            candidateElemID=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%elementIDs(1)
+           end if
+           if (candidateElemID==0) cycle 
+           if (.not.self%elements(candidateElemID)%sliding) then 
+            slidingMortarConnectivity(i,4)=j 
+            slidingMortarConnectivity(i,7)=self%faces(self%elements(slidingMortarElems(i))%faceIDs(j))%rotation
+
+            ! --------------------------------------------------
+            ! Assign local face node ordering for mortar construction
+            ! --------------------------------------------------
+
+              select case (j)
+
+              case (1)
+                 face_nodes(i,:)      = (/1,2,5,6/)   !!! 
+                 face_othernodes(i,:) = (/3,4,7,8/)
+
+              case (2)
+                 face_nodes(i,:)      = (/4,3,7,8/)
+                 face_othernodes(i,:) = (/1,2,6,5/)
+
+              case (3)
+                 face_nodes(i,:)      = (/1,2,3,4/)
+                 face_othernodes(i,:) = (/5,6,7,8/)
+
+              case (4)
+                 face_nodes(i,:)      = (/6,2,3,7/)
+                 face_othernodes(i,:) = (/5,1,4,8/)
+
+              case (5)
+                 face_nodes(i,:)      = (/5,6,7,8/)
+                 face_othernodes(i,:) = (/1,2,3,4/)
+
+              case (6)
+                 face_nodes(i,:)      = (/5,1,4,8/)
+                 face_othernodes(i,:) = (/6,2,3,7/)
+
+              end select
+           end if 
+           if ( (candidateElemID /= 0) .and. (self % elements(candidateElemID) % sliding_newnodes) ) then
+
+            if (slidingMortarConnectivity(i,2) == 0) then
+ 
+               do nodeIdxA = 1, 8
+         
+                  if (slidingMortarConnectivity(i,2) /= 0) exit
+         
+                  do nodeIdxB = 1, 8
+         
+                     if (slidingMortarConnectivity(i,2) /= 0) exit
+                     ! --- Left side of the rotation center ---
+                     if ( self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) <= center(1) ) then
+         
+                        if ( &
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) >  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) .and. &
+         
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) <= center(2) .and. &
+         
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) <  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3) ) then
+         
+                              slidingMortarConnectivity(i,2) = candidateElemID
+                           exit
+         
+                        end if
+                     end if
+                     ! --- Right side of the rotation center ---
+                     if ( self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) >= center(1) ) then
+         
+                        if ( &
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(1) >  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(1) .and. &
+         
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxB)) % X(coordY) <= center(2) .and. &
+         
+                           self % nodes(self % elements(candidateElemID) % nodeIDs(nodeIdxA)) % X(coordY) >  &
+                           self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nodeIdxB)) % X(3) ) then
+         
+                              slidingMortarConnectivity(i,2) = candidateElemID
+                           exit
+         
+                        end if
+                     end if
+         
+                  end do
+               end do
+         
+            end if
+         
+         end if
+      end do 
+
+      ! --------------------------------------------------
+      ! Identify non-sliding neighbor (mortar element) 
+      ! connected to the sliding neighbor across the interface
+      ! --------------------------------------------------
+      do j = 1, 6
+
+         if (slidingMortarConnectivity(i,2) /= 0) then 
+      
+            if (self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,2)) then 
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(2)
+            else   
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % elementIDs(1)
+            end if
+      
+            if (candidateElemID /= 0) then 
+               if (.not. self % elements(candidateElemID) % sliding) then 
+      
+                  slidingMortarConnectivity(i,3) = candidateElemID
+                  mortarNeighborElems(i)  = candidateElemID
+                  slidingMortarConnectivity(i,5) = j 
+      
+                  slidingMortarConnectivity(i,8) = self % faces(self % elements(slidingMortarConnectivity(i,2)) % faceIDs(j)) % rotation
+      
+               end if 
+            end if     
+      
+         end if 
+      
+      end do
+
+      ! --------------------------------------------------
+      ! Locate the corresponding face on the mortar element 
+      ! that connects back to the sliding neighbor
+      ! (ensures interface consistency and orientation)
+      ! --------------------------------------------------
+
+      do j = 1, 6
+
+         if (slidingMortarConnectivity(i,3) /= 0) then 
+      
+            if (self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1) == slidingMortarConnectivity(i,3)) then 
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(2)
+            else   
+               candidateElemID = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % elementIDs(1)
+            end if
+      
+            if (candidateElemID == slidingMortarConnectivity(i,2)) then 
+      
+               slidingMortarConnectivity(i,6) = j 
+      
+               self % elements(slidingMortarConnectivity(i,3)) % MortarFaces(j) = 1 
+      
+               slidingMortarConnectivity(i,9) = self % faces(self % elements(slidingMortarConnectivity(i,3)) % faceIDs(j)) % rotation
+      
+            end if 
+      
+         end if 
+      
+      end do
+   end if 
+   end do 
+
+      ! --------------------------------------------------
+      ! Consistency checks:
+      ! verify that sliding and mortar connectivity relations
+      ! are correctly defined and physically valid
+      ! --------------------------------------------------
+
+   do i = 1, size(slidingMortarElems)
+   
+      if ((slidingMortarConnectivity(i,2) .NE. 0) .AND. (slidingMortarConnectivity(i,3) .NE. 0)) then
+   
+         if (.not. self%elements(slidingMortarConnectivity(i,1))%sliding_newnodes) write(*,*) 'for i=', i, '(i,1) is not sliding_newnodes'
+         if (.not. self%elements(slidingMortarConnectivity(i,2))%sliding_newnodes) write(*,*) 'for i=', i, '(i,2) is not sliding_newnodes'
+         if (self%elements(slidingMortarConnectivity(i,3))%sliding_newnodes)       write(*,*) 'for i', i, '(i,3) is sliding_newnodes'
+         if (self%elements(slidingMortarConnectivity(i,3))%sliding)                write(*,*) 'for i', i, '(i,3) is sliding'
+   
+         elemID  = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(1)
+         neighborElemID = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(2)
+   
+         if (elemID == slidingMortarConnectivity(i,1)) then
+            if (self%elements(neighborElemID)%sliding) write(*,*) 'problem with (i,4)'
+         else
+            if (self%elements(elemID)%sliding) write(*,*) 'problem with (i,4)'
+         end if
+   
+         if ((elemID .NE. slidingMortarConnectivity(i,1)) .AND. (neighborElemID .NE. slidingMortarConnectivity(i,1))) write(*,*) 'problem with (i,4) line 6195'
+   
+   
+         elemID  = self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(1)
+         neighborElemID = self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(2)
+   
+         if (elemID == slidingMortarConnectivity(i,2)) then
+            if (self%elements(neighborElemID)%sliding) write(*,*) 'problem with (i,5)'
+         else
+            if (self%elements(elemID)%sliding) write(*,*) 'problem with (i,5)'
+         end if
+   
+         if ((elemID .NE. slidingMortarConnectivity(i,2)) .AND. (neighborElemID .NE. slidingMortarConnectivity(i,2))) write(*,*) 'problem with (i,5) line 6203'
+   
+   
+         elemID  = self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(1)
+         neighborElemID = self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(2)
+   
+         if (elemID == slidingMortarConnectivity(i,3)) then
+            if (.not. self%elements(neighborElemID)%sliding) write(*,*) 'problem with (i,6)'
+         else
+            if (.not. self%elements(elemID)%sliding) write(*,*) 'problem with (i,6)'
+         end if
+   
+         if ((elemID .NE. slidingMortarConnectivity(i,3)) .AND. (neighborElemID .NE. slidingMortarConnectivity(i,3))) write(*,*) 'problem with (i,5) line 6211'
+   
+      end if
+   
+   end do
+   
+   ! --------------------------------------------------
+   ! Build element-to-element connectivity graph 
+   ! based on shared nodes between sliding interface elements
+   ! --------------------------------------------------
+   neighborConnectivity = 0
+   
+   
+   do i = 1, size(slidingMortarElems)
+   
+      do j = 1, 6
+   
+         if ( (self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(1) .NE. 0) .AND. &
+              (self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(2) .NE. 0) ) then
+   
+               elemID = self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(1)
+   
+            if (.NOT. self%elements(elemID)%sliding) then
+   
+               slidingMortarConnectivity(i,10) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(1)
+               slidingMortarConnectivity(i,12) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%rotation
+   
+               do faceIdx2 = 1, 6
+                  if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(1) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
+                  if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(2) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
+               end do
+   
+            else
+   
+               elemID = self%faces(self%Elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(2)
+   
+               if (.NOT. self%elements(elemID)%sliding) then
+   
+                  slidingMortarConnectivity(i,10) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%elementIDs(2)
+                  slidingMortarConnectivity(i,12) = self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(j))%rotation
+   
+                  do faceIdx2 = 1, 6
+                     if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(1) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
+                     if (self%faces(self%elements(elemID)%faceIDs(faceIdx2))%elementIDs(2) == slidingMortarConnectivity(i,1)) slidingMortarConnectivity(i,11) = faceIdx2
+                  end do
+   
+               end if
+   
+            end if
+   
+         end if
+   
+      end do
+   
+   end do
+
+
+   if (MPI_Process % doMPIAction) then
+      if (.NOT. mpi_partition % Constructed) then
+   
+         open(unit=10, file="slidingMortarConnectivity.txt", action="write")
+   
+         do i = 1, size(slidingMortarElems)
+            write(10,*) (slidingMortarConnectivity(i,j), j=1,12)
+         end do
+   
+         close(10)
+   
+      end if
+   end if
+   
+   ! --------------------------------------------------
+   !  Detect neighboring sliding elements sharing common nodes
+   ! --------------------------------------------------
+   
+   do i = 1, size(slidingMortarElems)
+   
+      nodeIdxA = 2
+      neighborConnectivity(i,1,1) = slidingMortarElems(i)
+      neighborConnectivity(i,1,2) = i
+   
+      do elemCount = 1, size(slidingMortarElems)
+         do iNode2 = 1, 8
+            do iNode3 = 1, 8
+   
+               if ((self%elements(slidingMortarElems(i))%nodeIDs(iNode2) == self%elements(slidingMortarElems(elemCount))%nodeIDs(iNode3)) .AND. &
+               slidingMortarElems(i) .ne. slidingMortarElems(elemCount)) then
+   
+                  isAlreadyConnected = 0
+   
+                  do nodeIdxB = 2, 9
+                     if (neighborConnectivity(i,nodeIdxB,1) == slidingMortarElems(elemCount)) then
+                        isAlreadyConnected = 1
+                     end if
+                  end do
+   
+                  if (isAlreadyConnected .ne. 1) then
+                     neighborConnectivity(i,nodeIdxA,1) = slidingMortarElems(elemCount)
+                     neighborConnectivity(i,nodeIdxA,2) = elemCount
+                     nodeIdxA= nodeIdxA + 1
+                  end if
+   
+               end if
+   
+            end do
+         end do
+      end do
+   
+   end do
+   
+   ! --------------------------------------------------
+   ! Store local indices of shared nodes for each neighbor pair
+   ! --------------------------------------------------
+
+   do i = 1, size(slidingMortarElems)
+   
+      elemID = neighborConnectivity(i,1,1)
+   
+      do iNodeCheck = 2, 9
+   
+         neighborElemID = neighborConnectivity(i,iNodeCheck,1)
+         sharedNodeCounter    = 3
+   
+         if ((elemID .ne. 0) .and. (neighborElemID .ne. 0)) then
+   
+            do iNode2 = 1, 8
+               do iNode3 = 1, 8
+   
+                  if (self%elements(elemID)%nodeIDs(iNode2) == self%elements(neighborElemID)%nodeIDs(iNode3)) then
+                     neighborConnectivity(i,iNodeCheck,sharedNodeCounter) = iNode2
+                     sharedNodeCounter = sharedNodeCounter + 1
+                  end if
+   
+               end do
+            end do
+   
+         end if
+   
+      end do
+   
+   end do
+   
+   
+   if (MPI_Process % doMPIAction) then
+      if (.NOT. mpi_partition % Constructed) then
+   
+         open(unit=10, file="neighborConnectivity.txt", action="write")
+   
+         do i = 1, size(slidingMortarElems)
+            !do j=1,9
+            !do k=1,6
+            write(10,*) (neighborConnectivity(i,:,:))
+            !end do
+            !end do
+         end do
+   
+         close(10)
+   
+      end if
+   end if
+   
+   ! --------------------------------------------------
+   ! Extract sliding elements that do not require mortars
+   ! (fully internal sliding region)
+   ! --------------------------------------------------
+   elemCount = 0
+   
+   do i = 1, size(self%elements)
+   
+      if ((self%elements(i)%sliding) .and. .not.(self%elements(i)%sliding_newnodes)) then
+         elemCount = elemCount + 1
+         pureSlidingElems(elemCount) = i
+      end if
+   
+   end do
+
+
+   do i = 1, size(slidingMortarElems)
+
+      if ((slidingMortarConnectivity(i,2) .NE. 0) .AND. (slidingMortarConnectivity(i,3) .NE. 0)) then
+   
+         if (self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%rotation .NE. slidingMortarConnectivity(i,7)) &
+            write(*,*) 'problem with rotation of slidingMortarConnectivity(i7)'
+   
+         if ((self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(1) .NE. slidingMortarConnectivity(i,1)) .AND. &
+             (self%faces(self%elements(slidingMortarConnectivity(i,1))%faceIDs(slidingMortarConnectivity(i,4)))%elementIDs(2) .NE. slidingMortarConnectivity(i,1))) &
+            write(*,*) 'problem with face i1'
+   
+   
+         if (self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%rotation .NE. slidingMortarConnectivity(i,8)) &
+            write(*,*) 'problem with rotation of slidingMortarConnectivity(i8)'
+   
+         if ((self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(1) .NE. slidingMortarConnectivity(i,2)) .AND. &
+             (self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%elementIDs(2) .NE. slidingMortarConnectivity(i,2))) &
+            write(*,*) 'problem with face i2'
+   
+   
+         if (self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%rotation .NE. slidingMortarConnectivity(i,9)) &
+            write(*,*) 'problem with rotation of slidingMortarConnectivity(i9)'
+   
+         if ((self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(1) .NE. slidingMortarConnectivity(i,3)) .AND. &
+             (self%faces(self%elements(slidingMortarConnectivity(i,3))%faceIDs(slidingMortarConnectivity(i,6)))%elementIDs(2) .NE. slidingMortarConnectivity(i,3))) &
+            write(*,*) 'problem with face i3'
+   
+      end if
+   
+   end do
+   ! --------------------------------------------------
+   ! Ensure uniqueness of connectivity mappings
+   ! (no duplicated sliding, neighbor, or mortar assignments)
+   ! --------------------------------------------------
+   
+   do i = 1, size(slidingMortarElems)
+   
+      ind1 = 0
+      ind2 = 0
+      ind3 = 0
+   
+      do j = 1, size(slidingMortarElems)
+   
+         if (slidingMortarConnectivity(i,1) == slidingMortarConnectivity(j,1)) ind1 = ind1 + 1
+         if (slidingMortarConnectivity(i,2) == slidingMortarConnectivity(j,2)) ind2 = ind2 + 1
+         if (slidingMortarConnectivity(i,3) == slidingMortarConnectivity(j,3)) ind3 = ind3 + 1
+   
+      end do
+   
+      if (ind1 .NE. 1) write(*,*) 'ind1 .NE 1 problem', ind1
+      if (ind2 .NE. 1) write(*,*) 'ind2 .NE 1 problem', ind2
+      if (ind3 .NE. 1) write(*,*) 'ind3 .NE 1 problem', ind3
+   
+   end do
+   
+   ! --------------------------------------------------
+   ! Final validation of face connectivity and rotation consistency
+   ! across sliding-mortar interfaces
+   ! --------------------------------------------------
+   do i = 1, size(slidingMortarElems)
+   
+      if (slidingMortarConnectivity(i,2) .NE. 0) then
+         slidingMortarConnectivity(i,8) = self%faces(self%elements(slidingMortarConnectivity(i,2))%faceIDs(slidingMortarConnectivity(i,5)))%rotation
+      end if
+   
+   end do
+  end subroutine HexMesh_BuildSlidingMortarConnectivity
+
+subroutine HexMesh_RotateSlidingMesh(self, theta, omega, numElementsPerLayer, n, m, newNodeCount, new_nodes, &
+                              slidingMortarElems, pureSlidingElems, neighborConnectivity, offsetParams, scaleParams, &
+                              mortarFaceNodes, nonMortarFaceNodes, numBFacePoints, originalNodeCount, rotationAxis)
+
+   implicit none
+
+   ! =========================
+   ! Arguments
+   ! =========================
+
+   class(HexMesh), intent(inout) :: self
+
+   real(KIND=RP), intent(in)     :: theta        ! rotation angle
+   real(KIND=RP), intent(inout)  :: omega        ! cumulative rotation parameter
+
+   integer, intent(in)           :: numElementsPerLayer      
+   integer, intent(in)           :: n, m         ! discretization / rotation counters
+
+   integer, intent(inout)        :: newNodeCount
+   type(Node), intent(inout)     :: new_nodes(newNodeCount)
+
+   integer, intent(in) :: slidingMortarElems(numElementsPerLayer) ! sliding elements at interface (need mortars)
+   integer, intent(in) :: pureSlidingElems(numElementsPerLayer)   ! sliding elements fully inside region
+
+   integer, intent(in) :: neighborConnectivity(numElementsPerLayer, 9, 6) ! connectivity graph
+
+   real(kind=RP), intent(inout) :: offsetParams(4) ! geometric offsets (mortar mapping)
+   real(kind=RP), intent(inout) :: scaleParams(4)  ! geometric scaling (mortar mapping)
+
+   integer, intent(inout) :: mortarFaceNodes(numElementsPerLayer,4)   ! face nodes (local indexing)
+   integer, intent(inout) :: nonMortarFaceNodes(numElementsPerLayer,4)   ! complementary face nodes
+
+   integer, intent(inout) :: numBFacePoints
+   integer, intent(inout) :: originalNodeCount
+
+   integer, intent(in) :: rotationAxis ! solver convention: 1=X, 2=Z, 3=Y
+
+   ! =========================
+   ! Local variables
+   ! =========================
+
+   real(KIND=RP) :: ROT(3,3)                     ! rotation matrix
+   real(KIND=RP) :: rotatedNodeCoords(8,3)       ! rotated coordinates of element nodes
+   real(KIND=RP) :: nodeCoord(3)                 ! temporary node coordinate
+
+   real(KIND=RP) :: rotatedFlatFace(3,2,2)                 ! planar face (2x2)
+   real(KIND=RP) :: rotatedFacePatch(3,numBFacePoints,numBFacePoints) ! curved face patch
+
+   integer :: i, j, uIdx, vIdx, localNodeIdx, cornerIdx, neighborIdx
+   integer :: newNodeCounter                        ! new node counter
+   integer :: eID                                   ! element ID
+
+   integer :: periodicShiftIndex                    ! periodic alignment indicator
+   real(kind=RP) :: mortarShiftParam                ! geometric parameter
+
+   integer :: nodeRemapLocal(8)                     ! local remapping of duplicated nodes
+
+   real(KIND=RP) :: corners(3,8)                    ! element corners
+   real(KIND=RP) :: faceCorners(3,2,2)              ! flat face
+   real(KIND=RP) :: facePatchPoints(3,numBFacePoints,numBFacePoints)
+
+   real(KIND=RP) :: uNodes(numBFacePoints)
+   real(KIND=RP) :: vNodes(numBFacePoints)
+
+   ! =========================
+   ! Initialization
+   ! =========================
+
+   offsetParams = 0.0_RP
+   scaleParams  = 0.0_RP
+
+   rotatedNodeCoords = 0.0_RP
+   nodeCoord         = 0.0_RP
+
+   nodeRemapLocal = 0
+
+   ! Detect potential periodic alignment after rotation
+   periodicShiftIndex = MOD(m, n)
+
+   faceCorners = 0.0_RP
+
+   ! =========================
+   ! Parameter computation
+   ! =========================
+
+   ! Detect alignment-driven geometric correction
+   mortarShiftParam = 1.0_RP - periodicShiftIndex * (2.0_RP / n)
+
+   ! Rotation-dependent scaling (linked to omega evolution)
+   mortarShiftParam = (-40.0_RP / (4.0_RP * DATAN(1.0_RP))) * omega + 1.0_RP
+
+   ! =========================
+   ! Copy existing nodes
+   ! =========================
+
+   do i = 1, originalNodeCount
+      new_nodes(i)%X      = self%nodes(i)%X
+      new_nodes(i)%globID = self%nodes(i)%globID
+   end do
+
+   ! Mark nodes belonging to sliding elements
+   do i = 1, size(self%elements)
+      if (self%elements(i)%sliding) then
+         do j = 1, 8
+            new_nodes(self%elements(i)%nodeIDs(j))%tbrotated = .true.
+         end do
+      end if
+   end do
+
+   newNodeCounter = SIZE(self%nodes) + 1
+
+   ! =========================
+   ! Rotation matrix
+   ! =========================
+
+   select case(rotationAxis)
+
+   case(1)  ! X-axis
+      ROT=0.0_RP
+      ROT(1,1)=1.0_RP 
+      ROT(2,2)=COS(theta)
+      ROT(2,3)=-SIN(theta)
+      ROT(3,2)=SIN(theta)
+      ROT(3,3)=COS(theta)
+
+   case(2)  ! Z-axis
+      ROT=0.0_RP
+      ROT(1,1)=COS(theta)
+      ROT(2,2)=COS(theta)
+      ROT(3,3)=1.0_RP 
+      ROT(1,2)=-SIN(theta)
+      ROT(2,1)=SIN(theta)
+
+   case(3)  ! Y-axis (solver convention)
+      ROT=0.0_RP
+      ROT(1,1)=COS(-theta)
+      ROT(2,2)=1.0_RP
+      ROT(3,3)=COS(-theta) 
+      ROT(1,3)=SIN(-theta)
+      ROT(3,1)=-SIN(-theta)
+
+   end select
+
+   ! =========================
+   ! Mortar geometric parameters
+   ! =========================
+
+   offsetParams(1) = (mortarShiftParam - 1.0_RP) / 2.0_RP
+   offsetParams(2) = (1.0_RP - mortarShiftParam) / 2.0_RP
+   offsetParams(3) = (1.0_RP + mortarShiftParam) / 2.0_RP
+   offsetParams(4) = (-mortarShiftParam - 1.0_RP) / 2.0_RP
+
+   scaleParams(1) = offsetParams(1) + 1.0_RP
+   scaleParams(2) = 1.0_RP - offsetParams(2)
+   scaleParams(3) = 1.0_RP - offsetParams(3)
+   scaleParams(4) = offsetParams(4) + 1.0_RP
+
+   ! =========================
+   ! Rotate sliding element geometry
+   ! - Applies rotation matrix to element corner nodes
+   ! - Updates surface representation:
+   !     * Linear faces (2x2 nodes)
+   !     * Curved face patches (high-order surfaces)
+   ! =========================
+   do i = 1, self%no_of_elements
+
+      if (.not. self%elements(i)%sliding) cycle
+   
+      eID = i
+   
+      ! =========================
+      ! Case 1: Hex8 element (corner-based geometry)
+      ! =========================
+      if (self%elements(eID)%SurfInfo%IsHex8) then
+   
+         do cornerIdx = 1, 8
+            corners(:,cornerIdx) = MATMUL(ROT, self%elements(eID)%SurfInfo%corners(:,cornerIdx))
+         end do
+   
+         self%elements(eID)%SurfInfo%corners = corners
+   
+      else
+   
+         ! =========================
+         ! Case 2: High-order faces
+         ! =========================
+         do j = 1, 6
+   
+            if (.not. allocated(self%elements(eID)%SurfInfo%facePatches(j)%uKnots)) cycle
+   
+            ! ---------------------------------
+            ! Flat face (2x2)
+            ! ---------------------------------
+            if (self%elements(eID)%SurfInfo%facePatches(j)%noOfKnots(1) == 2) then
+   
+               faceCorners = self%elements(eID)%SurfInfo%facePatches(j)%points
+   
+               rotatedFlatFace(:,1,1) = MATMUL(ROT, faceCorners(:,1,1))
+               rotatedFlatFace(:,2,1) = MATMUL(ROT, faceCorners(:,2,1))
+               rotatedFlatFace(:,2,2) = MATMUL(ROT, faceCorners(:,2,2))
+               rotatedFlatFace(:,1,2) = MATMUL(ROT, faceCorners(:,1,2))
+   
+               self%elements(eID)%SurfInfo%facePatches(j)%points = rotatedFlatFace
+   
+            else
+   
+               ! ---------------------------------
+               ! Curved face (high-order patch)
+               ! ---------------------------------
+               uNodes = self%elements(eID)%SurfInfo%facePatches(j)%uKnots
+               vNodes = self%elements(eID)%SurfInfo%facePatches(j)%vKnots
+   
+               facePatchPoints = self%elements(eID)%SurfInfo%facePatches(j)%points
+   
+               do uIdx = 1, numBFacePoints
+                  do vIdx = 1, numBFacePoints
+                     rotatedFacePatch(:,vIdx,uIdx) = MATMUL(ROT, facePatchPoints(:,vIdx,uIdx))
+                  end do
+               end do
+   
+               if (.not. self%sliding) then
+                  call self%elements(eID)%SurfInfo%facePatches(j)%destruct
+               end if
+   
+               call self%elements(eID)%SurfInfo%facePatches(j)%construct(uNodes, vNodes, rotatedFacePatch)
+   
+            end if
+   
+         end do ! j
+   
+      end if
+   
+   end do ! i
+
+   ! =========================
+   ! Rotate interface sliding elements (with mortars)
+   ! - Rotate element nodes
+   ! - Update interface nodes
+   ! - Duplicate nodes to enforce non-conformity
+   ! - Maintain connectivity across mortar interface
+   ! =========================
+
+   newNodeCounter = originalNodeCount + 1
+
+   do i = 1, size(slidingMortarElems)
+
+      ! Safety check: ensure element is marked as sliding
+      if (.not. self % elements(slidingMortarElems(i)) % sliding) then
+         write(*,*) "problem elem slidingMortarElems"
+      end if
+
+      ! -------------------------
+      ! Compute rotated coordinates of element nodes
+      ! -------------------------
+      do j = 1, 8
+
+         if (self % elements(slidingMortarElems(i)) % nodeIDs(j) .LE. originalNodeCount) then
+
+            if (self % elements(slidingMortarElems(i)) % nodeIDs(j) == 0) then
+               write(*,*) 'node ', j, 'of element', i, '=0 wtf'
+            end if
+
+            nodeCoord = self % nodes(self % elements(slidingMortarElems(i)) % nodeIDs(j)) % X
+            rotatedNodeCoords(j,:) = MATMUL(ROT, nodeCoord)
+
+         else
+            rotatedNodeCoords(j,:) = 0.0_RP
+         end if
+
+      end do
+
+      ! -------------------------
+      ! Update nodes on non-mortar side (no duplication)
+      ! -------------------------
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,1))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,1),:)
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,2))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,2),:)
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,3))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,3),:)
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,4))) % X = rotatedNodeCoords(nonMortarFaceNodes(i,4),:)
+
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,1))) % rotated = .true.
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,2))) % rotated = .true.
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,3))) % rotated = .true.
+      new_nodes(self % elements(slidingMortarElems(i)) % nodeIDs(nonMortarFaceNodes(i,4))) % rotated = .true.
+
+      nodeRemapLocal = 0
+
+      ! -------------------------
+      ! Handle mortar interface (node duplication + remapping)
+      ! -------------------------
+      if (.not. self%sliding) then
+
+         ! Create duplicated nodes for non-conforming interface
+         do j = 1, 4
+
+            if (self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) .LE. originalNodeCount) then
+
+               if (self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) .GT. originalNodeCount) then
+                  write(*,*) 'problem logistic 0'
+               end if
+
+               new_nodes(newNodeCounter) % globID = newNodeCounter
+               new_nodes(newNodeCounter) % X = rotatedNodeCoords(mortarFaceNodes(i,j),:)
+               new_nodes(newNodeCounter) % rotated = .true.
+
+               nodeRemapLocal(mortarFaceNodes(i,j)) = newNodeCounter
+               newNodeCounter = newNodeCounter + 1
+
+               ! Propagate new node IDs to neighboring elements
+               do neighborIdx = 2, 3
+
+                     eID = neighborConnectivity(i,neighborIdx,1)
+
+                     if (eID .ne. 0) then
+
+                        do localNodeIdx = 1, 8
+
+                           if (self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) == &
+                               self % elements(eID) % nodeIDs(localNodeIdx)) then
+
+                              self % elements(eID) % nodeIDs(localNodeIdx) = nodeRemapLocal(mortarFaceNodes(i,j))
+
+                              if (nodeRemapLocal(mortarFaceNodes(i,j)) == 0) then
+                                 write(*,*) 'element', eID, 'is receiving 0 for node', localNodeIdx
+                              end if
+
+                           end if
+
+                        end do !localNodeIdx
+
+                     end if
+
+               end do !neighborIdx
+
+            end if
+
+         end do !j
+
+         ! Replace original node IDs with duplicated ones
+         do j = 1, 4
+
+            if ((self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j))) .LE. originalNodeCount) then
+
+               if (nodeRemapLocal(mortarFaceNodes(i,j)) == 0) then
+                  write(*,*) 'element', slidingMortarElems(i), 'is receiving 0 for node 5', &
+                             self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j))
+               end if
+
+               self % elements(slidingMortarElems(i)) % nodeIDs(mortarFaceNodes(i,j)) = nodeRemapLocal(mortarFaceNodes(i,j))
+
+            end if
+
+         end do !j
+
+      end if
+
+   end do
+
+
+   ! =========================
+   ! Rotate interior sliding elements (no mortars)
+   ! - Simple rotation of all nodes
+   ! - No duplication or connectivity updates
+   ! =========================
+
+   do i = 1, size(pureSlidingElems)
+
+      ! Safety check
+      if (.not. (self % elements(pureSlidingElems(i)) % sliding)) then
+         write(*,*) "problem elem slidingMortarElems"
+      end if
+
+      ! Rotate all nodes
+      do j = 1, 8
+
+         nodeCoord = self % nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % X
+         rotatedNodeCoords(j,:) = MATMUL(ROT, nodeCoord)
+
+      end do
+
+      ! Update node coordinates if not already rotated
+      do j = 1, 8
+
+         if (.not. new_nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % rotated) then
+
+            new_nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % X = rotatedNodeCoords(j,:)
+            new_nodes(self % elements(pureSlidingElems(i)) % nodeIDs(j)) % rotated = .true.
+
+         end if
+
+      end do
+
+   end do
+
+end subroutine HexMesh_RotateSlidingMesh
+
+
+subroutine HexMesh_Modifymesh(self, nodes, nelm, arr1, arr2, arr3, Mat, center, o, s, &
+   face_nodes, face_othernodes, rotmortars, th, newnNodes, &
+   numBFacePoints, oldnnode, theta)
+
+IMPLICIT NONE
+
+class(HexMesh), intent(inout) :: self
+
+integer, intent(in)           :: nodes
+integer, intent(in)           :: nelm
+
+integer, intent(inout)        :: arr1(nelm)
+integer, intent(inout)        :: arr2(nelm)
+integer, intent(inout)        :: arr3(nelm)
+integer, intent(inout)        :: Mat(nelm,12)
+
+real(kind=RP), intent(inout)  :: center(2)
+real(kind=RP), intent(inout)  :: o(4)
+real(kind=RP), intent(inout)  :: s(4)
+
+integer, intent(inout)        :: face_nodes(nelm,4)
+integer, intent(inout)        :: face_othernodes(nelm,4)
+integer, intent(inout)        :: rotmortars(nelm*2)
+
+real(kind=RP), intent(inout)  :: th
+
+integer, intent(in)           :: newnNodes
+integer, intent(inout)        :: numBFacePoints
+integer, intent(inout)        :: oldnnode
+
+real(kind=RP), intent(inout)  :: theta
+
+type(Node), allocatable       :: new_nodes(:)
+!type(Node), allocatable     :: tmpNodes(:)
+
+integer                       :: l, i, j
+integer                       :: new_nNodes, new_nFaces
+integer                       :: n, m
+
+integer                       :: Connect(nelm, 9, 6)
+
+!real(kind=RP) :: theta
+
+real(kind=RP)                 :: PI
+logical                       :: success
+
+integer                       :: dealloc_status
+integer                       :: sn, eID, fID, rotationAxis
+
+allocate(new_nodes(newnNodes))
+
+new_nNodes = 0
+new_nFaces = 0
+rotationAxis = 3
+th = theta
+self%omega = self%omega + theta
+!theta=self%omega
+
+n  = 3
+m  = 1
+sn = SIZE(self % nodes)
+
+new_nNodes = SIZE(self % nodes)
+
+o = 0.0_RP
+s = 0.0_RP
+
+if (.not. self%sliding) then
+   arr1 = 0
+   arr2 = 0
+
+   call self % BuildSlidingMortarConnectivity(1.01_RP, nelm, center, arr3, arr2, arr1, &
+                                         Mat, Connect, new_nFaces, face_nodes, &
+                                         face_othernodes, rotmortars)
+end if
+
+new_nNodes = SIZE(self % nodes)
+
+if (.not. self%sliding) then
+
+   call self % RotateSlidingMesh(theta, self%omega, nelm, n, m, new_nNodes, new_nodes, &
+                           arr2, arr3, Connect, o, s, face_nodes, &
+                           face_othernodes, numBFacePoints, oldnnode, rotationAxis)
+
+else
+
+   call self % RotateSlidingMesh(theta, self%omega, nelm, n, m, new_nNodes, new_nodes, &
+                           self%arr2, self%arr3, self%Connect, o, s, &
+                           self%face_nodes, self%face_othernodes, numBFacePoints, oldnnode, rotationAxis)
+
+end if
+
+if (.not. self%sliding) then
+   do i = 1, size(self % nodes)
+      self % nodes(i) % X      = new_nodes(i) % X
+      self % nodes(i) % GlobID = new_nodes(i) % GlobID
+   end do
+end if
+
+
+if (.not. self%sliding) then
+
+   do l = 1, SIZE(self%faces)
+
+      !call self % faces(l) % Destruct
+
+      self % faces(l) % ID             = -1
+      self % faces(l) % FaceType       = HMESH_NONE
+      self % faces(l) % rotation       = 0
+      self % faces(l) % NelLeft        = -1
+      self % faces(l) % NelRight       = -1
+      self % faces(l) % NfLeft         = -1
+      self % faces(l) % NfRight        = -1
+      self % faces(l) % Nf             = -1
+      self % faces(l) % nodeIDs        = -1
+      self % faces(l) % elementIDs     = -1
+      self % faces(l) % elementSide    = -1
+      self % faces(l) % projectionType = -1
+      self % faces(l) % boundaryName   = ""
+
+   end do
+
+end if
+
+
+if (allocated(self%mortar_faces)) then
+
+   do l = 1, SIZE(self%mortar_faces)
+
+      !call self % faces(l) % Destruct
+
+      self % mortar_faces(l) % ID             = -1
+      self % mortar_faces(l) % FaceType       = HMESH_NONE
+      self % mortar_faces(l) % rotation       = 0
+      self % mortar_faces(l) % NelLeft        = -1
+      self % mortar_faces(l) % NelRight       = -1
+      self % mortar_faces(l) % NfLeft         = -1
+      self % mortar_faces(l) % NfRight        = -1
+      self % mortar_faces(l) % Nf             = -1
+      self % mortar_faces(l) % nodeIDs        = -1
+      self % mortar_faces(l) % elementIDs     = -1
+      self % mortar_faces(l) % elementSide    = -1
+      self % mortar_faces(l) % projectionType = -1
+      self % mortar_faces(l) % boundaryName   = ""
+
+   end do
+
+end if
+
+deallocate(new_nodes)
+end subroutine HexMesh_Modifymesh
+
+!*********************************************************************************************************
+subroutine HexMesh_ConstructSlidingMortarsConforming(self, nodes, nelm, array1, array2, Mat, o, s, &
+                                                     mortararr2, rotmortars)
+
+   class(HexMesh), intent(inout) :: self
+
+   integer, intent(in)           :: nodes
+   integer, intent(in)           :: nelm
+
+   integer, intent(in)           :: array1(nelm)
+   integer, intent(in)           :: array2(nelm)
+   integer, intent(in)           :: Mat(nelm,12)
+
+   real(kind=RP), intent(in)     :: o(4)
+   real(kind=RP), intent(in)     :: s(4)
+
+   integer, intent(in)           :: mortararr2(nelm, 2)
+   integer, intent(in)           :: rotmortars(2*nelm)
+
+
+   integer                       :: i, j, k, l, m
+   integer                       :: fID1, fID2
+   integer                       :: eID1, eID2
+   integer                       :: faceNumber, faceNumber2
+
+   integer                       :: faceNodeIDs(4)
+   integer                       :: faceNodeIDs1(4)
+   integer                       :: faceNodeIDs2(4)
+
+   integer                       :: nodeIDs(8)
+   integer                       :: nodeIDs1(8)
+   integer                       :: nodeIDs2(8)
+
+   integer                       :: NelL(2), NelR(2)
+
+   real(kind=RP)                 :: NODESS(4,3)
+   real(kind=RP)                 :: NODES2(4,3)
+
+   integer                       :: rot
+   integer                       :: el(nelm,2)
+
+
+   do i = 1, nelm
+
+      do l = 1, nelm
+
+         if (array1(i) == array2(l)) then
+            write(*,*) 'tnaket array1(i)==array2(l)', i, l, array1(i), array2(l)
+         end if
+
+      end do
+
+   end do
+
+   ALLOCATE (self % mortar_faces(nelm))
+   l=1
+   i=1
+   do while (i .LE. nelm)
+
+      eID1 = Mat(i,3)
+      nodeIDs = self % elements(eID1) % nodeIDs
+      faceNumber = Mat(i,6)
+   
+      !write(*,*) 'mine 7521 of hexmesh'n Mat(i,:)
+   
+      do j = 1, 4
+         faceNodeIDs(j) = nodeIDs(localFaceNode(j, faceNumber))
+      end do
+   
+   
+      fID1 = self % elements(eID1) % faceIDs(Mat(i,6))   !!!!!!!!!!!
+   
+   
+      allocate(self % faces(fID1) % Mortar(1))
+   
+      ! write(*,*) 'computing the to mortars of element:', eID1
+      !do m=1, 2
+   
+      call self % mortar_faces(l) % Construct( &
+           ID        = l, &
+           nodeIDs   = faceNodeIDs, &
+           elementID = eID1, &
+           side      = faceNumber)
+   
+      self % mortar_faces(l) = self % faces(fID1)
+      !self%mortar_faces(l)=self % faces(self %elements(Mat(i,1) ) % faceIDs(Mat(i,4)))
+   
+      self % mortar_faces(l) % Mortarpos = 1
+      self % mortar_faces(l) % ID        = l
+   
+      !write(*,*) 'ID of the mortar', m,'ID=', l
+   
+      self % mortar_faces(l) % FaceType = HMESH_INTERIOR
+   
+      !!!!!!!!!self % mortar_faces(l) % boundaryName = self % elements(eID1) % boundaryName(faceNumber)
+   
+      allocate(self % mortar_faces(l) % Mortar(2))
+   
+      self % mortar_faces(l) % Mortar(1) = fID1
+   
+      !self % faces(fID1) %IsMortar=3
+   
+      self % faces(fID1) % Mortar(1) = l
+   
+      ! if (m==2)  self % faces(fID1) % Mortar(2)=l
+   
+      !if (m==1) eID2= Mat(i,2)   !2
+      eID2 = Mat(i,1)   !3
+      write(*,*) 'second element of the mortar', l, 'eID', eID2
+
+      self % mortar_faces(l) % elementIDs(2)  = eID2
+      self % mortar_faces(l) % elementSide(2) = Mat(i,4)
+      self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+      
+      
+      self % elements(eID1) % faceSide(Mat(i,6)) = 1
+      self % elements(eID2) % faceSide(Mat(i,4)) = 2
+      
+      
+      fID2 = self % elements(eID2) % faceIDs(Mat(i,4))
+      
+      self % mortar_faces(l) % Mortar(2) = fID2
+      self % mortar_faces(l) % rotation  = Mat(i,7)
+      
+      
+      if (.not. allocated(self % faces(fID2) % Mortar)) then
+         allocate(self % faces(fID2) % Mortar(1))
+      end if
+      
+      
+      self % mortar_faces(l) % offset(1) = 0.0_RP
+      self % mortar_faces(l) % offset(2) = 0.0_RP
+      
+      self % mortar_faces(l) % s(1) = 1.0_RP
+      self % mortar_faces(l) % s(2) = 1.0_RP
+      
+      self % faces(fID2) % Mortar(1) = l
+      
+      
+      !end if  
+      !self % faces(fID2) % Mortar(m)=l
+      
+      l = l + 1
+      
+      !end do     
+      
+      self % elements(array2(i)) % MortarFaces(1) = 3
+      self % elements(array1(i)) % MortarFaces(2) = 3
+      
+      i = i + 1
+      
+      end do
+      
+      
+      do i = 1, size(self % mortar_faces)
+      
+         associate(f => self % mortar_faces(i))
+      
+            associate( &
+               eL => self % elements(f % elementIDs(1)), &
+               eR => self % elements(f % elementIDs(2))  )
+      
+               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+               NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+      
+               call f % LinkWithElements(NelL, NelR, nodes, f % offset, f % s)
+      
+            end associate
+      
+         end associate
+      
+      end do
+   
+
+      do i = 1, size(self % mortar_faces)
+
+         associate(f => self % mortar_faces(i))
+      
+            associate( &
+               eL => self % elements(f % elementIDs(1)), &
+               eR => self % elements(f % elementIDs(2))  )
+      
+               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+               NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+      
+               call f % geom % construct( &
+                  f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+                  eL % geom, eL % hexMap, f % elementSide(1), &
+                  f % projectionType(1), 1, 0, .true., 1, f % s(1), f % IsMortar )
+      
+            end associate
+      
+            f % geom % h = minval(self % elements(f % elementIDs(2)) % geom % jacobian) &
+                         / maxval(f % geom % jacobian)
+      
+         end associate
+      
+      end do
+      
+      
+      do i = 1, size(self % mortar_faces)
+      
+         self % mortar_faces(i) % geom % x        = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % x
+         self % mortar_faces(i) % geom % GradXi   = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % GradXi
+         self % mortar_faces(i) % geom % GradEta  = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % GradEta
+         self % mortar_faces(i) % geom % GradZeta = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % GradZeta
+         self % mortar_faces(i) % geom % normal   = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % normal
+         self % mortar_faces(i) % geom % t1       = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % t1
+         self % mortar_faces(i) % geom % t2       = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % t2
+         self % mortar_faces(i) % geom % surface  = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % surface
+         self % mortar_faces(i) % geom % jacobian = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % jacobian
+         self % mortar_faces(i) % geom % h        = self % faces(self % mortar_faces(i) % Mortar(1)) % geom % h
+      
+      
+         self % faces(self % mortar_faces(i) % Mortar(2)) % elementIDs(2) = &
+         self % faces(self % mortar_faces(i) % Mortar(2)) % elementIDs(1)
+      
+         self % faces(self % mortar_faces(i) % Mortar(2)) % elementIDs(1) = 0
+      
+      
+         write(*,*) 'mortar number', i, 'elements:', self % mortar_faces(i) % elementIDs
+         write(*,*) 'mortar number', i, 'elemenfaces:', self % mortar_faces(i) % Mortar
+         write(*,*) 'element of first face:', self % faces(self % mortar_faces(i) % Mortar(1)) % elementIDs
+         write(*,*) 'element of second face:', self % faces(self % mortar_faces(i) % Mortar(2)) % elementIDs
+      
+      end do
+      do i = 1, size(array2)
+
+         nodeIDs1   = self % elements(Mat(i,3)) % nodeIDs    !3
+         nodeIDs2   = self % elements(Mat(i,1)) % nodeIDs    !1
+         faceNumber2 = Mat(i,6)                              !rot of 3
+         faceNumber  = Mat(i,4)                              !rot of 1
+      
+         do j = 1, 4
+            faceNodeIDs2(j) = nodeIDs1(localFaceNode(j, faceNumber2))
+            NODESS(j,:)     = self % nodes(faceNodeIDs2(j)) % X
+      
+            faceNodeIDs(j)  = nodeIDs2(localFaceNode(j, faceNumber))
+            NODES2(j,:)     = self % nodes(faceNodeIDs(j)) % X
+         end do        
+      
+         rot = faceRotationnodes(masterNodeIDs = NODESS, slaveNodeIDs = NODES2)
+      
+         write(*,*) 'i=', i
+      
+         if (rot .NE. Mat(i,7)) then
+            write(*,*) 'problem rot .NE. MAT:, rot=', rot, 'MAT=', Mat(i,7)
+         end if
+      
+         if (rot .EQ. Mat(i,7)) then
+            write(*,*) 'no problem', rot, 'MAT=', Mat(i,7)
+         end if
+      
+         self % mortar_faces(i) % rotation = rot
+      
+      end do 
+      
+      
+      do i = 1, size(self % mortar_faces)
+      
+         write(*,*) 'mortar', i, 'between element:', self % mortar_faces(i) % elementIDs
+         write(*,*) 'rotation:', self % mortar_faces(i) % rotation
+      
+      end do
+
+end subroutine HexMesh_ConstructSlidingMortarsConforming
+
+subroutine HexMesh_ConstructMortars(self, nodes, nelm, array1, array2, Mat, o, s, &
+   mortararr2, rotmortars, th, confor)
+
+class(HexMesh), intent(inout) :: self
+
+integer, intent(in)           :: nodes
+integer, intent(in)           :: nelm
+
+integer, intent(in)           :: array1(nelm)
+integer, intent(in)           :: array2(nelm)
+integer, intent(in)           :: Mat(nelm,12)
+
+real(kind=RP), intent(in)     :: o(4)
+real(kind=RP), intent(in)     :: s(4)
+
+integer, intent(in)           :: mortararr2(nelm, 2)
+integer, intent(in)           :: rotmortars(2*nelm)
+
+real(kind=RP), intent(in)     :: th
+logical, intent(in)           :: confor
+
+
+integer                       :: i, j, k, l, m
+integer                       :: fID1, fID2
+integer                       :: eID1, eID2
+integer                       :: faceNumber, faceNumber1, faceNumber2
+
+integer                       :: faceNodeIDs(4)
+integer                       :: faceNodeIDs1(4)
+integer                       :: faceNodeIDs2(4)
+
+integer                       :: nodeIDs(8)
+integer                       :: nodeIDs1(8)
+integer                       :: nodeIDs2(8)
+
+integer                       :: NelL(2), NelR(2)
+
+real(kind=RP)                 :: theta
+real(kind=RP)                 :: XR(4,3)
+real(kind=RP)                 :: NODESS(4,3)
+real(kind=RP)                 :: NODES2(4,3)
+
+real(kind=RP)                 :: ROT(3,3)
+
+integer                       :: rota
+integer                       :: el(nelm,2)
+integer                       :: ell(nelm,2)
+integer                       :: nf
+
+if (self%sliding) then
+   !call Tset % destruct
+   call TsetM % destruct
+end if
+
+
+do i = 1, nelm
+   do l = 1, nelm
+      if (array1(i) == array2(l)) then
+         write(*,*) ' array1(i)==array2(l)', i, l, array1(i), array2(l)
+      end if
+   end do
+end do
+
+
+if (.not. allocated(self%mortar_faces)) then
+   allocate(self % mortar_faces(2*nelm))
+end if
+
+
+l = 1
+i = 1
+
+do i = 1, size(array2)
+
+   if (.not. confor) then
+      eID1      = Mat(i,3)
+      faceNumber = Mat(i,6)
+   else
+      eID1      = Mat(i,10)
+      faceNumber = Mat(i,11)
+   end if
+
+   nodeIDs = self % elements(eID1) % nodeIDs
+
+   do j = 1, 4
+      faceNodeIDs(j) = nodeIDs(localFaceNode(j, faceNumber))
+   end do
+
+
+   fID1 = self % elements(eID1) % faceIDs(faceNumber)   !!!!!!!!!!!
+
+   if (.not. allocated(self % faces(fID1) % Mortar)) then
+      allocate(self % faces(fID1) % Mortar(2))
+   end if
+   
+   
+   call self % mortar_faces(l) % Construct( &
+        ID        = l, &
+        nodeIDs   = faceNodeIDs, &
+        elementID = eID1, &
+        side      = faceNumber)
+   
+   !self%mortar_faces(l)=self % faces(fID1)
+   !self%mortar_faces(l)%ID=l
+   
+   self % mortar_faces(l) % Mortarpos = 0
+   self % mortar_faces(l) % FaceType  = HMESH_INTERIOR
+   
+   
+   if (.not. allocated(self % mortar_faces(l) % Mortar)) then
+      allocate(self % mortar_faces(l) % Mortar(2))
+   end if
+   
+   self % mortar_faces(l) % Mortar(1) = fID1
+   self % faces(fID1) % Mortar(1)     = l
+   
+   
+   eID2 = Mat(i,2)
+   
+   self % mortar_faces(l) % elementIDs(2)  = eID2
+   self % mortar_faces(l) % elementSide(2) = Mat(i,5)
+   self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+   
+   
+   self % elements(eID1) % faceSide(faceNumber) = 1
+   self % elements(eID2) % faceSide(Mat(i,5))   = 2
+   
+   
+   fID2 = self % elements(eID2) % faceIDs(Mat(i,5))
+   
+   self % mortar_faces(l) % Mortar(2) = fID2
+   self % mortar_faces(l) % rotation  = Mat(i,8)
+   
+   
+   if (.not. allocated(self % faces(fID2) % Mortar)) then
+      allocate(self % faces(fID2) % Mortar(2))
+   end if
+   
+   
+   self % mortar_faces(l) % offset(1) = o(1)
+   self % mortar_faces(l) % offset(2) = o(2)
+   
+   self % mortar_faces(l) % s(1) = s(1)
+   self % mortar_faces(l) % s(2) = s(2)
+   
+   
+   if (confor) then
+   
+      self % mortar_faces(l) % offset(1) = 0.0_RP
+      self % mortar_faces(l) % offset(2) = 0.0_RP
+   
+      self % mortar_faces(l) % s(1) = 0.0_RP
+      self % mortar_faces(l) % s(2) = 0.0_RP
+   
+   end if
+   
+   
+   self % faces(fID2) % Mortar(2) = l
+   
+   
+   l = l + 1
+   
+   
+   self % elements(array2(i)) % MortarFaces(1) = 3
+   self % elements(array1(i)) % MortarFaces(2) = 3
+   
+   !i=i+1
+   end do
+
+
+l=nelm+1
+i=1
+do i=1,size(array2)
+   if (.not.confor) then 
+      eID1=Mat(i,3)
+      faceNumber=Mat(i,6)
+   else 
+      eID1=Mat(i,10)
+      faceNumber=Mat(i,11)
+   end if 
+   nodeIDs = self % elements(eID1) % nodeIDs
+   DO j = 1, 4
+       faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber))
+   END DO
+
+  fID1=self %elements(eID1) % faceIDs(faceNumber)!!!!!!!!!!!
+
+
+
+       CALL self % mortar_faces(l) % Construct(ID  = l, &
+       nodeIDs = faceNodeIDs, &
+       elementID = eID1,       &
+       side = faceNumber)
+      ! self%mortar_faces(l)=self % faces(fID1)
+
+      ! self%mortar_faces(l)%ID=l
+       self%mortar_faces(l)%Mortarpos=1
+       self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+       if (.not.allocated(self % mortar_faces(l) % Mortar)) allocate(self % mortar_faces(l) % Mortar(2)) 
+       self % mortar_faces(l) % Mortar(1)=fID1
+       self % faces(fID1) % Mortar(2)=l
+
+       eID2= Mat(i,1)   !3
+
+       self % mortar_faces(l) % elementIDs(2)  = eID2
+
+       self % mortar_faces(l) % elementSide(2) = Mat(i,4)
+       self % mortar_faces(l) % FaceType       = HMESH_INTERIOR
+
+       self%elements(eID1)%faceSide(faceNumber)=1
+
+        self%elements(eID2)%faceSide(Mat(i,4))=2
+
+        fID2=self %elements(eID2) % faceIDs(Mat(i,4))
+
+       self % mortar_faces(l) % Mortar(2)=fID2
+       self % mortar_faces(l) % rotation=Mat(i,8)
+       if (.not.allocated(self % faces(fID2) % Mortar)) then 
+         !write(*,*) 'line 7622 not allocated'
+         if (.not.allocated(self % faces(fID2) % Mortar)) allocate(self % faces(fID2) % Mortar(2)) 
+       end if 
+
+            self % mortar_faces(l)%offset(1)=o(3)
+            self % mortar_faces(l)%offset(2)=o(4)
+
+           self % mortar_faces(l)%s(1)=s(3)
+           self % mortar_faces(l)%s(2)= s(4)
+           if (confor) then 
+            self % mortar_faces(l)%offset(1)=0.0_RP
+            self % mortar_faces(l)%offset(2)=0.0_RP
+
+           self % mortar_faces(l)%s(1)=1.0_RP
+           self % mortar_faces(l)%s(2)=1.0_RP
+           end if 
+           self % faces(fID2) % Mortar(1)=l
+
+       l=l+1    
+   self % elements(array2(i))% MortarFaces(1)=3 
+   self % elements(array1(i))% MortarFaces(2)=3                                                        
+    !i=i+1
+end do
+
+do i=1, size(self%mortar_faces)
+   associate(f => self % mortar_faces(i))
+     associate(eL => self % elements(f % elementIDs(1)), &
+        eR => self % elements(f % elementIDs(2))   )
+        NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+        NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+        call f % LinkWithElements(NelL, NelR, nodes, f%offset, f%s)
+       end associate
+end associate
+end do
+
+
+do i=1, size(self%mortar_faces)
+  associate(f => self % mortar_faces(i))
+    associate(eL => self % elements(f % elementIDs(1)), &
+       eR => self % elements(f % elementIDs(2))   )
+       NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+       NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+       call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, &
+                                 eL % geom, eL % hexMap, f % elementSide(1), &
+                                 f % projectionType(1), 1, 0,.true.,f%Mortarpos, f%s(1))
+
+
+      end associate
+      f % geom % h = minval(self % elements(f % elementIDs(2)) % geom % jacobian) &
+      / maxval(f % geom % jacobian)
+      nf=f % Nf(1)
+end associate
+end do 
+l=nelm+1
+do i=1,size(array2)
+theta=(4.0_RP*DATAN(1.0_RP))/16.0_RP -th 
+ROT=0.0_RP
+ROT(1,1)=COS(theta)
+ROT(2,2)=COS(theta)
+ROT(3,3)=1.0_RP 
+ROT(1,2)=-SIN(theta)
+ROT(2,1)=SIN(theta)
+   nodeIDs1=self%elements(Mat(i,3))% nodeIDs    !3
+   nodeIDs2=self%elements(Mat(i,1))% nodeIDs    !1
+   faceNumber2=Mat(i,6)          !facenumber of 3
+   faceNumber1=Mat(i,4)           !facenumber of 1
+   DO j = 1, 4
+       faceNodeIDs2(j) = nodeIDs1(localFaceNode(j,faceNumber2))
+       NODESS(j,:)=self%nodes(faceNodeIDs2(j))%X
+       faceNodeIDs1(j) = nodeIDs2(localFaceNode(j,faceNumber1))
+       NODES2(j,:)=self%nodes(faceNodeIDs1(j))%X
+       XR(j,:)=NODES2 (j,:)
+       NODES2(j,:)= MATMUL(ROT, XR(j,:))
+   END DO        
+   !rota=faceRotationnodes(masterNodeIDs=NODESS, slaveNodeIDs=NODES2)
+   !write(*,*) 'i=,',i
+   !write(*,*) 'l=,',l
+   !if (rota .NE. Mat(i,7)) write(*,*) 'problem rot .NE. MAT:, rot=', rota, 'MAT=', Mat(i,7)
+   !if (rota .EQ. Mat(i,7)) write(*,*) 'no problem', rota, 'MAT=', Mat(i,7)
+   !  self % mortar_faces(l) % rotation=rota
+
+   l=l+1
+end do 
+end subroutine HexMesh_ConstructMortars
 END MODULE HexMeshClass

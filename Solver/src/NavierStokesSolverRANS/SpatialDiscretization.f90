@@ -33,10 +33,11 @@ module SpatialDiscretization
 
 
       abstract interface
-         SUBROUTINE computeElementInterfaceFluxF(f)
+      SUBROUTINE computeElementInterfaceFluxF(f, fma )
             use FaceClass
             IMPLICIT NONE
             TYPE(Face)   , INTENT(inout) :: f
+            type(Face), optional, intent(inout) :: fma
          end subroutine computeElementInterfaceFluxF
 
          SUBROUTINE computeMPIFaceFluxF(f)
@@ -392,7 +393,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, m 
          real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim, &
                            Source(NCONS), TurbulentSource(NCONS)
          logical     :: isfirst = .TRUE.
@@ -469,9 +470,25 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
+            if (mesh % faces(fID) % IsMortar==1) then 
+               associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                  fstar=0.0_RP
+               end associate
+               associate(fstar=>mesh% faces(fID)%storage(2)%fStar)
+                  fstar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call computeElementInterfaceFlux(fma=mesh % faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do 
+         elseif (mesh % faces(fID) % IsMortar==0) then 
             call computeElementInterfaceFlux(mesh % faces(fID))
+            end if 
          end do
 !$omp end do nowait
+
+
 
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
@@ -531,9 +548,33 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % faces_mpi)
                fID = mesh % faces_mpi(iFace)
+               if (mesh% faces(fID)%IsMortar==1) then 
+                  !write(*,*) 'big mortar face mpi'
+                  associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
+                     fstar=0.0_RP
+                  end associate
+                  do m=1,4
+                     if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                        call computeElementInterfaceFlux(fma=mesh % faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                     end if 
+                  end do 
+               end if 
                call computeMPIFaceFlux(mesh % faces(fID))
             end do
 !$omp end do
+
+!$omp single
+            if ( mesh % nonconforming ) then
+               call mesh % UpdateMPIFacesMortarflux(NCONS)
+            end if
+      !$omp end single
+      
+      
+      !$omp single
+            if ( mesh % nonconforming ) then
+               call mesh % GatherMPIFacesMortarFlux(NCONS)         
+            end if
+      !$omp end single
 !
 !           ***********************************************************
 !           Surface integrals and scaling of elements with shared faces
@@ -711,6 +752,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
+                  if (f % IsMortar==1) cycle 
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                   do side = 1, no_of_sides
                       call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
@@ -724,6 +766,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,mu_t, kinematic_viscocity, mu_dim)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
+                  if (f % IsMortar==1) cycle 
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                   do side = 1, no_of_sides
 
@@ -1050,11 +1093,13 @@ module SpatialDiscretization
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE computeElementInterfaceFlux_NSSA(f)
+      SUBROUTINE computeElementInterfaceFlux_NSSA(f, fma)
          use FaceClass
          use RiemannSolvers_NSSA
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f
+        type(Face), optional, intent(inout) :: fma 
+
          integer       :: i, j
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
@@ -1062,20 +1107,22 @@ module SpatialDiscretization
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
         integer        :: Sidearray(2)
+
+       !if (f % IsMortar==0 .OR. f % IsMortar==2) then 
 !
-!        ---------------------------
-!        Artificial viscosity fluxes
-!        ---------------------------
-!
+  !        ---------------------------
+  !        Artificial viscosity fluxes
+  !        ---------------------------
+  !
          if ( ShockCapturingDriver % isActive ) then
             Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
          else
             Avisc_flux = 0.0_RP
          end if
-!
-!        --------------
-!        Viscous fluxes
-!        --------------
+  !
+  !        --------------
+  !        Viscous fluxes
+  !        --------------
 
          visc_flux = 0._RP
 
@@ -1091,11 +1138,11 @@ module SpatialDiscretization
 
                   mu_left(3) = f % storage(1) % mu_NS(2,i,j)
                   mu_right(3) = f % storage(2) % mu_NS(2,i,j)
-!
-!                 --------------
-!                 Viscous fluxes
-!                 --------------
-!
+  !
+  !                 --------------
+  !                 Viscous fluxes
+  !                 --------------
+  !
                   CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                      EllipticFlux = ViscousFlux, &
                                                      f = f, &
@@ -1118,11 +1165,11 @@ module SpatialDiscretization
 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
-!
-!              --------------
-!              Invscid fluxes
-!              --------------
-!
+  !
+  !              --------------
+  !              Invscid fluxes
+  !              --------------
+  !
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
@@ -1131,21 +1178,31 @@ module SpatialDiscretization
                                   flux   = inv_flux(:,i,j) )
 
 
-!
-!              Multiply by the Jacobian
-!              ------------------------
+  !
+  !              Multiply by the Jacobian
+  !              ------------------------
 
                flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
 
             END DO
          END DO
-!
-!        ---------------------------
-!        Return the flux to elements
-!        ---------------------------
-!
+  !
+  !        ---------------------------
+  !        Return the flux to elements
+  !        ---------------------------
+  !
+      if (f % IsMortar==0) then  
          Sidearray = (/1,2/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+         end if 
+     if (f % IsMortar==2 .and. present(fma)) then 
+      Sidearray = (/1,0/)
+      call fma % ProjectMortarFluxToElements(nEqn=NCONS, whichElements=Sidearray, &
+      fma=f, flux_M1=flux)
+      Sidearray = (/0,2/)
+      call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+     end if 
+     ! end if 
 
       END SUBROUTINE computeElementInterfaceFlux_NSSA
 
@@ -1248,7 +1305,11 @@ module SpatialDiscretization
 
          Sidearray = (/thisSide, HMESH_NONE/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray )
+         if (f % IsMortar==2) then 
+            !write(*,*) 'this side', thisSide
+            call f% Interpolatesmall2big(NCONS, flux)
 
+         end if 
       end subroutine ComputeMPIFaceFlux_NSSA
 
       SUBROUTINE computeBoundaryFlux_NSSA(f, time, mesh)
