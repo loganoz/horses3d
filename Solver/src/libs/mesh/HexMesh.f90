@@ -5864,6 +5864,75 @@ slavecoord:             DO l = 1, 4
 
 
 #if defined(ACOUSTIC)
+
+subroutine HexMesh_InitializeBaseFlow(self, controlVariables)
+      use Physics_CAAKeywordsModule
+      use FileReadingUtilities, only: getRealArrayFromString
+      Implicit None
+      CLASS(HexMesh)                  :: self
+      class(FTValueDictionary)        :: controlVariables
+
+      
+      character(len=LINE_LENGTH) :: qBaseMode
+      character(len=LINE_LENGTH) :: fileName, statsSolverKey
+      real(kind=RP)              :: QbaseUniform(1:NCONSB)
+
+      !
+      ! Read base flow variables
+      !
+      ! Load which solver generated the stats file
+      statsSolverKey = controlVariables % stringValueForKey(qBaseSolverKey,requestedLength = LINE_LENGTH)
+
+      qBaseMode = controlVariables % stringValueForKey(trim(qBaseKey), requestedLength = LINE_LENGTH)
+      call ToLower(qBaseMode)
+      if ( trim(qBaseMode) .eq. trim(qBaseByFile) ) then
+         !
+         ! Read Qbase from file
+         !
+         ! Check that the user has specified the file to read from
+         if (.not. controlVariables % containsKey(trim(qBaseFileNameKey))) then
+            print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no file specified. Use:"
+            print *, trim(qBaseFileNameKey), " = filename"
+            errorMessage(STD_OUT)
+            error stop
+         end if
+         ! Load the base flow from the specified stats file
+         fileName = controlVariables % stringValueForKey(qBaseFileNameKey,requestedLength = LINE_LENGTH)
+         call self % LoadBaseFlowSolution(controlVariables, fileName, statsSolverKey)
+      elseif ( trim(qBaseMode) .eq. trim(qbaseByUniformField) ) then
+         !
+         ! Read Qbase uniform field from control file
+         !
+         ! Check that the user has specified the field
+         if (.not. controlVariables % containsKey(trim(qBaseVectorKey))) then
+            print *, trim(qBaseKey), " = ", trim(qBaseMode), ", but no vector specified. Use:"
+            print *, trim(qBaseVectorKey), " = [1.0_RP,0.0_RP,0.0_RP,0.0_RP,1.0_RP]"
+            errorMessage(STD_OUT)
+            error stop
+         end if
+         ! Read the field
+         QbaseUniform = 0.0_RP
+         QbaseUniform = GetRealArrayFromString( controlVariables % StringValueForKey(qBaseVectorKey,requestedLength = LINE_LENGTH))
+         ! Set uniform field
+         call self % SetUniformBaseFlow(QbaseUniform)
+      else
+         print*, 'Unknown qBase mode "',trim(qBaseMode),'".'
+         print*, "Implemented modes are:"
+         print*, "   * ", trim(qBaseByFile)
+         print*, "   * ", trim(qbaseByUniformField)
+         errorMessage(STD_OUT)
+         error stop
+      end if
+
+      !
+      ! Finally, load the Lamb vector into the LambBase array
+      !
+      if (controlVariables % logicalValueForKey(LAMB_VECTOR_KEY)) then
+         call self % LoadLambBase(controlVariables)
+      end if
+!
+   end subroutine HexMesh_InitializeBaseFlow
+   
     Subroutine HexMesh_SetUniformBaseFlow(self,Q_in)
         Implicit None
          CLASS(HexMesh)                  :: self
@@ -7004,6 +7073,7 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
    logical :: analyticalJac   ! Do we need analytical Jacobian storage?
    type(Element)   , pointer :: e
    type(Face)      , pointer :: f
+   real(kind=RP)             :: sensor_value
 
 #if (!defined(NAVIERSTOKES))
    logical, parameter            :: computeGradients = .true.
@@ -7055,7 +7125,9 @@ subroutine HexMesh_pAdapt_MPI (self, NNew, controlVariables)
       if ( all( e % Nxyz == NNew(:,eID)) ) then
          cycle
       else
+         sensor_value = e % storage % sensor
          call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
+         e % storage % sensor = sensor_value
 !$omp critical
          self % Nx(eID) = NNew(1,eID)
          self % Ny(eID) = NNew(2,eID)

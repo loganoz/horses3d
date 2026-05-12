@@ -798,7 +798,7 @@ module SpatialDiscretization
 			if (present(element_mask)) compute_element = face_mask(fID)
      
             if (compute_element) then
-               if (f% IsMortar==1) then
+               if (mesh% faces(fID) % IsMortar==1) then
                   associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
                      fstar=0.0_RP
                   end associate
@@ -807,7 +807,7 @@ module SpatialDiscretization
                   end associate
                   do m=1,4
                      if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
-                        CALL computeElementInterfaceFlux_MU(fma=f, f=mesh % faces(mesh % faces(fID)%Mortar(m))) 
+                        CALL computeElementInterfaceFlux_MU(fma=mesh% faces(fID), f=mesh % faces(mesh % faces(fID)%Mortar(m))) 
                      end if
                   end do 
                elseif (mesh % faces(fID) % IsMortar==0) then
@@ -1501,7 +1501,7 @@ module SpatialDiscretization
             if (present(element_mask)) compute_element = face_mask(fID)
             
             if (compute_element) then
-               if(f % IsMortar==1) then 
+               if(mesh% faces(fID) % IsMortar==1) then 
                   associate(fstar=>mesh% faces(fID)%storage(1)%fStar)
                      fstar=0.0_RP
                   end associate
