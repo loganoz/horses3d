@@ -595,15 +595,13 @@ contains
 !     Construct periodic faces
 !     ---------------------------
 !
-      !if (ConformingMesh) then 
-         !CALL ConstructPeriodicFaces( self, periodRelative )
+      if (ConformingMesh) CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !     ---------------------------
 !     Delete periodic- faces
 !     ---------------------------
 !
-        ! CALL DeletePeriodicMinusFaces( self )
-      !end if 
+      if (ConformingMesh) CALL DeletePeriodicMinusFaces( self )
 !
 !     ---------------------------
 !     Assign faces ID to elements
