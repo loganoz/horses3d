@@ -3286,6 +3286,7 @@ slavecoord:             DO l = 1, 4
 
            end associate
         end do
+
       
         !!!!only for sliding mortars 
        ! if (self%sliding) then 
@@ -3479,6 +3480,10 @@ slavecoord:             DO l = 1, 4
 			   sharedDomain(self % MPIfaces % nDomainShared) = domain
             end if
          end do
+         ! Reallocate listDomain
+		 safedeallocate(self % MPIfaces % listDomain)
+		 allocate(self % MPIfaces % listDomain(self % MPIfaces % nDomainShared))
+		 self % MPIfaces % listDomain    = sharedDomain(1:self % MPIfaces % nDomainShared)
 !
 !        -------------
 !        Assign values
