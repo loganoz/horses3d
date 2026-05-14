@@ -678,9 +678,9 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
 !
       type(HexMesh)      :: mesh
 #ifdef FLOW
-      type(Particles_t)  :: particles
+            type(Particles_t)  :: particles
 #else
-      logical            :: particles
+            logical            :: particles
 #endif
       REAL(KIND=RP)   :: t, deltaT, tk
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
@@ -697,6 +697,11 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
       REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
+      REAL(KIND=RP), DIMENSION(3) :: auxiliar = (/1.0_RP/3.0_RP, (3.0_RP/4.0_RP-1.0_RP/3.0_RP) , 1.0_RP/4.0_RP /)
+      real(kind=RP) :: center(2)
+      real(kind=RP), DIMENSION(3) :: omega = (/0.0_RP, PI/20_RP, 0.0_RP/)
+      real(kind=RP) :: rad, angle
+      integer :: NB = 7
 
 
       INTEGER :: i, j, k, id
@@ -713,6 +718,14 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
          do k = 1,3
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if (mesh%sliding) then
+               center(1)=0.0_RP
+               center(2)=0.0_RP
+               rad=1.01_RP
+               angle=(omega(2)*deltaT) * auxiliar(k)
+   
+               CALL MESH % UpdateSlidingMesh(rotationRadius=rad, rotationCenter=center, numBFacePoints=NB, nodes=mesh%nodeType, useMPI=.FALSE. , angle = angle)
+            end if
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
@@ -728,17 +741,17 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
             end if
 
 !$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
+                  do id = 1, SIZE( mesh % elements )
 #ifdef FLOW
-                  mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
-                  mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
+                        mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+                        mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
 #endif
-
+       
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-                  mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
-                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
+                        mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                        mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
 #endif
-            end do ! id
+                  end do ! id
 !$omp end parallel do
 
          end do ! k
@@ -748,6 +761,13 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
          do k = 1,3
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if (mesh%sliding) then
+               center(1)=0.0_RP
+               center(2)=0.0_RP
+               rad=1.01_RP
+               angle=(omega(2)*deltaT) * auxiliar(k)
+               CALL MESH % UpdateSlidingMesh(rotationRadius=rad, rotationCenter=center, numBFacePoints=NB, nodes=mesh%nodeType, useMPI=.FALSE. , angle = angle)
+            end if
             if ( present(dts) ) then
                if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
             end if
@@ -763,29 +783,29 @@ SUBROUTINE TakeMixedRKStep( mesh, particles, t, deltaT, ComputeTimeDerivative , 
             end if
 
 !$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
+                  do id = 1, SIZE( mesh % elements )
 #ifdef FLOW
-                  mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
-                  mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+                        mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+                        mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
 #endif
-
+       
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-                  mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
-                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+                        mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                        mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
-            end do ! id
+                  end do ! id
 !$omp end parallel do
-
-         end do ! k
-
-      end if
-!
-!     To obtain the updated residuals
-      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
-
-      call checkForNan(mesh, t)
-
-   END SUBROUTINE TakeRK3Step
+       
+               end do ! k
+       
+            end if
+      !
+      !     To obtain the updated residuals
+            if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+       
+            call checkForNan(mesh, t)
+       
+         END SUBROUTINE TakeRK3Step
 
    SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt, iter, dtAdaptation)
 !

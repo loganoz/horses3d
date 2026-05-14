@@ -206,9 +206,10 @@ module EllipticIP
 !        ---------------
 !
          integer :: Nx, Ny, Nz
-         integer :: i, j, k
+         integer :: i, j, k, m, ii, jj
          integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
          logical :: HOElements
+         real(kind=RP)   :: hStarAux(nGradEqn, NDIM, 0:mesh%faces(1)% NfRight(1), 0:mesh%faces(1)% NfRight(1))
 
          if (present(HO_Elements)) then
             HOElements = HO_Elements
@@ -229,13 +230,34 @@ module EllipticIP
    !           Prolong to faces
    !           ----------------
                fIDs = e % faceIDs
-               call e % ProlongGradientsToFaces(nGradEqn, &
-                                                mesh % faces(fIDs(1)),&
+
+            if (.not.mesh%sliding) then 
+               if (.not.mesh%nonconforming) then 
+               call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&
                                                 mesh % faces(fIDs(5)),&
-                                                mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+               else 
+               call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+               end if 
+            else 
+               call e %  ProlongGradientsToFaces(nGradEqn, &
+                                             fFR=mesh % faces(fIDs(1)),&
+                                             fBK=mesh % faces(fIDs(2)),&
+                                             fBOT=mesh % faces(fIDs(3)),&
+                                             fR=mesh % faces(fIDs(4)),&
+                                             fT=mesh % faces(fIDs(5)),&
+                                             fL=mesh % faces(fIDs(6)),&
+                                             faces=mesh % mortar_faces )
+            end if  
                end associate 
             end do
 !$omp end do   
@@ -248,13 +270,33 @@ module EllipticIP
    !           Prolong to faces
    !           ----------------
                fIDs = e % faceIDs
-               call e % ProlongGradientsToFaces(nGradEqn, &
-                                                mesh % faces(fIDs(1)),&
+               if (.not.mesh%sliding) then 
+                  if (.not.mesh%nonconforming) then 
+                  call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&
                                                 mesh % faces(fIDs(5)),&
-                                                mesh % faces(fIDs(6)) )
+                                                mesh % faces(fIDs(6)))
+                  else 
+                  call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                                mesh % faces(fIDs(2)),&
+                                                mesh % faces(fIDs(3)),&
+                                                mesh % faces(fIDs(4)),&
+                                                mesh % faces(fIDs(5)),&
+                                                mesh % faces(fIDs(6)),&
+                                                faces=mesh % faces)
+                  end if 
+               else 
+                  call e %  ProlongGradientsToFaces(nGradEqn, &
+                                                fFR=mesh % faces(fIDs(1)),&
+                                                fBK=mesh % faces(fIDs(2)),&
+                                                fBOT=mesh % faces(fIDs(3)),&
+                                                fR=mesh % faces(fIDs(4)),&
+                                                fT=mesh % faces(fIDs(5)),&
+                                                fL=mesh % faces(fIDs(6)),&
+                                                faces=mesh % mortar_faces )
+               end if 
                end associate 
             end do
 !$omp end do 
@@ -268,17 +310,133 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % HO_FacesInterior)
                fID = mesh % HO_FacesInterior(iFace)
+               if (mesh % faces(fID) % IsMortar==3) then 
+                  associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                     unStar=0.0_RP
+                  end associate
+                  associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                     unStar=0.0_RP
+                  end associate 
+               end if 
+               if (mesh % faces(fID) % IsMortar==1) then 
+                  associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                     unStar=0.0_RP
+                  end associate
+                  associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                     unStar=0.0_RP
+                  end associate
+                  do m=1,4
+                     if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call IP_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                     end if 
+                  end do 
+               elseif(mesh % faces(fID) % IsMortar==0) then
                call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+               end if 
             end do
 !$omp end do 
          else
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % faces_interior)
                fID = mesh % faces_interior(iFace)
+               if (mesh % faces(fID) % IsMortar==3) then 
+                  associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                     unStar=0.0_RP
+                  end associate
+                  associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                     unStar=0.0_RP
+                  end associate 
+               end if 
+               if (mesh % faces(fID) % IsMortar==1) then 
+                  associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+                     unStar=0.0_RP
+                  end associate
+                  associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
+                     unStar=0.0_RP
+                  end associate
+                  do m=1,4
+                     if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call IP_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                     end if 
+                  end do 
+               elseif(mesh % faces(fID) % IsMortar==0) then
                call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+               end if 
             end do
 !$omp end do 
          end if
+
+      if (mesh%sliding) then 
+!$omp do schedule(runtime) private(fID)
+                  do iFace = 1, size(mesh % mortar_faces)
+                     fID = mesh % mortar_faces(iFace)%ID
+                     associate(unStar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(1))%storage(1)%unStar)
+                        unStar=0.0_RP
+                     end associate
+                     associate(unStar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(1))%storage(2)%unStar)
+                        unStar=0.0_RP
+                     end associate
+
+                     associate(unStar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(2))%storage(1)%unStar)
+                        unStar=0.0_RP
+                     end associate
+                     associate(unStar=>mesh % faces(mesh % mortar_faces(fID)%Mortar(2))%storage(2)%unStar)
+                        unStar=0.0_RP
+                     end associate
+                  end do 
+!$omp end do        
+               end if 
+
+      if (mesh%sliding) then 
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % mortar_faces)
+            fID = mesh % mortar_faces(iFace)%ID
+            call IP_GradientInterfaceSolution(f=mesh % mortar_faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients,&
+            fma=mesh % faces (mesh % mortar_faces(fID)%Mortar(1)), fmb=mesh % faces (mesh % mortar_faces(fID)%Mortar(2)), sliding=.true.)
+            
+         end do 
+!$omp end do        
+      end if 
+
+
+
+!if (mesh%sliding) then 
+!   hStarAux=0.0_RP
+!      do iFace=1, size(mesh%elements)
+!         if (mesh%elements(iFace)%sliding_newnodes) then 
+!            associate(unStar=>mesh%faces(mesh%elements(iFace)%faceIDs(5))%storage(2)%unStar)
+!               hStarAux=unStar
+!               unStar=0.0_RP
+!            do j = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2)   ; do i = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1)   
+!               call leftIndexes2Right(i,j,mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1), mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2), &
+!                  mesh%faces(mesh%elements(iFace)%faceIDs(5)) % rotation, ii, jj)
+!                  unStar(:,:,ii,jj) = hStarAux(:,:,i,j) 
+!            end do                        ; end do
+!            unStar=-unStar
+!            end associate!
+
+!            associate(unStar=>mesh%faces(mesh%elements(iFace)%faceIDs(5))%storage(1)%unStar)
+!               hStarAux=unStar
+!               unStar=0.0_RP
+!               do j = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2)   ; do i = 0, mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1)   
+!                  call leftIndexes2Right(i,j,mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(1), mesh%faces(mesh%elements(iFace)%faceIDs(5)) % NfRight(2), &
+!                     mesh%faces(mesh%elements(iFace)%faceIDs(5)) % rotation, ii, jj)
+!                     unStar(:,:,ii,jj) = hStarAux(:,:,i,j) 
+!               end do                        ; end do
+!               unStar=-unStar
+!               end associate
+!         end if 
+!      end do
+!   end if 
+
+
+
+
+
+
+
 
          if (HOElements) then
 !$omp do schedule(runtime) private(fID)
@@ -334,9 +492,33 @@ module EllipticIP
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_mpi)
             fID = mesh % faces_mpi(iFace)
+            if (mesh% faces(fID)%IsMortar==1) then 
+               associate(UnStar=>mesh% faces(fID)%storage(1)%UnStar)
+                  UnStar=0.0_RP
+               end associate
+               do m=1,4
+                  if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
+                     call IP_GradientInterfaceSolution(fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do
+            end if 
             call IP_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do 
+
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % UpdateMPIFacesGradMortarflux(NCONS)
+         end if
+!$omp end single
+   
+   
+!$omp single
+         if ( mesh % nonconforming ) then
+            call mesh % GatherMPIFacesGradMortarFlux(NCONS)
+         end if
+!$omp end single
 !
 !        **************************************************
 !        Compute face integrals for elements with MPI faces
@@ -407,7 +589,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
+      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients, fma, fmb, sliding)
          use Physics  
          use ElementClass
          use FaceClass
@@ -420,6 +602,10 @@ module EllipticIP
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
          procedure(GetGradientValues_f)   :: GetGradients
+         type(Face), optional             :: fma
+         type(Face), optional             :: fmb
+         logical, optional                :: sliding 
+
 !
 !        ---------------
 !        Local variables
@@ -428,9 +614,14 @@ module EllipticIP
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
+        ! real(kind=RP), allocatable  :: HfluxM1(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM2(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM3(:,:,:,:)
+        ! real(kind=RP), allocatable  :: HfluxM4(:,:,:,:)
+         integer       :: i,j, lm
+         !integer :: Nfm(4,2) 
 
-         integer       :: i,j
-         
+         !if (f % IsMortar ==0 ) then 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
@@ -454,7 +645,19 @@ module EllipticIP
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
+      if (.not.present(sliding)) then 
+         if (f % IsMortar==0) then 
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
+         end if 
+         if (f % IsMortar==2 .and. present(fma)) then 
+            call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, HFlux=HFlux,whichElements=(/0,2/),factor=1)
+            call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/0,2/),1)
+         end if 
+      else 
+         call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, Hflux=HFlux,whichElements=(/1,0/),factor=1, sliding=sliding) 
+
+         call fmb % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, Hflux=HFlux,whichElements=(/2,0/),factor=1,sliding=sliding) 
+      end if 
          
       end subroutine IP_GradientInterfaceSolution   
 
@@ -506,7 +709,11 @@ module EllipticIP
 
          thisSide = maxloc(f % elementIDs, dim = 1)
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
+         if (f % IsMortar==2) then 
          
+            call f% Interpolatesmall2biggrad(NCONS, HFlux)
+            
+         end if 
       end subroutine IP_GradientInterfaceSolutionMPI   
 
       subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
@@ -682,6 +889,7 @@ module EllipticIP
          class(Face), intent(in)    :: f
          real(kind=RP)              :: PenaltyParameterNS
 
+         if (f % geom % h==0.0_RP)write(*,*)'ip line 844 h', f % geom % h, 'fID', f%ID,'ismortar:', f%IsMortar
          PenaltyParameterNS = 0.5_RP*self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
 
       end function PenaltyParameterNS

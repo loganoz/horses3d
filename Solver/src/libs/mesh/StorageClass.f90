@@ -187,6 +187,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
       real(kind=RP), dimension(:,:,:),     allocatable :: AviscFlux
+      real(kind=RP), dimension(:,:,:),     allocatable :: MortarFlux
+      real(kind=RP), dimension(:,:,:,:),     allocatable :: GradMortarFlux
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
 #ifdef FLOW
@@ -1393,7 +1395,7 @@ module StorageClass
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients, analyticalJac, computeQdot)
+      pure subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients, analyticalJac, computeQdot, Mortar)
          implicit none
          class(FaceStorage_t), intent(inout) :: self
          integer             , intent(in)    :: NDIM
@@ -1402,6 +1404,7 @@ module StorageClass
          logical             , intent(in)    :: computeGradients
          logical             , intent(in)    :: analyticalJac      !<? Construct analytical Jacobian storage?
          logical             , intent(in)    :: computeQdot
+         logical, optional   , intent(in)    :: Mortar 
 !
 !        ---------------
 !        Local variables
@@ -1518,6 +1521,12 @@ module StorageClass
          self % AviscFlux = 0.0_RP
 #endif
 
+         if (present(Mortar)) then 
+            allocate(self % MortarFlux(NCONS,0:Nf(1), 0:Nf(2)))
+            allocate(self % GradMortarFlux(NCONS, NDIM,0:Nf(1), 0:Nf(2)))
+            self % MortarFlux = 0.0_RP
+            self % GradMortarFlux = 0.0_RP
+         end if 
 #ifdef CAHNHILLIARD
          self % c     = 0.0_RP
          self % c_x   = 0.0_RP

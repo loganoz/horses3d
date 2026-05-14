@@ -84,15 +84,45 @@ MODULE Read_SpecMesh
          real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
          real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
+
+         integer, allocatable       :: HorsesMortars(:,:)
+         integer, allocatable       :: arr1(:)
+         integer, allocatable       :: arr2(:)
+         integer, allocatable       :: arr3(:)
+         integer, allocatable       :: mortararr1(:,:)
+         integer, allocatable       :: mortararr2(:,:)
+         integer, allocatable       ::face_nodes(:,:)
+         integer, allocatable       ::face_othernodes(:,:)
+         integer, allocatable       :: Mat(:,:)
+         integer, allocatable       :: Connect(:,:,:)
+         integer, allocatable       :: rotmortars(:)
+         integer :: nelm, inter 
+         logical                    :: ConformingMesh
+         logical                    :: Sliding
+         integer :: nbface, nintface, nmaster, nslave , nslc 
+         real(kind=RP), allocatable :: o(:)
+         real(kind=RP), allocatable :: s(:)
+         real(kind=RP) :: center(2)
+         real(kind=RP):: th
+         integer :: oldnode
+         real(kind=RP) :: rad
+   
+         integer :: new_nFaces
+
 !
 !        ********************************
 !        Check if a mesh partition exists
 !        ********************************
 !
+         Sliding=.false.
+
+         
          if ( MPI_Process % doMPIAction ) then
             if ( mpi_partition % Constructed ) then
+               write(*,*) 'line 123'
                call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
             else
+               write(*,*) 'line 126'
                call ConstructSimplestMesh_FromSpecMeshFile_ ( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
             end if
             return
@@ -141,7 +171,11 @@ MODULE Read_SpecMesh
 !        ---------------
 !
          allocate( self % elements(numberOfelements) )
-         allocate( self % nodes(numberOfNodes) )
+         !if (.NOT.Sliding) then 
+            allocate( self % nodes(numberOfNodes) )
+         !else 
+         !   allocate( self % nodes(numberOfNodes+80) )
+         !end if 
 
          allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
          self % Nx = Nx
@@ -258,9 +292,15 @@ MODULE Read_SpecMesh
 !        ---------------------------
 !
          numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
-         self % numberOfFaces = numberOfFaces
-         allocate( self % faces(self % numberOfFaces) )
-         CALL ConstructFaces( self, success )
+         !if (.NOT.sliding) then 
+            self % numberOfFaces = numberOfFaces
+            allocate( self % faces(self % numberOfFaces) )
+            CALL ConstructFaces( self, success )
+         !else 
+         !   self % numberOfFaces = numberOfFaces+40
+         !   allocate( self % faces(self % numberOfFaces) )
+         !   CALL ConstructFaces( self, success )
+         !end if 
 !
 !        -------------------------
 !        Build the different zones
@@ -272,6 +312,8 @@ MODULE Read_SpecMesh
 !        Construct periodic faces
 !        ---------------------------
 !
+         if (.not.Sliding) then 
+
          CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !        ---------------------------
@@ -279,6 +321,7 @@ MODULE Read_SpecMesh
 !        ---------------------------
 !
          CALL DeletePeriodicMinusFaces( self )
+         end if 
 !
 !        ---------------------------
 !        Assign faces ID to elements
@@ -339,6 +382,15 @@ MODULE Read_SpecMesh
 
          call self % ExportBoundaryMesh (trim(fileName))
 
+         if (Sliding) then 
+ 
+             center(1)=0.0_RP
+             center(2)=0.0_RP
+             rad=1.01_RP
+             write(*,*) "calling sliding in specmeshfile"
+             call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, .FALSE.)
+
+          end if 
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -375,7 +427,13 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+
+         real(kind=RP) :: center(2)
+         real(kind=RP) :: rad 
+         logical :: sliding 
          !----------------------------------------------------------------------------------------
+         sliding=.true. 
+         sliding=.false.
 !
 !        ***************
 !        Initializations
@@ -544,6 +602,15 @@ MODULE Read_SpecMesh
 
          call self % ExportBoundaryMesh (trim(fileName))
 
+         if (Sliding) then 
+ 
+            center(1)=0.0_RP
+            center(2)=0.0_RP
+            rad=1.01_RP
+            call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, .FALSE.)
+
+         end if 
+
       END SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -566,7 +633,7 @@ MODULE Read_SpecMesh
          integer             :: nodes
          CHARACTER(LEN=*)    :: fileName
          integer             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-         integer, intent(in) :: dir2D
+         integer, intent(inout) :: dir2D
          logical             :: periodRelative
          LOGICAL             :: success
 !
@@ -605,6 +672,11 @@ MODULE Read_SpecMesh
          real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
          character(len=LINE_LENGTH)        :: partitionName
+
+         real(kind=RP) :: center(2)
+         real(kind=RP) :: rad 
+         logical :: sliding 
+         logical :: mpi=.TRUE.
 
          success               = .TRUE.
 !
@@ -864,6 +936,15 @@ MODULE Read_SpecMesh
          self % numberOfFaces = numberOfFaces
          allocate( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
+        ! write(*,*) 'about to print the constructed faces, id of the partition:', mpi_partition%ID 
+        ! do i=1, self % numberOfFaces 
+            !write(*,*) 'face ID in this process', self%faces(i)%ID 
+            !write(*,*) 'elementIDs',self%faces(i)%elementIDs
+            !write(*,*) 'elementSide',self%faces(i)%elementSide
+        !    if (self%faces(i)%elementIDs(1)==0) write(*,*) 'here! elementIDs', self%faces(i)%elementIDs 
+        !    write(*,*) '****************************************'
+
+         !end do 
 !
 !        --------------------------------
 !        Get actual mesh element face IDs
@@ -875,10 +956,13 @@ MODULE Read_SpecMesh
 !        Cast MPI faces
 !        --------------
 !
+         write(*,*) 'constuctin of mpi faces'
          call ConstructMPIFaces( self % MPIfaces )
+         write(*,*) 'updating faces with partition'
          call self % UpdateFacesWithPartition(mpi_partition, &
                                               numberOfAllElements, &
                                               globalToLocalElementID)
+
 !
 !        -------------------------
 !        Build the different zones
@@ -908,6 +992,7 @@ MODULE Read_SpecMesh
 !        Define boundary faces
 !        ---------------------
 !
+
          call self % DefineAsBoundaryFaces()
 !
 !        -----------------------------------
@@ -962,6 +1047,16 @@ MODULE Read_SpecMesh
          deallocate(globalToLocalNodeID)
          deallocate(globalToLocalElementID)
 
+         Sliding=.false.
+         mpi=.false.
+         if (Sliding) then 
+ 
+            center(1)=0.0_RP
+            center(2)=0.0_RP
+            rad=1.01_RP
+            call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, mpi)
+
+         end if 
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_
 
 !
