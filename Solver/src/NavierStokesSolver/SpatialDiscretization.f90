@@ -477,7 +477,7 @@ module SpatialDiscretization
 !$omp end do nowait
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-         if (mesh%sliding) then 
+         if (mesh % SlidingMesh % active) then 
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % mortar_faces)
                fID = mesh % mortar_faces(iFace)%ID
@@ -498,7 +498,7 @@ module SpatialDiscretization
          end if 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-         if (mesh%sliding) then 
+         if (mesh % SlidingMesh % active) then 
 !$omp do schedule(runtime) private(fID)
             do iFace = 1, size(mesh % mortar_faces)
                fID = mesh % mortar_faces(iFace)%ID
@@ -514,7 +514,7 @@ module SpatialDiscretization
             call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
 !$omp end do
-  !  if (mesh%sliding) then 
+  !  if (mesh % Slidin) then 
   !     fStarAux=0.0_RP
   !     do iFace=1, size(mesh%elements)
   !        if (mesh%elements(iFace)%sliding_newnodes) then 
@@ -1135,7 +1135,7 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-         if (mesh%sliding) then 
+         if (mesh % SlidingMesh % active) then 
 !$omp do schedule(runtime) private(i,j)
             do iFace = 1, size(mesh%mortar_faces)
                associate(f => mesh % mortar_faces(iFace))  
@@ -1176,7 +1176,7 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-         if ( LESModel % Active .and. mesh%sliding) then
+         if ( LESModel % Active .and. mesh % SlidingMesh % active) then
 !$omp do schedule(runtime) private(i,j,delta,mu_smag)
                         do iFace = 1, size(mesh%mortar_faces)
                            associate(f => mesh % mortar_faces(iFace))

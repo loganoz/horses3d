@@ -12,6 +12,7 @@ MODULE Read_SpecMesh
       use PhysicsStorage
       use FileReadingUtilities      , only: getFileName
       use Utilities, only: UnusedUnit, toLower
+      use SlidingMeshProcedures
       implicit none
 
       private
@@ -86,9 +87,6 @@ MODULE Read_SpecMesh
          real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
 
          integer, allocatable       :: HorsesMortars(:,:)
-         integer, allocatable       :: arr1(:)
-         integer, allocatable       :: arr2(:)
-         integer, allocatable       :: arr3(:)
          integer, allocatable       :: mortararr1(:,:)
          integer, allocatable       :: mortararr2(:,:)
          integer, allocatable       ::face_nodes(:,:)
@@ -388,9 +386,9 @@ MODULE Read_SpecMesh
              center(1)=0.0_RP
              center(2)=0.0_RP
              rad=1.01_RP
-             write(*,*) "calling sliding in specmeshfile"
-             call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, .FALSE.)
-
+             !write(*,*) "calling sliding in specmeshfile"
+             call AdvanceSlidingMesh(self, rad, center, numBFacePoints, nodes, .FALSE.)
+ 
           end if 
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 !
@@ -608,7 +606,7 @@ MODULE Read_SpecMesh
             center(1)=0.0_RP
             center(2)=0.0_RP
             rad=1.01_RP
-            call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, .FALSE.)
+            call AdvanceSlidingMesh(self, rad, center, numBFacePoints, nodes, .FALSE.)
 
          end if 
 
@@ -1055,7 +1053,7 @@ MODULE Read_SpecMesh
             center(1)=0.0_RP
             center(2)=0.0_RP
             rad=1.01_RP
-            call self % UpdateSlidingMesh(rad, center, numBFacePoints, nodes, mpi)
+            call AdvanceSlidingMesh(self, rad, center, numBFacePoints, nodes, mpi)
 
          end if 
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_

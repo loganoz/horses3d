@@ -229,7 +229,7 @@ module EllipticIP
    !           ----------------
                fIDs = e % faceIDs
 
-            if (.not.mesh%sliding) then 
+            if (.not.mesh % slidingMesh % active) then 
                if (.not.mesh%nonconforming) then 
                call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
@@ -268,7 +268,7 @@ module EllipticIP
    !           Prolong to faces
    !           ----------------
                fIDs = e % faceIDs
-               if (.not.mesh%sliding) then 
+               if (.not.mesh % slidingMesh % active) then 
                   if (.not.mesh%nonconforming) then 
                   call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
@@ -366,7 +366,7 @@ module EllipticIP
 !$omp end do 
          end if
 
-      if (mesh%sliding) then 
+      if (mesh % slidingMesh % active) then 
 !$omp do schedule(runtime) private(fID)
                   do iFace = 1, size(mesh % mortar_faces)
                      fID = mesh % mortar_faces(iFace)%ID
@@ -387,7 +387,7 @@ module EllipticIP
 !$omp end do        
                end if 
 
-      if (mesh%sliding) then 
+      if (mesh % slidingMesh % active) then 
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % mortar_faces)
             fID = mesh % mortar_faces(iFace)%ID
@@ -400,7 +400,7 @@ module EllipticIP
 
 
 
-!if (mesh%sliding) then 
+!if (mesh % slidingMesh % active) then 
 !   hStarAux=0.0_RP
 !      do iFace=1, size(mesh%elements)
 !         if (mesh%elements(iFace)%sliding_newnodes) then 

@@ -190,7 +190,7 @@ module EllipticBR1
       end do
 !$omp end do
       
-      if (mesh%sliding) then 
+      if (mesh % slidingMesh % active) then 
 !$omp do schedule(runtime) private(fID)
                   do iFace = 1, size(mesh % mortar_faces)
                      fID = mesh % mortar_faces(iFace)%ID
@@ -204,7 +204,7 @@ module EllipticBR1
 !$omp end do        
                end if 
 
-      if (mesh%sliding) then 
+      if (mesh % slidingMesh % active) then 
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % mortar_faces)
             fID = mesh % mortar_faces(iFace)%ID
@@ -233,7 +233,7 @@ module EllipticBR1
 !           Prolong gradients
 !           -----------------
             fIDs = e % faceIDs
-            if (.not.mesh%sliding) then 
+            if (.not.mesh % slidingMesh % active) then 
                if (.not.mesh%nonconforming) then 
                call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
