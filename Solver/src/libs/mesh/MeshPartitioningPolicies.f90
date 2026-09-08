@@ -1,5 +1,6 @@
 #include "Includes.h"
 module MeshPartitioningPolicies
+#if defined(_HAS_METIS_)
     use SMConstants
     implicit none
     
@@ -440,4 +441,6 @@ module MeshPartitioningPolicies
         if (associated(vwgt)) nullify(vwgt)
     end subroutine partition_region_METIS
 
+#endif
 end module MeshPartitioningPolicies
+
