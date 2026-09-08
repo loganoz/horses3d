@@ -178,7 +178,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~18"></span>
+              <span class="anchor" id="variable-self~17"></span>
               class(<a href='../type/observerclass.html'>ObserverClass</a>)
             </td>
 <td></td>
@@ -193,7 +193,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-iter~3"></span>
+              <span class="anchor" id="variable-iter~7"></span>
               integer,
             </td>
 <td></td>
@@ -274,10 +274,10 @@
 
 <span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isRoot</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
 
-<span class="k">         open</span><span class="p">(</span><span class="w"> </span><span class="n">newunit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">trim</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">fileName</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;write&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="nb">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;append&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;old&quot;</span><span class="w"> </span><span class="p">)</span>
+<span class="k">         open</span><span class="p">(</span><span class="w"> </span><span class="n">newunit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">trim</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">fileName</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"write"</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="nb">access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"append"</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"old"</span><span class="w"> </span><span class="p">)</span>
 <span class="w">      </span>
 <span class="w">         </span><span class="k">do </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">no_of_lines</span>
-<span class="w">            </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(I10,5(2X,ES24.16))&#39;</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">iter</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">tsource</span><span class="p">(</span><span class="n">i</span><span class="p">),</span><span class="w"> </span><span class="n">tsource</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">tDelay</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Pac</span><span class="p">(</span><span class="n">i</span><span class="p">,:)</span>
+<span class="w">            </span><span class="k">write</span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">'(I10,5(2X,ES24.16))'</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">iter</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">tsource</span><span class="p">(</span><span class="n">i</span><span class="p">),</span><span class="w"> </span><span class="n">tsource</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">tDelay</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">Pac</span><span class="p">(</span><span class="n">i</span><span class="p">,:)</span>
 <span class="w">         </span><span class="k">end do</span>
 <span class="k">      </span>
 <span class="k">         close</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">)</span>
@@ -309,7 +309,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2026-07-31 08:52 +0000             </p>
+ on 2026-09-08 15:28 +0000             </p>
           </div>
         </div>
         <br>

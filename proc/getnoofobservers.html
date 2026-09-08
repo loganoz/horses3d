@@ -223,19 +223,19 @@
 <span class="c">!</span>
 <span class="c">!     Open case file</span>
 <span class="c">!     --------------</span>
-<span class="w">      </span><span class="k">open</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">newunit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">case_name</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;old&quot;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;read&quot;</span><span class="w"> </span><span class="p">)</span>
+<span class="w">      </span><span class="k">open</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">newunit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="k">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">case_name</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"old"</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"read"</span><span class="w"> </span><span class="p">)</span>
 
 <span class="c">!</span>
 <span class="c">!     Read the whole file to find the observers</span>
 <span class="c">!     ------------------------------------</span>
 <span class="n">readloop</span><span class="p">:</span><span class="k">do </span>
-<span class="k">         read</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;(A)&#39;</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">iostat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">io</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">line</span>
+<span class="k">         read</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">fID</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">'(A)'</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="n">iostat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">io</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">line</span>
 
 <span class="w">         </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">io</span><span class="w"> </span><span class="p">.</span><span class="n">lt</span><span class="p">.</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
 <span class="c">!</span>
 <span class="c">!           End of file</span>
 <span class="c">!           -----------</span>
-<span class="w">            </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
+<span class="w">            </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">""</span>
 <span class="w">            </span><span class="k">exit </span><span class="n">readloop</span>
 
 <span class="w">         </span><span class="k">elseif</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">io</span><span class="w"> </span><span class="p">.</span><span class="n">gt</span><span class="p">.</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
@@ -243,7 +243,7 @@
 <span class="c">!           Error</span>
 <span class="c">!           -----</span>
 <span class="w">            </span><span class="n">errorMessage</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">)</span>
-<span class="w">            </span><span class="k">error stop</span><span class="w"> </span><span class="s2">&quot;Stopped.&quot;</span>
+<span class="w">            </span><span class="k">error stop</span><span class="w"> </span><span class="s2">"Stopped."</span>
 
 <span class="w">         </span><span class="k">else</span>
 <span class="c">!</span>
@@ -251,7 +251,7 @@
 <span class="c">!           ---------</span>
 <span class="w">            </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getSquashedLine</span><span class="p">(</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="p">)</span>
 
-<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="nb">index</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;#defineacousticobserver&#39;</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">.</span><span class="n">gt</span><span class="p">.</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="nb">index</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="s1">'#defineacousticobserver'</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">.</span><span class="n">gt</span><span class="p">.</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
 <span class="k">               </span><span class="n">no_of_observers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">no_of_observers</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
 
 <span class="w">            </span><span class="k">end if</span>
@@ -288,7 +288,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2026-07-31 08:52 +0000             </p>
+ on 2026-09-08 15:28 +0000             </p>
           </div>
         </div>
         <br>

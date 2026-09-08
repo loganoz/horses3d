@@ -165,13 +165,13 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
               <ul class="list-inline">
-                  <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
                   <li class="list-inline-item">FTValueDictionaryClass</li>
-                  <li class="list-inline-item">Headers</li>
                   <li class="list-inline-item">FileReadingUtilities</li>
                   <li class="list-inline-item">Utilities</li>
                   <li class="list-inline-item">mainKeywordsModule</li>
+                  <li class="list-inline-item"><a href='http://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node410.htm'>mpi</a></li>
                   <li class="list-inline-item"><a href='../module/fwhdefinitions.html'>FWHDefinitions</a></li>
+                  <li class="list-inline-item">Headers</li>
               </ul>
             </li>
         </ul>
@@ -196,7 +196,7 @@
     <tbody>
         <tr>
             <td>
-              <span class="anchor" id="variable-self~31"></span>
+              <span class="anchor" id="variable-self~50"></span>
               class(<a href='../type/fwhclass.html'>FWHClass</a>)
             </td>
 <td></td>
@@ -211,7 +211,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-mesh~13"></span>
+              <span class="anchor" id="variable-mesh~26"></span>
               class(HexMesh),
             </td>
 <td>intent(in)</td>
@@ -226,7 +226,7 @@
         </tr>
         <tr>
             <td>
-              <span class="anchor" id="variable-controlvariables"></span>
+              <span class="anchor" id="variable-controlvariables~3"></span>
               class(FTValueDictionary),
             </td>
 <td>intent(in)</td>
@@ -287,9 +287,9 @@
 <span class="c">!        look if the acoustic analogy calculations are set to be computed</span>
 <span class="c">!        --------------------------------</span>
 <span class="w">        </span><span class="c">!TODO read acoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">containsKey</span><span class="p">(</span><span class="s2">&quot;acoustic analogy&quot;</span><span class="p">))</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">containsKey</span><span class="p">(</span><span class="s2">"acoustic analogy"</span><span class="p">))</span><span class="w"> </span><span class="k">then</span>
 <span class="k">            </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isActive</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">FALSE</span><span class="p">.</span>
-<span class="w">            </span><span class="c">! print *, &quot;FWH not activated&quot;</span>
+<span class="w">            </span><span class="c">! print *, "FWH not activated"</span>
 <span class="w">            </span><span class="k">return</span>
 <span class="k">        end if</span>
 
@@ -297,14 +297,14 @@
 <span class="c">!       ----------------------------------</span>
 <span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">surfacesMesh</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">surfaceTypes</span><span class="p">(</span><span class="n">FWH_POSITION</span><span class="p">)</span><span class="w"> </span><span class="p">.</span><span class="n">ne</span><span class="p">.</span><span class="w"> </span><span class="n">SURFACE_TYPE_FWH</span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
 <span class="k">            </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isActive</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">FALSE</span><span class="p">.</span>
-<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;FWH surface not found, the FWH routines will not deactivated&quot;</span>
+<span class="w">            </span><span class="k">print</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="s2">"FWH surface not found, the FWH routines will not deactivated"</span>
 <span class="w">            </span><span class="k">return</span>
 <span class="k">        end if</span><span class="w"> </span>
 
 <span class="c">!       Setup the buffer</span>
 <span class="c">!       ----------------</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">containsKey</span><span class="p">(</span><span class="s2">&quot;observers flush interval&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
-<span class="k">           </span><span class="n">OB_BUFFER_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">integerValueForKey</span><span class="p">(</span><span class="s2">&quot;observers flush interval&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">containsKey</span><span class="p">(</span><span class="s2">"observers flush interval"</span><span class="p">)</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">then</span>
+<span class="k">           </span><span class="n">OB_BUFFER_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">integerValueForKey</span><span class="p">(</span><span class="s2">"observers flush interval"</span><span class="p">)</span>
 <span class="w">        </span><span class="k">end if</span>
 
 <span class="k">        </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isActive</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="n">TRUE</span><span class="p">.</span>
@@ -313,7 +313,7 @@
 <span class="c">!       Get the general configuration of control file</span>
 <span class="c">!       First get the surface as a zone</span>
 <span class="c">!       -------------------------------</span>
-<span class="w">        </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isSolid</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">logicalValueForKey</span><span class="p">(</span><span class="s2">&quot;acoustic analogy permeable&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isSolid</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">logicalValueForKey</span><span class="p">(</span><span class="s2">"acoustic analogy permeable"</span><span class="p">)</span>
 
 <span class="c">!       Get the solution file name</span>
 <span class="c">!       --------------------------</span>
@@ -355,11 +355,11 @@
 <span class="c">!        Describe the zones</span>
 <span class="c">!        ------------------</span>
 <span class="w">         </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="p">.</span><span class="nb">not</span><span class="p">.</span><span class="w"> </span><span class="n">MPI_Process</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">isRoot</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">return</span>
-<span class="k">         call </span><span class="n">Subsection_Header</span><span class="p">(</span><span class="s2">&quot;Fictitious FWH zone&quot;</span><span class="p">)</span>
-<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">&#39;(30X,A,A28,I0)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Number of faces: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">no_of_faces</span>
-<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">&#39;(30X,A,A28,I0)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Number of observers: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfObservers</span>
-<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">&#39;(30X,A,A28,I0)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Number of integrals: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfObservers</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">no_of_faces</span>
-<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">&#39;(30X,A,A28,L1)&#39;</span><span class="p">)</span><span class="w"> </span><span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Save zone solution: &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">containsKey</span><span class="p">(</span><span class="s2">&quot;acoustic save timestep&quot;</span><span class="p">)</span>
+<span class="k">         call </span><span class="n">Subsection_Header</span><span class="p">(</span><span class="s2">"Fictitious FWH zone"</span><span class="p">)</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">'(30X,A,A28,I0)'</span><span class="p">)</span><span class="w"> </span><span class="s2">"-&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Number of faces: "</span><span class="p">,</span><span class="w"> </span><span class="n">no_of_faces</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">'(30X,A,A28,I0)'</span><span class="p">)</span><span class="w"> </span><span class="s2">"-&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Number of observers: "</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfObservers</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">'(30X,A,A28,I0)'</span><span class="p">)</span><span class="w"> </span><span class="s2">"-&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Number of integrals: "</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">numberOfObservers</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">no_of_faces</span>
+<span class="w">         </span><span class="k">write</span><span class="p">(</span><span class="n">STD_OUT</span><span class="p">,</span><span class="s1">'(30X,A,A28,L1)'</span><span class="p">)</span><span class="w"> </span><span class="s2">"-&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Save zone solution: "</span><span class="p">,</span><span class="w"> </span><span class="n">controlVariables</span><span class="w"> </span><span class="p">%</span><span class="w"> </span><span class="n">containsKey</span><span class="p">(</span><span class="s2">"acoustic save timestep"</span><span class="p">)</span>
 
 <span class="w">    </span><span class="k">End Subroutine </span><span class="n">FWHConstruct</span>
 </pre></div>
@@ -385,7 +385,7 @@
             <p class="text-end">
               Documentation generated by
               <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
- on 2026-07-31 08:52 +0000             </p>
+ on 2026-09-08 15:28 +0000             </p>
           </div>
         </div>
         <br>
