@@ -75,6 +75,7 @@ Module FWHPreSurface  !
         integer                                             :: Np
         integer, dimension(:), allocatable                  :: zoneMarkers
         logical                                             :: isBox
+        logical                                             :: isCylinder
         logical                                             :: useOnlyMeshConnections
 
         integer, dimension(:), allocatable                  :: allE, allgE, allF
@@ -96,7 +97,8 @@ Module FWHPreSurface  !
         geometry = controlVariables % stringValueForKey("geometry", LINE_LENGTH)
         call toLower(geometry)
 
-        isBox = trim(geometry) .eq. "box"
+        isBox      = trim(geometry) .eq. "box"
+        isCylinder = trim(geometry) .eq. "cylinder"
 
         if (isBox) then
             ! use center as temp variable
@@ -113,6 +115,19 @@ Module FWHPreSurface  !
             ratio = 1.0_RP
             allocate(centerPosition(2,Np))
             centerPosition = boxLimits
+        elseif (isCylinder) then
+            ! Cylinder aligned with the x axis (the rotation axis):
+            !   centerPosition(:,1) = [yAxis, zAxis] position of the cylinder axis
+            !   centerPosition(:,2) = [xMin,  xMax ] axial extent of the cylinder (the caps)
+            ! radii is reused as the cylinder radius
+            Np = 2
+            radii = controlVariables % doublePrecisionValueForKey("radii")
+            ratio = 1.0_RP
+            allocate(centerPosition(2,Np))
+            center = trim(controlVariables % stringValueForKey("axis position",LINE_LENGTH))
+            centerPosition(:,1) = getRealArrayFromString(center)
+            center = trim(controlVariables % stringValueForKey("x cylinder limits",LINE_LENGTH))
+            centerPosition(:,2) = getRealArrayFromString(center)
         else
             Np = 1
             radii = controlVariables % doublePrecisionValueForKey("radii")
@@ -174,6 +189,9 @@ Module FWHPreSurface  !
         case ("box")
             isInGeometry => isInBox
             rToGeometry  => distanceToBox
+        case ("cylinder")
+            isInGeometry => isInCylinder
+            rToGeometry  => distanceToCylinder
         case ("circle")
             isInGeometry => isInCircle
             rToGeometry  => distanceToCircle
@@ -216,13 +234,25 @@ Module FWHPreSurface  !
 
         pure_mesh_cond:if (useOnlyMeshConnections) then
         if (isBox) then
-            call getElements(mesh, isInGeometry, radii, ratio, 1.0_RP, boxLimits, allNewElemID, allExcludedElemID, eIDs, &
+            call getElements(mesh, isInGeometry, radii, ratio, 1.0_RP, centerPosition, allNewElemID, allExcludedElemID, eIDs, &
                              globaleIDs, Np, useFilter=.false.)
-            call getAllInteriorElements(mesh, isInGeometry, radii, ratio, boxLimits, 1.0_RP, Np, .false., [-1], [-1], oldIdsTemp, nNe)
+            call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, 1.0_RP, Np, .false., [-1], [-1], oldIdsTemp, nNe)
+        elseif (isCylinder) then
+            ! Do NOT go through getElements' boundary-adjacency filter here: it discounts a face
+            ! that lies on a real BC zone (e.g. the hub) from the "exposed" count, which silently
+            ! drops any element whose only exposed face is that BC wall before it ever reaches the
+            ! exposed-face loop below. Use the full, unfiltered interior-element set directly; that
+            ! loop already determines exposure correctly from raw connectivity (globID = 0 on any
+            ! real BC face), so it needs no pre-filtering.
+            call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, 1.0_RP, Np, .false., &
+                                         allExcludedElemID, allNewElemID, oldIdsTemp, nNe)
+            allocate(eIDs(nNe), globaleIDs(nNe))
+            eIDs       = oldIdsTemp(1:nNe,1)
+            globaleIDs = oldIdsTemp(1:nNe,2)
         else
-            print *, "Pure mesh connection only for box section"
+            print *, "Pure mesh connection only for box or cylinder sections"
             call exit(99)
-        end if 
+        end if
         numberOfElements = size(eIDs)
 
         print *, "numberOfElements: ", numberOfElements
@@ -243,6 +273,14 @@ Module FWHPreSurface  !
                 do j = 1, FACES_PER_ELEMENT
                     ! add to array if neighbour element not found in allInteriorElements
                     if ( any(oldIdsTemp(:,2) .eq. e % Connection(j) % globID) ) cycle
+                    ! a face with no neighbour (globID = 0) lies on a real BC (wall, inflow,
+                    ! outflow, periodic placeholder, ...): only keep it if it belongs to a zone
+                    ! explicitly whitelisted via "include boundaries"/"boundary names" (e.g. the
+                    ! hub); otherwise leave it open (e.g. periodic or unrelated domain BCs)
+                    if ( e % Connection(j) % globID .eq. 0 ) then
+                        if ( .not. connectedAtBoundary ) cycle
+                        if ( .not. any(zoneMarkers .eq. mesh % faces(e % faceIDs(j)) % zone) ) cycle
+                    end if
                     numberOfNewFaces = numberOfNewFaces + 1
                     k = k + 1
                     allE(k) = eIDs(i)
@@ -351,7 +389,6 @@ Module FWHPreSurface  !
 !       --------------------------------
 
         do j = 1, 4
-        ! print *, "j: ", j
 
 !       get the second faces ids
 !       ------------------------
@@ -1011,6 +1048,43 @@ Module FWHPreSurface  !
     End Function isInBox
 !
 !////////////////////////////////////////////////////////////////////////
+!
+    Function isInCylinder(r, ratio, centerPosition, x, y, z, N, Np, lengthAspect, filter) result(isIn)
+!       *****************************************************************************
+!           Cylinder aligned with the x axis (the rotation axis).
+!           centerPosition(:,1) = [yAxis, zAxis] position of the cylinder axis
+!           centerPosition(:,2) = [xMin,  xMax ] axial extent of the cylinder (the caps)
+!           r is the cylinder radius. ratio and filter are unused (kept for interface compatibility).
+!        *****************************************************************************
+        Implicit None
+        real(kind=RP)               , intent(in)    :: r, ratio, lengthAspect
+        real(kind=RP), dimension(N) , intent(in)    :: x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
+        integer                     , intent(in)    :: N
+        integer                    , intent(in)     :: Np
+        logical, optional           , intent(in)    :: filter
+        logical                                     :: isIn
+
+        ! local variables
+        real(kind=RP)                               :: yAxis, zAxis, xMin, xMax
+        real(kind=RP), dimension(N)                  :: radialDistSqr
+
+        isIn = .false.
+
+        yAxis = centerPosition(1,1)
+        zAxis = centerPosition(2,1)
+        xMin  = centerPosition(1,2)
+        xMax  = centerPosition(2,2)
+
+        radialDistSqr = POW2(y - yAxis) + POW2(z - zAxis)
+
+        if ( all(radialDistSqr .le. POW2(r)) .and. all(x .ge. xMin) .and. all(x .le. xMax) ) then
+            isIn = .true.
+        end if
+
+    End Function isInCylinder
+!
+!////////////////////////////////////////////////////////////////////////
 ! distance to geometry functions
 !////////////////////////////////////////////////////////////////////////
 !
@@ -1115,6 +1189,34 @@ Module FWHPreSurface  !
         rdiff = min(dx,dy,dz)
 
     End Function distanceToBox
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Function distanceToCylinder(r, ratio, centerPosition, x, y, z, Np) result(rdiff)
+!       Not used by the "only mesh connections" (pure_mesh_cond) path; kept for
+!       interface compatibility with the general getFirstFace-based path.
+        implicit none
+
+        real(kind=RP), intent(in)                   :: r, ratio, x, y, z
+        real(kind=RP), dimension(2,Np), intent(in)  :: centerPosition
+        integer                    , intent(in)     :: Np
+        real(kind=RP)                               :: rdiff
+
+        ! local variables
+        real(kind=RP)                               :: yAxis, zAxis, xMin, xMax
+        real(kind=RP)                               :: radialDiff, axialDiff
+
+        yAxis = centerPosition(1,1)
+        zAxis = centerPosition(2,1)
+        xMin  = centerPosition(1,2)
+        xMax  = centerPosition(2,2)
+
+        radialDiff = r - sqrt( POW2(y - yAxis) + POW2(z - zAxis) )
+        axialDiff  = min( x - xMin, xMax - x )
+
+        rdiff = min(radialDiff, axialDiff)
+
+    End Function distanceToCylinder
 !
 !////////////////////////////////////////////////////////////////////////
 ! extra helper functions
