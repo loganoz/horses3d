@@ -82,6 +82,8 @@ Module FWHPreSurface  !
         integer, dimension(:), allocatable                  :: nE, newElemID, allNewElemID, allExcludedElemID, discElemID, secIdsNot
         integer, dimension(:,:), allocatable                :: oldIds, secIds, realSecIds, oldIdsTemp, secIdsTemp, bcFaces
         integer                                             :: nNe, NelemDir, numberOfBCElemNew, numberOfBCElemDisc, numberOfBCFaces
+        integer                                             :: numberOfBlades
+        real(kind=RP), dimension(2)                         :: axisPositionQC   ! [yAxis, zAxis], for the "complete" surface QC output only
 
 !       Get the solution and mesh file names
 !       -----------------------------------
@@ -609,6 +611,22 @@ Module FWHPreSurface  !
         allocate(surface)
         call surface % construct(mesh, fileName, oldIds(:,1), oldIds(:,2), oldIds(:,3), numberOfVerifiedFaces)
         call surface % writeToTecplot(mesh, meshName)
+
+!       Also write the complete (replicated) surface, for visual checking of what
+!       the post-processing replication step reconstructs from this single sector.
+!       Purely a QC output; only written if replication is actually requested.
+!       ---------------------------------------------------------------------
+        numberOfBlades = controlVariables % getValueOrDefault("acoustic number of blades", 1)
+        if (numberOfBlades .gt. 1) then
+            if (controlVariables % containsKey("axis position")) then
+                center = trim(controlVariables % stringValueForKey("axis position",LINE_LENGTH))
+                axisPositionQC = getRealArrayFromString(center)
+            else
+                axisPositionQC = [0.0_RP, 0.0_RP]
+            end if
+            call surface % writeCompleteToTecplot(mesh, meshName, numberOfBlades, axisPositionQC)
+        end if
+
         call surface % saveToFile(mesh, saveForMPI)
 
         call surface % destruct()

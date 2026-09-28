@@ -165,6 +165,11 @@ Module FWHPostProc  !
 !       -----------------------------
         call surfacesMesh % loadSolution(trim(fileName), mesh, hasGradients)
 !
+!       Rotate the real faces' solution into the virtual (rotated-copy) faces,
+!       if any (no-op otherwise)
+!       -----------------------------
+        call surfacesMesh % rotateVirtualSolution(mesh)
+!
 !       Update and Write if necessary
 !       -----------------------------
         call fwh % updateValues(mesh, time, iter, isFromFile=.TRUE.)

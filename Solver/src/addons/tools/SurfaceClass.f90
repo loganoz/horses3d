@@ -83,6 +83,7 @@ Module SurfaceClass
             procedure :: construct          => SurfaceConstruct
             procedure :: destruct           => SurfaceDestruct
             procedure :: writeToTecplot     => SurfaceWriteSingleZoneToTecplot
+            procedure :: writeCompleteToTecplot => SurfaceWriteCompleteTecplot
             procedure :: saveToFile         => SurfaceSaveToFile
 
     end type Surface_t
@@ -211,7 +212,105 @@ Module SurfaceClass
         close(fd)
 
     End Subroutine SurfaceWriteSingleZoneToTecplot
-! 
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Subroutine SurfaceWriteCompleteTecplot(self, mesh, meshName, numberOfBlades, axisPosition)
+!       *****************************************************************************
+!           Writes a Tecplot file of the FULL (replicated) surface: the real sector
+!           plus numberOfBlades-1 additional copies, each corner rotated about the
+!           x axis the same way the post-processing replication step rotates the
+!           actual FWH surface data. Purely a QC output for eye-checking what that
+!           replication reconstructs from the single simulated sector - it plays no
+!           part in the FWH surface definition itself (see the un-replicated
+!           writeToTecplot).
+!       *****************************************************************************
+
+        use FileReadingUtilities, only: getFileName
+        implicit none
+
+        class(Surface_t)                                :: self
+        type(HexMesh), intent(in)                       :: mesh
+        character(len=LINE_LENGTH), intent(in)          :: meshName
+        integer, intent(in)                             :: numberOfBlades
+        real(kind=RP), dimension(2), intent(in)         :: axisPosition   ! [yAxis, zAxis]
+
+        ! local variables
+        integer                                         :: fd, fID, i, row, copyID
+        character(len=LINE_LENGTH)                      :: formatout, title, tecplotFileName
+        integer                                         :: Nx,Ny
+        integer, dimension(NODES_PER_FACE)              :: corners
+        integer                                         :: totalNumberOfPoints, totalNumberOfFaces
+        real(kind=RP)                                   :: angle, cosAngle, sinAngle
+
+        totalNumberOfPoints = self % totalNumberOfPoints * numberOfBlades
+        totalNumberOfFaces  = self % totalNumberOfFaces  * numberOfBlades
+        tecplotFileName = trim(getFileName(self % fileName)) // ".complete.tec"
+        open ( newunit = fD , file = trim(tecplotFileName) , status = "unknown" , action = "write" )
+
+!       Add the title
+!       -------------
+        write(title,'(A,A,A)') '"Generated from ',trim(meshName),'"'
+        write(fd,'(A,A)') "TITLE = ", trim(title)
+
+!       Add the variables
+!       -----------------
+        write(fd,'(A,A)') 'VARIABLES = "x","y","z"', '"eID","fID"'
+
+!       Add the zone info
+!       -----------------
+        write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", totalNumberOfPoints,", E=", totalNumberOfFaces, &
+                                      ',ET=QUADRILATERAL, F=FEPOINT, T="surface_complete_', trim(self % Name), '"'
+
+!       Write the points, one full replicated copy at a time
+!       -----------------------------------------------------
+        write(formatout,'(A,I0,A,A)') "(",3+no_of_outputVariables,PRECISION_FORMAT,")"
+        do copyID = 0, numberOfBlades - 1
+            angle = real(copyID,RP) * (2.0_RP * PI / real(numberOfBlades,RP))
+            cosAngle = cos(angle)
+            sinAngle = sin(angle)
+            do fID = 1 , self % totalNumberOfFaces
+                associate ( f => mesh % faces(self % fIDs(fID)) )
+                    Nx = f % Nf(1)
+                    Ny = f % Nf(2)
+                    associate (x => f % geom % x)
+                        write(fd,trim(formatout)) rotatedCorner(x(:,0,0)),   real(self % globaleIDs(fID),KIND=RP), real(self % fIDs(fID),KIND=RP)
+                        write(fd,trim(formatout)) rotatedCorner(x(:,Nx,0)),  real(self % globaleIDs(fID),KIND=RP), real(self % fIDs(fID),KIND=RP)
+                        write(fd,trim(formatout)) rotatedCorner(x(:,Nx,Ny)), real(self % globaleIDs(fID),KIND=RP), real(self % fIDs(fID),KIND=RP)
+                        write(fd,trim(formatout)) rotatedCorner(x(:,0,Ny)),  real(self % globaleIDs(fID),KIND=RP), real(self % fIDs(fID),KIND=RP)
+                    end associate
+                end associate
+            end do
+        end do
+
+!       Write the connections
+!       ---------------------
+        row = 0
+        do fID = 1 , totalNumberOfFaces
+            row = row + 1
+            corners = [(i,i=1,NODES_PER_FACE)] + NODES_PER_FACE*(row-1)
+
+            write(fd,*) corners
+        end do
+
+        close(fd)
+
+        contains
+
+            Function rotatedCorner(xNode) result(xr)
+                real(kind=RP), dimension(3), intent(in) :: xNode
+                real(kind=RP), dimension(3)             :: xr
+                real(kind=RP)                           :: dy, dz
+
+                dy = xNode(2) - axisPosition(1)
+                dz = xNode(3) - axisPosition(2)
+                xr(1) = xNode(1)
+                xr(2) = axisPosition(1) + dy*cosAngle - dz*sinAngle
+                xr(3) = axisPosition(2) + dy*sinAngle + dz*cosAngle
+            End Function rotatedCorner
+
+    End Subroutine SurfaceWriteCompleteTecplot
+!
 !////////////////////////////////////////////////////////////////////////
 !
     Subroutine SurfaceSaveToFile(self, mesh, saveNodes)

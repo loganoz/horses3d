@@ -27,8 +27,32 @@ Module SurfaceMesh
     integer, parameter          :: SURFACE_TYPE_ACOUSTICS    = 4
     integer, parameter          :: FWH_POSITION              = 1 ! the fwh surface will be always the first position if exists
 !
+    ! Storage for a "virtual" (rotated-copy) FWH face, used to reconstruct a full
+    ! periodic rotor from a single simulated blade-passage sector. Owned once per
+    ! virtual face here (not duplicated per observer), mirroring how a real Face
+    ! owns its own geom/storage - every observer's integral reads the same copy.
+    ! Only ever populated by the "fwh post" post-processing tool
+    ! (see SurfConstructVirtualFaces / isPostProcessReplication below); never
+    ! touched by the online (in-situ) CFD run.
+    type VirtualFaceStorage_t
+        integer                                                 :: Nx, Ny
+        integer                                                 :: realFaceIndex     ! index (1..no_of_faces) of the real face this copy was rotated from
+        real(kind=RP)                                           :: rotationAngle     ! rotation applied about the axis, radians
+        real(kind=RP)                                           :: normalCorrection  ! copied from the real face's pair
+        real(kind=RP), dimension(:,:,:), allocatable            :: x                 ! (NDIM,0:Nx,0:Ny), rotated node positions - needed for the observer-source pair (retarded-time) construction
+        real(kind=RP), dimension(:,:,:), allocatable            :: normal            ! (NDIM,0:Nx,0:Ny), rotated
+        real(kind=RP), dimension(:,:),   allocatable            :: jacobian          ! (0:Nx,0:Ny), rotation-invariant, copied
+        real(kind=RP), dimension(:,:,:), allocatable            :: Q                 ! (NCONS,0:Nx,0:Ny), rotated momentum + copied scalars
+        real(kind=RP), dimension(:,:,:), allocatable            :: Qdot              ! (NCONS,0:Nx,0:Ny)
+
+        contains
+
+            procedure :: destruct => VirtualFaceStorageDestruct
+
+    end type VirtualFaceStorage_t
+!
     ! main class of surfaces mesh
-    type SurfaceMesh_t 
+    type SurfaceMesh_t
         integer                                                 :: numberOfSurfaces
         integer, dimension(:), allocatable                      :: totalFaces       ! number of faces in all partitions for each surface
         integer, dimension(:), allocatable                      :: surfaceTypes     ! type of each surface
@@ -46,6 +70,12 @@ Module SurfaceMesh
         logical                                                 :: saveUt           ! flag use for save friction velocity in bcs
         logical                                                 :: saveTurb         ! flag use for save wall normal distance, and viscosity
 
+        ! virtual (rotated-copy) FWH faces, for reconstructing a full periodic rotor
+        ! from a single simulated blade-passage sector. See VirtualFaceStorage_t above.
+        integer                                                 :: numberOfVirtualFaces = 0
+        type(VirtualFaceStorage_t), dimension(:), allocatable   :: virtualFaces
+        logical                                                 :: isPostProcessReplication = .false.
+
         contains
 
             procedure :: construct        => SurfConstruct
@@ -54,7 +84,9 @@ Module SurfaceMesh
             procedure :: saveAllMesh      => SurfSaveAllMesh
             procedure :: saveAllSolution  => SurfSaveAllSolution
             procedure :: loadSolution     => SurfLoadSolution
-    end type SurfaceMesh_t 
+            procedure :: constructVirtualFaces => SurfConstructVirtualFaces
+            procedure :: rotateVirtualSolution => SurfRotateVirtualSolution
+    end type SurfaceMesh_t
 
     type(SurfaceMesh_t)                         :: surfacesMesh
     real(kind=RP)                               :: sliceTolerance
@@ -386,6 +418,9 @@ Module SurfaceMesh
 !
         implicit none
         class(SurfaceMesh_t), intent(inout)              :: self
+
+        ! local variables
+        integer                                          :: i
 !
 !       Check if is activated
 !       ------------------------
@@ -399,8 +434,28 @@ Module SurfaceMesh
         safedeallocate(self % globalFid)
         safedeallocate(self % faceOffset)
         safedeallocate(self % elementSide)
+        if (allocated(self % virtualFaces)) then
+            do i = 1, self % numberOfVirtualFaces
+                call self % virtualFaces(i) % destruct
+            end do
+        end if
+        safedeallocate(self % virtualFaces)
+        self % numberOfVirtualFaces = 0
 !
     End Subroutine SurfDestruct
+!
+    elemental Subroutine VirtualFaceStorageDestruct(self)
+
+        implicit none
+        class(VirtualFaceStorage_t), intent(inout)          :: self
+
+        safedeallocate(self % x)
+        safedeallocate(self % normal)
+        safedeallocate(self % jacobian)
+        safedeallocate(self % Q)
+        safedeallocate(self % Qdot)
+
+    End Subroutine VirtualFaceStorageDestruct
 !
     Subroutine SurfSaveSolutionConfiguration(self, controlVariables, t0)
 
@@ -551,6 +606,195 @@ Module SurfaceMesh
                                  self % elementSide(:,1), hasGradients)
 !
     End Subroutine SurfLoadSolution
+!
+    Subroutine SurfConstructVirtualFaces(self, controlVariables, mesh, isPostProcess)
+!     ************************************************************************
+!        Allocates the "virtual" rotated-copy face storage used to reconstruct
+!        the full periodic rotor from a single simulated blade-passage sector.
+!
+!        This must ONLY ever be called from the "fwh post" post-processing tool
+!        path (FWHPostProc.f90/FWHTools.f90), never from the online (in-situ)
+!        solver construction path in DGSEMClass.f90 - hence the explicit
+!        isPostProcess guard below, which the one legitimate call site passes
+!        as .true. explicitly. There is no control-file key that can enable
+!        this, so an online run cannot activate it by accident.
+!
+!        The normal is rotated about the x axis (the rotation axis convention
+!        used throughout the FWH surface tools); the jacobian is a rotation-
+!        invariant scalar metric and is simply copied. The per-timestep Q/Qdot
+!        are left zeroed here - they are filled in after each loaded timestep
+!        by the solution-rotation step.
+!     ************************************************************************
+!
+        use PhysicsStorage, only: NCONS
+        use FaceClass
+        use FileReadingUtilities, only: getRealArrayFromString
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+        type(HexMesh), intent(in)                           :: mesh
+        logical, intent(in)                                 :: isPostProcess
+
+        ! local variables
+        integer                                             :: numberOfBlades, numberOfRealFaces
+        integer                                             :: k, copyID, realFaceID, meshFaceID, Nx, Ny
+        integer                                             :: i, j
+        real(kind=RP)                                       :: cosAngle, sinAngle
+        real(kind=RP), dimension(NDIM)                      :: nReal, xReal
+        real(kind=RP)                                       :: dy, dz
+        real(kind=RP), dimension(2)                         :: axisPosition   ! [yAxis, zAxis], same convention as the surface-extraction tool
+        character(len=LINE_LENGTH)                          :: axisPositionStr
+
+        self % isPostProcessReplication = isPostProcess
+        self % numberOfVirtualFaces = 0
+
+!       This is only ever meant to run in the "fwh post" tool - if it is somehow
+!       reached with isPostProcess = .false. (i.e. an online CFD run), do nothing.
+!       ---------------------------------------------------------------------
+        if (.not. isPostProcess) return
+        if (.not. self % active) return
+        if (self % surfaceTypes(FWH_POSITION) .ne. SURFACE_TYPE_FWH) return
+
+        numberOfBlades = controlVariables % getValueOrDefault("acoustic number of blades", 1)
+
+!       Nothing to replicate for a single blade / non-periodic surface
+!       ---------------------------------------------------------------------
+        if (numberOfBlades .le. 1) return
+
+        numberOfRealFaces = self % zones(FWH_POSITION) % no_of_faces
+        self % numberOfVirtualFaces = numberOfRealFaces * (numberOfBlades - 1)
+
+        allocate( self % virtualFaces(self % numberOfVirtualFaces) )
+
+!       Rotation axis position in the (y,z) plane - same convention as the surface
+!       extraction tool's "axis position" key. Needed for positions (unlike the
+!       normal, which is a direction and only depends on the angle).
+!       ---------------------------------------------------------------------
+        if (controlVariables % containsKey("axis position")) then
+            axisPositionStr = controlVariables % stringValueForKey("axis position", LINE_LENGTH)
+            axisPosition = getRealArrayFromString(axisPositionStr)
+        else
+            axisPosition = [0.0_RP, 0.0_RP]
+        end if
+
+        k = 0
+        do copyID = 1, numberOfBlades - 1
+            do realFaceID = 1, numberOfRealFaces
+                k = k + 1
+                meshFaceID = self % zones(FWH_POSITION) % faces(realFaceID)
+                Nx = mesh % faces(meshFaceID) % Nf(1)
+                Ny = mesh % faces(meshFaceID) % Nf(2)
+
+                associate ( vf => self % virtualFaces(k) )
+                    vf % Nx            = Nx
+                    vf % Ny            = Ny
+                    vf % realFaceIndex = realFaceID
+                    vf % rotationAngle = real(copyID,RP) * (2.0_RP * PI / real(numberOfBlades,RP))
+
+                    select case ( self % elementSide(realFaceID,1) )
+                    case (1)
+                        vf % normalCorrection = 1.0_RP
+                    case (2)
+                        vf % normalCorrection = -1.0_RP
+                    end select
+
+                    allocate( vf % x       (NDIM,  0:Nx, 0:Ny) )
+                    allocate( vf % normal  (NDIM,  0:Nx, 0:Ny) )
+                    allocate( vf % jacobian(       0:Nx, 0:Ny) )
+                    allocate( vf % Q       (NCONS, 0:Nx, 0:Ny) )
+                    allocate( vf % Qdot    (NCONS, 0:Nx, 0:Ny) )
+
+!                   Rotate the position and normal about the x axis; copy the (rotation-invariant) jacobian
+!                   -----------------------------------------------------------------------------------------
+                    cosAngle = cos(vf % rotationAngle)
+                    sinAngle = sin(vf % rotationAngle)
+
+                    do j = 0, Ny ; do i = 0, Nx
+                        ! position: rotate about the axis line (offset by axisPosition, not the origin)
+                        xReal = mesh % faces(meshFaceID) % geom % x(:,i,j)
+                        dy = xReal(2) - axisPosition(1)
+                        dz = xReal(3) - axisPosition(2)
+                        vf % x(1,i,j) = xReal(1)
+                        vf % x(2,i,j) = axisPosition(1) + dy*cosAngle - dz*sinAngle
+                        vf % x(3,i,j) = axisPosition(2) + dy*sinAngle + dz*cosAngle
+
+                        ! normal: a direction, so only the angle matters, not the axis offset
+                        nReal = mesh % faces(meshFaceID) % geom % normal(:,i,j)
+                        vf % normal(1,i,j) = nReal(1)
+                        vf % normal(2,i,j) = nReal(2)*cosAngle - nReal(3)*sinAngle
+                        vf % normal(3,i,j) = nReal(2)*sinAngle + nReal(3)*cosAngle
+                    end do       ; end do
+
+                    vf % jacobian = mesh % faces(meshFaceID) % geom % jacobian(0:Nx,0:Ny)
+
+                    vf % Q        = 0.0_RP
+                    vf % Qdot     = 0.0_RP
+                end associate
+            end do
+        end do
+
+    End Subroutine SurfConstructVirtualFaces
+!
+    Subroutine SurfRotateVirtualSolution(self, mesh)
+!     ************************************************************************
+!        Rotates the real FWH faces' just-loaded Q/Qdot into the virtual
+!        (rotated-copy) face storage. Must be called after loadSolution has
+!        populated the real faces' storage for the current timestep.
+!
+!        Density and energy are scalars and are simply copied; the momentum
+!        components (a lab-frame Cartesian vector) are rotated by the same
+!        angle used for the geometry, about the x axis.
+!
+!        No-op (and safe to call unconditionally) when there are no virtual
+!        faces, e.g. an online CFD run or a "fwh post" run with a single blade.
+!     ************************************************************************
+!
+        use PhysicsStorage, only: NCONS
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        class(HexMesh), intent(in)                          :: mesh
+
+        ! local variables
+        integer                                             :: k, realFaceID, meshFaceID, elemSide, i, j
+        real(kind=RP)                                       :: cosAngle, sinAngle
+        real(kind=RP), dimension(NCONS)                     :: Qreal, Qdotreal
+
+        if (self % numberOfVirtualFaces .eq. 0) return
+
+        do k = 1, self % numberOfVirtualFaces
+            associate ( vf => self % virtualFaces(k) )
+                realFaceID = vf % realFaceIndex
+                meshFaceID = self % zones(FWH_POSITION) % faces(realFaceID)
+                elemSide   = self % elementSide(realFaceID,1)
+
+                cosAngle = cos(vf % rotationAngle)
+                sinAngle = sin(vf % rotationAngle)
+
+                do j = 0, vf % Ny ; do i = 0, vf % Nx
+                    Qreal    = mesh % faces(meshFaceID) % storage(elemSide) % Q(:,i,j)
+                    Qdotreal = mesh % faces(meshFaceID) % storage(elemSide) % Qdot(:,i,j)
+
+                    ! density and energy: scalars, copied unchanged
+                    vf % Q(1,i,j)       = Qreal(1)
+                    vf % Q(5:NCONS,i,j) = Qreal(5:NCONS)
+                    vf % Qdot(1,i,j)       = Qdotreal(1)
+                    vf % Qdot(5:NCONS,i,j) = Qdotreal(5:NCONS)
+
+                    ! momentum: a lab-frame Cartesian vector, rotated about the x axis
+                    vf % Q(2,i,j) = Qreal(2)
+                    vf % Q(3,i,j) = Qreal(3)*cosAngle - Qreal(4)*sinAngle
+                    vf % Q(4,i,j) = Qreal(3)*sinAngle + Qreal(4)*cosAngle
+
+                    vf % Qdot(2,i,j) = Qdotreal(2)
+                    vf % Qdot(3,i,j) = Qdotreal(3)*cosAngle - Qdotreal(4)*sinAngle
+                    vf % Qdot(4,i,j) = Qdotreal(3)*sinAngle + Qdotreal(4)*cosAngle
+                end do          ; end do
+            end associate
+        end do
+
+    End Subroutine SurfRotateVirtualSolution
 !
     Subroutine createFWHSurface(self, controlVariables, mesh, solution_file, elementSide)
         use FileReadingUtilities, only: getCharArrayFromString

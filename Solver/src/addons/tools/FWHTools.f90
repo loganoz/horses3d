@@ -33,6 +33,7 @@ Module FWHTools  !
         use FWHPostProc
         use FWHPreSurface
         use MPI_Process_Info
+        use SurfaceMesh                , only: surfacesMesh
 
         Implicit None
 
@@ -73,6 +74,10 @@ Module FWHTools  !
         if (isSurface) then
             call extractSurface(sem % mesh, controlVariables)
         else
+            ! Only the "fwh post" post-processing tool may build the virtual
+            ! (rotated-copy) FWH face storage - the online CFD run never reaches
+            ! this branch at all, so isPostProcess=.true. is only ever seen here.
+            call surfacesMesh % constructVirtualFaces(controlVariables, sem % mesh, isPostProcess=.true.)
             call LoadAllFiles(controlVariables, sem)
         end if
 !
