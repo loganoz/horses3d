@@ -15,8 +15,9 @@ Module SurfaceMesh
 !   
     private
 !
-    public SURFACE_TYPE_FWH, SURFACE_TYPE_SLICE, FWH_POSITION, SURFACE_TYPE_ACOUSTICS 
+    public SURFACE_TYPE_FWH, SURFACE_TYPE_SLICE, FWH_POSITION, SURFACE_TYPE_ACOUSTICS
     public surfacesMesh
+    public VirtualFaceStorage_t
 #if defined(NAVIERSTOKES)
     public getU_tauInSurfaces, getWallDistInSurfaces
 #endif

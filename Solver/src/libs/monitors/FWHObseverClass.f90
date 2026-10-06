@@ -15,6 +15,7 @@ Module  FWHObseverClass  !
    use ZoneClass
    use HexMeshClass
    use MPI_Process_Info
+   use SurfaceMesh, only: surfacesMesh
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -54,6 +55,32 @@ Module  FWHObseverClass  !
    end type ObserverSourcePairClass
 !
 !  *****************************
+!  Virtual (rotated-copy) observer-source pair class: same geometric/retarded-
+!  time bookkeeping as ObserverSourcePairClass (inherited: rVect, r, re,
+!  reUnitVect, reStar, reStarUnitVect, tDelay, Pacc, tInterp, destruct,
+!  allocPacc, interpolate*, updateOneStep - all reused as-is), but sourced from
+!  the SurfaceMesh_t-owned virtual face storage (surfacesMesh % virtualFaces)
+!  instead of a live Face, since the 2 rotated copies have no corresponding
+!  real mesh face. Used to reconstruct a full periodic rotor from a single
+!  simulated blade-passage sector. Only ever populated in post-processing (see
+!  surfacesMesh % isPostProcessReplication); inert otherwise.
+!
+!  constructVirtual/virtualFWHSurfaceIntegral are NEW bindings (not overrides
+!  of construct/FWHSurfaceIntegral) since their argument lists genuinely
+!  differ - there is no polymorphic dispatch between real and virtual pairs,
+!  they live in separate arrays and are driven by separate loops.
+!  *****************************
+   type, extends(ObserverSourcePairClass) :: VirtualSourcePairClass
+       integer                                              :: virtualFaceID    ! index into surfacesMesh % virtualFaces
+
+       contains
+
+           procedure :: constructVirtual => VirtualSourcePairConstruct
+           procedure :: virtualFWHSurfaceIntegral => VirtualFWHSurfaceIntegral
+
+   end type VirtualSourcePairClass
+!
+!  *****************************
 !  General observer class definition
 !   (similar to a monitor, mostly surface monitor in many behaviours)
 !  *****************************
@@ -64,6 +91,8 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(NDIM)                                  :: x        ! position of the observer at global coordinates
        integer                                                         :: numberOfFaces
        class(ObserverSourcePairClass), dimension(:), allocatable       :: sourcePair
+       integer                                                         :: numberOfVirtualFaces = 0
+       class(VirtualSourcePairClass), dimension(:), allocatable        :: virtualSourcePair
        real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! acoustic pressure, two components and the total (sum)
        real(kind=RP)                                                   :: tDelay
        real(kind=RP)                                                   :: tDelayMax
@@ -161,7 +190,26 @@ Module  FWHObseverClass  !
           do zoneFaceID = 1, self % numberOfFaces
               call self % sourcePair(zoneFaceID) % allocPacc(OB_BUFFER_SIZE)
           end do
-      end if 
+      end if
+
+!     Construct virtual (rotated-copy) source pairs, if replication was
+!     requested by the "fwh post" post-processing tool (never true online -
+!     see surfacesMesh % isPostProcessReplication).
+!     -------------------------------------------------
+      self % numberOfVirtualFaces = 0
+      if (surfacesMesh % isPostProcessReplication .and. surfacesMesh % numberOfVirtualFaces .gt. 0) then
+          self % numberOfVirtualFaces = surfacesMesh % numberOfVirtualFaces
+          allocate( self % virtualSourcePair(self % numberOfVirtualFaces) )
+          do zoneFaceID = 1, self % numberOfVirtualFaces
+              call self % virtualSourcePair(zoneFaceID) % constructVirtual(self % x, zoneFaceID)
+          end do
+
+          if (interpolate) then
+              do zoneFaceID = 1, self % numberOfVirtualFaces
+                  call self % virtualSourcePair(zoneFaceID) % allocPacc(OB_BUFFER_SIZE)
+              end do
+          end if
+      end if
 
 !     Set the average time delay of the observer
 !     -------------------------------------------------
@@ -243,9 +291,28 @@ use VariableConversion, only: Pressure, PressureDot
                  storePosition = size(self % sourcePair(zoneFaceID) % Pacc, dim=1)
              end if
              self % sourcePair(zoneFaceID) % Pacc(storePosition,:) = localPacc
-         end do  
+         end do
 !$omp end do
 !$omp end parallel
+
+!        Same, for the virtual (rotated-copy) pairs, if any
+!        ---------------------------------------
+         if (self % numberOfVirtualFaces .gt. 0) then
+!$omp parallel private(storePosition,localPacc) shared(isSolid,interpolate,self,bufferPosition)
+!$omp do private(storePosition,localPacc) schedule(runtime)
+            do zoneFaceID = 1, self % numberOfVirtualFaces
+                localPacc = self % virtualSourcePair(zoneFaceID) % virtualFWHSurfaceIntegral( isSolid )
+
+                if (present(bufferPosition)) then
+                    storePosition = bufferPosition
+                else
+                    storePosition = size(self % virtualSourcePair(zoneFaceID) % Pacc, dim=1)
+                end if
+                self % virtualSourcePair(zoneFaceID) % Pacc(storePosition,:) = localPacc
+            end do
+!$omp end do
+!$omp end parallel
+         end if
      else interp_cond
 !        For this case get the whole solution of the observer, adding all the pairs without saving
 !        ---------------------------------------
@@ -263,9 +330,26 @@ use VariableConversion, only: Pressure, PressureDot
              valx = valx + localPacc(1)
              valy = valy + localPacc(2)
              valz = valz + localPacc(3)
-         end do  
+         end do
 !$omp end do
 !$omp end parallel
+
+!        Same, for the virtual (rotated-copy) pairs, if any - summed into the
+!        same accumulators before they are written to Pacc below
+!        ---------------------------------------
+         if (self % numberOfVirtualFaces .gt. 0) then
+!$omp parallel private(localPacc) shared(isSolid,self) reduction(+:valx,valy,valz)
+!$omp do private(localPacc) reduction(+:valx,valy,valz) schedule(runtime)
+            do zoneFaceID = 1, self % numberOfVirtualFaces
+                localPacc = self % virtualSourcePair(zoneFaceID) % virtualFWHSurfaceIntegral( isSolid )
+
+                valx = valx + localPacc(1)
+                valy = valy + localPacc(2)
+                valz = valz + localPacc(3)
+            end do
+!$omp end do
+!$omp end parallel
+         end if
 
           Pacc = (/valx, valy, valz/)
 
@@ -297,12 +381,28 @@ use VariableConversion, only: Pressure, PressureDot
       real(kind=RP)                                        :: t, tmax
       real(kind=RP), dimension(:), allocatable             :: alltDelay
       real(kind=RP), dimension(self % numberOfFaces)       :: tDelayArray
+      real(kind=RP), dimension(:), allocatable             :: tDelayArrayVirtual
       integer, dimension(MPI_Process % nProcs)             :: no_of_faces_p, displs
 
       do i =1, self % numberOfFaces
         tDelayArray(i) = self % sourcePair(i) % tDelay
       end do
 
+      ! same, for the virtual (rotated-copy) pairs, if any - folded into the
+      ! same min/max below so the release window (tDelayMax) and the "is this
+      ! the reference pair" check (tDelay) are both correct even when a
+      ! virtual pair's delay falls outside the real pairs' own range
+      if (self % numberOfVirtualFaces .gt. 0) then
+          allocate(tDelayArrayVirtual(self % numberOfVirtualFaces))
+          do i = 1, self % numberOfVirtualFaces
+              tDelayArrayVirtual(i) = self % virtualSourcePair(i) % tDelay
+          end do
+      end if
+
+!     Virtual faces only ever exist in the (never-MPI) "fwh post" post-
+!     processing tool, so the MPI branch below is intentionally left as the
+!     real-pairs-only reduction it already was.
+!     ---------------------------------------------------------------------
       if ( (MPI_Process % doMPIAction) ) then
 #ifdef _HAS_MPI_
           call mpi_gather(self % numberOfFaces,1,MPI_INT,no_of_faces_p,1,MPI_INT,0,MPI_COMM_WORLD,ierr)
@@ -327,8 +427,13 @@ use VariableConversion, only: Pressure, PressureDot
           call mpi_Bcast(tmax, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ierr)
 #endif
       else
-          t = minval(tDelayArray)
-          tmax = maxval(tDelayArray)
+          if (self % numberOfVirtualFaces .gt. 0) then
+              t    = min( minval(tDelayArray), minval(tDelayArrayVirtual) )
+              tmax = max( maxval(tDelayArray), maxval(tDelayArrayVirtual) )
+          else
+              t = minval(tDelayArray)
+              tmax = maxval(tDelayArray)
+          end if
       end if
 
       self % tDelay = t
@@ -384,6 +489,7 @@ use VariableConversion, only: Pressure, PressureDot
       real(kind=RP)                                        :: tobserver
       integer                                              :: i
       integer, dimension(self%numberOfFaces)               :: nDiscard
+      integer, dimension(self%numberOfVirtualFaces)        :: nDiscardVirtual
 
       ! store the solution of each pair at the last position, by not giving the bufferPosition
       call self % update(mesh, isSolid, interpolate=.TRUE.)
@@ -396,22 +502,45 @@ use VariableConversion, only: Pressure, PressureDot
       do i = 1, self % numberOfFaces
             if (self % sourcePair(i) % tDelay .eq. self % tDelay) cycle
             call self % sourcePair(i) % interpolateSolS(tobserver, tsource)
-      end do 
+      end do
 !$omp end do
 !$omp end parallel
 
-      ! sum all the pair solution and save it at bufferPosition of the observer sol
+      ! same, for the virtual (rotated-copy) pairs, if any
+      if (self % numberOfVirtualFaces .gt. 0) then
+!$omp parallel shared(self)
+!$omp do schedule(runtime)
+          do i = 1, self % numberOfVirtualFaces
+                if (self % virtualSourcePair(i) % tDelay .eq. self % tDelay) cycle
+                call self % virtualSourcePair(i) % interpolateSolS(tobserver, tsource)
+          end do
+!$omp end do
+!$omp end parallel
+      end if
+
+      ! sum all the pair solution (real and virtual) and save it at bufferPosition of the observer sol
       nDiscard = 0
-      call self % sumIntegrals(nDiscard, 1, bufferPosition, bufferPosition)
+      nDiscardVirtual = 0
+      call self % sumIntegrals(nDiscard, 1, bufferPosition, bufferPosition, nDiscardVirtual)
 
       ! update the solution of each pair and its times for next iteration
 !$omp parallel shared(self)
 !$omp do schedule(runtime)
       do i = 1, self % numberOfFaces
             call self % sourcePair(i) % updateOneStep()
-      end do 
+      end do
 !$omp end do
 !$omp end parallel
+
+      if (self % numberOfVirtualFaces .gt. 0) then
+!$omp parallel shared(self)
+!$omp do schedule(runtime)
+          do i = 1, self % numberOfVirtualFaces
+                call self % virtualSourcePair(i) % updateOneStep()
+          end do
+!$omp end do
+!$omp end parallel
+      end if
 
     End Subroutine ObserverUpdateOneStep
 
@@ -428,6 +557,7 @@ use VariableConversion, only: Pressure, PressureDot
       real(kind=RP), dimension(:), allocatable             :: tobserver
       integer                                              :: i, n, k, m
       integer, dimension(self % numberOfFaces)             :: nDiscard
+      integer, dimension(self % numberOfVirtualFaces)      :: nDiscardVirtual
       logical                                              :: sameDelay
 
       allocate(tobserver(no_of_lines))
@@ -457,12 +587,30 @@ use VariableConversion, only: Pressure, PressureDot
 !$omp end do
 !$omp end parallel
 
+      ! same, for the virtual (rotated-copy) pairs, if any. Note k/n/tobserver
+      ! are derived from tDelay/tDelayMax of the real pairs only for now (see
+      ! the tDelay step still to come), so this is provisionally using the
+      ! same release window as the real pairs.
+      if (self % numberOfVirtualFaces .gt. 0) then
+!$omp parallel shared(self, nDiscardVirtual, n, no_of_lines, tobserver, tsource,k)
+!$omp do schedule(runtime)
+          do i = 1, self % numberOfVirtualFaces
+              if (self % virtualSourcepair(i) % tdelay .eq. self % tdelay) then
+                  nDiscardVirtual(i) = k-1
+              else
+                  call self % virtualSourcePair(i) % interpolateSolF(n, no_of_lines, tobserver, tsource(1:no_of_lines), nDiscardVirtual(i))
+              end if
+          end do
+!$omp end do
+!$omp end parallel
+      end if
+
       ! set to 0 the first part of the solution, which cannot be interpolated
       ! in this case Pacc is written from 1:no_of_lines, which have a value of 0 at first positions, not need to change obs write proc
       self % pac(1:k-1,:) = 0.0_RP
 
       ! sum all values from k to no_of_lines
-      call self % sumIntegrals(nDiscard, n, k, no_of_lines)
+      call self % sumIntegrals(nDiscard, n, k, no_of_lines, nDiscardVirtual)
 
       ! update all the solution of the pair to save the future ones
       do i = 1, self % numberOfFaces
@@ -471,16 +619,25 @@ use VariableConversion, only: Pressure, PressureDot
           call self % sourcePair(i) % newUpdate(n, nDiscard(i), no_of_lines, tsource(1:no_of_lines), sameDelay)
       end do
 
+      ! same, for the virtual (rotated-copy) pairs, if any
+      if (self % numberOfVirtualFaces .gt. 0) then
+          do i = 1, self % numberOfVirtualFaces
+              sameDelay = self % virtualSourcepair(i) % tdelay .eq. self % tdelay
+              call self % virtualSourcePair(i) % newUpdate(n, nDiscardVirtual(i), no_of_lines, tsource(1:no_of_lines), sameDelay)
+          end do
+      end if
+
    End Subroutine ObserverInterpolateSol
 
    ! sum all the interpolated solution of all pairs and save it at the observer solution
-   Subroutine ObserverSumIntegrals(self, nDiscard, N, startIndex, no_of_lines)
+   Subroutine ObserverSumIntegrals(self, nDiscard, N, startIndex, no_of_lines, nDiscardVirtual)
 
-      implicit none  
+      implicit none
 
       class(observerclass)                                 :: self
       integer, intent(in)                                  :: no_of_lines, startIndex, N
       integer, dimension(self % numberOfFaces), intent(in) :: nDiscard
+      integer, dimension(self % numberOfVirtualFaces), intent(in) :: nDiscardVirtual
 
       ! local variables
       real(kind=RP), dimension(:,:), allocatable           :: localPacc, Pacc   ! temporal variable to store the sum of the pressure
@@ -488,7 +645,7 @@ use VariableConversion, only: Pressure, PressureDot
       integer                                              :: i, ierr
 
 !     Initialization
-!     --------------            
+!     --------------
       ! 1:N must be equal to startIndex:no_of_lines
       allocate(Pacc(N,3), localPacc(N,3), valx(N), valy(N), valz(N))
       Pacc = 0.0_RP
@@ -507,9 +664,25 @@ use VariableConversion, only: Pressure, PressureDot
          valy = valy + localPacc(:,2)
          valz = valz + localPacc(:,3)
 
-      end do  
+      end do
 !$omp end do
 !$omp end parallel
+
+!     Same, for the virtual (rotated-copy) pairs, if any
+!     ---------------------------------------
+      if (self % numberOfVirtualFaces .gt. 0) then
+!$omp parallel private(localPacc) shared(nDiscardVirtual,N,self,valx,valy,valz)
+!$omp do private(localPacc) reduction(+:valx,valy,valz) schedule(runtime)
+         do i = 1, self % numberOfVirtualFaces
+            localPacc(1:N,:) = self % virtualSourcePair(i) % Pacc(nDiscardVirtual(i)+1:nDiscardVirtual(i)+N,:)
+
+            valx = valx + localPacc(:,1)
+            valy = valy + localPacc(:,2)
+            valz = valz + localPacc(:,3)
+         end do
+!$omp end do
+!$omp end parallel
+      end if
 
       Pacc(:,1) = valx(:)
       Pacc(:,2) = valy(:)
@@ -536,6 +709,13 @@ use VariableConversion, only: Pressure, PressureDot
             call self % sourcePair(i) % destruct
         end do
         safedeallocate (self % sourcePair)
+
+        if (self % numberOfVirtualFaces .gt. 0) then
+            do i = 1, self % numberOfVirtualFaces
+                call self % virtualSourcePair(i) % destruct
+            end do
+            safedeallocate (self % virtualSourcePair)
+        end if
 
    End Subroutine ObserverDestruct
 
@@ -593,7 +773,54 @@ use VariableConversion, only: Pressure, PressureDot
            end do; end do
        end associate
 
-   End Subroutine ObserverSourcePairConstruct 
+   End Subroutine ObserverSourcePairConstruct
+
+   Subroutine VirtualSourcePairConstruct(self, x, virtualFaceID)
+!       *****************************************************************************
+!           Same geometric/retarded-time construction as ObserverSourcePairConstruct,
+!           but sourced from the already-rotated positions in
+!           surfacesMesh % virtualFaces(virtualFaceID) % x instead of a live Face's
+!           geom % x, since this virtual (rotated-copy) face has no corresponding
+!           real mesh face to read from.
+!       *****************************************************************************
+
+       use FWHDefinitions, only: rho0, P0, c0, U0, M0, fwGamma2
+       implicit none
+
+       class(VirtualSourcePairClass)                       :: self
+       real(kind=RP), dimension(NDIM), intent(in)          :: x       ! observer position
+       integer, intent(in)                                 :: virtualFaceID
+
+       ! local variables
+       integer                                             :: Nx,Ny
+       integer                                             :: i, j
+       real(kind=RP)                                       :: fwGammaInv
+
+       self % virtualFaceID = virtualFaceID
+
+       associate ( vf => surfacesMesh % virtualFaces(virtualFaceID) )
+           Nx = vf % Nx
+           Ny = vf % Ny
+
+           allocate( self % r(0:Nx,0:Ny), self % re(0:Nx,0:Ny), self % reStar(0:Nx,0:Ny) )
+           allocate( self % rVect(NDIM,0:Nx,0:Ny), self % reUnitVect(NDIM,0:Nx,0:Ny) ,self % reStarUnitVect(NDIM,0:Nx,0:Ny) )
+
+           fwGammaInv = 1.0_RP / sqrt(fwGamma2)
+           ! rotated source position, for each node of the face
+           do j= 0, Ny; do i = 0,Nx
+               ! store geometrical acoustic relations for each node
+               self % rVect(:,i,j) = x(:) - vf % x(:,i,j)
+               self % r(i,j) = norm2(self % rVect(:,i,j))
+               self % reStar(i,j) = fwGammaInv*sqrt( self%r(i,j)**2 + fwGamma2*( dot_product(M0, self%rVect(:,i,j)) )**2 )
+               self % reStarUnitVect(:,i,j) = ( self%rVect(:,i,j) + fwGamma2*dot_product(M0, self%rVect(:,i,j))*M0(:) ) / &
+                                            (fwGamma2*self%reStar(i,j))
+               self % re(i,j) = fwGamma2*( self%reStar(i,j) - dot_product(M0, self%rVect(:,i,j)) )
+               self % reUnitVect(:,i,j) = fwGamma2*( self%reStarUnitVect(:,i,j) - M0(:) )
+               self % tDelay = (sum(self%re))/real(size(self%re),RP) / c0
+           end do; end do
+       end associate
+
+   End Subroutine VirtualSourcePairConstruct
 
   elemental Subroutine ObserverSourcePairDestruct(self)
 
@@ -605,6 +832,8 @@ use VariableConversion, only: Pressure, PressureDot
       safedeallocate(self % reUnitVect)
       safedeallocate(self % reStar)
       safedeallocate(self % reStarUnitVect)
+      safedeallocate(self % Pacc)
+      safedeallocate(self % tInterp)
 
   End Subroutine ObserverSourcePairDestruct 
 
@@ -825,7 +1054,69 @@ use VariableConversion, only: Pressure, PressureDot
       ! get total acoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
        Pacc = (/Pt, Pl, Pt+Pl/)
 
-   End Function FWHSurfaceIntegral 
+   End Function FWHSurfaceIntegral
+
+   ! same surface-integral physics as FWHSurfaceIntegral (Formulation 1C), but reading
+   ! normal/jacobian/Q/Qdot from the virtual (rotated-copy) face storage in
+   ! surfacesMesh % virtualFaces instead of a live Face, since this virtual face has
+   ! no corresponding real mesh face to read from
+   Function VirtualFWHSurfaceIntegral(self, isSolid) result(Pacc)
+
+       use FWHDefinitions, only: rho0, P0, c0, U0, M0
+       implicit none
+
+       class(VirtualSourcePairClass)                       :: self
+       logical, intent(in)                                 :: isSolid
+       real(kind=RP),dimension(3)                          :: Pacc  ! acoustic pressure values
+
+       ! local variables
+       integer                                             :: i, j  ! face indexes
+       real(kind=RP), dimension(NDIM)                      :: Qi,QiDot, n
+       real(kind=RP), dimension(NDIM,NDIM)                 :: Lij, LijDot
+       type(NodalStorage_t), pointer                       :: spAxi, spAeta
+       real(kind=RP)                                       :: Pt, Pl
+
+       ! Initialization
+       Pt = 0.0_RP
+       Pl = 0.0_RP
+
+       associate ( vf => surfacesMesh % virtualFaces(self % virtualFaceID) )
+           spAxi  => NodalStorage(vf % Nx)
+           spAeta => NodalStorage(vf % Ny)
+
+    !           **********************************
+    !           Computes the surface integral
+    !              I = \int vec{f}·vec{n} * vec{g}·vec{r} dS
+    !           **********************************
+    !
+               do j = 0, vf % Ny ;    do i = 0, vf % Nx
+
+                  n = vf % normal(:,i,j) * vf % normalCorrection
+                  call calculateFWHVariables(vf % Q(:,i,j), vf % Qdot(:,i,j), isSolid, Qi, QiDot, Lij, LijDot)
+
+                  ! loading term integrals
+                  Pl = Pl +  dot_product(matmul(LijDot,n(:)),self%reUnitVect(:,i,j)) / (self%reStar(i,j) * c0) * &
+                            spAxi % w(i) * spAeta % w(j) * vf % jacobian(i,j)
+                  Pl = Pl +  dot_product(matmul(Lij,n(:)),self%reStarUnitVect(:,i,j)) / (self%reStar(i,j)**2) * &
+                            spAxi % w(i) * spAeta % w(j) * vf % jacobian(i,j)
+
+                  ! thickness term integrals, only for permeable surfaces
+                  if (.not. isSolid) then
+                      Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
+                                spAxi % w(i) * spAeta % w(j) * vf % jacobian(i,j)
+                      Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
+                                spAxi % w(i) * spAeta % w(j) * vf % jacobian(i,j)
+                  end if
+               end do          ;    end do
+       end associate
+
+       Pt = Pt / (4.0_RP * PI)
+       Pl = Pl / (4.0_RP * PI)
+
+      ! get total acoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
+       Pacc = (/Pt, Pl, Pt+Pl/)
+
+   End Function VirtualFWHSurfaceIntegral
 
 !/////////////////////////////////////////////////////////////////////////
 !           ZONE PROCEDURES --------------------------
