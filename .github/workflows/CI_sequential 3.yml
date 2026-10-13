@@ -53,7 +53,7 @@ jobs:
       - name: Set Coverage Flags
         run: |
           if [ "${{ matrix.compiler }}" = "gfortran" ] && [ "${{ matrix.mode }}" = "DEBUG" ]; then
-            echo "EXTRA_COV=-Og -fprofile-arcs -ftest-coverage" >> $GITHUB_ENV
+            echo "EXTRA_COV=-fprofile-arcs -ftest-coverage" >> $GITHUB_ENV
           else
             echo "EXTRA_COV=" >> $GITHUB_ENV
           fi
@@ -598,7 +598,7 @@ jobs:
         if: matrix.compiler == 'gfortran' && matrix.mode == 'DEBUG' && !cancelled()
         run: |
           # gcovr scans recursively from the root to find all generated .gcda and .gcno files
-          gcovr --root . --print-summary --xml coverage.xml
+          gcovr --root . --gcov-ignore-parse-errors --print-summary --xml coverage.xml
 
       - name: Upload Coverage to Codecov
         if: matrix.compiler == 'gfortran' && matrix.mode == 'DEBUG' && !cancelled()
