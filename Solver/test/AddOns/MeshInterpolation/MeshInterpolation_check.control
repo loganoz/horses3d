@@ -2,7 +2,7 @@
 ! Step 3 of the test (see MeshInterpolation_source.control)
 !
 Flow equations        = "NS"
-mesh file name        = "MESH/mesh_lc05.msh"
+mesh file name        = "MESH/box_target.msh"
 Polynomial order      = 4
 discretization nodes  = Gauss-Lobatto
 Number of time steps  = 0

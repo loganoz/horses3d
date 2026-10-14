@@ -8,7 +8,7 @@ input file name         = RESULTS/Source_0000000000.hsol
 input file name 2       = RESULTS/Source_0000000000.Lamb.hsol
 
 ! Output mesh: different elements, polynomial order and discretization nodes
-mesh file name          = "MESH/mesh_lc05.msh"
+mesh file name          = "MESH/box_target.msh"
 Polynomial order        = 4
 discretization nodes    = Gauss-Lobatto
 
