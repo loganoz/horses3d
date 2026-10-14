@@ -137,3 +137,22 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           OMP_NUM_THREADS=4 ./horsesConverter
         if: '!cancelled()'
+
+#
+# 4) Mesh interpolation - horses.tools
+# ------------------------------------
+      - name: Build MeshInterpolation
+        working-directory: ./Solver/test/AddOns/MeshInterpolation/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run MeshInterpolation
+        working-directory: ./Solver/test/AddOns/MeshInterpolation
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns MeshInterpolation_source.control
+          ./horses.tools MeshInterpolation_tool.control
+          ./horses3d.ns MeshInterpolation_check.control
+        if: '!cancelled()'

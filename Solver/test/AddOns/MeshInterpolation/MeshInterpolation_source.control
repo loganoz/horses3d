@@ -1,0 +1,55 @@
+!
+! Test of the "mesh interpolation" tool of horses.tools (3 steps):
+!    1) ./horses3d.ns MeshInterpolation_source.control : writes a polynomial field (with gradients)
+!                                                       and a polynomial Lamb vector file
+!                                                       on mesh_lc03 with Gauss nodes and N = 3
+!    2) ./horses.tools MeshInterpolation_tool.control  : interpolates both onto mesh_lc05 with
+!                                                       Gauss-Lobatto nodes and N = 4
+!    3) ./horses3d.ns MeshInterpolation_check.control  : restarts from the interpolated files and
+!                                                       checks that both fields are recovered exactly
+!
+Flow equations        = "NS"
+mesh file name        = "MESH/mesh_lc03.msh"
+Polynomial order      = 3
+discretization nodes  = Gauss
+Number of time steps  = 0
+Output Interval       = 1
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 0.4
+Reynolds number       = 1600.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+solution file name    = "RESULTS/Source.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/Source.hsol"
+riemann solver        = roe
+simulation type       = time-accurate
+time integration      = explicit
+explicit method       = RK3
+
+#define boundary bottom
+   type = FreeSlipWall
+#end
+
+#define boundary top
+   type = FreeSlipWall
+#end
+
+#define boundary left
+   type = FreeSlipWall
+#end
+
+#define boundary right
+   type = FreeSlipWall
+#end
+
+#define boundary front
+   type = FreeSlipWall
+#end
+
+#define boundary back
+   type = FreeSlipWall
+#end
