@@ -44,6 +44,18 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      # Meshes repository, available to all the tests:
+      #   $HORSES3D_MESHES_DIR : clone of https://github.com/horses-framework/horses3d-meshes
+      - name: Checkout horses3d-meshes
+        uses: actions/checkout@v3
+        with:
+          repository: horses-framework/horses3d-meshes
+          path: horses3d-meshes
+          lfs: true
+
+      - name: Set horses3d-meshes path
+        run: echo "HORSES3D_MESHES_DIR=$GITHUB_WORKSPACE/horses3d-meshes" >> $GITHUB_ENV
+
       # IF COMPILER = GFORTRAN -> INSTALL OPEN-MPI #
       - name: install openmpi
         if: (matrix.compiler == 'gfortran')
@@ -297,6 +309,27 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 64 ./horses3d.ns Cylinder_ErrorEstimation_pAdaptationRL.control
+
+#
+# 9) Density pulse with h-mortars (hanging nodes)
+# -----------------------------------------------
+#    The mesh is taken from the horses3d-meshes repository (see the top of the file)
+
+      - name: Build DensityPulse_hMortars
+        working-directory: ./Solver/test/Euler/DensityPulse_hMortars/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_METIS=YES WITH_HDF5=${{matrix.hdf5}}
+        if: '!cancelled()'
+
+      - name: Run DensityPulse_hMortars
+        working-directory: ./Solver/test/Euler/DensityPulse_hMortars
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mkdir -p MESH
+          cp "$HORSES3D_MESHES_DIR/cartesian-band-hanging-nodes/BAND_mesh.h5" MESH/
+          mpiexec -n 4 ./horses3d.ns DensityPulse_hMortars.control
+        if: '!cancelled()'
 
 ########################################################################
 #######                         NAVIER-STOKES                   ########
