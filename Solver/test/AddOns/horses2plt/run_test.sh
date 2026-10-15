@@ -63,10 +63,7 @@ run_case() {
 }
 
 run_case SameOrder              Nodes_3.hsol
-#  Issue #357. Disabled: when the mesh order differs from the output order on a
-#  Gauss-node mesh, ProlongMeshToGaussPoints returns wrong coordinates. Enable it
-#  (and create reference/MeshOrderDiffers.tec) once that is fixed.
-# run_case MeshOrderDiffers       Nodes_3_P2.hsol
+run_case MeshOrderDiffers       Nodes_3_P2.hsol
 run_case LowerOrderHomogeneous  Nodes_3_P2.hsol --output-order=1
 run_case LowerOrderGauss        Nodes_3_P2.hsol --output-order=1 --output-basis=Gauss
 
