@@ -27,6 +27,7 @@ LIBOBJS_NS = 	./build_ns/ConnectivityClass.o \
 		./build_ns/IBMClass.o \
 		./build_ns/SlidingMeshClass.o \
 		./build_ns/HexMesh.o \
+		./build_ns/SlidingMPIMortars.o \
 		./build_ns/SlidingMeshProcedures.o \
 		./build_ns/MeshPartitioning.o \
 		./build_ns/SurfaceMesh.o \
@@ -54,6 +55,7 @@ LIBOBJS_NSSA = 	./build_nssa/ConnectivityClass.o \
 		./build_nssa/IBMClass.o \
 		./build_nssa/SlidingMeshClass.o \
 		./build_nssa/HexMesh.o \
+		./build_nssa/SlidingMPIMortars.o \
 		./build_nssa/SlidingMeshProcedures.o \
 		./build_nssa/MeshPartitioning.o \
 		./build_nssa/SurfaceMesh.o \
@@ -81,6 +83,7 @@ LIBOBJS_iNS = 	./build_ins/ConnectivityClass.o \
 		./build_ins/IBMClass.o \
 		./build_ins/SlidingMeshClass.o \
 		./build_ins/HexMesh.o \
+		./build_ins/SlidingMPIMortars.o \
 		./build_ins/SlidingMeshProcedures.o \
 		./build_ins/MeshPartitioning.o \
 		./build_ins/SurfaceMesh.o \
@@ -109,6 +112,7 @@ LIBOBJS_CH = 	./build_ch/ConnectivityClass.o \
 		./build_ch/IBMClass.o \
 		./build_ch/SlidingMeshClass.o \
 		./build_ch/HexMesh.o \
+		./build_ch/SlidingMPIMortars.o \
 		./build_ch/SlidingMeshProcedures.o \
 		./build_ch/MeshPartitioning.o \
 		./build_ch/SurfaceMesh.o \
@@ -136,6 +140,7 @@ LIBOBJS_MU =  ./build_mu/ConnectivityClass.o \
 		./build_mu/IBMClass.o \
 		./build_mu/SlidingMeshClass.o \
 		./build_mu/HexMesh.o \
+		./build_mu/SlidingMPIMortars.o \
 		./build_mu/SlidingMeshProcedures.o \
 		./build_mu/MeshPartitioning.o \
 		./build_mu/SurfaceMesh.o \
@@ -163,6 +168,7 @@ LIBOBJS_CAA =  ./build_caa/ConnectivityClass.o \
 		./build_caa/IBMClass.o \
 		./build_caa/SlidingMeshClass.o \
 		./build_caa/HexMesh.o \
+		./build_caa/SlidingMPIMortars.o \
 		./build_caa/SlidingMeshProcedures.o \
 		./build_caa/MeshPartitioning.o \
 		./build_caa/SurfaceMesh.o \
