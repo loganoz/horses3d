@@ -39,6 +39,10 @@ jobs:
     env:
       METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64
       INTEL_COMPILER_DIR : /opt/intel/oneapi/compiler/2023.2.0
+      # All MPI tests run on a single node: use Intel MPI's shared-memory transport only.
+      # Some runner VMs expose a mana_0 RDMA device that makes the default OFI/PSM3
+      # initialization abort in MPI_Init ("OFI endpoint open failed").
+      I_MPI_FABRICS: shm
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
